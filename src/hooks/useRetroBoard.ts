@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -225,16 +224,15 @@ export const useRetroBoard = (roomId: string) => {
           
           if (newUser.last_seen >= fiveMinutesAgo) {
             setActiveUsers(currentUsers => {
-              // Check if user already exists by user_id or user_name
+              // Check if user already exists by id or user_name
               const userExists = currentUsers.some(user => 
-                user.id === newUser.id || 
-                (user.user_id === newUser.user_id && newUser.user_id)
+                user.id === newUser.id || user.user_name === newUser.user_name
               );
               
               if (userExists) {
                 // Update existing user
                 return currentUsers.map(user => 
-                  (user.id === newUser.id || (user.user_id === newUser.user_id && newUser.user_id))
+                  (user.id === newUser.id || user.user_name === newUser.user_name)
                     ? newUser 
                     : user
                 );
@@ -262,8 +260,7 @@ export const useRetroBoard = (roomId: string) => {
             if (updatedUser.last_seen >= fiveMinutesAgo) {
               // Find and update existing user
               const existingUserIndex = currentUsers.findIndex(user => 
-                user.id === updatedUser.id || 
-                (user.user_id === updatedUser.user_id && updatedUser.user_id)
+                user.id === updatedUser.id || user.user_name === updatedUser.user_name
               );
               
               if (existingUserIndex >= 0) {
@@ -277,8 +274,7 @@ export const useRetroBoard = (roomId: string) => {
             } else {
               // Remove user if they're too old
               return currentUsers.filter(user => 
-                user.id !== updatedUser.id && 
-                !(user.user_id === updatedUser.user_id && updatedUser.user_id)
+                user.id !== updatedUser.id && user.user_name !== updatedUser.user_name
               );
             }
           });
@@ -296,8 +292,7 @@ export const useRetroBoard = (roomId: string) => {
           const deletedUser = payload.old as ActiveUser;
           setActiveUsers(currentUsers => 
             currentUsers.filter(user => 
-              user.id !== deletedUser.id && 
-              !(user.user_id === deletedUser.user_id && deletedUser.user_id)
+              user.id !== deletedUser.id && user.user_name !== deletedUser.user_name
             )
           );
         }
