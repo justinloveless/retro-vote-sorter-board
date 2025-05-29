@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +36,22 @@ interface ActiveUser {
   user_name: string;
   last_seen: string;
 }
+
+// Helper function to compare user arrays
+const areUsersEqual = (users1: ActiveUser[], users2: ActiveUser[]) => {
+  if (users1.length !== users2.length) return false;
+  
+  // Sort both arrays by id to ensure consistent comparison
+  const sorted1 = [...users1].sort((a, b) => a.id.localeCompare(b.id));
+  const sorted2 = [...users2].sort((a, b) => a.id.localeCompare(b.id));
+  
+  return sorted1.every((user1, index) => {
+    const user2 = sorted2[index];
+    return user1.id === user2.id && 
+           user1.user_name === user2.user_name && 
+           user1.last_seen === user2.last_seen;
+  });
+};
 
 export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
@@ -227,7 +242,15 @@ export const useRetroBoard = (roomId: string) => {
             .select('*')
             .eq('board_id', board.id)
             .gte('last_seen', fiveMinutesAgo);
-          setActiveUsers(data || []);
+          
+          // Only update state if the user list actually changed
+          setActiveUsers(currentUsers => {
+            const newUsers = data || [];
+            if (areUsersEqual(currentUsers, newUsers)) {
+              return currentUsers; // No change, keep existing state
+            }
+            return newUsers;
+          });
         }
       )
       .on(
