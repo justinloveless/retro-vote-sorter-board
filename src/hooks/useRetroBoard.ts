@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,54 +46,67 @@ export const useRetroBoard = (roomId: string) => {
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const { toast } = useToast();
 
+  // Memoized cleanup function to avoid dependency issues
+  const cleanupPresence = useCallback(async (boardId?: string) => {
+    if (!boardId) return;
+    
+    try {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (currentUser) {
+        await supabase
+          .from('board_presence')
+          .delete()
+          .eq('board_id', boardId)
+          .eq('user_id', currentUser.id);
+      }
+    } catch (error) {
+      console.error('Error cleaning up presence:', error);
+    }
+  }, []);
+
   // Update user presence with cleanup
-  const updatePresence = async (userName: string) => {
+  const updatePresence = useCallback(async (userName: string) => {
     if (!board) return;
 
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    
-    // First, clean up any old presence records for this user/session
-    if (currentUser) {
+    try {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      
+      // First, clean up any old presence records for this user/session
+      if (currentUser) {
+        await supabase
+          .from('board_presence')
+          .delete()
+          .eq('board_id', board.id)
+          .eq('user_id', currentUser.id);
+      }
+      
+      // Then insert the new presence record
       await supabase
         .from('board_presence')
-        .delete()
-        .eq('board_id', board.id)
-        .eq('user_id', currentUser.id);
+        .upsert({
+          board_id: board.id,
+          user_id: currentUser?.id || null,
+          user_name: userName,
+          last_seen: new Date().toISOString()
+        }, {
+          onConflict: currentUser ? 'board_id,user_id' : undefined
+        });
+    } catch (error) {
+      console.error('Error updating presence:', error);
     }
-    
-    // Then insert the new presence record
-    await supabase
-      .from('board_presence')
-      .upsert({
-        board_id: board.id,
-        user_id: currentUser?.id || null,
-        user_name: userName,
-        last_seen: new Date().toISOString()
-      }, {
-        onConflict: currentUser ? 'board_id,user_id' : undefined
-      });
-  };
+  }, [board]);
 
-  // Clean up presence when component unmounts or user leaves
-  const cleanupPresence = async () => {
-    if (!board) return;
-    
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    if (currentUser) {
-      await supabase
-        .from('board_presence')
-        .delete()
-        .eq('board_id', board.id)
-        .eq('user_id', currentUser.id);
-    }
-  };
-
-  // Load board data
+  // Load board data with better error handling and loading state management
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId) {
+      setLoading(false);
+      return;
+    }
     
     const loadBoardData = async () => {
       try {
+        setLoading(true);
+        
         // Load or create board
         let { data: boardData, error: boardError } = await supabase
           .from('retro_boards')
@@ -163,12 +176,14 @@ export const useRetroBoard = (roomId: string) => {
     loadBoardData();
   }, [roomId, toast]);
 
-  // Clean up presence on unmount
+  // Clean up presence on unmount - fixed dependency
   useEffect(() => {
     return () => {
-      cleanupPresence();
+      if (board?.id) {
+        cleanupPresence(board.id);
+      }
     };
-  }, [board]);
+  }, [board?.id, cleanupPresence]);
 
   // Set up real-time subscriptions
   useEffect(() => {
@@ -229,17 +244,16 @@ export const useRetroBoard = (roomId: string) => {
                 user.id === newUser.id || user.user_name === newUser.user_name
               );
               
-              if (userExists) {
-                // Update existing user
-                return currentUsers.map(user => 
-                  (user.id === newUser.id || user.user_name === newUser.user_name)
-                    ? newUser 
-                    : user
-                );
-              } else {
-                // Add new user only if they don't exist
+              if (!userExists) {
                 return [...currentUsers, newUser];
               }
+              
+              // Update existing user
+              return currentUsers.map(user => 
+                (user.id === newUser.id || user.user_name === newUser.user_name)
+                  ? newUser 
+                  : user
+              );
             });
           }
         }
