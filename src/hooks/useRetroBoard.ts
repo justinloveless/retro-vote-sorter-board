@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -211,18 +212,47 @@ export const useRetroBoard = (roomId: string) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'retro_items',
           filter: `board_id=eq.${board.id}`
         },
-        async () => {
-          const { data } = await supabase
-            .from('retro_items')
-            .select('*')
-            .eq('board_id', board.id)
-            .order('votes', { ascending: false });
-          setItems(data || []);
+        (payload) => {
+          const newItem = payload.new as RetroItem;
+          setItems(currentItems => [...currentItems, newItem]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'retro_items',
+          filter: `board_id=eq.${board.id}`
+        },
+        (payload) => {
+          const updatedItem = payload.new as RetroItem;
+          setItems(currentItems => 
+            currentItems.map(item => 
+              item.id === updatedItem.id ? updatedItem : item
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'retro_items',
+          filter: `board_id=eq.${board.id}`
+        },
+        (payload) => {
+          const deletedItem = payload.old as RetroItem;
+          console.log('Real-time delete event received for item:', deletedItem.id);
+          setItems(currentItems => 
+            currentItems.filter(item => item.id !== deletedItem.id)
+          );
         }
       )
       .on(
