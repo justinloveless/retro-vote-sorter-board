@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut, ExternalLink } from 'lucide-react';
+import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut, ExternalLink, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/contexts/ThemeContext';
 import { AddItemCard } from './AddItemCard';
 import { ActiveUsers } from './ActiveUsers';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
+import { RetroItemComments } from './RetroItemComments';
+import { BoardConfig } from './BoardConfig';
+import { ColumnManager } from './ColumnManager';
 
 interface RetroBoardProps {
   boardId: string;
@@ -20,7 +25,31 @@ interface RetroBoardProps {
 
 export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTogglePrivacy }) => {
   const { user, profile, signOut } = useAuth();
-  const { board, columns, items, activeUsers, loading, addItem, addColumn, reorderColumns, upvoteItem, updateItem, deleteItem, updateBoardTitle, updatePresence } = useRetroBoard(boardId);
+  const { theme, toggleTheme } = useTheme();
+  const { 
+    board, 
+    columns, 
+    items, 
+    comments,
+    boardConfig,
+    activeUsers, 
+    loading, 
+    addItem, 
+    addColumn,
+    updateColumn,
+    deleteColumn, 
+    reorderColumns, 
+    upvoteItem, 
+    updateItem, 
+    deleteItem, 
+    updateBoardTitle,
+    updateBoardConfig, 
+    updatePresence,
+    addComment,
+    deleteComment,
+    getCommentsForItem
+  } = useRetroBoard(boardId);
+  
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [userName, setUserName] = useState(profile?.full_name || user?.email || 'Anonymous');
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -60,7 +89,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
 
   // Function to generate JIRA ticket creation URL
   const generateJiraUrl = (ticketTitle: string) => {
-    // This creates a basic JIRA URL - users will need to replace 'your-domain' with their actual JIRA domain
     const jiraDomain = 'outsystemsrd.atlassian.net';
     const encodedTitle = encodeURIComponent(ticketTitle);
     return `https://${jiraDomain}/secure/CreateIssueDetails!init.jspa?pid=19602&priority=10000&issuetype=10001&summary=${encodedTitle}&description=${encodedTitle}`;
@@ -144,14 +172,14 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading retro board...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading retro board...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <EnvironmentIndicator />
       
       {/* Header */}
@@ -163,7 +191,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                 <Input
                   value={titleText}
                   onChange={(e) => setTitleText(e.target.value)}
-                  className="text-3xl font-bold border-none bg-transparent text-gray-900 p-0"
+                  className="text-3xl font-bold border-none bg-transparent text-gray-900 dark:text-gray-100 p-0"
                   onBlur={handleTitleEdit}
                   onKeyPress={(e) => e.key === 'Enter' && handleTitleEdit()}
                   autoFocus
@@ -171,7 +199,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold text-gray-900">{board?.title || 'Team Retrospective'}</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{board?.title || 'Team Retrospective'}</h1>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -181,11 +209,22 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                 </Button>
               </div>
             )}
-            <p className="text-gray-600">Board ID: {boardId}</p>
+            <p className="text-gray-600 dark:text-gray-400">Board ID: {boardId}</p>
           </div>
           
           <div className="flex items-center gap-4">
             <ActiveUsers users={activeUsers} />
+            
+            <BoardConfig config={boardConfig} onUpdateConfig={updateBoardConfig} />
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              className="flex items-center gap-2"
+            >
+              {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </Button>
             
             <Button 
               variant="outline"
@@ -206,7 +245,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
             onChange={(e) => setUserName(e.target.value)}
             className="w-48"
           />
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
             Signed in as {profile?.full_name || user?.email}
           </span>
         </div>
@@ -230,17 +269,24 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
               onDrop={(e) => handleDrop(e, column.id)}
               onDragEnd={handleDragEnd}
             >
-              <div className={`p-4 rounded-lg border-2 ${column.color} space-y-4 ${
-                dragOverColumn === column.id ? 'border-indigo-400 bg-indigo-50' : ''
+              <div className={`p-4 rounded-lg border-2 ${column.color} dark:bg-gray-800 dark:border-gray-600 space-y-4 ${
+                dragOverColumn === column.id ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900' : ''
               }`}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-800">{column.title}</h2>
-                  <GripVertical className="h-5 w-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                  <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
+                  <div className="flex items-center gap-1">
+                    <ColumnManager 
+                      column={column}
+                      onUpdateColumn={updateColumn}
+                      onDeleteColumn={deleteColumn}
+                    />
+                    <GripVertical className="h-5 w-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                  </div>
                 </div>
                 
                 <div className="space-y-3 min-h-[200px]">
                   {getItemsForColumn(column.id).map(item => (
-                    <Card key={item.id} className="bg-white/90 backdrop-blur-sm hover:shadow-md transition-shadow">
+                    <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         {editingItem === item.id ? (
                           <div className="space-y-2">
@@ -257,28 +303,34 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                           </div>
                         ) : (
                           <>
-                            <p className="text-gray-800 mb-3">{item.text}</p>
+                            <p className="text-gray-800 dark:text-gray-200 mb-3">{item.text}</p>
                             
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {item.author}
-                                </Badge>
-                                <Badge variant={item.votes > 0 ? "default" : "outline"} className="flex items-center gap-1">
-                                  <ThumbsUp className="h-3 w-3" />
-                                  {item.votes}
-                                </Badge>
+                                {boardConfig?.show_author_names && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {item.author}
+                                  </Badge>
+                                )}
+                                {boardConfig?.voting_enabled && (
+                                  <Badge variant={item.votes > 0 ? "default" : "outline"} className="flex items-center gap-1">
+                                    <ThumbsUp className="h-3 w-3" />
+                                    {item.votes}
+                                  </Badge>
+                                )}
                               </div>
                               
                               <div className="flex gap-1">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => upvoteItem(item.id)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <ThumbsUp className="h-3 w-3" />
-                                </Button>
+                                {boardConfig?.voting_enabled && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => upvoteItem(item.id)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <ThumbsUp className="h-3 w-3" />
+                                  </Button>
+                                )}
                                 <Button 
                                   size="sm" 
                                   variant="outline"
@@ -308,6 +360,15 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                                 </Button>
                               </div>
                             </div>
+
+                            <RetroItemComments
+                              itemId={item.id}
+                              comments={getCommentsForItem(item.id)}
+                              onAddComment={addComment}
+                              onDeleteComment={deleteComment}
+                              userName={userName}
+                              currentUserId={user?.id}
+                            />
                           </>
                         )}
                       </CardContent>
@@ -324,9 +385,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
           <div className="w-80 flex-shrink-0">
             <Dialog>
               <DialogTrigger asChild>
-                <Card className="bg-white/50 border-dashed border-2 hover:bg-white/70 cursor-pointer transition-colors h-20">
+                <Card className="bg-white/50 dark:bg-gray-800/50 border-dashed border-2 hover:bg-white/70 dark:hover:bg-gray-800/70 cursor-pointer transition-colors h-20">
                   <CardContent className="p-4 flex items-center justify-center h-full">
-                    <div className="flex items-center gap-2 text-gray-500">
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                       <Plus className="h-4 w-4" />
                       <span className="text-sm">Add another list</span>
                     </div>
