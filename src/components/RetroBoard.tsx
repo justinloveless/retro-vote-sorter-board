@@ -60,7 +60,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   // Function to generate JIRA ticket creation URL
   const generateJiraUrl = (ticketTitle: string) => {
     // This creates a basic JIRA URL - users will need to replace 'your-domain' with their actual JIRA domain
-    const jiraDomain = 'https://outsystemsrd.atlassian.net/jira/software/c/projects/RNMT/boards/241';
+    const jiraDomain = 'outsystemsrd.atlassian.net/jira/software/c/projects/RNMT/boards/241';
     const encodedTitle = encodeURIComponent(ticketTitle);
     return `https://${jiraDomain}/secure/CreateIssue.jspa?summary=${encodedTitle}`;
   };
