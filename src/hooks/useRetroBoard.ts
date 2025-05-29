@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -36,22 +37,6 @@ interface ActiveUser {
   user_name: string;
   last_seen: string;
 }
-
-// Helper function to compare user arrays
-const areUsersEqual = (users1: ActiveUser[], users2: ActiveUser[]) => {
-  if (users1.length !== users2.length) return false;
-  
-  // Sort both arrays by id to ensure consistent comparison
-  const sorted1 = [...users1].sort((a, b) => a.id.localeCompare(b.id));
-  const sorted2 = [...users2].sort((a, b) => a.id.localeCompare(b.id));
-  
-  return sorted1.every((user1, index) => {
-    const user2 = sorted2[index];
-    return user1.id === user2.id && 
-           user1.user_name === user2.user_name && 
-           user1.last_seen === user2.last_seen;
-  });
-};
 
 export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
@@ -229,28 +214,75 @@ export const useRetroBoard = (roomId: string) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'board_presence',
           filter: `board_id=eq.${board.id}`
         },
-        async () => {
-          // Only fetch recent presence records
+        (payload) => {
+          const newUser = payload.new as ActiveUser;
           const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-          const { data } = await supabase
-            .from('board_presence')
-            .select('*')
-            .eq('board_id', board.id)
-            .gte('last_seen', fiveMinutesAgo);
           
-          // Only update state if the user list actually changed
+          if (newUser.last_seen >= fiveMinutesAgo) {
+            setActiveUsers(currentUsers => {
+              // Check if user already exists
+              const existingUserIndex = currentUsers.findIndex(user => user.id === newUser.id);
+              if (existingUserIndex >= 0) {
+                // Update existing user
+                const updatedUsers = [...currentUsers];
+                updatedUsers[existingUserIndex] = newUser;
+                return updatedUsers;
+              } else {
+                // Add new user
+                return [...currentUsers, newUser];
+              }
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'board_presence',
+          filter: `board_id=eq.${board.id}`
+        },
+        (payload) => {
+          const updatedUser = payload.new as ActiveUser;
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+          
           setActiveUsers(currentUsers => {
-            const newUsers = data || [];
-            if (areUsersEqual(currentUsers, newUsers)) {
-              return currentUsers; // No change, keep existing state
+            if (updatedUser.last_seen >= fiveMinutesAgo) {
+              // Update or add user
+              const existingUserIndex = currentUsers.findIndex(user => user.id === updatedUser.id);
+              if (existingUserIndex >= 0) {
+                const updatedUsers = [...currentUsers];
+                updatedUsers[existingUserIndex] = updatedUser;
+                return updatedUsers;
+              } else {
+                return [...currentUsers, updatedUser];
+              }
+            } else {
+              // Remove user if they're too old
+              return currentUsers.filter(user => user.id !== updatedUser.id);
             }
-            return newUsers;
           });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'board_presence',
+          filter: `board_id=eq.${board.id}`
+        },
+        (payload) => {
+          const deletedUser = payload.old as ActiveUser;
+          setActiveUsers(currentUsers => 
+            currentUsers.filter(user => user.id !== deletedUser.id)
+          );
         }
       )
       .on(
@@ -284,6 +316,12 @@ export const useRetroBoard = (roomId: string) => {
         .delete()
         .eq('board_id', board.id)
         .lt('last_seen', tenMinutesAgo);
+
+      // Also clean up local state
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      setActiveUsers(currentUsers => 
+        currentUsers.filter(user => user.last_seen >= fiveMinutesAgo)
+      );
     }, 60000); // Run every minute
 
     return () => clearInterval(cleanupInterval);
