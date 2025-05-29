@@ -4,24 +4,28 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AddItemCardProps {
-  onAddItem: (text: string) => void;
+  onAddItem: (text: string, isAnonymous: boolean) => void;
 }
 
 export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [text, setText] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const handleSubmit = () => {
     if (!text.trim()) return;
-    onAddItem(text);
+    onAddItem(text, isAnonymous);
     setText('');
+    setIsAnonymous(false);
     setIsExpanded(false);
   };
 
   const handleCancel = () => {
     setText('');
+    setIsAnonymous(false);
     setIsExpanded(false);
   };
 
@@ -52,6 +56,16 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem }) => {
           rows={3}
           autoFocus
         />
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="anonymous" 
+            checked={isAnonymous}
+            onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
+          />
+          <label htmlFor="anonymous" className="text-sm text-gray-600">
+            Post anonymously
+          </label>
+        </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSubmit}>
             Add card

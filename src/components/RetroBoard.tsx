@@ -22,19 +22,22 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   const { user, profile, signOut } = useAuth();
   const { board, columns, items, activeUsers, loading, addItem, addColumn, reorderColumns, upvoteItem, updateItem, deleteItem, updateBoardTitle, updatePresence } = useRetroBoard(boardId);
   const [newColumnTitle, setNewColumnTitle] = useState('');
-  const [userName, setUserName] = useState(profile?.full_name || 'Anonymous');
+  const [userName, setUserName] = useState(profile?.full_name || user?.email || 'Anonymous');
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState('');
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   // Update user name when profile changes
   useEffect(() => {
     if (profile?.full_name) {
       setUserName(profile.full_name);
+    } else if (user?.email) {
+      setUserName(user.email);
     }
-  }, [profile]);
+  }, [profile, user]);
 
   // Update title text when board changes
   useEffect(() => {
@@ -50,8 +53,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
     }
   }, [userName, board, updatePresence]);
 
-  const handleAddItem = (columnId: string) => (text: string) => {
-    addItem(text, columnId, userName);
+  const handleAddItem = (columnId: string) => (text: string, isAnonymous: boolean) => {
+    const authorName = isAnonymous ? 'Anonymous' : userName;
+    addItem(text, columnId, authorName);
   };
 
   const handleAddColumn = () => {
@@ -82,10 +86,17 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
 
   const handleDragStart = (e: React.DragEvent, columnId: string) => {
     setDraggedColumn(columnId);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(columnId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
@@ -93,6 +104,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
     
     if (!draggedColumn || draggedColumn === targetColumnId) {
       setDraggedColumn(null);
+      setDragOverColumn(null);
       return;
     }
 
@@ -105,6 +117,12 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
     
     reorderColumns(newColumns);
     setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedColumn(null);
+    setDragOverColumn(null);
   };
 
   const getItemsForColumn = (columnId: string) => {
@@ -154,32 +172,28 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
           <div className="flex items-center gap-4">
             <ActiveUsers users={activeUsers} />
             
-            {user && (
-              <Button 
-                variant="outline"
-                onClick={signOut}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            )}
+            <Button 
+              variant="outline"
+              onClick={signOut}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
           </div>
         </div>
 
         {/* User Name Input */}
         <div className="flex items-center gap-4 mb-4">
           <Input
-            placeholder="Your name"
+            placeholder="Your display name"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             className="w-48"
           />
-          {user && (
-            <span className="text-sm text-gray-600">
-              Signed in as {profile?.full_name || user.email}
-            </span>
-          )}
+          <span className="text-sm text-gray-600">
+            Signed in as {profile?.full_name || user?.email}
+          </span>
         </div>
       </div>
 
@@ -189,16 +203,24 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
           {columns.map(column => (
             <div 
               key={column.id} 
-              className="w-80 flex-shrink-0"
+              className={`w-80 flex-shrink-0 transition-all duration-200 ${
+                dragOverColumn === column.id ? 'scale-105' : ''
+              } ${
+                draggedColumn === column.id ? 'opacity-50' : ''
+              }`}
               draggable
               onDragStart={(e) => handleDragStart(e, column.id)}
-              onDragOver={handleDragOver}
+              onDragOver={(e) => handleDragOver(e, column.id)}
+              onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, column.id)}
+              onDragEnd={handleDragEnd}
             >
-              <div className={`p-4 rounded-lg border-2 ${column.color} space-y-4`}>
+              <div className={`p-4 rounded-lg border-2 ${column.color} space-y-4 ${
+                dragOverColumn === column.id ? 'border-indigo-400 bg-indigo-50' : ''
+              }`}>
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-800">{column.title}</h2>
-                  <GripVertical className="h-5 w-5 text-gray-400 cursor-grab" />
+                  <GripVertical className="h-5 w-5 text-gray-400 cursor-grab active:cursor-grabbing" />
                 </div>
                 
                 <div className="space-y-3 min-h-[200px]">
