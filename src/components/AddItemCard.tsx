@@ -1,0 +1,66 @@
+
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+
+interface AddItemCardProps {
+  onAddItem: (text: string) => void;
+}
+
+export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [text, setText] = useState('');
+
+  const handleSubmit = () => {
+    if (!text.trim()) return;
+    onAddItem(text);
+    setText('');
+    setIsExpanded(false);
+  };
+
+  const handleCancel = () => {
+    setText('');
+    setIsExpanded(false);
+  };
+
+  if (!isExpanded) {
+    return (
+      <Card 
+        className="bg-white/50 border-dashed border-2 hover:bg-white/70 cursor-pointer transition-colors"
+        onClick={() => setIsExpanded(true)}
+      >
+        <CardContent className="p-4 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-gray-500">
+            <Plus className="h-4 w-4" />
+            <span className="text-sm">Add a card</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white/90">
+      <CardContent className="p-4 space-y-3">
+        <Textarea
+          placeholder="Enter your retro item..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="resize-none"
+          rows={3}
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <Button size="sm" onClick={handleSubmit}>
+            Add card
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
