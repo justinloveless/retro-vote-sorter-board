@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Lock, Users, Share2, Copy, Check } from 'lucide-react';
+import { Lock, Share2, Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,15 +17,14 @@ interface RetroRoomProps {
 
 export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) => {
   const [roomId, setRoomId] = useState(initialRoomId || '');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState('');
   const [enteredPassword, setEnteredPassword] = useState('');
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [showAuthForm, setShowAuthForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [boardData, setBoardData] = useState<any>(null);
+  const [hasRoomAccess, setHasRoomAccess] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -34,15 +33,17 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       // Generate a random room ID
       const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       setRoomId(newRoomId);
-      setIsAuthenticated(true);
-    } else {
+      if (user) {
+        setHasRoomAccess(true);
+      }
+    } else if (user) {
       // Check if room exists and is private
       checkRoomAccess();
     }
-  }, [initialRoomId]);
+  }, [initialRoomId, user]);
 
   const checkRoomAccess = async () => {
-    if (!roomId) return;
+    if (!roomId || !user) return;
 
     try {
       const { data: board, error } = await supabase
@@ -64,7 +65,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
           if (savedAuth) {
             const authData = JSON.parse(savedAuth);
             if (authData.authenticated) {
-              setIsAuthenticated(true);
+              setHasRoomAccess(true);
             } else {
               setShowPasswordDialog(true);
             }
@@ -72,11 +73,11 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             setShowPasswordDialog(true);
           }
         } else {
-          setIsAuthenticated(true);
+          setHasRoomAccess(true);
         }
       } else {
         // Room doesn't exist, allow access to create it
-        setIsAuthenticated(true);
+        setHasRoomAccess(true);
       }
     } catch (error) {
       console.error('Error checking room access:', error);
@@ -93,7 +94,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
     // Simple password check (in production, you'd hash and compare)
     if (enteredPassword === 'demo123' || boardData.password_hash === enteredPassword) {
-      setIsAuthenticated(true);
+      setHasRoomAccess(true);
       setShowPasswordDialog(false);
       localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({ 
         isPrivate: true, 
@@ -181,8 +182,9 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     );
   }
 
-  if (showAuthForm) {
-    return <AuthForm onAuthSuccess={() => setShowAuthForm(false)} />;
+  // Force authentication - no guest access
+  if (!user) {
+    return <AuthForm onAuthSuccess={() => {}} />;
   }
 
   if (showPasswordDialog) {
@@ -218,29 +220,10 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     );
   }
 
-  if (!isAuthenticated) {
+  if (!hasRoomAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Join Retro Room</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-600">
-              Sign in to join the retro room and collaborate with your team.
-            </p>
-            <Button onClick={() => setShowAuthForm(true)} className="w-full">
-              Sign In / Sign Up
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsAuthenticated(true)} 
-              className="w-full"
-            >
-              Continue as Guest
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
+        <div className="text-lg text-gray-600">Checking room access...</div>
       </div>
     );
   }
@@ -301,8 +284,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             )}
             
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Users className="h-4 w-4" />
-              Anyone with this link can join the retro room
+              Share this link with your team members
             </div>
           </div>
         </DialogContent>

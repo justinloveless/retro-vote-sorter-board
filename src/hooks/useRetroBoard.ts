@@ -309,7 +309,7 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     // Update presence when adding item
-    updatePresence(author);
+    updatePresence(author === 'Anonymous' ? (currentUser?.email || 'Anonymous User') : author);
   };
 
   const addColumn = async (title: string) => {
