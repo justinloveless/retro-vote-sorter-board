@@ -30,27 +30,10 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       setRoomId(newRoomId);
       setIsAuthenticated(true);
     } else {
-      // Check if room requires authentication
-      checkRoomAccess();
-    }
-  }, [initialRoomId]);
-
-  const checkRoomAccess = () => {
-    // In a real app, this would check with the backend
-    // For now, we'll simulate private rooms
-    const savedRoomData = localStorage.getItem(`retro-room-${roomId}`);
-    if (savedRoomData) {
-      const roomData = JSON.parse(savedRoomData);
-      if (roomData.isPrivate && !roomData.authenticated) {
-        setIsPrivate(true);
-        setShowPasswordDialog(true);
-      } else {
-        setIsAuthenticated(true);
-      }
-    } else {
+      // For now, all rooms are public by default since we haven't implemented authentication
       setIsAuthenticated(true);
     }
-  };
+  }, [initialRoomId]);
 
   const handlePasswordSubmit = () => {
     // In a real app, this would verify with the backend

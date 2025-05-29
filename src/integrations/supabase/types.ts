@@ -9,13 +9,166 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      retro_boards: {
+        Row: {
+          created_at: string | null
+          creator_id: string | null
+          id: string
+          is_private: boolean | null
+          password_hash: string | null
+          room_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creator_id?: string | null
+          id?: string
+          is_private?: boolean | null
+          password_hash?: string | null
+          room_id: string
+          title?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creator_id?: string | null
+          id?: string
+          is_private?: boolean | null
+          password_hash?: string | null
+          room_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      retro_columns: {
+        Row: {
+          board_id: string | null
+          color: string
+          created_at: string | null
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          board_id?: string | null
+          color: string
+          created_at?: string | null
+          id?: string
+          position: number
+          title: string
+        }
+        Update: {
+          board_id?: string | null
+          color?: string
+          created_at?: string | null
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retro_items: {
+        Row: {
+          author: string
+          author_id: string | null
+          board_id: string | null
+          column_id: string | null
+          created_at: string | null
+          id: string
+          text: string
+          updated_at: string | null
+          votes: number | null
+        }
+        Insert: {
+          author?: string
+          author_id?: string | null
+          board_id?: string | null
+          column_id?: string | null
+          created_at?: string | null
+          id?: string
+          text: string
+          updated_at?: string | null
+          votes?: number | null
+        }
+        Update: {
+          author?: string
+          author_id?: string | null
+          board_id?: string | null
+          column_id?: string | null
+          created_at?: string | null
+          id?: string
+          text?: string
+          updated_at?: string | null
+          votes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_items_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retro_items_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "retro_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retro_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_id: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_votes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "retro_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_default_columns: {
+        Args: { board_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
