@@ -65,6 +65,47 @@ export type Database = {
         }
         Relationships: []
       }
+      retro_board_config: {
+        Row: {
+          allow_anonymous: boolean | null
+          board_id: string
+          created_at: string
+          id: string
+          max_votes_per_user: number | null
+          show_author_names: boolean | null
+          updated_at: string
+          voting_enabled: boolean | null
+        }
+        Insert: {
+          allow_anonymous?: boolean | null
+          board_id: string
+          created_at?: string
+          id?: string
+          max_votes_per_user?: number | null
+          show_author_names?: boolean | null
+          updated_at?: string
+          voting_enabled?: boolean | null
+        }
+        Update: {
+          allow_anonymous?: boolean | null
+          board_id?: string
+          created_at?: string
+          id?: string
+          max_votes_per_user?: number | null
+          show_author_names?: boolean | null
+          updated_at?: string
+          voting_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_board_config_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: true
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retro_boards: {
         Row: {
           created_at: string | null
@@ -132,6 +173,44 @@ export type Database = {
             columns: ["board_id"]
             isOneToOne: false
             referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retro_comments: {
+        Row: {
+          author: string
+          author_id: string | null
+          created_at: string
+          id: string
+          item_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "retro_items"
             referencedColumns: ["id"]
           },
         ]

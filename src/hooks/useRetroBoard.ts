@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +31,24 @@ interface RetroItem {
   created_at: string;
 }
 
+interface RetroComment {
+  id: string;
+  item_id: string;
+  author: string;
+  author_id?: string;
+  text: string;
+  created_at: string;
+}
+
+interface RetroBoardConfig {
+  id: string;
+  board_id: string;
+  allow_anonymous: boolean;
+  voting_enabled: boolean;
+  max_votes_per_user: number | null;
+  show_author_names: boolean;
+}
+
 interface ActiveUser {
   id: string;
   user_name: string;
@@ -42,6 +59,8 @@ export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
   const [columns, setColumns] = useState<RetroColumn[]>([]);
   const [items, setItems] = useState<RetroItem[]>([]);
+  const [comments, setComments] = useState<RetroComment[]>([]);
+  const [boardConfig, setBoardConfig] = useState<RetroBoardConfig | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
@@ -131,6 +150,29 @@ export const useRetroBoard = (roomId: string) => {
 
         setBoard(boardData);
 
+        // Load board config
+        const { data: configData, error: configError } = await supabase
+          .from('retro_board_config')
+          .select('*')
+          .eq('board_id', boardData.id)
+          .single();
+
+        if (configError && configError.code === 'PGRST116') {
+          // Config doesn't exist, create it
+          const { data: newConfig, error: createConfigError } = await supabase
+            .from('retro_board_config')
+            .insert([{ board_id: boardData.id }])
+            .select()
+            .single();
+
+          if (createConfigError) throw createConfigError;
+          setBoardConfig(newConfig);
+        } else if (configError) {
+          throw configError;
+        } else {
+          setBoardConfig(configData);
+        }
+
         // Load columns
         const { data: columnsData, error: columnsError } = await supabase
           .from('retro_columns')
@@ -150,6 +192,16 @@ export const useRetroBoard = (roomId: string) => {
 
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
+
+        // Load comments
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('retro_comments')
+          .select('*')
+          .in('item_id', (itemsData || []).map(item => item.id))
+          .order('created_at');
+
+        if (commentsError) throw commentsError;
+        setComments(commentsData || []);
 
         // Load active users (only recent ones)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -186,7 +238,7 @@ export const useRetroBoard = (roomId: string) => {
     };
   }, [board?.id, cleanupPresence]);
 
-  // Set up real-time subscriptions
+  // Set up real-time subscriptions - updated to include comments and config
   useEffect(() => {
     if (!board) return;
 
@@ -207,6 +259,63 @@ export const useRetroBoard = (roomId: string) => {
             .eq('board_id', board.id)
             .order('position');
           setColumns(data || []);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'retro_items',
+          filter: `board_id=eq.${board.id}`
+        },
+        async () => {
+          const { data } = await supabase
+            .from('retro_items')
+            .select('*')
+            .eq('board_id', board.id)
+            .order('votes', { ascending: false });
+          setItems(data || []);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'retro_comments'
+        },
+        async () => {
+          const { data: itemsData } = await supabase
+            .from('retro_items')
+            .select('id')
+            .eq('board_id', board.id);
+          
+          if (itemsData) {
+            const { data: commentsData } = await supabase
+              .from('retro_comments')
+              .select('*')
+              .in('item_id', itemsData.map(item => item.id))
+              .order('created_at');
+            setComments(commentsData || []);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'retro_board_config',
+          filter: `board_id=eq.${board.id}`
+        },
+        async () => {
+          const { data } = await supabase
+            .from('retro_board_config')
+            .select('*')
+            .eq('board_id', board.id)
+            .single();
+          setBoardConfig(data);
         }
       )
       .on(
@@ -401,6 +510,24 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
+  const updateBoardConfig = async (config: Partial<RetroBoardConfig>) => {
+    if (!board) return;
+
+    const { error } = await supabase
+      .from('retro_board_config')
+      .update(config)
+      .eq('board_id', board.id);
+
+    if (error) {
+      console.error('Error updating board config:', error);
+      toast({
+        title: "Error updating configuration",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const addItem = async (text: string, columnId: string, author: string) => {
     if (!board) return;
 
@@ -452,6 +579,38 @@ export const useRetroBoard = (roomId: string) => {
       console.error('Error adding column:', error);
       toast({
         title: "Error adding column",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateColumn = async (columnId: string, title: string) => {
+    const { error } = await supabase
+      .from('retro_columns')
+      .update({ title })
+      .eq('id', columnId);
+
+    if (error) {
+      console.error('Error updating column:', error);
+      toast({
+        title: "Error updating column",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteColumn = async (columnId: string) => {
+    const { error } = await supabase
+      .from('retro_columns')
+      .delete()
+      .eq('id', columnId);
+
+    if (error) {
+      console.error('Error deleting column:', error);
+      toast({
+        title: "Error deleting column",
         description: "Please try again.",
         variant: "destructive",
       });
@@ -540,19 +699,69 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
+  const addComment = async (itemId: string, text: string, author: string) => {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+
+    const { error } = await supabase
+      .from('retro_comments')
+      .insert([{
+        item_id: itemId,
+        text,
+        author,
+        author_id: currentUser?.id || null
+      }]);
+
+    if (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error adding comment",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteComment = async (commentId: string) => {
+    const { error } = await supabase
+      .from('retro_comments')
+      .delete()
+      .eq('id', commentId);
+
+    if (error) {
+      console.error('Error deleting comment:', error);
+      toast({
+        title: "Error deleting comment",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getCommentsForItem = (itemId: string) => {
+    return comments.filter(comment => comment.item_id === itemId);
+  };
+
   return {
     board,
     columns,
     items,
+    comments,
+    boardConfig,
     activeUsers,
     loading,
     addItem,
     addColumn,
+    updateColumn,
+    deleteColumn,
     reorderColumns,
     upvoteItem,
     updateItem,
     deleteItem,
     updateBoardTitle,
-    updatePresence
+    updateBoardConfig,
+    updatePresence,
+    addComment,
+    deleteComment,
+    getCommentsForItem
   };
 };
