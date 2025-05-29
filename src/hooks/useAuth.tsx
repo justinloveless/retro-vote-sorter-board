@@ -17,6 +17,7 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let initialLoadHandled = false;
 
     const updateAuthState = async (session: Session | null) => {
       console.log('updating auth state');
@@ -25,12 +26,11 @@ export const useAuth = () => {
       
 
       setSession(session);
-      console.log('session', session);
-      
       setUser(session?.user ?? null);
+      console.log('session', session);
+      console.log('user', session?.user);
       
       if (session?.user) {
-        console.log('user', session?.user);
         
         try {
           const { data: profileData } = await supabase
@@ -54,21 +54,34 @@ export const useAuth = () => {
       setLoading(false);
       console.log('Loading set to false');
       // end of updateAuthState    
-    };
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
-        await updateAuthState(session);
+      if (!initialLoadHandled) {
+        setLoading(false);
+        initialLoadHandled = true;
+        console.log('Loading set to false after initial load.');
+        
       }
-    );
+    };
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
       updateAuthState(session);
+    }).catch(error => {
+      console.error("Error during initial session check:", error);
+      if (mounted && !initialLoadHandled) {
+        setLoading(false); // Ensure loading is false even if getSession fails
+        initialLoadHandled = true;
+      }
     });
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log('Auth state change:', event, newSession?.user?.email);
+        await updateAuthState(newSession);
+      }
+    );
+
 
     return () => {
       mounted = false;
