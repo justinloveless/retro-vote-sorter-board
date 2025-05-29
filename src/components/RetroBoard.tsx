@@ -62,7 +62,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
     // This creates a basic JIRA URL - users will need to replace 'your-domain' with their actual JIRA domain
     const jiraDomain = 'outsystemsrd.atlassian.net';
     const encodedTitle = encodeURIComponent(ticketTitle);
-    return `https://${jiraDomain}/secure/CreateIssue.jspa?summary=${encodedTitle}&issueType=1&pid=19602`;
+    return `https://${jiraDomain}/secure/CreateIssueDetails!init.jspa?pid=19602&priority=10000&issuetype=10001&summary=${encodedTitle}&description=${encodedTitle}`;
   };
 
   const handleAddItem = (columnId: string) => (text: string, isAnonymous: boolean) => {
