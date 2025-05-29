@@ -76,7 +76,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{board?.title || 'Team Retrospective'}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{board?.title || 'Team Retrospective (I made this change in VS Code)'}</h1>
             <p className="text-gray-600">Board ID: {boardId}</p>
           </div>
           
