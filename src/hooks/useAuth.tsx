@@ -30,7 +30,7 @@ export const useAuth = () => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        console.log('user', user);
+        console.log('user', session?.user);
         
         try {
           const { data: profileData } = await supabase
