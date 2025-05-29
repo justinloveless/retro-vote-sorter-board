@@ -490,6 +490,8 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const deleteItem = async (itemId: string) => {
+    console.log('item deleted: ', itemId);
+    
     const { error } = await supabase
       .from('retro_items')
       .delete()
