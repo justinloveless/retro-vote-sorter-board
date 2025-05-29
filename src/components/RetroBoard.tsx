@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut } from 'lucide-react';
+import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +51,19 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
       updatePresence(userName);
     }
   }, [userName, board, updatePresence]);
+
+  // Function to check if a column is an "Action Items" column
+  const isActionItemsColumn = (columnTitle: string) => {
+    return columnTitle.toLowerCase().includes('action') && columnTitle.toLowerCase().includes('item');
+  };
+
+  // Function to generate JIRA ticket creation URL
+  const generateJiraUrl = (ticketTitle: string) => {
+    // This creates a basic JIRA URL - users will need to replace 'your-domain' with their actual JIRA domain
+    const jiraDomain = 'your-domain.atlassian.net';
+    const encodedTitle = encodeURIComponent(ticketTitle);
+    return `https://${jiraDomain}/secure/CreateIssue.jspa?summary=${encodedTitle}`;
+  };
 
   const handleAddItem = (columnId: string) => (text: string, isAnonymous: boolean) => {
     const authorName = isAnonymous ? 'Anonymous' : userName;
@@ -272,6 +284,17 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                                 >
                                   <Edit2 className="h-3 w-3" />
                                 </Button>
+                                {isActionItemsColumn(column.title) && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => window.open(generateJiraUrl(item.text), '_blank')}
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                    title="Create JIRA ticket"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Button>
+                                )}
                                 <Button 
                                   size="sm" 
                                   variant="outline"
