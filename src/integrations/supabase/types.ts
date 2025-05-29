@@ -114,6 +114,7 @@ export type Database = {
           is_private: boolean | null
           password_hash: string | null
           room_id: string
+          team_id: string | null
           title: string
           updated_at: string | null
         }
@@ -124,6 +125,7 @@ export type Database = {
           is_private?: boolean | null
           password_hash?: string | null
           room_id: string
+          team_id?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -134,10 +136,19 @@ export type Database = {
           is_private?: boolean | null
           password_hash?: string | null
           room_id?: string
+          team_id?: string | null
           title?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "retro_boards_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       retro_columns: {
         Row: {
@@ -297,6 +308,147 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_default_settings: {
+        Row: {
+          allow_anonymous: boolean | null
+          created_at: string
+          id: string
+          max_votes_per_user: number | null
+          show_author_names: boolean | null
+          team_id: string
+          updated_at: string
+          voting_enabled: boolean | null
+        }
+        Insert: {
+          allow_anonymous?: boolean | null
+          created_at?: string
+          id?: string
+          max_votes_per_user?: number | null
+          show_author_names?: boolean | null
+          team_id: string
+          updated_at?: string
+          voting_enabled?: boolean | null
+        }
+        Update: {
+          allow_anonymous?: boolean | null
+          created_at?: string
+          id?: string
+          max_votes_per_user?: number | null
+          show_author_names?: boolean | null
+          team_id?: string
+          updated_at?: string
+          voting_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_default_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          status: string | null
+          team_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          status?: string | null
+          team_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          status?: string | null
+          team_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          id: string
+          joined_at: string
+          role: string | null
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: string | null
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: string | null
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          creator_id: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -1,171 +1,142 @@
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Users, Zap, Shield, Vote } from 'lucide-react';
-import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
+import { Calendar, Users, User, ArrowRight } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [joinRoomId, setJoinRoomId] = useState('');
-
-  const createNewRetro = () => {
-    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    navigate(`/retro/${roomId}`);
-  };
-
-  const joinExistingRetro = () => {
-    if (joinRoomId.trim()) {
-      navigate(`/retro/${joinRoomId.toUpperCase()}`);
-    }
-  };
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Hero Section */}
-      <div className="container mx-auto px-6 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Team Retro Sorter
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            Run engaging retrospectives with your development team. 
-            Collaborate in real-time, vote on items, and turn insights into action.
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Header */}
+      <header className="flex justify-between items-center p-6">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">RetroBoard</h1>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={toggleTheme}>
+            {theme === 'light' ? '🌙' : '☀️'}
+          </Button>
+          {user ? (
+            <>
+              <Button variant="outline" onClick={() => navigate('/teams')}>
+                <Users className="h-4 w-4 mr-2" />
+                My Teams
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/account')}>
+                <User className="h-4 w-4 mr-2" />
+                Account
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-12">
+        <div className="text-center mb-12">
+          <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            Collaborative Retrospectives
+          </h2>
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+            Create engaging retrospective sessions with your team. Share insights, 
+            vote on ideas, and drive continuous improvement.
           </p>
           
-          {/* Quick Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button 
-              onClick={createNewRetro}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
               size="lg"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 text-lg"
+              onClick={() => {
+                const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+                navigate(`/retro/${roomId}`);
+              }}
+              className="flex items-center gap-2"
             >
-              Create New Retro
+              <Calendar className="h-5 w-5" />
+              Start Quick Retro
+              <ArrowRight className="h-4 w-4" />
             </Button>
             
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter room ID (e.g. ABC123)"
-                value={joinRoomId}
-                onChange={(e) => setJoinRoomId(e.target.value)}
-                className="w-48"
-                onKeyPress={(e) => e.key === 'Enter' && joinExistingRetro()}
-              />
-              <Button 
-                onClick={joinExistingRetro}
+            {user && (
+              <Button
+                size="lg"
                 variant="outline"
-                size="lg"
-                disabled={!joinRoomId.trim()}
+                onClick={() => navigate('/teams')}
+                className="flex items-center gap-2"
               >
-                Join Room
+                <Users className="h-5 w-5" />
+                My Teams
+                <ArrowRight className="h-4 w-4" />
               </Button>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card className="text-center hover:shadow-lg transition-shadow bg-white/80 backdrop-blur-sm">
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <Card className="text-center">
             <CardHeader>
-              <Vote className="h-12 w-12 mx-auto text-indigo-600 mb-4" />
-              <CardTitle className="text-lg">Real-time Voting</CardTitle>
+              <Calendar className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+              <CardTitle>Quick Start</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">
-                Items automatically sort by votes. See what matters most to your team.
+              <p className="text-gray-600 dark:text-gray-300">
+                Create instant retro boards without any setup. Perfect for ad-hoc sessions.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="text-center hover:shadow-lg transition-shadow bg-white/80 backdrop-blur-sm">
+          <Card className="text-center">
             <CardHeader>
-              <Users className="h-12 w-12 mx-auto text-green-600 mb-4" />
-              <CardTitle className="text-lg">Collaborative</CardTitle>
+              <Users className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+              <CardTitle>Team Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">
-                Everyone can add items, vote, and contribute to the discussion.
+              <p className="text-gray-600 dark:text-gray-300">
+                Organize your teams, set default settings, and track all your retrospectives in one place.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="text-center hover:shadow-lg transition-shadow bg-white/80 backdrop-blur-sm">
+          <Card className="text-center">
             <CardHeader>
-              <Zap className="h-12 w-12 mx-auto text-yellow-600 mb-4" />
-              <CardTitle className="text-lg">Customizable</CardTitle>
+              <User className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+              <CardTitle>Real-time Collaboration</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">
-                Add custom columns beyond the default Good, Bad, Kudos, and Action Items.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center hover:shadow-lg transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <Shield className="h-12 w-12 mx-auto text-purple-600 mb-4" />
-              <CardTitle className="text-lg">Private & Secure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Password protect your retros or keep them public for easy access.
+              <p className="text-gray-600 dark:text-gray-300">
+                See who's online, collaborate in real-time, and make decisions together.
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* How it Works */}
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">How it Works</h2>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="space-y-4">
-              <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-                1
-              </div>
-              <h3 className="text-xl font-semibold">Create or Join</h3>
-              <p className="text-gray-600">Start a new retro room or join an existing one with a room ID</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-                2
-              </div>
-              <h3 className="text-xl font-semibold">Add & Vote</h3>
-              <p className="text-gray-600">Team members add retro items and upvote what resonates with them</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-                3
-              </div>
-              <h3 className="text-xl font-semibold">Discuss & Act</h3>
-              <p className="text-gray-600">Focus on highly voted items and create actionable next steps</p>
+        {user && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow-lg">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Welcome back, {user.email}!
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Ready to run your next retrospective? Manage your teams or start a quick session.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button onClick={() => navigate('/teams')}>
+                <Users className="h-4 w-4 mr-2" />
+                View My Teams
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/account')}>
+                <User className="h-4 w-4 mr-2" />
+                Account Settings
+              </Button>
             </div>
           </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center">
-          <Card className="max-w-2xl mx-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-bold mb-4">Ready to improve your retros?</h3>
-              <p className="mb-6 opacity-90">
-                Start running more effective retrospectives today. It's free and takes less than 30 seconds to get started.
-              </p>
-              <Button 
-                onClick={createNewRetro}
-                size="lg"
-                variant="secondary"
-                className="bg-white text-indigo-600 hover:bg-gray-100"
-              >
-                Start Your First Retro
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 };
