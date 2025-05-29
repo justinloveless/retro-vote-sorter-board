@@ -16,50 +16,60 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Fetch user profile
+    let mounted = true;
+
+    const updateAuthState = async (session: Session | null) => {
+      if (!mounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        try {
           const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
           
-          setProfile(profileData);
-        } else {
+          if (mounted) {
+            setProfile(profileData);
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          if (mounted) {
+            setProfile(null);
+          }
+        }
+      } else {
+        if (mounted) {
           setProfile(null);
         }
-        
+      }
+      
+      if (mounted) {
         setLoading(false);
+      }
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        await updateAuthState(session);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data: profileData }) => {
-            setProfile(profileData);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
+      console.log('Initial session check:', session?.user?.email);
+      updateAuthState(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
