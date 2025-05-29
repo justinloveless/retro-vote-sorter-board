@@ -8,6 +8,7 @@ interface RetroBoard {
   room_id: string;
   title: string;
   is_private: boolean;
+  password_hash: string | null;
   created_at: string;
 }
 
@@ -17,6 +18,7 @@ interface RetroColumn {
   title: string;
   color: string;
   position: number;
+  sort_order?: number;
 }
 
 interface RetroItem {
@@ -30,13 +32,38 @@ interface RetroItem {
   created_at: string;
 }
 
+interface ActiveUser {
+  id: string;
+  user_name: string;
+  last_seen: string;
+}
+
 export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
   const [columns, setColumns] = useState<RetroColumn[]>([]);
   const [items, setItems] = useState<RetroItem[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const { toast } = useToast();
+
+  // Update user presence
+  const updatePresence = async (userName: string) => {
+    if (!board) return;
+
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    
+    await supabase
+      .from('board_presence')
+      .upsert({
+        board_id: board.id,
+        user_id: currentUser?.id || null,
+        user_name: userName,
+        last_seen: new Date().toISOString()
+      }, {
+        onConflict: 'board_id,user_id'
+      });
+  };
 
   // Load board data
   useEffect(() => {
@@ -55,7 +82,7 @@ export const useRetroBoard = (roomId: string) => {
           // Board doesn't exist, create it
           const { data: newBoard, error: createError } = await supabase
             .from('retro_boards')
-            .insert([{ room_id: roomId, title: 'Team Retrospective (I made this change in VS Code)' }])
+            .insert([{ room_id: roomId, title: 'Team Retrospective' }])
             .select()
             .single();
 
@@ -86,6 +113,15 @@ export const useRetroBoard = (roomId: string) => {
 
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
+
+        // Load active users
+        const { data: usersData, error: usersError } = await supabase
+          .from('board_presence')
+          .select('*')
+          .eq('board_id', boardData.id);
+
+        if (usersError) throw usersError;
+        setActiveUsers(usersData || []);
 
       } catch (error) {
         console.error('Error loading board data:', error);
@@ -142,6 +178,34 @@ export const useRetroBoard = (roomId: string) => {
           setItems(data || []);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'board_presence',
+          filter: `board_id=eq.${board.id}`
+        },
+        async () => {
+          const { data } = await supabase
+            .from('board_presence')
+            .select('*')
+            .eq('board_id', board.id);
+          setActiveUsers(data || []);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'retro_boards',
+          filter: `id=eq.${board.id}`
+        },
+        (payload) => {
+          setBoard(payload.new as RetroBoard);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -149,8 +213,28 @@ export const useRetroBoard = (roomId: string) => {
     };
   }, [board]);
 
+  const updateBoardTitle = async (title: string) => {
+    if (!board) return;
+
+    const { error } = await supabase
+      .from('retro_boards')
+      .update({ title })
+      .eq('id', board.id);
+
+    if (error) {
+      console.error('Error updating board title:', error);
+      toast({
+        title: "Error updating title",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const addItem = async (text: string, columnId: string, author: string) => {
     if (!board) return;
+
+    const currentUser = (await supabase.auth.getUser()).data.user;
 
     const { error } = await supabase
       .from('retro_items')
@@ -159,7 +243,7 @@ export const useRetroBoard = (roomId: string) => {
         column_id: columnId,
         text,
         author,
-        author_id: (await supabase.auth.getUser()).data.user?.id || null
+        author_id: currentUser?.id || null
       }]);
 
     if (error) {
@@ -170,6 +254,9 @@ export const useRetroBoard = (roomId: string) => {
         variant: "destructive",
       });
     }
+
+    // Update presence when adding item
+    updatePresence(author);
   };
 
   const addColumn = async (title: string) => {
@@ -198,6 +285,21 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const reorderColumns = async (newColumns: RetroColumn[]) => {
+    const updates = newColumns.map((column, index) => ({
+      id: column.id,
+      position: index + 1,
+      sort_order: index + 1
+    }));
+
+    for (const update of updates) {
+      await supabase
+        .from('retro_columns')
+        .update({ position: update.position, sort_order: update.sort_order })
+        .eq('id', update.id);
     }
   };
 
@@ -267,11 +369,15 @@ export const useRetroBoard = (roomId: string) => {
     board,
     columns,
     items,
+    activeUsers,
     loading,
     addItem,
     addColumn,
+    reorderColumns,
     upvoteItem,
     updateItem,
-    deleteItem
+    deleteItem,
+    updateBoardTitle,
+    updatePresence
   };
 };

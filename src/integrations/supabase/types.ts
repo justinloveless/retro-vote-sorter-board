@@ -9,6 +9,62 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      board_presence: {
+        Row: {
+          board_id: string | null
+          id: string
+          last_seen: string | null
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          board_id?: string | null
+          id?: string
+          last_seen?: string | null
+          user_id?: string | null
+          user_name: string
+        }
+        Update: {
+          board_id?: string | null
+          id?: string
+          last_seen?: string | null
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_presence_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       retro_boards: {
         Row: {
           created_at: string | null
@@ -49,6 +105,7 @@ export type Database = {
           created_at: string | null
           id: string
           position: number
+          sort_order: number | null
           title: string
         }
         Insert: {
@@ -57,6 +114,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           position: number
+          sort_order?: number | null
           title: string
         }
         Update: {
@@ -65,6 +123,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           position?: number
+          sort_order?: number | null
           title?: string
         }
         Relationships: [
