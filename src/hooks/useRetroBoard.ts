@@ -225,15 +225,21 @@ export const useRetroBoard = (roomId: string) => {
           
           if (newUser.last_seen >= fiveMinutesAgo) {
             setActiveUsers(currentUsers => {
-              // Check if user already exists
-              const existingUserIndex = currentUsers.findIndex(user => user.id === newUser.id);
-              if (existingUserIndex >= 0) {
+              // Check if user already exists by user_id or user_name
+              const userExists = currentUsers.some(user => 
+                user.id === newUser.id || 
+                (user.user_id === newUser.user_id && newUser.user_id)
+              );
+              
+              if (userExists) {
                 // Update existing user
-                const updatedUsers = [...currentUsers];
-                updatedUsers[existingUserIndex] = newUser;
-                return updatedUsers;
+                return currentUsers.map(user => 
+                  (user.id === newUser.id || (user.user_id === newUser.user_id && newUser.user_id))
+                    ? newUser 
+                    : user
+                );
               } else {
-                // Add new user
+                // Add new user only if they don't exist
                 return [...currentUsers, newUser];
               }
             });
@@ -254,18 +260,26 @@ export const useRetroBoard = (roomId: string) => {
           
           setActiveUsers(currentUsers => {
             if (updatedUser.last_seen >= fiveMinutesAgo) {
-              // Update or add user
-              const existingUserIndex = currentUsers.findIndex(user => user.id === updatedUser.id);
+              // Find and update existing user
+              const existingUserIndex = currentUsers.findIndex(user => 
+                user.id === updatedUser.id || 
+                (user.user_id === updatedUser.user_id && updatedUser.user_id)
+              );
+              
               if (existingUserIndex >= 0) {
                 const updatedUsers = [...currentUsers];
                 updatedUsers[existingUserIndex] = updatedUser;
                 return updatedUsers;
               } else {
+                // Only add if user doesn't exist
                 return [...currentUsers, updatedUser];
               }
             } else {
               // Remove user if they're too old
-              return currentUsers.filter(user => user.id !== updatedUser.id);
+              return currentUsers.filter(user => 
+                user.id !== updatedUser.id && 
+                !(user.user_id === updatedUser.user_id && updatedUser.user_id)
+              );
             }
           });
         }
@@ -281,7 +295,10 @@ export const useRetroBoard = (roomId: string) => {
         (payload) => {
           const deletedUser = payload.old as ActiveUser;
           setActiveUsers(currentUsers => 
-            currentUsers.filter(user => user.id !== deletedUser.id)
+            currentUsers.filter(user => 
+              user.id !== deletedUser.id && 
+              !(user.user_id === deletedUser.user_id && deletedUser.user_id)
+            )
           );
         }
       )
