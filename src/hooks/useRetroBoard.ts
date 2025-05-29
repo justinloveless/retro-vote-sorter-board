@@ -522,7 +522,7 @@ export const useRetroBoard = (roomId: string) => {
   const deleteItem = async (itemId: string) => {
     console.log('item deleted: ', itemId);
     setItems(currentItems => 
-            currentItems.filter(item => item.id !== deletedItem.id)
+            currentItems.filter(item => item.id !== itemId)
           );
 
     const { error } = await supabase
