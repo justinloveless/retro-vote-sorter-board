@@ -47,12 +47,22 @@ export const useRetroBoard = (roomId: string) => {
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const { toast } = useToast();
 
-  // Update user presence
+  // Update user presence with cleanup
   const updatePresence = async (userName: string) => {
     if (!board) return;
 
     const currentUser = (await supabase.auth.getUser()).data.user;
     
+    // First, clean up any old presence records for this user/session
+    if (currentUser) {
+      await supabase
+        .from('board_presence')
+        .delete()
+        .eq('board_id', board.id)
+        .eq('user_id', currentUser.id);
+    }
+    
+    // Then insert the new presence record
     await supabase
       .from('board_presence')
       .upsert({
@@ -61,8 +71,22 @@ export const useRetroBoard = (roomId: string) => {
         user_name: userName,
         last_seen: new Date().toISOString()
       }, {
-        onConflict: 'board_id,user_id'
+        onConflict: currentUser ? 'board_id,user_id' : undefined
       });
+  };
+
+  // Clean up presence when component unmounts or user leaves
+  const cleanupPresence = async () => {
+    if (!board) return;
+    
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (currentUser) {
+      await supabase
+        .from('board_presence')
+        .delete()
+        .eq('board_id', board.id)
+        .eq('user_id', currentUser.id);
+    }
   };
 
   // Load board data
@@ -114,11 +138,13 @@ export const useRetroBoard = (roomId: string) => {
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
 
-        // Load active users
+        // Load active users (only recent ones)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const { data: usersData, error: usersError } = await supabase
           .from('board_presence')
           .select('*')
-          .eq('board_id', boardData.id);
+          .eq('board_id', boardData.id)
+          .gte('last_seen', fiveMinutesAgo);
 
         if (usersError) throw usersError;
         setActiveUsers(usersData || []);
@@ -137,6 +163,13 @@ export const useRetroBoard = (roomId: string) => {
 
     loadBoardData();
   }, [roomId, toast]);
+
+  // Clean up presence on unmount
+  useEffect(() => {
+    return () => {
+      cleanupPresence();
+    };
+  }, [board]);
 
   // Set up real-time subscriptions
   useEffect(() => {
@@ -187,10 +220,13 @@ export const useRetroBoard = (roomId: string) => {
           filter: `board_id=eq.${board.id}`
         },
         async () => {
+          // Only fetch recent presence records
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
           const { data } = await supabase
             .from('board_presence')
             .select('*')
-            .eq('board_id', board.id);
+            .eq('board_id', board.id)
+            .gte('last_seen', fiveMinutesAgo);
           setActiveUsers(data || []);
         }
       )
@@ -211,6 +247,23 @@ export const useRetroBoard = (roomId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [board]);
+
+  // Set up periodic presence cleanup
+  useEffect(() => {
+    if (!board) return;
+
+    const cleanupInterval = setInterval(async () => {
+      // Remove presence records older than 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      await supabase
+        .from('board_presence')
+        .delete()
+        .eq('board_id', board.id)
+        .lt('last_seen', tenMinutesAgo);
+    }, 60000); // Run every minute
+
+    return () => clearInterval(cleanupInterval);
   }, [board]);
 
   const updateBoardTitle = async (title: string) => {
