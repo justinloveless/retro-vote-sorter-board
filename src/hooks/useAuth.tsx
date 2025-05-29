@@ -19,12 +19,19 @@ export const useAuth = () => {
     let mounted = true;
 
     const updateAuthState = async (session: Session | null) => {
+      console.log('updating auth state');
       if (!mounted) return;
+      console.log('mounted successfully');
+      
 
       setSession(session);
+      console.log('session', session);
+      
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('user', user);
+        
         try {
           const { data: profileData } = await supabase
             .from('profiles')
