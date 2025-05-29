@@ -39,24 +39,21 @@ export const useAuth = () => {
             .eq('id', session.user.id)
             .single();
           
-          if (mounted) {
-            setProfile(profileData);
-          }
+          setProfile(profileData);
+          console.log('profileData set', profileData);
         } catch (error) {
           console.error('Error fetching profile:', error);
-          if (mounted) {
-            setProfile(null);
-          }
-        }
-      } else {
-        if (mounted) {
           setProfile(null);
         }
+      } else {
+        // no session user
+        setProfile(null);
       }
-      
-      if (mounted) {
-        setLoading(false);
-      }
+
+      // always happens regardless of session user
+      setLoading(false);
+      console.log('Loading set to false');
+      // end of updateAuthState    
     };
 
     // Set up auth state listener
