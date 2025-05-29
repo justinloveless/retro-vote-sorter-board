@@ -55,7 +55,7 @@ export const useRetroBoard = (roomId: string) => {
           // Board doesn't exist, create it
           const { data: newBoard, error: createError } = await supabase
             .from('retro_boards')
-            .insert([{ room_id: roomId, title: 'Team Retrospective' }])
+            .insert([{ room_id: roomId, title: 'Team Retrospective (I made this change in VS Code)' }])
             .select()
             .single();
 
