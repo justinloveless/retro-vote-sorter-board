@@ -10,6 +10,7 @@ import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
 import { AddItemCard } from './AddItemCard';
 import { ActiveUsers } from './ActiveUsers';
+import { EnvironmentIndicator } from './EnvironmentIndicator';
 
 interface RetroBoardProps {
   boardId: string;
@@ -151,6 +152,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 p-6">
+      <EnvironmentIndicator />
+      
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
