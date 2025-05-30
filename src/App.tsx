@@ -11,6 +11,7 @@ import Teams from "./pages/Teams";
 import Team from "./pages/Team";
 import TeamSettings from "./pages/TeamSettings";
 import Account from "./pages/Account";
+import InviteAccept from "./pages/InviteAccept";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/teams/:teamId" element={<Team />} />
             <Route path="/teams/:teamId/settings" element={<TeamSettings />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
