@@ -1,15 +1,25 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Users, User, ArrowRight } from "lucide-react";
+import { Calendar, Users, User, ArrowRight, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [roomId, setRoomId] = useState('');
+
+  const handleJoinRoom = () => {
+    if (roomId.trim()) {
+      navigate(`/retro/${roomId.trim().toUpperCase()}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800">
@@ -33,7 +43,12 @@ const Index = () => {
                 Account
               </Button>
             </>
-          ) : null}
+          ) : (
+            <Button variant="outline" onClick={() => navigate('/account')}>
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In
+            </Button>
+          )}
         </div>
       </header>
 
@@ -48,12 +63,12 @@ const Index = () => {
             vote on ideas, and drive continuous improvement.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button
               size="lg"
               onClick={() => {
-                const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-                navigate(`/retro/${roomId}`);
+                const randomRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+                navigate(`/retro/${randomRoomId}`);
               }}
               className="flex items-center gap-2"
             >
@@ -75,6 +90,28 @@ const Index = () => {
               </Button>
             )}
           </div>
+
+          {/* Join Existing Room */}
+          <Card className="max-w-md mx-auto mb-12">
+            <CardHeader>
+              <CardTitle className="text-lg">Join Existing Retro</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="room-id">Room ID</Label>
+                <Input
+                  id="room-id"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  placeholder="Enter room ID (e.g., ABC123)"
+                  onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
+                />
+              </div>
+              <Button onClick={handleJoinRoom} disabled={!roomId.trim()} className="w-full">
+                Join Room
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Features */}
