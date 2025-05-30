@@ -12,36 +12,6 @@ interface Team {
   updated_at: string;
 }
 
-interface TeamMember {
-  id: string;
-  team_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'member';
-  joined_at: string;
-}
-
-interface TeamInvitation {
-  id: string;
-  team_id: string;
-  email: string;
-  invited_by: string;
-  token: string;
-  status: 'pending' | 'accepted' | 'declined';
-  expires_at: string;
-  created_at: string;
-}
-
-interface TeamDefaultSettings {
-  id: string;
-  team_id: string;
-  allow_anonymous: boolean;
-  voting_enabled: boolean;
-  max_votes_per_user: number | null;
-  show_author_names: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export const useTeams = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,42 +126,12 @@ export const useTeams = () => {
     }
   };
 
-  const inviteToTeam = async (teamId: string, email: string) => {
-    try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
-      if (!currentUser) throw new Error('User not authenticated');
-
-      const { error } = await supabase
-        .from('team_invitations')
-        .insert([{
-          team_id: teamId,
-          email,
-          invited_by: currentUser.id
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Invitation sent",
-        description: `Invitation sent to ${email}`,
-      });
-    } catch (error) {
-      console.error('Error sending invitation:', error);
-      toast({
-        title: "Error sending invitation",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return {
     teams,
     loading,
     createTeam,
     updateTeam,
     deleteTeam,
-    inviteToTeam,
     refetch: loadTeams
   };
 };

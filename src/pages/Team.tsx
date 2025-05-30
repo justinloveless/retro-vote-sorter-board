@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeamBoards } from '@/hooks/useTeamBoards';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,21 +10,25 @@ import { AuthForm } from '@/components/AuthForm';
 import { TeamHeader } from '@/components/team/TeamHeader';
 import { TeamBoardsList } from '@/components/team/TeamBoardsList';
 import { TeamSidebar } from '@/components/team/TeamSidebar';
+import { TeamMembersList } from '@/components/team/TeamMembersList';
 import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { boards, loading: boardsLoading, createBoardForTeam } = useTeamBoards(teamId || null);
+  const { members } = useTeamMembers(teamId || null);
   const [team, setTeam] = useState<any>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (!teamId) return;
+      if (!teamId || !user) return;
 
       try {
         const { data, error } = await supabase
@@ -36,7 +41,11 @@ const Team = () => {
           .single();
 
         if (error) throw error;
+        
         setTeam(data);
+        // Get current user's role
+        const userMember = data.team_members.find((member: any) => member.user_id === user.id);
+        setCurrentUserRole(userMember?.role);
       } catch (error) {
         console.error('Error loading team:', error);
         toast({
@@ -51,7 +60,7 @@ const Team = () => {
     };
 
     loadTeam();
-  }, [teamId, navigate, toast]);
+  }, [teamId, user, navigate, toast]);
 
   const handleCreateBoard = async (title: string, isPrivate: boolean, password: string | null) => {
     const board = await createBoardForTeam(title, isPrivate, password);
@@ -88,16 +97,32 @@ const Team = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Retro Boards</h2>
-            <TeamBoardsList 
-              boards={boards}
-              loading={boardsLoading}
-              onCreateBoard={() => setShowCreateDialog(true)}
-            />
+            <Tabs defaultValue="boards" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="boards">Retro Boards</TabsTrigger>
+                <TabsTrigger value="members">Team Members</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="boards" className="space-y-4">
+                <TeamBoardsList 
+                  boards={boards}
+                  loading={boardsLoading}
+                  onCreateBoard={() => setShowCreateDialog(true)}
+                />
+              </TabsContent>
+              
+              <TabsContent value="members" className="space-y-4">
+                <TeamMembersList teamId={teamId!} currentUserRole={currentUserRole} />
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="lg:col-span-1">
-            <TeamSidebar team={team} boardCount={boards.length} />
+            <TeamSidebar 
+              team={team} 
+              boardCount={boards.length}
+              memberCount={members.length}
+            />
           </div>
         </div>
 
