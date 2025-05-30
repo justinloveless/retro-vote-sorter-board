@@ -30,8 +30,8 @@ const Teams = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     );
   }
@@ -42,14 +42,14 @@ const Teams = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading teams...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading teams...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -57,9 +57,9 @@ const Teams = () => {
               <Button variant="ghost" onClick={() => navigate('/')}>
                 <Home className="h-4 w-4" />
               </Button>
-              <h1 className="text-3xl font-bold text-gray-900">My Teams</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Teams</h1>
             </div>
-            <p className="text-gray-600 mt-2">Manage your teams and create retro boards</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your teams and create retro boards</p>
           </div>
           <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
@@ -70,9 +70,9 @@ const Teams = () => {
         {teams.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No teams yet</h3>
-              <p className="text-gray-600 mb-4">Create your first team to start collaborating on retro boards.</p>
+              <Users className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No teams yet</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">Create your first team to start collaborating on retro boards.</p>
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Team
@@ -100,9 +100,9 @@ const Teams = () => {
                 </CardHeader>
                 <CardContent>
                   {team.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{team.description}</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">{team.description}</p>
                   )}
-                  <div className="flex items-center text-sm text-gray-500 mb-4">
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
                     <Calendar className="h-4 w-4 mr-1" />
                     Created {new Date(team.created_at).toLocaleDateString()}
                   </div>
@@ -125,7 +125,7 @@ const Teams = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Team Name
                 </label>
                 <Input
@@ -136,7 +136,7 @@ const Teams = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description (optional)
                 </label>
                 <Textarea

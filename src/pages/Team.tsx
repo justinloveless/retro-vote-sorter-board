@@ -72,8 +72,8 @@ const Team = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     );
   }
@@ -84,14 +84,14 @@ const Team = () => {
 
   if (!team) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Team not found</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Team not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
         <TeamHeader team={team} onCreateBoard={() => setShowCreateDialog(true)} />
 

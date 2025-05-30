@@ -38,7 +38,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="text-gray-600">Loading boards...</div>
+        <div className="text-gray-600 dark:text-gray-300">Loading boards...</div>
       </div>
     );
   }
@@ -47,9 +47,9 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
     return (
       <Card className="text-center py-12">
         <CardContent>
-          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No retro boards yet</h3>
-          <p className="text-gray-600 mb-4">Create your first retro board for this team.</p>
+          <Calendar className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No retro boards yet</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">Create your first retro board for this team.</p>
           <Button onClick={onCreateBoard}>
             <Plus className="h-4 w-4 mr-2" />
             Create First Board
@@ -69,7 +69,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
               <div className="flex items-center gap-2">
                 {board.is_private && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
                       Private
                     </span>
                     <Button
@@ -86,12 +86,12 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center text-sm text-gray-500 mb-4">
+            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
               <Calendar className="h-4 w-4 mr-1" />
               {new Date(board.created_at).toLocaleDateString()}
             </div>
             {board.is_private && board.password_hash && (
-              <div className="mb-4 p-2 bg-gray-50 rounded text-sm">
+              <div className="mb-4 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
                 <div className="flex items-center gap-2">
                   <Lock className="h-3 w-3" />
                   <span className="font-medium">Password:</span>
