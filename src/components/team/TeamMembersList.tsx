@@ -5,18 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserMinus, Crown, Shield, User, Mail, X, Clock } from 'lucide-react';
+import { Users, UserMinus, Crown, Shield, User, Mail, X, Clock, Link, UserPlus } from 'lucide-react';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { InviteMemberDialog } from './InviteMemberDialog';
+import { InviteLinkDialog } from './InviteLinkDialog';
 
 interface TeamMembersListProps {
   teamId: string;
+  teamName: string;
   currentUserRole?: string;
 }
 
-export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, currentUserRole }) => {
+export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamName, currentUserRole }) => {
   const { members, invitations, loading, inviteMember, removeMember, updateMemberRole, cancelInvitation } = useTeamMembers(teamId);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -63,10 +66,16 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, curren
               Team Members ({members.length})
             </CardTitle>
             {canManageMembers && (
-              <Button onClick={() => setShowInviteDialog(true)}>
-                <Mail className="h-4 w-4 mr-2" />
-                Invite Member
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowLinkDialog(true)}>
+                  <Link className="h-4 w-4 mr-2" />
+                  Invite Link
+                </Button>
+                <Button onClick={() => setShowInviteDialog(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Invite Member
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -178,6 +187,13 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, curren
         open={showInviteDialog}
         onOpenChange={setShowInviteDialog}
         onInvite={inviteMember}
+      />
+
+      <InviteLinkDialog
+        open={showLinkDialog}
+        onOpenChange={setShowLinkDialog}
+        teamId={teamId}
+        teamName={teamName}
       />
     </div>
   );

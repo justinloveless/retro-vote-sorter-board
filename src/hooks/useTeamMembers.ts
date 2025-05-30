@@ -11,7 +11,7 @@ interface TeamMember {
   joined_at: string;
   profiles?: {
     full_name: string | null;
-  };
+  } | null;
 }
 
 interface TeamInvitation {
@@ -39,21 +39,29 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
+      // First get team members
+      const { data: membersData, error: membersError } = await supabase
         .from('team_members')
-        .select(`
-          *,
-          profiles(full_name)
-        `)
+        .select('*')
         .eq('team_id', teamId)
         .order('joined_at', { ascending: true });
 
-      if (error) throw error;
-      
-      // Type cast the data to ensure proper typing
-      const typedMembers = (data || []).map(member => ({
+      if (membersError) throw membersError;
+
+      // Then get profiles for those users
+      const userIds = membersData?.map(member => member.user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine the data
+      const typedMembers = (membersData || []).map(member => ({
         ...member,
-        role: member.role as 'owner' | 'admin' | 'member'
+        role: member.role as 'owner' | 'admin' | 'member',
+        profiles: profilesData?.find(profile => profile.id === member.user_id) || null
       }));
       
       setMembers(typedMembers);
