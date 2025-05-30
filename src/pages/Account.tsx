@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Users, LogOut, Calendar } from 'lucide-react';
+import { User, Users, LogOut, Calendar, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeams } from '@/hooks/useTeams';
 import { AuthForm } from '@/components/AuthForm';
@@ -20,8 +20,8 @@ const Account = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     );
   }
@@ -31,10 +31,15 @@ const Account = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              <Home className="h-4 w-4" />
+            </Button>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Account</h1>
+          </div>
           <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
@@ -52,12 +57,12 @@ const Account = () => {
             <CardContent>
               <div className="space-y-2">
                 <div>
-                  <span className="font-medium text-sm text-gray-600">Email</span>
-                  <p className="text-gray-900">{user.email}</p>
+                  <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Email</span>
+                  <p className="text-gray-900 dark:text-gray-100">{user.email}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-sm text-gray-600">Member since</span>
-                  <p className="text-gray-900">
+                  <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Member since</span>
+                  <p className="text-gray-900 dark:text-gray-100">
                     {new Date(user.created_at).toLocaleDateString()}
                   </p>
                 </div>
@@ -81,12 +86,12 @@ const Account = () => {
               <CardContent>
                 {teamsLoading ? (
                   <div className="text-center py-4">
-                    <div className="text-gray-600">Loading teams...</div>
+                    <div className="text-gray-600 dark:text-gray-300">Loading teams...</div>
                   </div>
                 ) : teams.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 mb-4">You're not part of any teams yet.</p>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">You're not part of any teams yet.</p>
                     <Button onClick={() => navigate('/teams')}>
                       Create Your First Team
                     </Button>
@@ -96,12 +101,12 @@ const Account = () => {
                     {teams.slice(0, 5).map((team) => (
                       <div
                         key={team.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                         onClick={() => navigate(`/teams/${team.id}`)}
                       >
                         <div>
-                          <h3 className="font-medium text-gray-900">{team.name}</h3>
-                          <div className="flex items-center text-sm text-gray-500">
+                          <h3 className="font-medium text-gray-900 dark:text-gray-100">{team.name}</h3>
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                             <Calendar className="h-3 w-3 mr-1" />
                             Created {new Date(team.created_at).toLocaleDateString()}
                           </div>

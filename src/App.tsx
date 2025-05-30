@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Retro from "./pages/Retro";
 import Teams from "./pages/Teams";
 import Team from "./pages/Team";
+import TeamSettings from "./pages/TeamSettings";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/retro/:roomId" element={<Retro />} />
             <Route path="/teams" element={<Teams />} />
             <Route path="/teams/:teamId" element={<Team />} />
+            <Route path="/teams/:teamId/settings" element={<TeamSettings />} />
             <Route path="/account" element={<Account />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
