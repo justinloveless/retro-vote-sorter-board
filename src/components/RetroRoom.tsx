@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Lock, Share2, Copy, Check } from 'lucide-react';
+import { Lock, Share2, Copy, Check, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,15 @@ interface RetroRoomProps {
   roomId?: string;
 }
 
+// Generate random silly names for anonymous users
+const generateSillyName = () => {
+  const adjectives = ['Happy', 'Sneaky', 'Dancing', 'Bouncy', 'Giggly', 'Sparkly', 'Fuzzy', 'Mighty', 'Sleepy', 'Jolly'];
+  const animals = ['Penguin', 'Koala', 'Llama', 'Panda', 'Dolphin', 'Octopus', 'Hedgehog', 'Platypus', 'Narwhal', 'Sloth'];
+  const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+  return `${randomAdjective} ${randomAnimal}`;
+};
+
 export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) => {
   const [roomId, setRoomId] = useState(initialRoomId || '');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -22,9 +31,11 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [enteredPassword, setEnteredPassword] = useState('');
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [boardData, setBoardData] = useState<any>(null);
   const [hasRoomAccess, setHasRoomAccess] = useState(false);
+  const [anonymousName] = useState(() => generateSillyName());
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -33,17 +44,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       // Generate a random room ID
       const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       setRoomId(newRoomId);
-      if (user) {
-        setHasRoomAccess(true);
-      }
-    } else if (user) {
+      setHasRoomAccess(true);
+    } else {
       // Check if room exists and is private
       checkRoomAccess();
     }
-  }, [initialRoomId, user]);
+  }, [initialRoomId]);
 
   const checkRoomAccess = async () => {
-    if (!roomId || !user) return;
+    if (!roomId) return;
 
     try {
       const { data: board, error } = await supabase
@@ -114,6 +123,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   };
 
   const togglePrivacy = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to sign in to change room settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newPrivateState = !isPrivate;
     setIsPrivate(newPrivateState);
     
@@ -176,20 +194,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     );
   }
 
-  // Force authentication - no guest access
-  if (!user) {
-    return <AuthForm onAuthSuccess={() => {}} />;
-  }
-
   if (showPasswordDialog) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -198,7 +211,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               This retro room is protected. Please enter the password to continue.
             </p>
             <Input
@@ -222,8 +235,8 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
   if (!hasRoomAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Checking room access...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Checking room access...</div>
       </div>
     );
   }
@@ -234,9 +247,11 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
         boardId={roomId} 
         isPrivate={isPrivate}
         onTogglePrivacy={togglePrivacy}
+        anonymousName={anonymousName}
+        isAnonymousUser={!user}
       />
       
-      {/* Floating Share Button */}
+      {/* Floating Buttons */}
       <div className="fixed bottom-6 right-6 flex gap-2">
         <Button 
           onClick={() => setShowShareDialog(true)}
@@ -245,6 +260,17 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
           <Share2 className="h-4 w-4" />
           Share
         </Button>
+        
+        {!user && (
+          <Button 
+            onClick={() => setShowAuthDialog(true)}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <User className="h-4 w-4" />
+            Sign In
+          </Button>
+        )}
       </div>
 
       {/* Share Dialog */}
@@ -254,8 +280,8 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             <DialogTitle>Share Retro Room</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Room URL:</p>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Room URL:</p>
               <div className="flex items-center gap-2">
                 <Input 
                   value={`${window.location.origin}/retro/${roomId}`}
@@ -275,18 +301,28 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             </div>
             
             {isPrivate && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800 mb-2">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-700">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
                   <Lock className="h-4 w-4 inline mr-1" />
                   This room is private. Password: <strong>{password}</strong>
                 </p>
               </div>
             )}
             
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
               Share this link with your team members
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auth Dialog for Anonymous Users */}
+      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sign In</DialogTitle>
+          </DialogHeader>
+          <AuthForm onAuthSuccess={() => setShowAuthDialog(false)} />
         </DialogContent>
       </Dialog>
     </div>
