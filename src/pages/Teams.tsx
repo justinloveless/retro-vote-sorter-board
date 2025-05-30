@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, Calendar, Settings } from 'lucide-react';
+import { Plus, Users, Calendar, Settings, Home } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/AuthForm';
@@ -53,7 +53,12 @@ const Teams = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Teams</h1>
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" onClick={() => navigate('/')}>
+                <Home className="h-4 w-4" />
+              </Button>
+              <h1 className="text-3xl font-bold text-gray-900">My Teams</h1>
+            </div>
             <p className="text-gray-600 mt-2">Manage your teams and create retro boards</p>
           </div>
           <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-2">
