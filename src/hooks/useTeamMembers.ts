@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +20,8 @@ interface TeamInvitation {
   invited_by: string;
   token: string;
   status: 'pending' | 'accepted' | 'declined';
+  invite_type: 'email' | 'link';
+  is_active: boolean;
   expires_at: string;
   created_at: string;
 }
@@ -88,6 +89,7 @@ export const useTeamMembers = (teamId: string | null) => {
         .from('team_invitations')
         .select('*')
         .eq('team_id', teamId)
+        .eq('invite_type', 'email')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
@@ -96,7 +98,8 @@ export const useTeamMembers = (teamId: string | null) => {
       // Type cast the data to ensure proper typing
       const typedInvitations = (data || []).map(invitation => ({
         ...invitation,
-        status: invitation.status as 'pending' | 'accepted' | 'declined'
+        status: invitation.status as 'pending' | 'accepted' | 'declined',
+        invite_type: invitation.invite_type as 'email' | 'link'
       }));
       
       setInvitations(typedInvitations);
@@ -122,7 +125,8 @@ export const useTeamMembers = (teamId: string | null) => {
         .insert([{
           team_id: teamId,
           email,
-          invited_by: currentUser.id
+          invited_by: currentUser.id,
+          invite_type: 'email'
         }]);
 
       if (error) throw error;
