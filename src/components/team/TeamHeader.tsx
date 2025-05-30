@@ -22,9 +22,9 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard }) =
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <div className="flex-1">
-        <h1 className="text-3xl font-bold text-gray-900">{team.name}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{team.name}</h1>
         {team.description && (
-          <p className="text-gray-600 mt-2">{team.description}</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">{team.description}</p>
         )}
       </div>
       <Button
