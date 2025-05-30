@@ -7,7 +7,7 @@ interface InviteLink {
   id: string;
   token: string;
   team_id: string;
-  invite_type: 'link';
+  invite_type: 'email' | 'link';
   is_active: boolean;
   expires_at: string;
   created_at: string;
@@ -34,7 +34,13 @@ export const useInviteLinks = (teamId: string | null) => {
 
       if (error) throw error;
       
-      setInviteLinks(data || []);
+      // Type cast the data to ensure proper typing
+      const typedInviteLinks = (data || []).map(link => ({
+        ...link,
+        invite_type: link.invite_type as 'email' | 'link'
+      }));
+      
+      setInviteLinks(typedInviteLinks);
     } catch (error) {
       console.error('Error loading invite links:', error);
       toast({
