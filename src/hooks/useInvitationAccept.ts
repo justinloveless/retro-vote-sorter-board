@@ -3,6 +3,13 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface InvitationResponse {
+  success: boolean;
+  team_id?: string;
+  team_name?: string;
+  error?: string;
+}
+
 export const useInvitationAccept = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -16,19 +23,21 @@ export const useInvitationAccept = () => {
 
       if (error) throw error;
 
-      if (data.success) {
+      const result = data as InvitationResponse;
+
+      if (result.success) {
         toast({
           title: "Invitation accepted!",
-          description: `You've successfully joined ${data.team_name}`,
+          description: `You've successfully joined ${result.team_name}`,
         });
-        return { success: true, teamId: data.team_id };
+        return { success: true, teamId: result.team_id };
       } else {
         toast({
           title: "Failed to accept invitation",
-          description: data.error,
+          description: result.error,
           variant: "destructive",
         });
-        return { success: false, error: data.error };
+        return { success: false, error: result.error };
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
