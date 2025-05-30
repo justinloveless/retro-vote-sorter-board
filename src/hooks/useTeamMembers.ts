@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -120,21 +121,59 @@ export const useTeamMembers = (teamId: string | null) => {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      // Get current user's profile for the inviter name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', currentUser.id)
+        .single();
+
+      // Get team name
+      const { data: team } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', teamId)
+        .single();
+
+      // Create the invitation record
+      const { data: invitation, error } = await supabase
         .from('team_invitations')
         .insert([{
           team_id: teamId,
           email,
           invited_by: currentUser.id,
           invite_type: 'email'
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Invitation sent",
-        description: `Invitation sent to ${email}`,
+      // Send the email via edge function
+      const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+        body: {
+          invitationId: invitation.id,
+          email: email,
+          teamName: team?.name || 'Team',
+          inviterName: profile?.full_name || 'Someone',
+          token: invitation.token
+        }
       });
+
+      if (emailError) {
+        console.error('Error sending email:', emailError);
+        // Still show success message even if email fails, as invitation was created
+        toast({
+          title: "Invitation created",
+          description: `Invitation created for ${email}, but email may not have been sent. They can still use the invite link.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Invitation sent",
+          description: `Invitation email sent to ${email}`,
+        });
+      }
 
       loadInvitations();
     } catch (error) {
