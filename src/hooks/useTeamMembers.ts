@@ -43,13 +43,20 @@ export const useTeamMembers = (teamId: string | null) => {
         .from('team_members')
         .select(`
           *,
-          profiles(full_name)
+          profiles!team_members_user_id_fkey(full_name)
         `)
         .eq('team_id', teamId)
         .order('joined_at', { ascending: true });
 
       if (error) throw error;
-      setMembers(data || []);
+      
+      // Type cast the data to ensure proper typing
+      const typedMembers = (data || []).map(member => ({
+        ...member,
+        role: member.role as 'owner' | 'admin' | 'member'
+      }));
+      
+      setMembers(typedMembers);
     } catch (error) {
       console.error('Error loading team members:', error);
       toast({
@@ -77,7 +84,14 @@ export const useTeamMembers = (teamId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInvitations(data || []);
+      
+      // Type cast the data to ensure proper typing
+      const typedInvitations = (data || []).map(invitation => ({
+        ...invitation,
+        status: invitation.status as 'pending' | 'accepted' | 'declined'
+      }));
+      
+      setInvitations(typedInvitations);
     } catch (error) {
       console.error('Error loading invitations:', error);
     }
