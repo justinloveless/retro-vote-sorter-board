@@ -110,6 +110,9 @@ const Index = () => {
               <Button onClick={handleJoinRoom} disabled={!roomId.trim()} className="w-full">
                 Join Room
               </Button>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                No account required - join as a guest or sign in for full features
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -123,7 +126,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600 dark:text-gray-300">
-                Create instant retro boards without any setup. Perfect for ad-hoc sessions.
+                Create instant retro boards without any setup. Perfect for ad-hoc sessions and guest users.
               </p>
             </CardContent>
           </Card>
@@ -143,11 +146,11 @@ const Index = () => {
           <Card className="text-center">
             <CardHeader>
               <User className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <CardTitle>Real-time Collaboration</CardTitle>
+              <CardTitle>Guest-Friendly</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-gray-600 dark:text-gray-300">
-                See who's online, collaborate in real-time, and make decisions together.
+                Anyone can join and participate without creating an account. Sign up for advanced features and team management.
               </p>
             </CardContent>
           </Card>

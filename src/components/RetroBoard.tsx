@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut, ExternalLink, Moon, Sun } from 'lucide-react';
+import { Plus, ThumbsUp, Edit2, Trash2, GripVertical, Edit, LogOut, ExternalLink, Moon, Sun, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNavigate } from 'react-router-dom';
 import { AddItemCard } from './AddItemCard';
 import { ActiveUsers } from './ActiveUsers';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
@@ -21,11 +22,20 @@ interface RetroBoardProps {
   boardId: string;
   isPrivate: boolean;
   onTogglePrivacy: () => void;
+  anonymousName?: string;
+  isAnonymousUser?: boolean;
 }
 
-export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTogglePrivacy }) => {
+export const RetroBoard: React.FC<RetroBoardProps> = ({ 
+  boardId, 
+  isPrivate, 
+  onTogglePrivacy, 
+  anonymousName = 'Anonymous',
+  isAnonymousUser = false 
+}) => {
   const { user, profile, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const { 
     board, 
     columns, 
@@ -51,7 +61,10 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   } = useRetroBoard(boardId);
   
   const [newColumnTitle, setNewColumnTitle] = useState('');
-  const [userName, setUserName] = useState(profile?.full_name || user?.email || 'Anonymous');
+  const [userName, setUserName] = useState(() => {
+    if (isAnonymousUser) return anonymousName;
+    return profile?.full_name || user?.email || 'Anonymous';
+  });
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -59,14 +72,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-  // Update user name when profile changes
+  // Update user name when profile changes (but not for anonymous users)
   useEffect(() => {
-    if (profile?.full_name) {
-      setUserName(profile.full_name);
-    } else if (user?.email) {
-      setUserName(user.email);
+    if (!isAnonymousUser) {
+      if (profile?.full_name) {
+        setUserName(profile.full_name);
+      } else if (user?.email) {
+        setUserName(user.email);
+      }
     }
-  }, [profile, user]);
+  }, [profile, user, isAnonymousUser]);
 
   // Update title text when board changes
   useEffect(() => {
@@ -100,7 +115,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   };
 
   const handleAddColumn = () => {
-    if (!newColumnTitle.trim()) return;
+    if (!newColumnTitle.trim() || isAnonymousUser) return;
     
     addColumn(newColumnTitle);
     setNewColumnTitle('');
@@ -120,27 +135,31 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
   };
 
   const handleTitleEdit = () => {
-    if (!titleText.trim()) return;
+    if (!titleText.trim() || isAnonymousUser) return;
     updateBoardTitle(titleText);
     setEditingTitle(false);
   };
 
   const handleDragStart = (e: React.DragEvent, columnId: string) => {
+    if (isAnonymousUser) return;
     setDraggedColumn(columnId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    if (isAnonymousUser) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverColumn(columnId);
   };
 
   const handleDragLeave = () => {
+    if (isAnonymousUser) return;
     setDragOverColumn(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+    if (isAnonymousUser) return;
     e.preventDefault();
     
     if (!draggedColumn || draggedColumn === targetColumnId) {
@@ -186,7 +205,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1">
-            {editingTitle ? (
+            {editingTitle && !isAnonymousUser ? (
               <div className="flex items-center gap-2">
                 <Input
                   value={titleText}
@@ -200,22 +219,31 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
             ) : (
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{board?.title || 'Team Retrospective'}</h1>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingTitle(true)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                {!isAnonymousUser && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingTitle(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             )}
             <p className="text-gray-600 dark:text-gray-400">Board ID: {boardId}</p>
+            {isAnonymousUser && (
+              <p className="text-sm text-orange-600 dark:text-orange-400">
+                You're viewing as: {anonymousName} (Guest)
+              </p>
+            )}
           </div>
           
           <div className="flex items-center gap-4">
             <ActiveUsers users={activeUsers} />
             
-            <BoardConfig config={boardConfig} onUpdateConfig={updateBoardConfig} />
+            {!isAnonymousUser && (
+              <BoardConfig config={boardConfig} onUpdateConfig={updateBoardConfig} />
+            )}
             
             <Button
               variant="outline"
@@ -225,15 +253,27 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
             >
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
-            
-            <Button 
+
+            <Button
               variant="outline"
-              onClick={signOut}
+              size="sm"
+              onClick={() => navigate('/')}
               className="flex items-center gap-2"
             >
-              <LogOut className="h-4 w-4" />
-              Sign Out
+              <Home className="h-4 w-4" />
+              Home
             </Button>
+            
+            {!isAnonymousUser && (
+              <Button 
+                variant="outline"
+                onClick={signOut}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            )}
           </div>
         </div>
 
@@ -244,9 +284,13 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             className="w-48"
+            disabled={isAnonymousUser}
           />
           <span className="text-sm text-gray-600 dark:text-gray-400">
-            Signed in as {profile?.full_name || user?.email}
+            {isAnonymousUser 
+              ? 'Guest user (sign in for full features)' 
+              : `Signed in as ${profile?.full_name || user?.email}`
+            }
           </span>
         </div>
       </div>
@@ -262,7 +306,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
               } ${
                 draggedColumn === column.id ? 'opacity-50' : ''
               }`}
-              draggable
+              draggable={!isAnonymousUser}
               onDragStart={(e) => handleDragStart(e, column.id)}
               onDragOver={(e) => handleDragOver(e, column.id)}
               onDragLeave={handleDragLeave}
@@ -275,12 +319,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
                   <div className="flex items-center gap-1">
-                    <ColumnManager 
-                      column={column}
-                      onUpdateColumn={updateColumn}
-                      onDeleteColumn={deleteColumn}
-                    />
-                    <GripVertical className="h-5 w-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                    {!isAnonymousUser && (
+                      <>
+                        <ColumnManager 
+                          column={column}
+                          onUpdateColumn={updateColumn}
+                          onDeleteColumn={deleteColumn}
+                        />
+                        <GripVertical className="h-5 w-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                      </>
+                    )}
                   </div>
                 </div>
                 
@@ -381,36 +429,38 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({ boardId, isPrivate, onTo
             </div>
           ))}
           
-          {/* Add Column Card */}
-          <div className="w-80 flex-shrink-0">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="bg-white/50 dark:bg-gray-800/50 border-dashed border-2 hover:bg-white/70 dark:hover:bg-gray-800/70 cursor-pointer transition-colors h-20">
-                  <CardContent className="p-4 flex items-center justify-center h-full">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <Plus className="h-4 w-4" />
-                      <span className="text-sm">Add another list</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Column</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <Input
-                    placeholder="Column title"
-                    value={newColumnTitle}
-                    onChange={(e) => setNewColumnTitle(e.target.value)}
-                  />
-                  <Button onClick={handleAddColumn} className="w-full">
-                    Add Column
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+          {/* Add Column Card - Only show for authenticated users */}
+          {!isAnonymousUser && (
+            <div className="w-80 flex-shrink-0">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Card className="bg-white/50 dark:bg-gray-800/50 border-dashed border-2 hover:bg-white/70 dark:hover:bg-gray-800/70 cursor-pointer transition-colors h-20">
+                    <CardContent className="p-4 flex items-center justify-center h-full">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <Plus className="h-4 w-4" />
+                        <span className="text-sm">Add another list</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Column</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Column title"
+                      value={newColumnTitle}
+                      onChange={(e) => setNewColumnTitle(e.target.value)}
+                    />
+                    <Button onClick={handleAddColumn} className="w-full">
+                      Add Column
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </div>
       </div>
     </div>
