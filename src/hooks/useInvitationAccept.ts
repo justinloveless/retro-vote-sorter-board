@@ -23,7 +23,7 @@ export const useInvitationAccept = () => {
 
       if (error) throw error;
 
-      const result = data as InvitationResponse;
+      const result = data as unknown as InvitationResponse;
 
       if (result.success) {
         toast({

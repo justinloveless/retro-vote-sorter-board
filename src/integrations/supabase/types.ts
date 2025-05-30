@@ -477,6 +477,10 @@ export type Database = {
         Args: { team_id: string; user_id: string }
         Returns: boolean
       }
+      is_team_admin_or_owner: {
+        Args: { team_id: string; user_id: string }
+        Returns: boolean
+      }
       is_team_member: {
         Args: { team_id: string; user_id: string }
         Returns: boolean
