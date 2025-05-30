@@ -8,6 +8,7 @@ interface TeamBoard {
   room_id: string;
   title: string;
   is_private: boolean;
+  password_hash: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,7 +50,7 @@ export const useTeamBoards = (teamId: string | null) => {
     loadBoards();
   }, [teamId]);
 
-  const createBoardForTeam = async (title: string) => {
+  const createBoardForTeam = async (title: string, isPrivate: boolean = false, password: string | null = null) => {
     if (!teamId) return null;
 
     try {
@@ -58,9 +59,6 @@ export const useTeamBoards = (teamId: string | null) => {
 
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // Generate a default password for team boards (they are private by default)
-      const defaultPassword = Math.random().toString(36).substring(2, 8);
 
       // Get team default settings
       const { data: defaultSettings } = await supabase
@@ -76,8 +74,8 @@ export const useTeamBoards = (teamId: string | null) => {
           title,
           team_id: teamId,
           creator_id: currentUser.id,
-          is_private: true, // Team boards are private by default
-          password_hash: defaultPassword
+          is_private: isPrivate,
+          password_hash: password
         }])
         .select()
         .single();
@@ -97,9 +95,10 @@ export const useTeamBoards = (teamId: string | null) => {
           }]);
       }
 
+      const boardType = isPrivate ? 'private' : 'public';
       toast({
         title: "Board created",
-        description: "New private retro board created for your team.",
+        description: `New ${boardType} retro board created for your team.`,
       });
 
       loadBoards();

@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, Calendar, Users, Settings } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Plus, Calendar, Users, Settings, Lock, Eye, EyeOff } from 'lucide-react';
 import { useTeamBoards } from '@/hooks/useTeamBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +23,10 @@ const Team = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [boardTitle, setBoardTitle] = useState('');
+  const [boardType, setBoardType] = useState<'private' | 'public'>('private');
+  const [customPassword, setCustomPassword] = useState('');
+  const [suggestedPassword] = useState(() => Math.random().toString(36).substring(2, 8));
+  const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,12 +64,22 @@ const Team = () => {
   const handleCreateBoard = async () => {
     if (!boardTitle.trim()) return;
 
-    const board = await createBoardForTeam(boardTitle.trim());
+    const password = boardType === 'private' ? (customPassword || suggestedPassword) : null;
+    const board = await createBoardForTeam(boardTitle.trim(), boardType === 'private', password);
     if (board) {
       setShowCreateDialog(false);
       setBoardTitle('');
+      setCustomPassword('');
+      setBoardType('private');
       navigate(`/retro/${board.room_id}`);
     }
+  };
+
+  const togglePasswordVisibility = (boardId: string) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [boardId]: !prev[boardId]
+    }));
   };
 
   if (authLoading || loading) {
@@ -135,15 +151,27 @@ const Team = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {boards.map((board) => (
-                  <Card key={board.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <Card key={board.id} className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span className="truncate">{board.title}</span>
-                        {board.is_private && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                            Private
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {board.is_private && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                Private
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => togglePasswordVisibility(board.id)}
+                                className="h-6 w-6 p-0"
+                              >
+                                {showPasswords[board.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -151,6 +179,17 @@ const Team = () => {
                         <Calendar className="h-4 w-4 mr-1" />
                         {new Date(board.created_at).toLocaleDateString()}
                       </div>
+                      {board.is_private && board.password_hash && (
+                        <div className="mb-4 p-2 bg-gray-50 rounded text-sm">
+                          <div className="flex items-center gap-2">
+                            <Lock className="h-3 w-3" />
+                            <span className="font-medium">Password:</span>
+                            <span className="font-mono">
+                              {showPasswords[board.id] ? board.password_hash : '••••••'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <Button
                         onClick={() => navigate(`/retro/${board.room_id}`)}
                         className="w-full"
@@ -191,7 +230,7 @@ const Team = () => {
         </div>
 
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Retro Board</DialogTitle>
             </DialogHeader>
@@ -204,14 +243,56 @@ const Team = () => {
                   value={boardTitle}
                   onChange={(e) => setBoardTitle(e.target.value)}
                   placeholder="e.g., Sprint 23 Retrospective"
-                  onKeyPress={(e) => e.key === 'Enter' && handleCreateBoard()}
+                  onKeyPress={(e) => e.key === 'Enter' && boardType === 'public' && handleCreateBoard()}
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Board Privacy
+                </label>
+                <RadioGroup value={boardType} onValueChange={(value) => setBoardType(value as 'private' | 'public')}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="private" id="private" />
+                    <Label htmlFor="private" className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Private (password protected)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="public" id="public" />
+                    <Label htmlFor="public">Public (anyone with link can join)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {boardType === 'private' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Password
+                  </label>
+                  <Input
+                    value={customPassword}
+                    onChange={(e) => setCustomPassword(e.target.value)}
+                    placeholder={`Suggested: ${suggestedPassword}`}
+                    onKeyPress={(e) => e.key === 'Enter' && handleCreateBoard()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty to use suggested password
+                  </p>
+                </div>
+              )}
+              
               <div className="flex gap-2">
                 <Button onClick={handleCreateBoard} className="flex-1" disabled={!boardTitle.trim()}>
                   Create Board
                 </Button>
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowCreateDialog(false);
+                  setBoardTitle('');
+                  setCustomPassword('');
+                  setBoardType('private');
+                }}>
                   Cancel
                 </Button>
               </div>
