@@ -22,6 +22,7 @@ interface RetroItemCommentsProps {
   onDeleteComment: (commentId: string) => void;
   userName: string;
   currentUserId?: string;
+  showAuthor?: boolean;
 }
 
 export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
@@ -30,7 +31,8 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
   onAddComment,
   onDeleteComment,
   userName,
-  currentUserId
+  currentUserId,
+  showAuthor
 }) => {
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -72,9 +74,11 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-xs">
-                        {comment.author}
-                      </Badge>
+                      {showAuthor ? (
+                        <Badge variant="outline" className="text-xs">
+                          {comment.author}
+                        </Badge>
+                      ) : <span></span>}
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(comment.created_at).toLocaleString()}
                       </span>
