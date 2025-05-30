@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Lock, Share2, Copy, Check, User } from 'lucide-react';
+import { Lock, Share2, Copy, Check, User, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface RetroRoomProps {
   roomId?: string;
@@ -36,8 +37,10 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [boardData, setBoardData] = useState<any>(null);
   const [hasRoomAccess, setHasRoomAccess] = useState(false);
   const [anonymousName] = useState(() => generateSillyName());
+  const [isTeamMember, setIsTeamMember] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!initialRoomId) {
@@ -57,7 +60,14 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     try {
       const { data: board, error } = await supabase
         .from('retro_boards')
-        .select('*')
+        .select(`
+          *,
+          teams!inner(
+            id,
+            name,
+            team_members(user_id, role)
+          )
+        `)
         .eq('room_id', roomId)
         .single();
 
@@ -67,19 +77,32 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
       if (board) {
         setBoardData(board);
+        setIsPrivate(board.is_private);
+
+        // Check if user is a team member for this board
+        if (board.team_id && user && board.teams) {
+          const teamMembers = board.teams.team_members || [];
+          const isMember = teamMembers.some((member: any) => member.user_id === user.id);
+          setIsTeamMember(isMember);
+        }
+
         if (board.is_private && board.password_hash) {
-          setIsPrivate(true);
-          // Check if user already authenticated for this room
-          const savedAuth = localStorage.getItem(`retro-room-${roomId}`);
-          if (savedAuth) {
-            const authData = JSON.parse(savedAuth);
-            if (authData.authenticated) {
-              setHasRoomAccess(true);
+          // If user is a team member, grant access automatically
+          if (board.team_id && user && isTeamMember) {
+            setHasRoomAccess(true);
+          } else {
+            // Check if user already authenticated for this room
+            const savedAuth = localStorage.getItem(`retro-room-${roomId}`);
+            if (savedAuth) {
+              const authData = JSON.parse(savedAuth);
+              if (authData.authenticated) {
+                setHasRoomAccess(true);
+              } else {
+                setShowPasswordDialog(true);
+              }
             } else {
               setShowPasswordDialog(true);
             }
-          } else {
-            setShowPasswordDialog(true);
           }
         } else {
           setHasRoomAccess(true);
@@ -253,6 +276,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       
       {/* Floating Buttons */}
       <div className="fixed bottom-6 right-6 flex gap-2">
+        <Button 
+          onClick={() => navigate('/')}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <Home className="h-4 w-4" />
+          Home
+        </Button>
+        
         <Button 
           onClick={() => setShowShareDialog(true)}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700"

@@ -58,6 +58,9 @@ export const useTeamBoards = (teamId: string | null) => {
 
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Generate a default password for team boards (they are private by default)
+      const defaultPassword = Math.random().toString(36).substring(2, 8);
 
       // Get team default settings
       const { data: defaultSettings } = await supabase
@@ -72,7 +75,9 @@ export const useTeamBoards = (teamId: string | null) => {
           room_id: roomId,
           title,
           team_id: teamId,
-          creator_id: currentUser.id
+          creator_id: currentUser.id,
+          is_private: true, // Team boards are private by default
+          password_hash: defaultPassword
         }])
         .select()
         .single();
@@ -94,7 +99,7 @@ export const useTeamBoards = (teamId: string | null) => {
 
       toast({
         title: "Board created",
-        description: "New retro board created for your team.",
+        description: "New private retro board created for your team.",
       });
 
       loadBoards();
