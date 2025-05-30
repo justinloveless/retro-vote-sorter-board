@@ -38,14 +38,14 @@ const Team = () => {
             team_members!inner(role)
           `)
           .eq('id', teamId)
+          .eq('team_members.user_id', user.id)
           .single();
 
         if (error) throw error;
         
         setTeam(data);
         // Get current user's role
-        const userMember = data.team_members.find((member: any) => member.user_id === user.id);
-        setCurrentUserRole(userMember?.role);
+        setCurrentUserRole(data.team_members[0]?.role);
       } catch (error) {
         console.error('Error loading team:', error);
         toast({
@@ -112,7 +112,11 @@ const Team = () => {
               </TabsContent>
               
               <TabsContent value="members" className="space-y-4">
-                <TeamMembersList teamId={teamId!} currentUserRole={currentUserRole} />
+                <TeamMembersList 
+                  teamId={teamId!} 
+                  teamName={team.name}
+                  currentUserRole={currentUserRole} 
+                />
               </TabsContent>
             </Tabs>
           </div>
