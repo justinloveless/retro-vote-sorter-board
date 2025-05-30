@@ -2,15 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Save, Trash2, Users } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/AuthForm';
+import { TeamSettingsForm } from '@/components/team/TeamSettingsForm';
+import { DangerZone } from '@/components/team/DangerZone';
 import { supabase } from '@/integrations/supabase/client';
 
 const TeamSettings = () => {
@@ -20,10 +17,6 @@ const TeamSettings = () => {
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: ''
-  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -55,10 +48,6 @@ const TeamSettings = () => {
         }
 
         setTeam(data);
-        setFormData({
-          name: data.name || '',
-          description: data.description || ''
-        });
       } catch (error) {
         console.error('Error loading team:', error);
         toast({
@@ -75,8 +64,8 @@ const TeamSettings = () => {
     loadTeam();
   }, [teamId, user, navigate, toast]);
 
-  const handleSave = async () => {
-    if (!teamId || !formData.name.trim()) return;
+  const handleSave = async (formData: { name: string; description: string }) => {
+    if (!teamId) return;
 
     setSaving(true);
     try {
@@ -175,83 +164,16 @@ const TeamSettings = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Team Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="team-name">Team Name</Label>
-                  <Input
-                    id="team-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter team name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="team-description">Description (optional)</Label>
-                  <Textarea
-                    id="team-description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter team description"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={handleSave} disabled={saving || !formData.name.trim()}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate(`/teams/${teamId}`)}>
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <TeamSettingsForm
+              team={team}
+              onSave={handleSave}
+              onCancel={() => navigate(`/teams/${teamId}`)}
+              saving={saving}
+            />
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="border-red-200 dark:border-red-800">
-              <CardHeader>
-                <CardTitle className="text-red-600 dark:text-red-400">Danger Zone</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Deleting a team is permanent and cannot be undone. All team data including retro boards will be lost.
-                </p>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Team
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the team "{team.name}" 
-                        and all associated retro boards and data.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                        Delete Team
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
+            <DangerZone teamName={team.name} onDelete={handleDelete} />
           </div>
         </div>
       </div>
