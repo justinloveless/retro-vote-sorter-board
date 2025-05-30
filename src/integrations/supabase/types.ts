@@ -359,7 +359,9 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          invite_type: string | null
           invited_by: string
+          is_active: boolean | null
           status: string | null
           team_id: string
           token: string
@@ -369,7 +371,9 @@ export type Database = {
           email: string
           expires_at?: string
           id?: string
+          invite_type?: string | null
           invited_by: string
+          is_active?: boolean | null
           status?: string | null
           team_id: string
           token?: string
@@ -379,7 +383,9 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          invite_type?: string | null
           invited_by?: string
+          is_active?: boolean | null
           status?: string | null
           team_id?: string
           token?: string

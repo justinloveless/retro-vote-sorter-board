@@ -6,7 +6,7 @@ import { useInvitationAccept } from '@/hooks/useInvitationAccept';
 import { AuthForm } from '@/components/AuthForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, CheckCircle } from 'lucide-react';
+import { Users, CheckCircle, Lock } from 'lucide-react';
 
 const InviteAccept = () => {
   const { token } = useParams<{ token: string }>();
@@ -42,12 +42,13 @@ const InviteAccept = () => {
           <div className="max-w-md mx-auto">
             <Card className="mb-6">
               <CardHeader className="text-center">
-                <Users className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <CardTitle>You've been invited to join a team!</CardTitle>
+                <Lock className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+                <CardTitle>Sign in required</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-center mb-4">
-                  Please sign in or create an account to accept this invitation.
+                  You need to be signed in to accept this team invitation. 
+                  Please sign in or create an account below.
                 </p>
               </CardContent>
             </Card>
@@ -92,6 +93,9 @@ const InviteAccept = () => {
           >
             {loading ? 'Accepting...' : 'Accept Invitation'}
           </Button>
+          <div className="text-xs text-gray-500 text-center">
+            By accepting this invitation, you'll become a member of the team and gain access to all team resources.
+          </div>
         </CardContent>
       </Card>
     </div>
