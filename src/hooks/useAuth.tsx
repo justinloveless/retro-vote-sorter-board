@@ -33,14 +33,16 @@ export const useAuth = () => {
       if (session?.user) {
         
         try {
-          const { data: profileData } = await supabase
+          const profile = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
           
-          setProfile(profileData);
-          console.log('profileData set', profileData);
+            console.log('profile', profile);
+            
+          setProfile(profile.data);
+          console.log('profile set', profile.data);
         } catch (error) {
           console.error('Error fetching profile:', error);
           setProfile(null);
