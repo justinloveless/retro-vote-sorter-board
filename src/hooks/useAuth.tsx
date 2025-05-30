@@ -36,8 +36,9 @@ export const useAuth = () => {
           const profile = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
-            .single();
+            .eq('id', session.user.id);
+
+            //.single();
           
             console.log('profile', profile);
             
