@@ -138,8 +138,9 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                   <>
                     <p className="text-gray-800 dark:text-gray-200 mb-3">{item.text}</p>
                     
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2">
+                      {/* Row 1: Badges */}
+                      <div className="flex justify-between w-full">
                         {boardConfig?.show_author_names && (
                           <Badge variant="secondary" className="text-xs">
                             {item.author}
@@ -152,8 +153,9 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                           </Badge>
                         )}
                       </div>
-                      
-                      <div className="flex gap-1">
+
+                      {/* Row 2: Buttons */}
+                      <div className="flex justify-end w-full gap-1">
                         {boardConfig?.voting_enabled && (
                           <Button 
                             size="sm" 
@@ -193,6 +195,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                         </Button>
                       </div>
                     </div>
+
 
                     <RetroItemComments
                       itemId={item.id}
