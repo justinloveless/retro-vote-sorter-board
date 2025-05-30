@@ -141,11 +141,11 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                     <div className="flex flex-col gap-2">
                       {/* Row 1: Badges */}
                       <div className="flex justify-between w-full">
-                        {boardConfig?.show_author_names && (
+                        {boardConfig?.show_author_names ? (
                           <Badge variant="secondary" className="text-xs">
                             {item.author}
                           </Badge>
-                        )}
+                        ) : <span></span>}
                         {boardConfig?.voting_enabled && (
                           <Badge variant={item.votes > 0 ? "default" : "outline"} className="flex items-center gap-1">
                             <ThumbsUp className="h-3 w-3" />
@@ -204,6 +204,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       onDeleteComment={onDeleteComment}
                       userName={userName}
                       currentUserId={user?.id}
+                      showAuthor={boardConfig.show_author_names}
                     />
                   </>
                 )}
@@ -211,7 +212,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
             </Card>
           ))}
           
-          <AddItemCard onAddItem={onAddItem} />
+          <AddItemCard onAddItem={onAddItem} allowAnonymous={boardConfig.allow_anonymous}/>
         </div>
       </div>
     </div>

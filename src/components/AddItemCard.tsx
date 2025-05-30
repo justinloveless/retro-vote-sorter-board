@@ -8,9 +8,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 interface AddItemCardProps {
   onAddItem: (text: string, isAnonymous: boolean) => void;
+  allowAnonymous?: boolean;
 }
 
-export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem }) => {
+export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonymous }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [text, setText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -56,16 +57,18 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem }) => {
           rows={3}
           autoFocus
         />
-        <div className="flex items-center space-x-2">
-          <Checkbox 
-            id="anonymous" 
-            checked={isAnonymous}
-            onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
-          />
-          <label htmlFor="anonymous" className="text-sm text-gray-600">
-            Post anonymously
-          </label>
-        </div>
+        {allowAnonymous && (
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="anonymous" 
+              checked={isAnonymous}
+              onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
+            />
+            <label htmlFor="anonymous" className="text-sm text-gray-600">
+              Post anonymously
+            </label>
+          </div>
+        )}
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSubmit}>
             Add card

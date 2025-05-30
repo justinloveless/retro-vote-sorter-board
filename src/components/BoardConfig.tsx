@@ -57,7 +57,7 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="allow-anonymous">Allow Anonymous Users</Label>
+                <Label htmlFor="allow-anonymous">Allow Anonymous Posts</Label>
                 <Switch
                   id="allow-anonymous"
                   checked={localConfig.allow_anonymous ?? true}
