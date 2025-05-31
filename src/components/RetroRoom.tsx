@@ -51,26 +51,6 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     }
   }, [initialRoomId]);
 
-  // Cleanup presence when component unmounts (e.g., navigating away)
-  useEffect(() => {
-    return () => {
-      if (boardData?.id && user) {
-        // Clean up presence when navigating away from the room
-        supabase
-          .from('board_presence')
-          .delete()
-          .eq('board_id', boardData.id)
-          .eq('user_id', user.id)
-          .then(() => {
-            console.log('Cleaned up presence on navigation');
-          })
-          .catch((error) => {
-            console.error('Error cleaning up presence on navigation:', error);
-          });
-      }
-    };
-  }, [boardData?.id, user]);
-
   const togglePrivacy = async () => {
     if (!user) {
       toast({

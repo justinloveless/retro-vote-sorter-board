@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -64,68 +65,21 @@ export const useRetroBoard = (roomId: string) => {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
+  const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const { toast } = useToast();
 
-  // Debounced presence update to avoid creating presence on every keystroke
-  const debouncedUpdatePresence = useMemo(() => {
-    let timeoutId: NodeJS.Timeout;
-    return (userName: string) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(async () => {
-        if (!board || !userName.trim()) return;
+  // Update user presence using Supabase realtime presence
+  const updatePresence = useCallback(async (userName: string) => {
+    if (!presenceChannel || !userName.trim()) return;
 
-        try {
-          const currentUser = (await supabase.auth.getUser()).data.user;
-          
-          // Clean up any old presence records for this user/session first
-          if (currentUser) {
-            await supabase
-              .from('board_presence')
-              .delete()
-              .eq('board_id', board.id)
-              .eq('user_id', currentUser.id);
-          }
-          
-          // Insert new presence record
-          await supabase
-            .from('board_presence')
-            .upsert({
-              board_id: board.id,
-              user_id: currentUser?.id || null,
-              user_name: userName,
-              last_seen: new Date().toISOString()
-            }, {
-              onConflict: currentUser ? 'board_id,user_id' : undefined
-            });
-        } catch (error) {
-          console.error('Error updating presence:', error);
-        }
-      }, 1000); // 1 second debounce
-    };
-  }, [board]);
-
-  // Memoized cleanup function to avoid dependency issues
-  const cleanupPresence = useCallback(async (boardId?: string) => {
-    if (!boardId) return;
+    const currentUser = (await supabase.auth.getUser()).data.user;
     
-    try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
-      if (currentUser) {
-        await supabase
-          .from('board_presence')
-          .delete()
-          .eq('board_id', boardId)
-          .eq('user_id', currentUser.id);
-      }
-    } catch (error) {
-      console.error('Error cleaning up presence:', error);
-    }
-  }, []);
-
-  // Update user presence with debouncing
-  const updatePresence = useCallback((userName: string) => {
-    debouncedUpdatePresence(userName);
-  }, [debouncedUpdatePresence]);
+    await presenceChannel.track({
+      user_id: currentUser?.id || sessionId,
+      user_name: userName,
+      last_seen: new Date().toISOString()
+    });
+  }, [presenceChannel, sessionId]);
 
   // Load board data with better error handling and loading state management
   useEffect(() => {
@@ -214,25 +168,6 @@ export const useRetroBoard = (roomId: string) => {
         if (commentsError) throw commentsError;
         setComments(commentsData || []);
 
-        // Load active users (only recent ones and clean up stale data)
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        
-        // First, clean up old presence records
-        await supabase
-          .from('board_presence')
-          .delete()
-          .eq('board_id', boardData.id)
-          .lt('last_seen', new Date(Date.now() - 10 * 60 * 1000).toISOString());
-
-        const { data: usersData, error: usersError } = await supabase
-          .from('board_presence')
-          .select('*')
-          .eq('board_id', boardData.id)
-          .gte('last_seen', fiveMinutesAgo);
-
-        if (usersError) throw usersError;
-        setActiveUsers(usersData || []);
-
       } catch (error) {
         console.error('Error loading board data:', error);
         toast({
@@ -248,43 +183,55 @@ export const useRetroBoard = (roomId: string) => {
     loadBoardData();
   }, [roomId, toast]);
 
-  // Clean up presence on unmount and handle page unload
+  // Set up realtime presence channel
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (board?.id) {
-        // Use navigator.sendBeacon for reliable cleanup on page unload
-        const currentUser = supabase.auth.getUser();
-        currentUser.then(({ data }) => {
-          if (data.user) {
-            // Create a simple request to delete presence
-            const url = `${supabase.supabaseUrl}/rest/v1/board_presence?board_id=eq.${board.id}&user_id=eq.${data.user.id}`;
-            navigator.sendBeacon(url, JSON.stringify({}));
-          }
+    if (!board) return;
+
+    const channel = supabase.channel(`board_${board.id}`, {
+      config: {
+        presence: {
+          key: 'users'
+        }
+      }
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const users: ActiveUser[] = [];
+        
+        Object.keys(state).forEach(key => {
+          const presences = state[key] as any[];
+          presences.forEach(presence => {
+            users.push({
+              id: presence.user_id,
+              user_name: presence.user_name,
+              last_seen: presence.last_seen
+            });
+          });
         });
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && board?.id) {
-        cleanupPresence(board.id);
-      }
-    };
-
-    // Add event listeners for cleanup
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        setActiveUsers(users);
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('User joined:', newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('User left:', leftPresences);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          setPresenceChannel(channel);
+        }
+      });
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      
-      if (board?.id) {
-        cleanupPresence(board.id);
-      }
+      channel.unsubscribe();
+      setPresenceChannel(null);
     };
-  }, [board?.id, cleanupPresence]);
+  }, [board]);
 
-  // Set up real-time subscriptions - updated to better handle presence
+  // Set up real-time subscriptions for board data
   useEffect(() => {
     if (!board) return;
 
@@ -413,92 +360,6 @@ export const useRetroBoard = (roomId: string) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'board_presence',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const newUser = payload.new as ActiveUser;
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-          
-          if (newUser.last_seen >= fiveMinutesAgo) {
-            setActiveUsers(currentUsers => {
-              // Check if user already exists by id or user_name
-              const userExists = currentUsers.some(user => 
-                user.id === newUser.id || user.user_name === newUser.user_name
-              );
-              
-              if (!userExists) {
-                return [...currentUsers, newUser];
-              }
-              
-              // Update existing user
-              return currentUsers.map(user => 
-                (user.id === newUser.id || user.user_name === newUser.user_name)
-                  ? newUser 
-                  : user
-              );
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'board_presence',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const updatedUser = payload.new as ActiveUser;
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-          
-          setActiveUsers(currentUsers => {
-            if (updatedUser.last_seen >= fiveMinutesAgo) {
-              // Find and update existing user
-              const existingUserIndex = currentUsers.findIndex(user => 
-                user.id === updatedUser.id || user.user_name === updatedUser.user_name
-              );
-              
-              if (existingUserIndex >= 0) {
-                const updatedUsers = [...currentUsers];
-                updatedUsers[existingUserIndex] = updatedUser;
-                return updatedUsers;
-              } else {
-                // Only add if user doesn't exist
-                return [...currentUsers, updatedUser];
-              }
-            } else {
-              // Remove user if they're too old
-              return currentUsers.filter(user => 
-                user.id !== updatedUser.id && user.user_name !== updatedUser.user_name
-              );
-            }
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'board_presence',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const deletedUser = payload.old as ActiveUser;
-          setActiveUsers(currentUsers => 
-            currentUsers.filter(user => 
-              user.id !== deletedUser.id && user.user_name !== deletedUser.user_name
-            )
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
           event: 'UPDATE',
           schema: 'public',
           table: 'retro_boards',
@@ -508,54 +369,11 @@ export const useRetroBoard = (roomId: string) => {
           setBoard(payload.new as RetroBoard);
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'board_presence',
-          filter: `board_id=eq.${board.id}`
-        },
-        async () => {
-          // Reload all active users to get clean state
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-          const { data: usersData } = await supabase
-            .from('board_presence')
-            .select('*')
-            .eq('board_id', board.id)
-            .gte('last_seen', fiveMinutesAgo);
-          
-          setActiveUsers(usersData || []);
-        }
-      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [board]);
-
-  // Set up periodic presence cleanup
-  useEffect(() => {
-    if (!board) return;
-
-    const cleanupInterval = setInterval(async () => {
-      // Remove presence records older than 10 minutes
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      await supabase
-        .from('board_presence')
-        .delete()
-        .eq('board_id', board.id)
-        .lt('last_seen', tenMinutesAgo);
-
-      // Also clean up local state
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      setActiveUsers(currentUsers => 
-        currentUsers.filter(user => user.last_seen >= fiveMinutesAgo)
-      );
-    }, 60000); // Run every minute
-
-    return () => clearInterval(cleanupInterval);
   }, [board]);
 
   const updateBoardTitle = async (title: string) => {
