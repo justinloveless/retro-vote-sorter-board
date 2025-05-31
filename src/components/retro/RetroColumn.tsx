@@ -84,6 +84,23 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
     return `https://${jiraDomain}/secure/CreateIssueDetails!init.jspa?pid=19602&priority=10000&issuetype=10001&summary=${encodedTitle}&description=${encodedTitle}`;
   };
 
+  // Function to get dark mode compatible color classes
+  const getColorClasses = (color: string) => {
+    // Map light mode colors to both light and dark mode classes
+    const colorMap: { [key: string]: string } = {
+      'bg-green-100 border-green-300': 'bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-600',
+      'bg-red-100 border-red-300': 'bg-red-100 border-red-300 dark:bg-red-900/30 dark:border-red-600',
+      'bg-blue-100 border-blue-300': 'bg-blue-100 border-blue-300 dark:bg-blue-900/30 dark:border-blue-600',
+      'bg-yellow-100 border-yellow-300': 'bg-yellow-100 border-yellow-300 dark:bg-yellow-900/30 dark:border-yellow-600',
+      'bg-purple-100 border-purple-300': 'bg-purple-100 border-purple-300 dark:bg-purple-900/30 dark:border-purple-600',
+      'bg-pink-100 border-pink-300': 'bg-pink-100 border-pink-300 dark:bg-pink-900/30 dark:border-pink-600',
+      'bg-indigo-100 border-indigo-300': 'bg-indigo-100 border-indigo-300 dark:bg-indigo-900/30 dark:border-indigo-600',
+      'bg-orange-100 border-orange-300': 'bg-orange-100 border-orange-300 dark:bg-orange-900/30 dark:border-orange-600'
+    };
+
+    return colorMap[color] || `${color} dark:bg-gray-800 dark:border-gray-600`;
+  };
+
   return (
     <div 
       className={`w-80 flex-shrink-0 transition-all duration-200 ${
@@ -98,7 +115,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
       onDrop={(e) => onDrop(e, column.id)}
       onDragEnd={onDragEnd}
     >
-      <div className={`p-4 rounded-lg border-2 ${column.color} dark:bg-gray-800 dark:border-gray-600 space-y-4 ${
+      <div className={`p-4 rounded-lg border-2 ${getColorClasses(column.color)} space-y-4 ${
         dragOverColumn === column.id ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900' : ''
       }`}>
         <div className="flex items-center justify-between">
