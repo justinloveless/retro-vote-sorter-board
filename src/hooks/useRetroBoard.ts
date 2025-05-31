@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -66,6 +66,44 @@ export const useRetroBoard = (roomId: string) => {
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const { toast } = useToast();
 
+  // Debounced presence update to avoid creating presence on every keystroke
+  const debouncedUpdatePresence = useMemo(() => {
+    let timeoutId: NodeJS.Timeout;
+    return (userName: string) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        if (!board || !userName.trim()) return;
+
+        try {
+          const currentUser = (await supabase.auth.getUser()).data.user;
+          
+          // Clean up any old presence records for this user/session first
+          if (currentUser) {
+            await supabase
+              .from('board_presence')
+              .delete()
+              .eq('board_id', board.id)
+              .eq('user_id', currentUser.id);
+          }
+          
+          // Insert new presence record
+          await supabase
+            .from('board_presence')
+            .upsert({
+              board_id: board.id,
+              user_id: currentUser?.id || null,
+              user_name: userName,
+              last_seen: new Date().toISOString()
+            }, {
+              onConflict: currentUser ? 'board_id,user_id' : undefined
+            });
+        } catch (error) {
+          console.error('Error updating presence:', error);
+        }
+      }, 1000); // 1 second debounce
+    };
+  }, [board]);
+
   // Memoized cleanup function to avoid dependency issues
   const cleanupPresence = useCallback(async (boardId?: string) => {
     if (!boardId) return;
@@ -84,37 +122,10 @@ export const useRetroBoard = (roomId: string) => {
     }
   }, []);
 
-  // Update user presence with cleanup
-  const updatePresence = useCallback(async (userName: string) => {
-    if (!board) return;
-
-    try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
-      
-      // First, clean up any old presence records for this user/session
-      if (currentUser) {
-        await supabase
-          .from('board_presence')
-          .delete()
-          .eq('board_id', board.id)
-          .eq('user_id', currentUser.id);
-      }
-      
-      // Then insert the new presence record
-      await supabase
-        .from('board_presence')
-        .upsert({
-          board_id: board.id,
-          user_id: currentUser?.id || null,
-          user_name: userName,
-          last_seen: new Date().toISOString()
-        }, {
-          onConflict: currentUser ? 'board_id,user_id' : undefined
-        });
-    } catch (error) {
-      console.error('Error updating presence:', error);
-    }
-  }, [board]);
+  // Update user presence with debouncing
+  const updatePresence = useCallback((userName: string) => {
+    debouncedUpdatePresence(userName);
+  }, [debouncedUpdatePresence]);
 
   // Load board data with better error handling and loading state management
   useEffect(() => {
@@ -203,8 +214,16 @@ export const useRetroBoard = (roomId: string) => {
         if (commentsError) throw commentsError;
         setComments(commentsData || []);
 
-        // Load active users (only recent ones)
+        // Load active users (only recent ones and clean up stale data)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        
+        // First, clean up old presence records
+        await supabase
+          .from('board_presence')
+          .delete()
+          .eq('board_id', boardData.id)
+          .lt('last_seen', new Date(Date.now() - 10 * 60 * 1000).toISOString());
+
         const { data: usersData, error: usersError } = await supabase
           .from('board_presence')
           .select('*')
@@ -238,7 +257,7 @@ export const useRetroBoard = (roomId: string) => {
     };
   }, [board?.id, cleanupPresence]);
 
-  // Set up real-time subscriptions - updated to include comments and config
+  // Set up real-time subscriptions - updated to better handle presence
   useEffect(() => {
     if (!board) return;
 
@@ -460,6 +479,26 @@ export const useRetroBoard = (roomId: string) => {
         },
         (payload) => {
           setBoard(payload.new as RetroBoard);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'board_presence',
+          filter: `board_id=eq.${board.id}`
+        },
+        async () => {
+          // Reload all active users to get clean state
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+          const { data: usersData } = await supabase
+            .from('board_presence')
+            .select('*')
+            .eq('board_id', board.id)
+            .gte('last_seen', fiveMinutesAgo);
+          
+          setActiveUsers(usersData || []);
         }
       )
       .subscribe();
