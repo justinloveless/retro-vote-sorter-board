@@ -196,7 +196,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       </div>
                     </div>
 
-
                     <RetroItemComments
                       itemId={item.id}
                       comments={onGetCommentsForItem(item.id)}
