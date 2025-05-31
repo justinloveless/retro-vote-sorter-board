@@ -60,13 +60,8 @@ export const useTeamBoards = (teamId: string | null) => {
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      // Get team default settings
-      const { data: defaultSettings } = await supabase
-        .from('team_default_settings')
-        .select('*')
-        .eq('team_id', teamId)
-        .single();
-
+      // The board creation will automatically use the team's default template
+      // thanks to the database trigger we created
       const { data: board, error } = await supabase
         .from('retro_boards')
         .insert([{
@@ -82,7 +77,13 @@ export const useTeamBoards = (teamId: string | null) => {
 
       if (error) throw error;
 
-      // If we have default settings, apply them to the board config
+      // Get team default settings and apply them to the board config
+      const { data: defaultSettings } = await supabase
+        .from('team_default_settings')
+        .select('*')
+        .eq('team_id', teamId)
+        .single();
+
       if (defaultSettings && board) {
         await supabase
           .from('retro_board_config')
@@ -98,7 +99,7 @@ export const useTeamBoards = (teamId: string | null) => {
       const boardType = isPrivate ? 'private' : 'public';
       toast({
         title: "Board created",
-        description: `New ${boardType} retro board created for your team.`,
+        description: `New ${boardType} retro board created with your team's template.`,
       });
 
       loadBoards();

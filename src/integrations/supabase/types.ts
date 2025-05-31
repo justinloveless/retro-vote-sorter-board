@@ -41,6 +41,41 @@ export type Database = {
           },
         ]
       }
+      board_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_templates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -466,6 +501,41 @@ export type Database = {
         }
         Relationships: []
       }
+      template_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          position: number
+          template_id: string
+          title: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          id?: string
+          position: number
+          template_id: string
+          title: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          position?: number
+          template_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_columns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "board_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -474,6 +544,10 @@ export type Database = {
       accept_team_invitation: {
         Args: { invitation_token: string }
         Returns: Json
+      }
+      create_columns_from_template: {
+        Args: { board_id: string; template_id?: string }
+        Returns: undefined
       }
       create_default_columns: {
         Args: { board_id: string }

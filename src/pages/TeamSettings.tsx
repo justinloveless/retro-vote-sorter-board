@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/AuthForm';
 import { TeamSettingsForm } from '@/components/team/TeamSettingsForm';
+import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings';
 import { DangerZone } from '@/components/team/DangerZone';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -163,13 +164,15 @@ const TeamSettings = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <TeamSettingsForm
               team={team}
               onSave={handleSave}
               onCancel={() => navigate(`/teams/${teamId}`)}
               saving={saving}
             />
+
+            <BoardTemplatesSettings teamId={teamId!} />
           </div>
 
           <div className="lg:col-span-1">
