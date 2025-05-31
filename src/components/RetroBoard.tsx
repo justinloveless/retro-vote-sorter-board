@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,12 +71,25 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     }
   }, [profile, user, isAnonymousUser]);
 
-  // Update presence when user name changes
+  // Debounced presence update - only update when user stops typing
+  const debouncedUpdatePresence = useMemo(() => {
+    let timeoutId: NodeJS.Timeout;
+    return (name: string) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (name.trim() && board) {
+          updatePresence(name);
+        }
+      }, 1000); // 1 second delay after user stops typing
+    };
+  }, [updatePresence, board]);
+
+  // Update presence when user name changes (debounced)
   useEffect(() => {
     if (userName && board) {
-      updatePresence(userName);
+      debouncedUpdatePresence(userName);
     }
-  }, [userName, board, updatePresence]);
+  }, [userName, board, debouncedUpdatePresence]);
 
   // Function to check if a column is an "Action Items" column
   const isActionItemsColumn = (columnTitle: string) => {

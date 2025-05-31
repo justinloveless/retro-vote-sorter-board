@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Users, User } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ActiveUser {
   id: string;
@@ -26,39 +26,54 @@ export const ActiveUsers: React.FC<ActiveUsersProps> = ({ users }) => {
     return diffInMinutes < 5; // Consider active if seen within 5 minutes
   };
 
-  const activeUsers = users.filter(user => isRecentlyActive(user.last_seen));
+  // Filter and deduplicate users by name (in case of duplicate presence records)
+  const activeUsers = users
+    .filter(user => isRecentlyActive(user.last_seen))
+    .filter((user, index, self) => 
+      self.findIndex(u => u.user_name === user.user_name) === index
+    );
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1 text-sm text-gray-600">
-        <Users className="h-4 w-4" />
-        <span>{activeUsers.length} online</span>
-      </div>
-      
-      <div className="flex -space-x-2">
-        {activeUsers.slice(0, 5).map((user) => (
-          <Avatar key={user.id} className="h-8 w-8 border-2 border-white">
-            <AvatarFallback className="text-xs bg-indigo-100 text-indigo-700">
-              {getInitials(user.user_name)}
-            </AvatarFallback>
-          </Avatar>
-        ))}
-        {activeUsers.length > 5 && (
-          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 border-2 border-white text-xs text-gray-600">
-            +{activeUsers.length - 5}
-          </div>
-        )}
-      </div>
-      
-      {activeUsers.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {activeUsers.slice(0, 3).map((user) => (
-            <Badge key={user.id} variant="secondary" className="text-xs">
-              {user.user_name}
-            </Badge>
-          ))}
+    <TooltipProvider>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+          <Users className="h-4 w-4" />
+          <span>{activeUsers.length} online</span>
         </div>
-      )}
-    </div>
+        
+        <div className="flex -space-x-2">
+          {activeUsers.slice(0, 8).map((user) => (
+            <Tooltip key={user.id}>
+              <TooltipTrigger asChild>
+                <Avatar className="h-8 w-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:z-10 transition-transform hover:scale-110">
+                  <AvatarFallback className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                    {getInitials(user.user_name)}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{user.user_name}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          {activeUsers.length > 8 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 text-xs text-gray-600 dark:text-gray-300 cursor-pointer hover:z-10 transition-transform hover:scale-110">
+                  +{activeUsers.length - 8}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-1">
+                  {activeUsers.slice(8).map((user) => (
+                    <p key={user.id}>{user.user_name}</p>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+    </TooltipProvider>
   );
 };
