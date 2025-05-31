@@ -8,6 +8,10 @@ interface BoardTemplate {
   team_id: string;
   name: string;
   is_default: boolean;
+  allow_anonymous: boolean;
+  voting_enabled: boolean;
+  max_votes_per_user: number | null;
+  show_author_names: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -113,7 +117,16 @@ export const useBoardTemplates = (teamId: string | null) => {
     }
   };
 
-  const createTemplate = async (name: string, columns: {title: string, color: string, position: number}[]) => {
+  const createTemplate = async (
+    name: string, 
+    columns: {title: string, color: string, position: number}[],
+    boardConfig: {
+      allow_anonymous: boolean;
+      voting_enabled: boolean;
+      max_votes_per_user: number | null;
+      show_author_names: boolean;
+    }
+  ) => {
     if (!teamId) return null;
 
     try {
@@ -122,7 +135,11 @@ export const useBoardTemplates = (teamId: string | null) => {
         .insert([{
           team_id: teamId,
           name: name.trim(),
-          is_default: false
+          is_default: false,
+          allow_anonymous: boardConfig.allow_anonymous,
+          voting_enabled: boardConfig.voting_enabled,
+          max_votes_per_user: boardConfig.max_votes_per_user,
+          show_author_names: boardConfig.show_author_names
         }])
         .select()
         .single();

@@ -43,28 +43,40 @@ export type Database = {
       }
       board_templates: {
         Row: {
+          allow_anonymous: boolean | null
           created_at: string
           id: string
           is_default: boolean | null
+          max_votes_per_user: number | null
           name: string
+          show_author_names: boolean | null
           team_id: string | null
           updated_at: string
+          voting_enabled: boolean | null
         }
         Insert: {
+          allow_anonymous?: boolean | null
           created_at?: string
           id?: string
           is_default?: boolean | null
+          max_votes_per_user?: number | null
           name: string
+          show_author_names?: boolean | null
           team_id?: string | null
           updated_at?: string
+          voting_enabled?: boolean | null
         }
         Update: {
+          allow_anonymous?: boolean | null
           created_at?: string
           id?: string
           is_default?: boolean | null
+          max_votes_per_user?: number | null
           name?: string
+          show_author_names?: boolean | null
           team_id?: string | null
           updated_at?: string
+          voting_enabled?: boolean | null
         }
         Relationships: [
           {

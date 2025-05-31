@@ -77,29 +77,50 @@ export const useTeamBoards = (teamId: string | null) => {
 
       if (error) throw error;
 
-      // Get team default settings and apply them to the board config
-      const { data: defaultSettings } = await supabase
-        .from('team_default_settings')
+      // Get the default template for this team to apply its settings
+      const { data: defaultTemplate } = await supabase
+        .from('board_templates')
         .select('*')
         .eq('team_id', teamId)
+        .eq('is_default', true)
         .single();
 
-      if (defaultSettings && board) {
+      if (defaultTemplate && board) {
+        // Apply template settings to board config
         await supabase
           .from('retro_board_config')
           .insert([{
             board_id: board.id,
-            allow_anonymous: defaultSettings.allow_anonymous,
-            voting_enabled: defaultSettings.voting_enabled,
-            max_votes_per_user: defaultSettings.max_votes_per_user,
-            show_author_names: defaultSettings.show_author_names
+            allow_anonymous: defaultTemplate.allow_anonymous,
+            voting_enabled: defaultTemplate.voting_enabled,
+            max_votes_per_user: defaultTemplate.max_votes_per_user,
+            show_author_names: defaultTemplate.show_author_names
           }]);
+      } else {
+        // Fall back to team default settings if no template is set
+        const { data: defaultSettings } = await supabase
+          .from('team_default_settings')
+          .select('*')
+          .eq('team_id', teamId)
+          .single();
+
+        if (defaultSettings && board) {
+          await supabase
+            .from('retro_board_config')
+            .insert([{
+              board_id: board.id,
+              allow_anonymous: defaultSettings.allow_anonymous,
+              voting_enabled: defaultSettings.voting_enabled,
+              max_votes_per_user: defaultSettings.max_votes_per_user,
+              show_author_names: defaultSettings.show_author_names
+            }]);
+        }
       }
 
       const boardType = isPrivate ? 'private' : 'public';
       toast({
         title: "Board created",
-        description: `New ${boardType} retro board created with your team's template.`,
+        description: `New ${boardType} retro board created with your team's template settings.`,
       });
 
       loadBoards();

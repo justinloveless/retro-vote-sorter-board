@@ -1,9 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Settings2, Star } from 'lucide-react';
@@ -34,13 +35,25 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
     { title: 'Kudos', color: 'bg-blue-100 border-blue-300', position: 3 },
     { title: 'Action Items', color: 'bg-yellow-100 border-yellow-300', position: 4 }
   ]);
+  const [boardConfig, setBoardConfig] = useState({
+    allow_anonymous: true,
+    voting_enabled: true,
+    max_votes_per_user: null as number | null,
+    show_author_names: true
+  });
 
   const handleCreateTemplate = async () => {
     if (!templateName.trim() || columns.length === 0) return;
 
-    await createTemplate(templateName, columns);
+    await createTemplate(templateName, columns, boardConfig);
     setShowCreateDialog(false);
     setTemplateName('');
+    setBoardConfig({
+      allow_anonymous: true,
+      voting_enabled: true,
+      max_votes_per_user: null,
+      show_author_names: true
+    });
   };
 
   const addColumn = () => {
@@ -81,7 +94,7 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       <CardContent className="space-y-4">
         <div className="flex justify-between items-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Manage default column layouts for new retro boards
+            Manage default column layouts and board settings for new retro boards
           </p>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
@@ -90,76 +103,128 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                 New Template
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create Board Template</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Template Name</label>
-                  <Input
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g., Sprint Retrospective"
-                  />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-medium">Columns</label>
-                    <Button type="button" size="sm" variant="outline" onClick={addColumn}>
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Column
-                    </Button>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Template Info and Columns */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Template Name</label>
+                    <Input
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="e.g., Sprint Retrospective"
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    {columns.map((column, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <Input
-                          value={column.title}
-                          onChange={(e) => updateColumn(index, 'title', e.target.value)}
-                          placeholder="Column title"
-                          className="flex-1"
-                        />
-                        <Select 
-                          value={column.color} 
-                          onValueChange={(value) => updateColumn(index, 'color', value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PRESET_COLORS.map(color => (
-                              <SelectItem key={color.value} value={color.value}>
-                                {color.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {columns.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeColumn(index)}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium">Columns</label>
+                      <Button type="button" size="sm" variant="outline" onClick={addColumn}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Column
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {columns.map((column, index) => (
+                        <div key={index} className="flex gap-2 items-center">
+                          <Input
+                            value={column.title}
+                            onChange={(e) => updateColumn(index, 'title', e.target.value)}
+                            placeholder="Column title"
+                            className="flex-1"
+                          />
+                          <Select 
+                            value={column.color} 
+                            onValueChange={(value) => updateColumn(index, 'color', value)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRESET_COLORS.map(color => (
+                                <SelectItem key={color.value} value={color.value}>
+                                  {color.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {columns.length > 1 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeColumn(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateTemplate} disabled={!templateName.trim()}>
-                    Create Template
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                    Cancel
-                  </Button>
+
+                {/* Right Column - Board Settings */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-3">Board Settings</label>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="allow-anonymous" className="text-sm">Allow Anonymous Posts</Label>
+                        <Switch
+                          id="allow-anonymous"
+                          checked={boardConfig.allow_anonymous}
+                          onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, allow_anonymous: checked }))}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="show-author-names" className="text-sm">Show Author Names</Label>
+                        <Switch
+                          id="show-author-names"
+                          checked={boardConfig.show_author_names}
+                          onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, show_author_names: checked }))}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="voting-enabled" className="text-sm">Enable Voting</Label>
+                        <Switch
+                          id="voting-enabled"
+                          checked={boardConfig.voting_enabled}
+                          onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, voting_enabled: checked }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="max-votes" className="text-sm">Max Votes Per User (optional)</Label>
+                        <Input
+                          id="max-votes"
+                          type="number"
+                          placeholder="Unlimited"
+                          value={boardConfig.max_votes_per_user || ''}
+                          onChange={(e) => setBoardConfig(prev => ({ 
+                            ...prev, 
+                            max_votes_per_user: e.target.value ? parseInt(e.target.value) : null 
+                          }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+                
+              <div className="flex gap-2 mt-6">
+                <Button onClick={handleCreateTemplate} disabled={!templateName.trim()}>
+                  Create Template
+                </Button>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  Cancel
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -182,6 +247,12 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                   <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {templateColumns[template.id]?.length || 0} columns:{' '}
                     {templateColumns[template.id]?.map(col => col.title).join(', ')}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1 flex gap-3">
+                    <span>Anonymous: {template.allow_anonymous ? 'Yes' : 'No'}</span>
+                    <span>Voting: {template.voting_enabled ? 'Yes' : 'No'}</span>
+                    <span>Authors: {template.show_author_names ? 'Visible' : 'Hidden'}</span>
+                    {template.max_votes_per_user && <span>Max votes: {template.max_votes_per_user}</span>}
                   </div>
                 </div>
               </div>
