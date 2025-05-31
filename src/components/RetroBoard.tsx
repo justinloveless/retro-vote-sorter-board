@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -203,6 +202,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         boardConfig={boardConfig}
         anonymousName={anonymousName}
         isAnonymousUser={isAnonymousUser}
+        items={items}
         onUpdateBoardTitle={updateBoardTitle}
         onUpdateBoardConfig={updateBoardConfig}
         onSignOut={signOut}

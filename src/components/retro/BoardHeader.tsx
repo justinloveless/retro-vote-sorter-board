@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
+import { SentimentDisplay } from './SentimentDisplay';
 
 interface BoardHeaderProps {
   board: any;
@@ -16,6 +17,7 @@ interface BoardHeaderProps {
   boardConfig: any;
   anonymousName: string;
   isAnonymousUser: boolean;
+  items: any[];
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardConfig: (config: any) => void;
   onSignOut: () => void;
@@ -29,6 +31,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   boardConfig,
   anonymousName,
   isAnonymousUser,
+  items,
   onUpdateBoardTitle,
   onUpdateBoardConfig,
   onSignOut
@@ -82,6 +85,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-4">
+          <SentimentDisplay items={items} />
+          
           <ActiveUsers users={activeUsers} />
           
           {!isAnonymousUser && (
