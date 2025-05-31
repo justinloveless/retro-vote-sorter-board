@@ -248,9 +248,36 @@ export const useRetroBoard = (roomId: string) => {
     loadBoardData();
   }, [roomId, toast]);
 
-  // Clean up presence on unmount - fixed dependency
+  // Clean up presence on unmount and handle page unload
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (board?.id) {
+        // Use navigator.sendBeacon for reliable cleanup on page unload
+        const currentUser = supabase.auth.getUser();
+        currentUser.then(({ data }) => {
+          if (data.user) {
+            // Create a simple request to delete presence
+            const url = `${supabase.supabaseUrl}/rest/v1/board_presence?board_id=eq.${board.id}&user_id=eq.${data.user.id}`;
+            navigator.sendBeacon(url, JSON.stringify({}));
+          }
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && board?.id) {
+        cleanupPresence(board.id);
+      }
+    };
+
+    // Add event listeners for cleanup
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
       if (board?.id) {
         cleanupPresence(board.id);
       }
