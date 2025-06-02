@@ -156,6 +156,48 @@ export type Database = {
           },
         ]
       }
+      retro_board_sessions: {
+        Row: {
+          board_id: string
+          created_at: string
+          id: string
+          started_at: string
+          started_by: string | null
+          team_id: string | null
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          id?: string
+          started_at?: string
+          started_by?: string | null
+          team_id?: string | null
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          id?: string
+          started_at?: string
+          started_by?: string | null
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retro_board_sessions_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retro_board_sessions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retro_boards: {
         Row: {
           created_at: string | null
@@ -493,6 +535,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          slack_webhook_url: string | null
           updated_at: string
         }
         Insert: {
@@ -501,6 +544,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          slack_webhook_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -509,6 +553,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          slack_webhook_url?: string | null
           updated_at?: string
         }
         Relationships: []
