@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
+import { RetroTimer } from './RetroTimer';
 
 interface BoardHeaderProps {
   board: any;
@@ -85,6 +86,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-4">
+          <RetroTimer isAnonymousUser={isAnonymousUser} />
+          
           <SentimentDisplay items={items} />
           
           <ActiveUsers users={activeUsers} />
