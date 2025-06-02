@@ -15,8 +15,10 @@ const productionConfig: EnvironmentConfig = {
 
 // Development configuration - update these with your dev Supabase project details
 const developmentConfig: EnvironmentConfig = {
-  supabaseUrl: "https://your-dev-project-ref.supabase.co", // Replace with your dev project URL
-  supabaseAnonKey: "your-dev-anon-key", // Replace with your dev project anon key
+  // supabaseUrl: "https://your-dev-project-ref.supabase.co", // Replace with your dev project URL
+  // supabaseAnonKey: "your-dev-anon-key", // Replace with your dev project anon key
+  supabaseUrl: "https://nwfwbjmzbwuyxehindpv.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53Zndiam16Ynd1eXhlaGluZHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MjkyMzksImV4cCI6MjA2NDEwNTIzOX0.s_vI6z46NAYlpB8K0wznCWEr_cFcnsHh7Qn4LmsUZU0",
   environment: 'development'
 };
 

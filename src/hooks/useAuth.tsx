@@ -31,28 +31,25 @@ export const useAuth = () => {
       console.log('user', session?.user);
       
       if (session?.user) {
-        setProfile({
-          id: session.user.id,
-          full_name: session.user.user_metadata.full_name,
-          avatar_url: ''
-        });
-
-        // try {
-        //   const profile = await supabase
-        //     .from('profiles')
-        //     .select('*')
-        //     .eq('id', session.user.id);
-
-        //     //.single();
+        
+        try {
+          console.log('about to hit supabase');
           
-        //     console.log('profile', profile);
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+            console.log('after hitting supabase');
             
-        //   setProfile(profile.data);
-        //   console.log('profile set', profile.data);
-        // } catch (error) {
-        //   console.error('Error fetching profile:', error);
-        //   setProfile(null);
-        // }
+          
+          setProfile(profileData);
+          console.log('profileData set', profileData);
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          setProfile(null);
+        }
       } else {
         // no session user
         setProfile(null);
