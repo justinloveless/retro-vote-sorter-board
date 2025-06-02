@@ -40,7 +40,7 @@ const Index = () => {
               </Button>
               <Button variant="outline" onClick={() => navigate('/account')}>
                 <User className="h-4 w-4 mr-2" />
-                Account Edited
+                Account
               </Button>
             </>
           ) : (
