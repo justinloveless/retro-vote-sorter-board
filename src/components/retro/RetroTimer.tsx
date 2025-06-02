@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,8 @@ export const RetroTimer: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [volume, setVolume] = useState(0.3);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(0.3);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -42,20 +45,25 @@ export const RetroTimer: React.FC = () => {
     }
   }, [defaultAudioUrl, uploadedAudioUrl, isAnonymousUser]);
 
-  // Initialize audio playback
+  // Initialize audio playback - only control volume, not play/pause based on mute
   useEffect(() => {
     if (musicEnabled && isRunning && uploadedAudioUrl) {
       if (audioRef.current) {
-        audioRef.current.volume = volume;
+        // Set volume based on mute state
+        audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.loop = true;
-        audioRef.current.play().catch(error => {
-          console.log('Audio playback failed:', error);
-          toast({
-            title: "Audio playback failed",
-            description: "Could not play background music.",
-            variant: "destructive",
+        
+        // Only start playing if not already playing
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch(error => {
+            console.log('Audio playback failed:', error);
+            toast({
+              title: "Audio playback failed",
+              description: "Could not play background music.",
+              variant: "destructive",
+            });
           });
-        });
+        }
       }
     } else if (audioRef.current && !isRunning) {
       audioRef.current.pause();
@@ -63,12 +71,19 @@ export const RetroTimer: React.FC = () => {
     }
 
     return () => {
-      if (audioRef.current) {
+      if (audioRef.current && !isRunning) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
     };
-  }, [musicEnabled, isRunning, uploadedAudioUrl, volume]);
+  }, [musicEnabled, isRunning, uploadedAudioUrl, volume, isMuted]);
+
+  // Update audio volume when volume or mute state changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+    }
+  }, [volume, isMuted]);
 
   // Timer logic
   useEffect(() => {
@@ -206,7 +221,24 @@ export const RetroTimer: React.FC = () => {
   };
 
   const toggleMusic = () => {
-    setMusicEnabled(!musicEnabled);
+    if (isMuted) {
+      // Unmute: restore previous volume
+      setIsMuted(false);
+      setVolume(previousVolume);
+    } else {
+      // Mute: save current volume and set to 0
+      setPreviousVolume(volume);
+      setIsMuted(true);
+    }
+  };
+
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(newVolume);
+    if (newVolume > 0 && isMuted) {
+      setIsMuted(false);
+    } else if (newVolume === 0 && !isMuted) {
+      setIsMuted(true);
+    }
   };
 
   return (
@@ -244,9 +276,10 @@ export const RetroTimer: React.FC = () => {
                 variant="outline"
                 onClick={toggleMusic}
                 disabled={isAnonymousUser || !uploadedAudioUrl}
-                className={musicEnabled ? 'bg-indigo-100 dark:bg-indigo-900' : ''}
+                className={musicEnabled && !isMuted ? 'bg-indigo-100 dark:bg-indigo-900' : ''}
+                title={isMuted ? 'Unmute music' : 'Mute music'}
               >
-                {musicEnabled ? <Music className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Music className="h-4 w-4" />}
               </Button>
             </div>
           ) : (
@@ -390,18 +423,23 @@ export const RetroTimer: React.FC = () => {
                   
                   {musicEnabled && uploadedAudioUrl && (
                     <div>
-                      <label className="text-sm font-medium">Volume</label>
+                      <label className="text-sm font-medium">
+                        Volume {isMuted && '(Muted)'}
+                      </label>
                       <input
                         type="range"
                         min="0"
                         max="1"
                         step="0.1"
-                        value={volume}
-                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
                         className="w-full"
                       />
                       <div className="text-xs text-gray-500 mt-1">
-                        Volume: {Math.round(volume * 100)}%
+                        Volume: {isMuted ? 0 : Math.round(volume * 100)}%
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Note: Volume control is individual - other users won't hear your changes
                       </div>
                     </div>
                   )}
