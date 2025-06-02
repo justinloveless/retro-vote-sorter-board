@@ -86,7 +86,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-4">
-          <RetroTimer isAnonymousUser={isAnonymousUser} />
+          <RetroTimer />
           
           <SentimentDisplay items={items} />
           
