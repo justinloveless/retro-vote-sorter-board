@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => ({
-  base: command === 'build' ? "/retro-sort/" : "/",
+  base: command === 'build' ? "/retro-vote-sorter-board/" : "/",
   server: {
     host: "::",
     port: 8080,
