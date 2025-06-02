@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,10 +23,24 @@ export const RetroTimer: React.FC = () => {
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [usingDefaultAudio, setUsingDefaultAudio] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  // Default audio file configuration
+  const defaultAudioFileName = "retro-music-7c2a52ff-cea8-4a3f-9de9-0f2f744be625-1748877023437.mp3";
+  const defaultAudioUrl = `${supabase.storage.from('retro-audio').getPublicUrl(defaultAudioFileName).data.publicUrl}`;
+
+  // Initialize with default audio
+  useEffect(() => {
+    if (!uploadedAudioUrl && !isAnonymousUser) {
+      setUploadedAudioUrl(defaultAudioUrl);
+      setUploadedFileName("Default Background Music");
+      setUsingDefaultAudio(true);
+    }
+  }, [defaultAudioUrl, uploadedAudioUrl, isAnonymousUser]);
 
   // Initialize audio playback
   useEffect(() => {
@@ -106,6 +119,7 @@ export const RetroTimer: React.FC = () => {
 
       setUploadedAudioUrl(publicUrl);
       setUploadedFileName(audioFile.name);
+      setUsingDefaultAudio(false);
       
       toast({
         title: "Audio uploaded successfully",
@@ -127,6 +141,16 @@ export const RetroTimer: React.FC = () => {
   const handleDeleteAudio = async () => {
     if (!uploadedAudioUrl || !user) return;
 
+    // Don't allow deleting the default audio
+    if (usingDefaultAudio) {
+      toast({
+        title: "Cannot delete default audio",
+        description: "You can upload your own audio file to replace it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Extract file path from URL
       const urlParts = uploadedAudioUrl.split('/');
@@ -138,13 +162,15 @@ export const RetroTimer: React.FC = () => {
 
       if (error) throw error;
 
-      setUploadedAudioUrl(null);
-      setUploadedFileName(null);
+      // Reset to default audio
+      setUploadedAudioUrl(defaultAudioUrl);
+      setUploadedFileName("Default Background Music");
+      setUsingDefaultAudio(true);
       setMusicEnabled(false);
       
       toast({
         title: "Audio deleted",
-        description: "Background music file has been removed.",
+        description: "Reverted to default background music.",
       });
     } catch (error) {
       console.error('Delete error:', error);
@@ -272,15 +298,49 @@ export const RetroTimer: React.FC = () => {
                         <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded border">
                           <span className="text-sm text-green-700 dark:text-green-300">
                             🎵 {uploadedFileName || 'Audio file uploaded'}
+                            {usingDefaultAudio && (
+                              <span className="text-xs text-gray-500 ml-2">(Default)</span>
+                            )}
                           </span>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={handleDeleteAudio}
                             className="h-6 w-6 p-0"
+                            disabled={usingDefaultAudio}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
+                        </div>
+                        
+                        {/* Upload new audio option */}
+                        <div className="border-t pt-2">
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                            Upload your own audio file:
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                              className="text-sm flex-1"
+                              disabled={isUploading}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={handleAudioUpload}
+                              disabled={!audioFile || isUploading}
+                            >
+                              {isUploading ? (
+                                "Uploading..."
+                              ) : (
+                                <>
+                                  <Upload className="h-4 w-4 mr-1" />
+                                  Upload
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
