@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Timer, Play, Pause, RotateCcw, Music, VolumeX } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export const RetroTimer: React.FC = () => {
   const { user } = useAuth();
@@ -19,56 +20,41 @@ export const RetroTimer: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [volume, setVolume] = useState(0.3);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Initialize audio with YouTube URL
+  // Initialize audio playback
   useEffect(() => {
-    if (musicEnabled && isRunning) {
-      try {
-        // For YouTube audio, we'll use a placeholder calm ambient sound
-        // Note: Direct YouTube embedding for audio requires different approach
-        // Using a data URL for a simple tone for now
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator1 = audioContext.createOscillator();
-        const oscillator2 = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator1.type = 'sine';
-        oscillator1.frequency.setValueAtTime(220, audioContext.currentTime); // A3
-        oscillator2.type = 'sine';
-        oscillator2.frequency.setValueAtTime(330, audioContext.currentTime); // E4
-        
-        gainNode.gain.setValueAtTime(volume * 0.1, audioContext.currentTime);
-        
-        oscillator1.connect(gainNode);
-        oscillator2.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator1.start();
-        oscillator2.start();
-        
-        // Store cleanup function
-        audioRef.current = {
-          stop: () => {
-            oscillator1.stop();
-            oscillator2.stop();
-            audioContext.close();
-          }
-        } as any;
-      } catch (error) {
-        console.log('Web Audio API not supported');
+    if (musicEnabled && isRunning && uploadedAudioUrl) {
+      if (audioRef.current) {
+        audioRef.current.volume = volume;
+        audioRef.current.loop = true;
+        audioRef.current.play().catch(error => {
+          console.log('Audio playback failed:', error);
+          toast({
+            title: "Audio playback failed",
+            description: "Could not play background music.",
+            variant: "destructive",
+          });
+        });
       }
+    } else if (audioRef.current && !isRunning) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
 
     return () => {
-      if (audioRef.current && (audioRef.current as any).stop) {
-        (audioRef.current as any).stop();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
     };
-  }, [musicEnabled, isRunning, volume]);
+  }, [musicEnabled, isRunning, uploadedAudioUrl, volume]);
 
   // Timer logic
   useEffect(() => {
@@ -98,6 +84,42 @@ export const RetroTimer: React.FC = () => {
       }
     };
   }, [isRunning, timeLeft, toast]);
+
+  const handleAudioUpload = async () => {
+    if (!audioFile || !user) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = audioFile.name.split('.').pop();
+      const fileName = `retro-music-${user.id}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('retro-audio')
+        .upload(fileName, audioFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('retro-audio')
+        .getPublicUrl(fileName);
+
+      setUploadedAudioUrl(publicUrl);
+      
+      toast({
+        title: "Audio uploaded successfully",
+        description: "Your background music is ready to use.",
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "Could not upload audio file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const startTimer = () => {
     if (timeLeft === 0) {
@@ -160,7 +182,7 @@ export const RetroTimer: React.FC = () => {
                 size="sm"
                 variant="outline"
                 onClick={toggleMusic}
-                disabled={isAnonymousUser}
+                disabled={isAnonymousUser || !uploadedAudioUrl}
                 className={musicEnabled ? 'bg-indigo-100 dark:bg-indigo-900' : ''}
               >
                 {musicEnabled ? <Music className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
@@ -207,6 +229,36 @@ export const RetroTimer: React.FC = () => {
                     </div>
                   </div>
                   
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Background Music</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                        className="text-sm"
+                        disabled={isUploading}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleAudioUpload}
+                        disabled={!audioFile || isUploading}
+                      >
+                        {isUploading ? (
+                          "Uploading..."
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-1" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {uploadedAudioUrl && (
+                      <p className="text-xs text-green-600">Audio file uploaded successfully!</p>
+                    )}
+                  </div>
+                  
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -214,13 +266,14 @@ export const RetroTimer: React.FC = () => {
                       checked={musicEnabled}
                       onChange={(e) => setMusicEnabled(e.target.checked)}
                       className="rounded"
+                      disabled={!uploadedAudioUrl}
                     />
                     <label htmlFor="music" className="text-sm">
-                      Play calm background music
+                      Play background music {!uploadedAudioUrl && '(upload audio first)'}
                     </label>
                   </div>
                   
-                  {musicEnabled && (
+                  {musicEnabled && uploadedAudioUrl && (
                     <div>
                       <label className="text-sm font-medium">Volume</label>
                       <input
@@ -234,11 +287,6 @@ export const RetroTimer: React.FC = () => {
                       />
                     </div>
                   )}
-                  
-                  <div className="text-xs text-gray-500">
-                    Note: Background music uses generated tones. 
-                    For YouTube audio: <a href="https://www.youtube.com/watch?v=QBc2VTmneIE" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">Open in new tab</a>
-                  </div>
                   
                   <Button onClick={startTimer} className="w-full">
                     Start Timer
@@ -254,6 +302,16 @@ export const RetroTimer: React.FC = () => {
             </span>
           )}
         </div>
+        
+        {/* Hidden audio element for playback */}
+        {uploadedAudioUrl && (
+          <audio
+            ref={audioRef}
+            src={uploadedAudioUrl}
+            preload="metadata"
+            style={{ display: 'none' }}
+          />
+        )}
       </CardContent>
     </Card>
   );
