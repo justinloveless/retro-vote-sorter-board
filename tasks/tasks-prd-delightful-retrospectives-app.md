@@ -1,0 +1,147 @@
+## Relevant Files
+
+- `src/integrations/supabase/client.ts` - Supabase client initialization (if not already in `environment.ts`).
+- `src/integrations/supabase/types.ts` - Existing Supabase generated types (key reference).
+- `supabase/migrations/YYYYMMDDHHMMSS_add_action_items_table.sql` - SQL migration for new ActionItems table & modifications.
+- `supabase/migrations/YYYYMMDDHHMMSS_add_feedback_reactions.sql` - SQL migration for new FeedbackReactions table.
+- `supabase/migrations/YYYYMMDDHHMMSS_alter_retro_boards.sql` - SQL migration for adding status, current_stage, scheduled_at to `retro_boards`.
+- `supabase/functions/ai-theme-synthesis/index.ts` - Supabase Edge Function for AI theme synthesis.
+- `supabase/functions/jira-integration/index.ts` - Supabase Edge Function for Jira interactions (create issue, config).
+- `supabase/functions/slack-integration/index.ts` - Supabase Edge Function for Slack notifications & config.
+- `supabase/functions/gsuite-oauth-callback/index.ts` - (If needed) Supabase Edge Function for GSuite OAuth server-side callback handling.
+- `src/components/auth/LoginForm.tsx` - Component for user login.
+- `src/components/auth/SignupForm.tsx` - Component for user registration.
+- `src/components/auth/GSuiteAuthButton.tsx` - Component for GSuite OAuth (using Supabase client auth).
+- `src/components/teams/TeamCreateForm.tsx` - Component for creating new teams.
+- `src/components/teams/TeamList.tsx` - Component to display teams a user belongs to.
+- `src/components/teams/TeamMemberView.tsx` - Component to view members of a team.
+- `src/components/retrospectives/RetroCreateForm.tsx` - Component for creating new retrospective sessions.
+- `src/components/retrospectives/RetroBoard.tsx` - Main component for the interactive retrospective board (using Supabase Realtime).
+- `src/components/retrospectives/RetroColumn.tsx` - Component for a single column on the retro board.
+- `src/components/retrospectives/FeedbackCard.tsx` - Component for displaying a single feedback item.
+- `src/components/retrospectives/ActionItemCard.tsx` - Component for displaying an action item.
+- `src/components/retrospectives/RetroControls.tsx` - Component for session stage controls, facilitator actions.
+- `src/components/ui/**` - General purpose UI components.
+- `src/pages/**` - Application pages.
+- `src/services/authService.ts` - Module for Supabase authentication operations.
+- `src/services/teamService.ts` - Module for Supabase operations related to teams.
+- `src/services/retrospectiveService.ts` - Module for Supabase operations for retrospectives, feedback, action items.
+- `src/services/integrationService.ts` - Module for invoking Supabase Edge Functions for Jira/Slack/AI.
+- `src/hooks/**` - Custom React hooks.
+- `src/lib/utils/markdownGenerator.ts` - Utility for generating Markdown export (client-side).
+- `src/types/app.ts` - Custom app-specific types (supplementing Supabase types).
+- `e2e_tests/**` - End-to-end tests.
+
+### Notes
+
+- Unit tests should be co-located with components/services or in `__tests__` subdirectories.
+- Supabase Edge Functions should have their own tests within their respective directories.
+- Leverage Supabase Realtime for live updates on the `RetroBoard.tsx`.
+- Row Level Security (RLS) policies in Supabase are critical for data protection and must be implemented for all tables.
+
+## Tasks
+
+- [ ] 1.0 Establish Core User and Team Foundation (Supabase)
+  - [ ] 1.1 Review existing Supabase `profiles` table (from `types.ts`). Confirm fields like `id`, `email`, `full_name`, `avatar_url`, `created_at`, `updated_at` meet PRD needs for user accounts. Add GSuite specific ID field if needed for linking (`gsuite_id`). Write migration if changes needed.
+  - [ ] 1.2 Implement user registration using `supabase.auth.signUp()` in `authService.ts`.
+  - [ ] 1.3 Implement user login with email/password using `supabase.auth.signInWithPassword()` in `authService.ts`.
+  - [ ] 1.4 Implement user logout using `supabase.auth.signOut()` in `authService.ts`.
+  - [ ] 1.5 Develop `SignupForm.tsx` and `LoginForm.tsx` components.
+  - [ ] 1.6 Implement `useAuth.ts` hook for global auth state, integrating with Supabase auth state changes (`onAuthStateChange`).
+  - [ ] 1.7 Configure GSuite OAuth provider in Supabase Dashboard.
+  - [ ] 1.8 Implement GSuite sign-in using `supabase.auth.signInWithOAuth({ provider: 'google' })` in `GSuiteAuthButton.tsx` / `authService.ts`.
+  - [ ] 1.9 (Stretch) Implement "Forgot Password" using `supabase.auth.resetPasswordForEmail()` and UI for password reset.
+  - [x] 1.10 Review existing Supabase `teams` and `team_members` tables. Confirm fields align with PRD (e.g., `teams.name`, `teams.creator_id`, `team_members.user_id`, `team_members.team_id`, `team_members.role`). Add `team_invitations` handling if existing table is suitable or needs adjustment.
+  - [ ] 1.11 Implement function in `teamService.ts` to create a new team (insert into `teams` and `team_members` for creator) using Supabase client, potentially within a Supabase Edge Function if complex transaction/permissions needed.
+  - [ ] 1.12 Implement function in `teamService.ts` to list teams for the authenticated user (select from `teams` via `team_members`) using Supabase client.
+  - [ ] 1.13 Implement function in `teamService.ts` to view members of a team using Supabase client.
+  - [ ] 1.14 Develop `TeamCreateForm.tsx`, `TeamList.tsx`, `TeamMemberView.tsx`.
+  - [ ] 1.15 Create `TeamsPage.tsx`.
+  - [ ] 1.16 Define and implement RLS policies for `profiles`, `teams`, and `team_members` tables.
+  - [ ] 1.17 Write unit tests for `authService.ts`, `teamService.ts`, and related components.
+
+- [ ] 2.0 Develop Core Retrospective Session Mechanics (Supabase)
+  - [ ] 2.1 Review existing `retro_boards` table. Add `status` (TEXT, e.g., 'pending', 'active', 'completed'), `current_stage` (TEXT, e.g., 'collection', 'sorting', 'discussion', 'actions'), `scheduled_at` (TIMESTAMPTZ, nullable). Write Supabase migration.
+  - [x] 2.2 Review existing `retro_columns` table. Ensure it supports customizable columns per board (seems to via `board_id` FK).
+  - [ ] 2.3 Review existing `retro_items` table. Ensure `author_id` (nullable for anonymity, links to `profiles.id`) and `is_anonymous` (BOOLEAN) fields are present or add them. Review `votes` field (is it a simple counter or needs a join table like `retro_votes`? `retro_votes` exists, so this should be used).
+  - [x] 2.4 Review existing `retro_votes` table (links `retro_items.id`, `user_id`). Seems suitable for voting.
+  - [x] 2.5 Review existing `retro_comments` table (links `retro_items.id`, `author_id`). Seems suitable for comments.
+  - [ ] 2.6 **New Table:** Design `action_items` table schema: `id` (UUID, PK), `retro_board_id` (FK to `retro_boards.id`), `description` (TEXT), `assigned_to_user_id` (FK to `profiles.id`, nullable), `due_date` (DATE, nullable), `status` (TEXT, e.g., 'open', 'in_progress', 'completed'), `created_at`, `updated_at`. Write Supabase migration.
+  - [ ] 2.7 **New Table (Optional for Reactions):** Design `retro_item_reactions` table: `id` (UUID, PK), `item_id` (FK to `retro_items.id`), `user_id` (FK to `profiles.id`), `emoji_unicode` (TEXT), `created_at`. Unique constraint on (`item_id`, `user_id`, `emoji_unicode`). Write Supabase migration. (Alternatively, reactions could be a JSONB column on `retro_items` if simpler and RLS can manage, but a separate table is cleaner for querying distinct reactions/reactors).
+  - [ ] 2.8 Implement function in `retrospectiveService.ts` to create new retro session (insert into `retro_boards`, set default columns if `create_default_columns` function from `types.ts` is used) using Supabase client.
+  - [ ] 2.9 Implement function in `retrospectiveService.ts` to fetch details of a `retro_board` and its related `retro_columns`, `retro_items`, `retro_comments`, `retro_votes`, and `action_items` using Supabase client.
+  - [ ] 2.10 Develop `RetroCreateForm.tsx` (name, team, schedule, column config if not using defaults).
+  - [ ] 2.11 Clarify and implement mechanism for inviting participants to a session (if beyond team membership access).
+  - [ ] 2.12 Implement function in `retrospectiveService.ts` to update `retro_boards.current_stage` using Supabase client.
+  - [ ] 2.13 Develop `RetroControls.tsx` for stage management.
+  - [ ] 2.14 Implement function in `retrospectiveService.ts` to add feedback items (insert into `retro_items`) via Supabase client. Support anonymity.
+  - [ ] 2.15 Develop `FeedbackCard.tsx`, `RetroColumn.tsx`, and `RetroBoard.tsx`.
+  - [ ] 2.16 Configure Supabase Realtime on `retro_items`, `retro_comments`, `retro_votes`, (`retro_item_reactions` if implemented) tables and integrate into `RetroBoard.tsx` for live updates.
+  - [ ] 2.17 Implement functions in `retrospectiveService.ts` for adding/removing votes (manage `retro_votes` table) and comments (insert into `retro_comments`) via Supabase client.
+  - [ ] 2.18 Implement functions/UI for reactions on `FeedbackCard.tsx` (if `retro_item_reactions` is added).
+  - [ ] 2.19 Implement UI for grouping/clustering feedback items client-side in `RetroBoard.tsx` or via facilitator tools updating item properties (e.g., a `group_id` on `retro_items` if needed).
+  - [ ] 2.20 Implement functions in `retrospectiveService.ts` to create/update/list `action_items` via Supabase client.
+  - [ ] 2.21 Develop UI for capturing and managing action items (`ActionItemCard.tsx`, `ActionItemsPage.tsx`).
+  - [ ] 2.22 Define and implement RLS policies for `retro_boards`, `retro_columns`, `retro_items`, `retro_votes`, `retro_comments`, `action_items`, and `retro_item_reactions` (if added).
+  - [ ] 2.23 Write unit tests for `retrospectiveService.ts` and related components.
+
+- [ ] 3.0 Integrate Advanced Features and External Services (Supabase Edge Functions)
+  - [ ] 3.1 Research/select AI models/APIs for theme synthesis.
+  - [ ] 3.2 Develop Supabase Edge Function `ai-theme-synthesis`: takes `retro_board_id` or feedback texts, calls external AI API, returns themes. Securely store AI API key using Supabase secrets.
+  - [ ] 3.3 Implement function in `integrationService.ts` to invoke `ai-theme-synthesis` Edge Function.
+  - [ ] 3.4 Integrate UI in `RetroBoard.tsx` to trigger and display AI themes.
+  - [ ] 3.5 Research Jira Cloud REST API for creating issues.
+  - [ ] 3.6 Design secure storage for Jira API tokens (e.g., in a new Supabase table `user_integration_configs`, encrypted, or use Supabase Vault if mature). Define RLS for this table.
+  - [ ] 3.7 Develop Supabase Edge Function `jira-integration` for: validating/storing Jira config, creating Jira issues (takes action item details & user's Jira token).
+  - [ ] 3.8 Implement UI in `SettingsPage.tsx` for Jira configuration (API token, project mapping), saving via `integrationService.ts` calling the Edge Function.
+  - [ ] 3.9 Add "Create Jira Issue" button in action item UI, calling `integrationService.ts` to invoke the Edge Function.
+  - [ ] 3.10 Research Slack API (Incoming Webhooks or Bot tokens).
+  - [ ] 3.11 Design secure storage for Slack tokens/webhooks (similar to Jira tokens).
+  - [ ] 3.12 Develop Supabase Edge Function `slack-integration` for: validating/storing Slack config, sending notifications.
+  - [ ] 3.13 Implement UI in `SettingsPage.tsx` for Slack configuration.
+  - [ ] 3.14 Implement logic (client-side or via Edge Function calls) to trigger Slack notifications for new retros, reminders, summaries.
+  - [ ] 3.15 Develop client-side `markdownGenerator.ts` in `src/lib/utils/` to compile retrospective data into Markdown. Data fetched via Supabase client.
+  - [ ] 3.16 Add UI button on `RetrospectivePage.tsx` to trigger client-side Markdown generation and download.
+  - [ ] 3.17 Write tests for Supabase Edge Functions (`ai-theme-synthesis`, `jira-integration`, `slack-integration`).
+  - [ ] 3.18 Write unit tests for `integrationService.ts` and `markdownGenerator.ts`.
+
+- [ ] 4.0 Implement and Refine User Interface and User Experience (UI/UX) (Largely unchanged, ensure Supabase data flows correctly)
+  - [ ] 4.1 Set up base frontend project (likely already done). Confirm state management choice (e.g., Zustand, Redux Toolkit, React Context) and data fetching patterns (e.g., React Query, SWR, or custom hooks with Supabase client).
+  - [ ] 4.2 Develop/utilize style guide or UI component library (e.g., Tailwind CSS, existing components).
+  - [ ] 4.3 Implement global styles, modern look & feel, gradients, whitespace.
+  - [ ] 4.4 Create/refine reusable UI components.
+  - [ ] 4.5 Ensure all pages are responsive and mobile-friendly.
+  - [ ] 4.6 Implement dark mode/light mode theme switcher.
+  - [ ] 4.7 Ensure all components adapt to themes.
+  - [ ] 4.8 Design and implement intuitive navigation.
+  - [ ] 4.9 Ensure smooth UI transitions and feedback.
+  - [ ] 4.10 Implement clear visual cues for retro stages.
+  - [ ] 4.11 Incorporate "delightful" micro-interactions/animations.
+  - [ ] 4.12 Review UI for WCAG 2.1 AA accessibility.
+  - [ ] 4.13 Test keyboard navigation thoroughly.
+  - [ ] 4.14 Design UI for resolving conflicting opinions (voting, discussion prompts).
+  - [ ] 4.15 Conduct usability testing.
+  - [ ] 4.16 Iterate on UI/UX based on feedback.
+
+- [ ] 5.0 Ensure Comprehensive Testing, Prepare for Deployment, and Finalize Documentation (Supabase Context)
+  - [ ] 5.1 Set up/confirm Jest and React Testing Library for frontend tests.
+  - [ ] 5.2 Write tests for Supabase RLS policies (this might involve helper scripts or specific testing strategies for RLS).
+  - [ ] 5.3 Achieve target code coverage for frontend unit/integration tests and Edge Function tests.
+  - [ ] 5.4 Write integration tests for key frontend-Supabase interactions (data fetching, mutations, realtime updates).
+  - [ ] 5.5 Set up/confirm E2E testing framework (Cypress, Playwright).
+  - [ ] 5.6 Write/update E2E tests for critical user flows (auth, team creation, full retro flow, integrations if mockable, dark mode, mobile).
+  - [ ] 5.7 Ensure all tests pass consistently.
+  - [ ] 5.8 Test all core functional requirements from PRD section 4, verifying data persistence in Supabase and correct RLS enforcement.
+  - [ ] 5.9 Test identified edge cases.
+  - [ ] 5.10 Test Jira, Slack, GSuite integrations thoroughly (GSuite auth via Supabase client, others via Edge Functions).
+  - [ ] 5.11 Test AI theme suggestion.
+  - [ ] 5.12 Frontend deployment (e.g., Vercel, Netlify). Supabase handles backend deployment (schema migrations, Edge Functions via Supabase CLI).
+  - [ ] 5.13 Set up CI/CD pipeline for: frontend builds/tests/deploys; Supabase schema migrations (`supabase db push` or migration files); Supabase Edge Function deployments (`supabase functions deploy`).
+  - [ ] 5.14 Configure environment variables in hosting platform for frontend and in Supabase project settings (including Supabase URL/anon key, and any third-party API keys for Edge Functions via Supabase secrets).
+  - [ ] 5.15 Deploy to staging (if applicable) and conduct UAT.
+  - [ ] 5.16 Perform production deployment of frontend and any Supabase changes.
+  - [ ] 5.17 Update `README.md` with Supabase-specific setup, development (including Supabase CLI usage), testing, and deployment instructions.
+  - [ ] 5.18 Document any complex Supabase Edge Function interfaces or RLS policies if not self-explanatory.
+  - [ ] 5.19 Create user-facing help guides if needed.
+  - [ ] 5.20 Ensure code is well-commented.
+  - [ ] 5.21 Final review against PRD acceptance criteria. 
