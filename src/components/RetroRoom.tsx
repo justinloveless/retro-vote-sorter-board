@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { RetroBoard } from './RetroBoard';
 import { AuthForm } from './AuthForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useSlackNotification } from '@/hooks/useSlackNotification';
 import { supabase } from '@/integrations/supabase/client';
 import { PasswordDialog } from './retro/PasswordDialog';
 import { ShareDialog } from './retro/ShareDialog';
@@ -30,8 +30,10 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [anonymousName] = useState(() => generateSillyName());
+  const [hasNotifiedSlack, setHasNotifiedSlack] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { sendSlackNotification, createRetroSession } = useSlackNotification();
 
   const {
     boardData,
@@ -50,6 +52,47 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       setRoomId(newRoomId);
     }
   }, [initialRoomId]);
+
+  // Send Slack notification when board is accessed for the first time
+  useEffect(() => {
+    const sendInitialSlackNotification = async () => {
+      if (!boardData || !user || hasNotifiedSlack) return;
+
+      // Only send notification for team boards
+      if (!boardData.team_id) return;
+
+      try {
+        // Check if a session already exists for this board today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const { data: existingSessions } = await supabase
+          .from('retro_board_sessions')
+          .select('id')
+          .eq('board_id', boardData.id)
+          .gte('created_at', today.toISOString());
+
+        // If no session exists today, create one and send notification
+        if (!existingSessions || existingSessions.length === 0) {
+          await createRetroSession(boardData.id, boardData.team_id, user.id);
+          
+          await sendSlackNotification(
+            boardData.id,
+            boardData.team_id,
+            boardData.title,
+            roomId,
+            user.id
+          );
+          
+          setHasNotifiedSlack(true);
+        }
+      } catch (error) {
+        console.error('Error with Slack notification flow:', error);
+      }
+    };
+
+    sendInitialSlackNotification();
+  }, [boardData, user, roomId, hasNotifiedSlack, sendSlackNotification, createRetroSession]);
 
   const togglePrivacy = async () => {
     if (!user) {
