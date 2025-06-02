@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +19,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
 
-  const basename = import.meta.env.VITE_PUBLIC_BASE_PATH || "";
+  const rawBasePath = import.meta.env.VITE_PUBLIC_BASE_PATH || "";
+  let pathForConstructor: string;
+  if (!rawBasePath || rawBasePath === "/") {
+    pathForConstructor = '/';
+  } else {
+    pathForConstructor = rawBasePath.startsWith('/') ? rawBasePath : '/' + rawBasePath;
+    if (!pathForConstructor.endsWith('/')) {
+      pathForConstructor += '/';
+    }
+  }
+  const redirectBaseUrl = new URL(pathForConstructor, window.location.origin).href;
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -29,7 +38,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/${basename}`
+          redirectTo: redirectBaseUrl
         }
       });
 
@@ -58,7 +67,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           data: {
             full_name: fullName,
           },
-          emailRedirectTo: `${window.location.origin}/`
+          emailRedirectTo: redirectBaseUrl
         }
       });
 
