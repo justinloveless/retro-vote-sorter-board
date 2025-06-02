@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -103,7 +102,7 @@ export const useRetroBoard = (roomId: string) => {
           // Board doesn't exist, create it
           const { data: newBoard, error: createError } = await supabase
             .from('retro_boards')
-            .insert([{ room_id: roomId, title: 'Team Retrospective' }])
+            .insert([{ room_id: roomId, title: 'RetroScope Session' }])
             .select()
             .single();
 
