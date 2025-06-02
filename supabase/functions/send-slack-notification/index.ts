@@ -88,7 +88,7 @@ serve(async (req) => {
             },
             {
               title: 'Join the retro',
-              value: `Click here to participate: ${req.headers.get('origin') || 'https://your-app-url.com'}/retro/${roomId}`,
+              value: `Click here to participate: ${req.headers.get('origin') || 'https://hooks.slack.com/services/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'}/retro/${roomId}`,
               short: false
             }
           ]
