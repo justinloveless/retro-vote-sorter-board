@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ export const RetroTimer: React.FC = () => {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -104,6 +105,7 @@ export const RetroTimer: React.FC = () => {
         .getPublicUrl(fileName);
 
       setUploadedAudioUrl(publicUrl);
+      setUploadedFileName(audioFile.name);
       
       toast({
         title: "Audio uploaded successfully",
@@ -118,6 +120,39 @@ export const RetroTimer: React.FC = () => {
       });
     } finally {
       setIsUploading(false);
+      setAudioFile(null);
+    }
+  };
+
+  const handleDeleteAudio = async () => {
+    if (!uploadedAudioUrl || !user) return;
+
+    try {
+      // Extract file path from URL
+      const urlParts = uploadedAudioUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      
+      const { error } = await supabase.storage
+        .from('retro-audio')
+        .remove([fileName]);
+
+      if (error) throw error;
+
+      setUploadedAudioUrl(null);
+      setUploadedFileName(null);
+      setMusicEnabled(false);
+      
+      toast({
+        title: "Audio deleted",
+        description: "Background music file has been removed.",
+      });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete audio file.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -229,34 +264,54 @@ export const RetroTimer: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <label className="text-sm font-medium">Background Music</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                        className="text-sm"
-                        disabled={isUploading}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={handleAudioUpload}
-                        disabled={!audioFile || isUploading}
-                      >
-                        {isUploading ? (
-                          "Uploading..."
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-1" />
-                            Upload
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    {uploadedAudioUrl && (
-                      <p className="text-xs text-green-600">Audio file uploaded successfully!</p>
+                    
+                    {uploadedAudioUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded border">
+                          <span className="text-sm text-green-700 dark:text-green-300">
+                            🎵 {uploadedFileName || 'Audio file uploaded'}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleDeleteAudio}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                          className="text-sm flex-1"
+                          disabled={isUploading}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleAudioUpload}
+                          disabled={!audioFile || isUploading}
+                        >
+                          {isUploading ? (
+                            "Uploading..."
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
+                    
+                    <div className="text-xs text-gray-500">
+                      Supported formats: MP3, WAV, OGG, M4A
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -285,6 +340,9 @@ export const RetroTimer: React.FC = () => {
                         onChange={(e) => setVolume(parseFloat(e.target.value))}
                         className="w-full"
                       />
+                      <div className="text-xs text-gray-500 mt-1">
+                        Volume: {Math.round(volume * 100)}%
+                      </div>
                     </div>
                   )}
                   
