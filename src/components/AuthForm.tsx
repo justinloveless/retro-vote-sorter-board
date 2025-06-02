@@ -20,6 +20,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
 
+  const basename = import.meta.env.VITE_PUBLIC_BASE_PATH || "";
+
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     
@@ -27,7 +29,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${window.location.origin}/${basename}`
         }
       });
 
