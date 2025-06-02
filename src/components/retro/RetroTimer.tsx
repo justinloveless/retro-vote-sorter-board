@@ -6,12 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Timer, Play, Pause, RotateCcw, Music, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
-interface RetroTimerProps {
-  isAnonymousUser?: boolean;
-}
-
-export const RetroTimer: React.FC<RetroTimerProps> = ({ isAnonymousUser = false }) => {
+export const RetroTimer: React.FC = () => {
+  const { user } = useAuth();
+  const isAnonymousUser = !user;
+  
   const [minutes, setMinutes] = useState(15);
   const [seconds, setSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -24,41 +24,38 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ isAnonymousUser = false 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Initialize audio with a calm ambient loop
+  // Initialize audio with YouTube URL
   useEffect(() => {
-    // Create a simple ambient tone using Web Audio API
-    const createAmbientMusic = () => {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator1 = audioContext.createOscillator();
-      const oscillator2 = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator1.type = 'sine';
-      oscillator1.frequency.setValueAtTime(220, audioContext.currentTime); // A3
-      oscillator2.type = 'sine';
-      oscillator2.frequency.setValueAtTime(330, audioContext.currentTime); // E4
-      
-      gainNode.gain.setValueAtTime(volume * 0.1, audioContext.currentTime);
-      
-      oscillator1.connect(gainNode);
-      oscillator2.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      return { audioContext, oscillator1, oscillator2, gainNode };
-    };
-
     if (musicEnabled && isRunning) {
       try {
-        const music = createAmbientMusic();
-        music.oscillator1.start();
-        music.oscillator2.start();
+        // For YouTube audio, we'll use a placeholder calm ambient sound
+        // Note: Direct YouTube embedding for audio requires different approach
+        // Using a data URL for a simple tone for now
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator1 = audioContext.createOscillator();
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator1.type = 'sine';
+        oscillator1.frequency.setValueAtTime(220, audioContext.currentTime); // A3
+        oscillator2.type = 'sine';
+        oscillator2.frequency.setValueAtTime(330, audioContext.currentTime); // E4
+        
+        gainNode.gain.setValueAtTime(volume * 0.1, audioContext.currentTime);
+        
+        oscillator1.connect(gainNode);
+        oscillator2.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator1.start();
+        oscillator2.start();
         
         // Store cleanup function
         audioRef.current = {
           stop: () => {
-            music.oscillator1.stop();
-            music.oscillator2.stop();
-            music.audioContext.close();
+            oscillator1.stop();
+            oscillator2.stop();
+            audioContext.close();
           }
         } as any;
       } catch (error) {
@@ -237,6 +234,11 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ isAnonymousUser = false 
                       />
                     </div>
                   )}
+                  
+                  <div className="text-xs text-gray-500">
+                    Note: Background music uses generated tones. 
+                    For YouTube audio: <a href="https://www.youtube.com/watch?v=QBc2VTmneIE" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">Open in new tab</a>
+                  </div>
                   
                   <Button onClick={startTimer} className="w-full">
                     Start Timer
