@@ -1,4 +1,4 @@
-# Product Requirements Document: Delightful Retrospectives Web App
+# Product Requirements Document: RetroScope
 
 ## 1. Introduction/Overview
 

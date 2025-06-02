@@ -25,7 +25,7 @@
 - `src/pages/**` - Application pages.
 - `src/services/authService.ts` - Module for Supabase authentication operations.
 - `src/services/teamService.ts` - Module for Supabase operations related to teams.
-- `src/services/retrospectiveService.ts` - Module for Supabase operations for retrospectives, feedback, action items.
+- `src/services/retrospectiveService.ts` - Module for Supabase operations for RetroScope sessions, feedback, action items.
 - `src/services/integrationService.ts` - Module for invoking Supabase Edge Functions for Jira/Slack/AI.
 - `src/hooks/**` - Custom React hooks.
 - `src/lib/utils/markdownGenerator.ts` - Utility for generating Markdown export (client-side).

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +39,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [editingTitle, setEditingTitle] = useState(false);
-  const [titleText, setTitleText] = useState(board?.title || 'Team Retrospective');
+  const [titleText, setTitleText] = useState(board?.title || 'RetroScope Session');
 
   const handleTitleEdit = () => {
     if (!titleText.trim() || isAnonymousUser) return;
@@ -65,7 +64,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{board?.title || 'Team Retrospective'}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{board?.title || 'RetroScope Session'}</h1>
               {!isAnonymousUser && (
                 <Button
                   variant="ghost"
