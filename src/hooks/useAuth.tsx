@@ -37,20 +37,19 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
-    let initialLoadHandled = false;
 
-    // Set up auth state listener FIRST (non-async callback)
+    // Set up auth state listener FIRST - this will handle ALL auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log('Auth state change:', event, newSession?.user?.email);
         
         if (!mounted) return;
         
-        // Only synchronous state updates here
+        // Always update session and user synchronously
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
-        // Defer any Supabase calls using setTimeout to avoid deadlocks
+        // Defer profile fetching and loading state update
         setTimeout(async () => {
           if (newSession?.user) {
             await fetchProfile(newSession.user.id);
@@ -58,48 +57,15 @@ export const useAuth = () => {
             setProfile(null);
           }
           
-          if (!initialLoadHandled) {
-            setLoading(false);
-            initialLoadHandled = true;
-            console.log('Loading set to false after auth state change.');
-          } else {
-            setLoading(false);
-            console.log('Loading set to false');
-          }
+          // Always set loading to false after handling auth state
+          setLoading(false);
+          console.log('Loading set to false after auth state handling');
         }, 0);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
-      
-      if (!mounted) return;
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Defer profile fetching and loading state update
-      setTimeout(async () => {
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-        
-        if (!initialLoadHandled) {
-          setLoading(false);
-          initialLoadHandled = true;
-          console.log('Loading set to false after initial session check.');
-        }
-      }, 0);
-    }).catch(error => {
-      console.error("Error during initial session check:", error);
-      if (mounted && !initialLoadHandled) {
-        setLoading(false);
-        initialLoadHandled = true;
-      }
-    });
+    // The onAuthStateChange listener will automatically fire with the current session
+    // so we don't need to manually call getSession() - this eliminates the race condition
 
     return () => {
       mounted = false;
