@@ -15,78 +15,91 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchProfile = async (userId: string) => {
+    try {
+      console.log('about to hit supabase for profile');
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      console.log('after hitting supabase');
+      
+      setProfile(profileData);
+      console.log('profileData set', profileData);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setProfile(null);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     let initialLoadHandled = false;
 
-    const updateAuthState = async (session: Session | null) => {
-      console.log('updating auth state');
-      if (!mounted) return;
-      console.log('mounted successfully');
-      
-
-      setSession(session);
-      setUser(session?.user ?? null);
-      console.log('session', session);
-      console.log('user', session?.user);
-      
-      if (session?.user) {
+    // Set up auth state listener FIRST (non-async callback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        console.log('Auth state change:', event, newSession?.user?.email);
         
-        try {
-          console.log('about to hit supabase');
-          
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-            console.log('after hitting supabase');
-            
-          
-          setProfile(profileData);
-          console.log('profileData set', profileData);
-        } catch (error) {
-          console.error('Error fetching profile:', error);
-          setProfile(null);
-        }
-      } else {
-        // no session user
-        setProfile(null);
-      }
-
-      // always happens regardless of session user
-      setLoading(false);
-      console.log('Loading set to false');
-      // end of updateAuthState    
-      if (!initialLoadHandled) {
-        setLoading(false);
-        initialLoadHandled = true;
-        console.log('Loading set to false after initial load.');
+        if (!mounted) return;
         
+        // Only synchronous state updates here
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        // Defer any Supabase calls using setTimeout to avoid deadlocks
+        setTimeout(async () => {
+          if (newSession?.user) {
+            await fetchProfile(newSession.user.id);
+          } else {
+            setProfile(null);
+          }
+          
+          if (!initialLoadHandled) {
+            setLoading(false);
+            initialLoadHandled = true;
+            console.log('Loading set to false after auth state change.');
+          } else {
+            setLoading(false);
+            console.log('Loading set to false');
+          }
+        }, 0);
       }
-    };
+    );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
-      updateAuthState(session);
+      
+      if (!mounted) return;
+      
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      // Defer profile fetching and loading state update
+      setTimeout(async () => {
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+        
+        if (!initialLoadHandled) {
+          setLoading(false);
+          initialLoadHandled = true;
+          console.log('Loading set to false after initial session check.');
+        }
+      }, 0);
     }).catch(error => {
       console.error("Error during initial session check:", error);
       if (mounted && !initialLoadHandled) {
-        setLoading(false); // Ensure loading is false even if getSession fails
+        setLoading(false);
         initialLoadHandled = true;
       }
     });
-    
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log('Auth state change:', event, newSession?.user?.email);
-        await updateAuthState(newSession);
-      }
-    );
-
 
     return () => {
       mounted = false;
