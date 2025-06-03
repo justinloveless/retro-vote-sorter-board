@@ -10,7 +10,6 @@ export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return ({
-    base: command === 'build' && mode === 'production' ? "/retro-vote-sorter-board/" : "/",
     server: {
       host: "::",
       port: 8080,
@@ -23,13 +22,6 @@ export default defineConfig(({ mode, command }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
-      },
-    },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: undefined,
-        },
       },
     },
   });
