@@ -47,20 +47,21 @@ export const useAuth = () => {
         
         // Always update session and user synchronously
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+        // setUser(newSession?.user ?? null);
+        setLoading(true);
         
         // Defer profile fetching and loading state update
-        setTimeout(async () => {
-          if (newSession?.user) {
-            await fetchProfile(newSession.user.id);
-          } else {
-            setProfile(null);
-          }
+        // setTimeout(async () => {
+        //   if (newSession?.user) {
+        //     await fetchProfile(newSession.user.id);
+        //   } else {
+        //     setProfile(null);
+        //   }
           
-          // Always set loading to false after handling auth state
-          setLoading(false);
-          console.log('Loading set to false after auth state handling');
-        }, 0);
+        //   // Always set loading to false after handling auth state
+        //   setLoading(false);
+        //   console.log('Loading set to false after auth state handling');
+        // }, 0);
       }
     );
 
