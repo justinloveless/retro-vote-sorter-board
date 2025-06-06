@@ -18,7 +18,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       console.log('about to hit supabase for profile');
-      
+
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -26,7 +26,7 @@ export const useAuth = () => {
         .single();
 
       console.log('after hitting supabase');
-      
+
       setProfile(profileData);
       console.log('profileData set', profileData);
     } catch (error) {
@@ -36,20 +36,29 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
+    console.log('session', session);
+    if (session?.user) {
+      fetchProfile(session.user.id);
+      setLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
     let mounted = true;
 
     // Set up auth state listener FIRST - this will handle ALL auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log('Auth state change:', event, newSession?.user?.email);
-        
+        console.log('mounted', mounted);
+
         if (!mounted) return;
-        
+
         // Always update session and user synchronously
         setSession(newSession);
-        // setUser(newSession?.user ?? null);
-        setLoading(true);
-        
+        setUser(newSession?.user ?? null);
+        // setLoading(false);
+
         // Defer profile fetching and loading state update
         // setTimeout(async () => {
         //   if (newSession?.user) {
@@ -57,7 +66,7 @@ export const useAuth = () => {
         //   } else {
         //     setProfile(null);
         //   }
-          
+
         //   // Always set loading to false after handling auth state
         //   setLoading(false);
         //   console.log('Loading set to false after auth state handling');
@@ -69,6 +78,7 @@ export const useAuth = () => {
     // so we don't need to manually call getSession() - this eliminates the race condition
 
     return () => {
+      console.log('unmounting');
       mounted = false;
       subscription.unsubscribe();
     };
