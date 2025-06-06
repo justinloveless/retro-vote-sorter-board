@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RetroBoard } from './RetroBoard';
 import { AuthForm } from './AuthForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,7 +30,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [anonymousName] = useState(() => generateSillyName());
-  const [hasNotifiedSlack, setHasNotifiedSlack] = useState(false);
+  const notificationInProgress = useRef(false);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { sendSlackNotification, createRetroSession } = useSlackNotification();
@@ -56,26 +56,28 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   // Send Slack notification when board is accessed for the first time
   useEffect(() => {
     const sendInitialSlackNotification = async () => {
-      if (!boardData || !user || hasNotifiedSlack) return;
+      if (!boardData || !user || notificationInProgress.current) return;
 
       // Only send notification for team boards
       if (!boardData.team_id) return;
+
+      notificationInProgress.current = true;
 
       try {
         // Check if a session already exists for this board today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const { data: existingSessions } = await supabase
           .from('retro_board_sessions')
-          .select('id')
+          .select('id', { count: 'exact' })
           .eq('board_id', boardData.id)
           .gte('created_at', today.toISOString());
 
         // If no session exists today, create one and send notification
         if (!existingSessions || existingSessions.length === 0) {
           await createRetroSession(boardData.id, boardData.team_id, user.id);
-          
+
           await sendSlackNotification(
             boardData.id,
             boardData.team_id,
@@ -83,16 +85,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
             roomId,
             user.id
           );
-          
-          setHasNotifiedSlack(true);
         }
       } catch (error) {
         console.error('Error with Slack notification flow:', error);
+        notificationInProgress.current = false; // Allow retry on error
       }
     };
 
     sendInitialSlackNotification();
-  }, [boardData, user, roomId, hasNotifiedSlack, sendSlackNotification, createRetroSession]);
+  }, [boardData, user, roomId, sendSlackNotification, createRetroSession]);
 
   const togglePrivacy = async () => {
     if (!user) {
@@ -106,26 +107,26 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
     const newPrivateState = !isPrivate;
     setIsPrivate(newPrivateState);
-    
+
     if (newPrivateState) {
       const generatedPassword = Math.random().toString(36).substring(2, 8);
       setPassword(generatedPassword);
-      
+
       // Update board in database
       await supabase
         .from('retro_boards')
-        .update({ 
-          is_private: true, 
-          password_hash: generatedPassword 
+        .update({
+          is_private: true,
+          password_hash: generatedPassword
         })
         .eq('room_id', roomId);
-      
-      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({ 
-        isPrivate: true, 
+
+      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({
+        isPrivate: true,
         password: generatedPassword,
-        authenticated: true 
+        authenticated: true
       }));
-      
+
       toast({
         title: "Room is now private",
         description: `Password: ${generatedPassword}`,
@@ -134,17 +135,17 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       // Update board in database
       await supabase
         .from('retro_boards')
-        .update({ 
-          is_private: false, 
-          password_hash: null 
+        .update({
+          is_private: false,
+          password_hash: null
         })
         .eq('room_id', roomId);
-      
-      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({ 
-        isPrivate: false, 
-        authenticated: true 
+
+      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({
+        isPrivate: false,
+        authenticated: true
       }));
-      
+
       toast({
         title: "Room is now public",
         description: "Anyone with the link can join.",
@@ -174,14 +175,14 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
   return (
     <div className="relative">
-      <RetroBoard 
-        boardId={roomId} 
+      <RetroBoard
+        boardId={roomId}
         isPrivate={isPrivate}
         onTogglePrivacy={togglePrivacy}
         anonymousName={anonymousName}
         isAnonymousUser={!user}
       />
-      
+
       <FloatingButtons
         onShare={() => setShowShareDialog(true)}
         onSignIn={() => setShowAuthDialog(true)}
