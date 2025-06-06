@@ -18,7 +18,7 @@ const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { boards, loading: boardsLoading, createBoardForTeam } = useTeamBoards(teamId || null);
+  const { boards, loading: boardsLoading, createBoardForTeam, refetch: refetchBoards } = useTeamBoards(teamId || null);
   const { members } = useTeamMembers(teamId || null);
   const [team, setTeam] = useState<any>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | undefined>();
@@ -107,7 +107,9 @@ const Team = () => {
                 <TeamBoardsList 
                   boards={boards}
                   loading={boardsLoading}
+                  currentUserRole={currentUserRole}
                   onCreateBoard={() => setShowCreateDialog(true)}
+                  onBoardUpdated={refetchBoards}
                 />
               </TabsContent>
               

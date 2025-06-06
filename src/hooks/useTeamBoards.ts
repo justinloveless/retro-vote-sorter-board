@@ -9,6 +9,9 @@ interface TeamBoard {
   title: string;
   is_private: boolean;
   password_hash: string | null;
+  archived: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
   created_at: string;
   updated_at: string;
 }

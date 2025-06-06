@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
+  // Check if board is archived (read-only)
+  const isArchived = board?.archived || false;
+
   // Update user name when profile changes (but not for anonymous users)
   useEffect(() => {
     if (!isAnonymousUser) {
@@ -91,37 +95,27 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     }
   }, [userName, board, debouncedUpdatePresence]);
 
-  // Function to check if a column is an "Action Items" column
-  const isActionItemsColumn = (columnTitle: string) => {
-    return columnTitle.toLowerCase().includes('action') && columnTitle.toLowerCase().includes('item');
-  };
-
-  // Function to generate JIRA ticket creation URL
-  const generateJiraUrl = (ticketTitle: string) => {
-    const jiraDomain = 'outsystemsrd.atlassian.net';
-    const encodedTitle = encodeURIComponent(ticketTitle);
-    return `https://${jiraDomain}/secure/CreateIssueDetails!init.jspa?pid=19602&priority=10000&issuetype=10001&summary=${encodedTitle}&description=${encodedTitle}`;
-  };
-
   const handleAddItem = (columnId: string) => (text: string, isAnonymous: boolean) => {
+    if (isArchived) return; // Prevent adding items to archived boards
     const authorName = isAnonymous ? 'Anonymous' : userName;
     addItem(text, columnId, authorName);
   };
 
   const handleAddColumn = () => {
-    if (!newColumnTitle.trim() || isAnonymousUser) return;
+    if (!newColumnTitle.trim() || isAnonymousUser || isArchived) return;
     
     addColumn(newColumnTitle);
     setNewColumnTitle('');
   };
 
   const startEdit = (itemId: string, currentText: string) => {
+    if (isArchived) return; // Prevent editing in archived boards
     setEditingItem(itemId);
     setEditText(currentText);
   };
 
   const saveEdit = () => {
-    if (!editText.trim() || !editingItem) return;
+    if (!editText.trim() || !editingItem || isArchived) return;
     
     updateItem(editingItem, editText);
     setEditingItem(null);
@@ -134,25 +128,25 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   };
 
   const handleDragStart = (e: React.DragEvent, columnId: string) => {
-    if (isAnonymousUser) return;
+    if (isAnonymousUser || isArchived) return;
     setDraggedColumn(columnId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
-    if (isAnonymousUser) return;
+    if (isAnonymousUser || isArchived) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverColumn(columnId);
   };
 
   const handleDragLeave = () => {
-    if (isAnonymousUser) return;
+    if (isAnonymousUser || isArchived) return;
     setDragOverColumn(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
-    if (isAnonymousUser) return;
+    if (isAnonymousUser || isArchived) return;
     e.preventDefault();
     
     if (!draggedColumn || draggedColumn === targetColumnId) {
@@ -194,6 +188,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <EnvironmentIndicator />
       
+      {/* Archived board notice */}
+      {isArchived && (
+        <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+          <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+            <span className="font-medium">📁 This board is archived</span>
+            <span className="text-sm">- It's now read-only and cannot be edited</span>
+          </div>
+        </div>
+      )}
+      
       <BoardHeader
         board={board}
         profile={profile}
@@ -203,8 +207,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         anonymousName={anonymousName}
         isAnonymousUser={isAnonymousUser}
         items={items}
-        onUpdateBoardTitle={updateBoardTitle}
-        onUpdateBoardConfig={updateBoardConfig}
+        onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
+        onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
         onSignOut={signOut}
       />
 
@@ -215,7 +219,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
           className="w-48"
-          disabled={isAnonymousUser}
+          disabled={isAnonymousUser || isArchived}
         />
         <span className="text-sm text-gray-600 dark:text-gray-400">
           {isAnonymousUser 
@@ -242,18 +246,19 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               dragOverColumn={dragOverColumn}
               editingItem={editingItem}
               editText={editText}
+              isArchived={isArchived}
               onAddItem={handleAddItem(column.id)}
-              onUpdateColumn={updateColumn}
-              onDeleteColumn={deleteColumn}
-              onUpvoteItem={upvoteItem}
-              onUpdateItem={updateItem}
-              onDeleteItem={deleteItem}
+              onUpdateColumn={isArchived ? undefined : updateColumn}
+              onDeleteColumn={isArchived ? undefined : deleteColumn}
+              onUpvoteItem={isArchived ? undefined : upvoteItem}
+              onUpdateItem={isArchived ? undefined : updateItem}
+              onDeleteItem={isArchived ? undefined : deleteItem}
               onStartEdit={startEdit}
               onSaveEdit={saveEdit}
               onCancelEdit={cancelEdit}
               onSetEditText={setEditText}
-              onAddComment={addComment}
-              onDeleteComment={deleteComment}
+              onAddComment={isArchived ? undefined : addComment}
+              onDeleteComment={isArchived ? undefined : deleteComment}
               onGetCommentsForItem={getCommentsForItem}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -263,8 +268,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
             />
           ))}
           
-          {/* Add Column Card - Only show for authenticated users */}
-          {!isAnonymousUser && (
+          {/* Add Column Card - Only show for authenticated users and non-archived boards */}
+          {!isAnonymousUser && !isArchived && (
             <div className="w-80 flex-shrink-0">
               <Dialog>
                 <DialogTrigger asChild>
