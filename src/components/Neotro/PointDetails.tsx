@@ -1,4 +1,5 @@
 import React from "react";
+import { JiraIssueDrawer } from "./JiraIssueDrawer";
 
 // Data for point details
 const detailsData = [
@@ -32,6 +33,9 @@ interface PointsDetailsProps {
   averagePoints: number;
   ticketNumber: string | null;
   onTicketNumberChange: (value: string) => void;
+  onTicketNumberFocus: () => void;
+  onTicketNumberBlur: () => void;
+  teamId: string | null;
 }
 
 /**
@@ -43,6 +47,9 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
   averagePoints,
   ticketNumber,
   onTicketNumberChange,
+  onTicketNumberFocus,
+  onTicketNumberBlur,
+  teamId,
 }) => {
   // Find the details for the currently selected point
   const pointData = detailsData.find((detail) => detail.id === selectedPoint);
@@ -66,14 +73,14 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
           type="text"
           value={ticketNumber || ''}
           onChange={(e) => onTicketNumberChange(e.target.value)}
+          onFocus={onTicketNumberFocus}
+          onBlur={onTicketNumberBlur}
           disabled={isHandPlayed}
           placeholder="RNMT-0000"
           className="bg-transparent text-center w-full focus:outline-none"
         />
       </div>
-      <div className="text-3xl text-center text-white bg-[#0e435fff] rounded-lg p-2">
-        Title of Ticket
-      </div>
+      <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />
       {/* Team Points Section */}
       <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
         <div className="text-xl mr-2">

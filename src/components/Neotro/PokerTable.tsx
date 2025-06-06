@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -8,6 +8,7 @@ import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import { usePokerSession, PlayerSelection, Selections } from '@/hooks/usePokerSession';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import "@/components/Neotro/neotro.css";
 /* CSS for Neotro */
 
@@ -35,6 +36,68 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
     teamMembers,
     activeUserId
   );
+  const [displayTicketNumber, setDisplayTicketNumber] = useState('');
+  const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
+
+  // Debounce function
+  const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    const debouncedFunc = (...args: Parameters<F>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        func(...args);
+      }, delay);
+    };
+
+    debouncedFunc.cancel = () => {
+      clearTimeout(timeoutId);
+    };
+
+    return debouncedFunc;
+  };
+
+  const debouncedUpdateTicketNumber = useCallback(
+    debounce((value: string) => {
+      updateTicketNumber(value);
+    }, 500),
+    [updateTicketNumber]
+  );
+
+  useEffect(() => {
+    const fetchTeamPrefix = async () => {
+      if (teamId) {
+        const { data, error } = await supabase
+          .from('teams')
+          .select('jira_ticket_prefix')
+          .eq('id', teamId)
+          .single();
+        
+        if (data && data.jira_ticket_prefix) {
+          if (!session?.ticket_number) {
+            setDisplayTicketNumber(data.jira_ticket_prefix);
+          }
+        }
+      }
+    };
+    fetchTeamPrefix();
+  }, [teamId, session?.ticket_number]);
+
+  useEffect(() => {
+    if (session?.ticket_number && !isTicketInputFocused) {
+      setDisplayTicketNumber(session.ticket_number);
+    } else if (teamId && !session?.ticket_number && !isTicketInputFocused) {
+      // If session ticket number is cleared (e.g., new round), re-apply prefix
+      const fetchTeamPrefix = async () => {
+        const { data } = await supabase
+          .from('teams')
+          .select('jira_ticket_prefix')
+          .eq('id', teamId)
+          .single();
+        setDisplayTicketNumber(data?.jira_ticket_prefix || '');
+      };
+      fetchTeamPrefix();
+    }
+  }, [session?.ticket_number, teamId, isTicketInputFocused]);
   
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
@@ -53,6 +116,24 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
     
     updateUserSelection(pointOptions[newIndex]);
   };
+
+  const handleTicketNumberChange = (value: string) => {
+    setDisplayTicketNumber(value);
+    debouncedUpdateTicketNumber(value);
+  }
+
+  const handleTicketNumberFocus = () => {
+    setIsTicketInputFocused(true);
+  }
+
+  const handleTicketNumberBlur = () => {
+    setIsTicketInputFocused(false);
+    // On blur, immediately update the ticket number, cancelling any pending debounce
+    debouncedUpdateTicketNumber.cancel();
+    if (session && displayTicketNumber !== session.ticket_number) {
+      updateTicketNumber(displayTicketNumber);
+    }
+  }
   
   if (loading || !session) {
     return (
@@ -67,13 +148,16 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
       <div className="flex flex-1 min-h-0">
         <div className="w-1/4 p-4 flex flex-col">
           <div className="flex-grow overflow-y-auto pr-2">
-            <div className="bg-card/25 border-l-10 border-r-10 border-primary p-4 rounded-lg">
+            <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
               <PointsDetails
+                teamId={teamId}
                 selectedPoint={activeUserSelection.points}
                 isHandPlayed={session.game_state === 'Playing'}
                 averagePoints={session.average_points}
-                ticketNumber={session.ticket_number}
-                onTicketNumberChange={updateTicketNumber}
+                ticketNumber={displayTicketNumber}
+                onTicketNumberChange={handleTicketNumberChange}
+                onTicketNumberFocus={handleTicketNumberFocus}
+                onTicketNumberBlur={handleTicketNumberBlur}
               />
               <div className="p-2 flex justify-between gap-2">
                 <PlayHandButton
