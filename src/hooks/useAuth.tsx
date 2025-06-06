@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,10 +9,30 @@ interface Profile {
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cachedSession = localStorage.getItem('session');
+    try {
+      return cachedSession ? JSON.parse(cachedSession) : null;
+    } catch (e) {
+      console.error('Failed to parse cached session', e);
+      return null;
+    }
+  });
+
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cachedProfile = localStorage.getItem('profile');
+    try {
+      return cachedProfile ? JSON.parse(cachedProfile) : null;
+    } catch (e) {
+      console.error('Failed to parse cached profile', e);
+      return null;
+    }
+  });
+
+  const [user, setUser] = useState<User | null>(session?.user ?? null);
+  const [loading, setLoading] = useState(!session);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -26,22 +45,22 @@ export const useAuth = () => {
         .single();
 
       console.log('after hitting supabase');
-
+      localStorage.setItem('profile', JSON.stringify(profileData));
       setProfile(profileData);
       console.log('profileData set', profileData);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      localStorage.removeItem('profile');
       setProfile(null);
     }
   };
 
   useEffect(() => {
     console.log('session', session);
-    if (session?.user) {
+    if (session?.user && (!profile || profile.id !== session.user.id)) {
       fetchProfile(session.user.id);
-      setLoading(false);
     }
-  }, [session]);
+  }, [session, profile]);
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +72,14 @@ export const useAuth = () => {
         console.log('mounted', mounted);
 
         if (!mounted) return;
+
+        if (newSession) {
+          localStorage.setItem('session', JSON.stringify(newSession));
+        } else {
+          localStorage.removeItem('session');
+          localStorage.removeItem('profile');
+          setProfile(null);
+        }
 
         // Always update session and user synchronously
         setSession(newSession);
