@@ -34,6 +34,30 @@ serve(async (req) => {
 
     const { boardId, teamId, boardTitle, roomId, startedBy } = await req.json()
 
+    // Add a check to prevent duplicate notifications from race conditions
+    const oneMinuteAgo = new Date(new Date().getTime() - 60000).toISOString()
+    const { count: recentSessionCount, error: recentSessionError } = await supabase
+      .from('retro_board_sessions')
+      .select('id', { count: 'exact' })
+      .eq('board_id', boardId)
+      .gte('created_at', oneMinuteAgo)
+
+    if (recentSessionError) {
+      console.error('Error checking for recent sessions:', recentSessionError.message)
+      // Proceed, but be aware of potential duplicates if this check fails
+    }
+
+    if (recentSessionCount && recentSessionCount > 1) {
+      console.log(`Found ${recentSessionCount} recent sessions for board ${boardId}. Assuming notification already sent. Skipping.`)
+      return new Response(
+        JSON.stringify({ success: true, message: 'Duplicate notification skipped' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
     console.log('Sending Slack notification for board:', boardId, 'team:', teamId)
 
     // Get team information, including the Slack webhook URL
