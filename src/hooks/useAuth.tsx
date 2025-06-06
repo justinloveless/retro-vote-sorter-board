@@ -57,7 +57,7 @@ export const useAuth = () => {
         // Always update session and user synchronously
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        // setLoading(false);
+        setLoading(false);
 
         // Defer profile fetching and loading state update
         // setTimeout(async () => {
