@@ -59,9 +59,9 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
   const { Min, Max, Comment } = pointData;
 
   return (
-    <div className="font-custom bg-[#2d2d2d] p-2 space-y-2 rounded-xl pt-[30px]">
+    <div className="font-custom bg-[#2d2d2d] p-2 space-y-2 rounded-xl">
       {/* Title Section */}
-      <div className="text-5xl text-center text-white text-shadow-[5px_5px_rgba(0,0,0,255)] mb-4 bg-[#0068adff] rounded-lg p-4">
+      <div className="text-3xl text-center text-white text-shadow-[3px_3px_rgba(0,0,0,255)] bg-[#0068adff] rounded-lg p-2">
         <input
           type="text"
           value={ticketNumber || ''}
@@ -71,54 +71,54 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
           className="bg-transparent text-center w-full focus:outline-none"
         />
       </div>
-      <div className="text-5xl text-center text-white mb-4 bg-[#0e435fff] rounded-lg p-4 pt-10 pb-10">
+      <div className="text-3xl text-center text-white bg-[#0e435fff] rounded-lg p-2">
         Title of Ticket
       </div>
       {/* Team Points Section */}
-      <div className="bg-[#1b2629ff] rounded-lg p-4 text-center text-white flex item-center space-between">
-        <div className="text-3xl mb-2 mr-2">
+      <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
+        <div className="text-xl mr-2">
           Avg.
           <br />
           Pts
         </div>
-        <div className="bg-[#3c3c3c] rounded-lg p-4 flex items-center justify-center grow">
-          <p className="text-4xl whitespace-pre-wrap">
+        <div className="bg-[#3c3c3c] rounded-lg p-2 flex items-center justify-center grow">
+          <p className="text-2xl whitespace-pre-wrap">
             {isHandPlayed ? averagePoints.toFixed(2) : "???"}
           </p>
         </div>
       </div>
       {/* Duration Section */}
-      <div className="bg-[#1b2629ff] rounded-lg p-4 text-center text-white">
-        <div className="mb-4 text-5xl text-shadow-[5px_5px_rgba(0,0,0,255)]">
+      <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white">
+        <div className="mb-2 text-3xl text-shadow-[3px_3px_rgba(0,0,0,255)]">
           Duration
         </div>
-        <div className="flex justify-center items-start space-x-3">
+        <div className="flex justify-center items-center space-x-2">
           {/* Min Box */}
           <div className="text-center">
-            <div className="bg-[#007bff] w-28 h-20 flex items-center justify-center rounded-lg">
-              <span className="text-6xl text-shadow-[5px_5px_rgba(0,93,172,255)]">
+            <div className="bg-[#007bff] w-24 h-16 flex items-center justify-center rounded-lg">
+              <span className="text-4xl text-shadow-[3px_3px_rgba(0,93,172,255)]">
                 {Min}
               </span>
             </div>
-            <p className="mt-2 text-xl">Min</p>
+            <p className="mt-1 text-base">Min</p>
           </div>
           {/* Max Box */}
           <div className="text-center">
-            <div className="bg-[#ff4c40ff] w-28 h-20 flex items-center justify-center rounded-lg">
-              <span className="text-6xl text-shadow-[4px_4px_rgba(170,44,36,255)]">
+            <div className="bg-[#ff4c40ff] w-24 h-16 flex items-center justify-center rounded-lg">
+              <span className="text-4xl text-shadow-[3px_3px_rgba(170,44,36,255)]">
                 {Max}
               </span>
             </div>
-            <p className="mt-2 text-xl">Max</p>
+            <p className="mt-1 text-base">Max</p>
           </div>
         </div>
       </div>
 
       {/* Comment Section */}
-      <div className="bg-[#1b2629ff] rounded-lg p-4 text-center text-white">
-        <div className="text-3xl mb-2">Comment</div>
-        <div className="bg-[#3c3c3c] rounded-lg p-4 min-h-[120px] flex items-center justify-center">
-          <p className="text-2xl whitespace-pre-wrap">{Comment}</p>
+      <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white">
+        <div className="text-xl mb-1">Comment</div>
+        <div className="bg-[#3c3c3c] rounded-lg p-2 min-h-[80px] flex items-center justify-center">
+          <p className="text-lg whitespace-pre-wrap">{Comment}</p>
         </div>
       </div>
     </div>
