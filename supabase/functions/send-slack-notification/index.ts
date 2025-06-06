@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -37,16 +36,29 @@ serve(async (req) => {
 
     console.log('Sending Slack notification for board:', boardId, 'team:', teamId)
 
-    // For now, use the hardcoded webhook URL
-    // const webhookUrl = "https://hooks.slack.com/services/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"
-    const webhookUrl = "https://hooks.slack.com/services/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"
-
-    // Get team information
-    const { data: team } = await supabase
+    // Get team information, including the Slack webhook URL
+    const { data: team, error: teamError } = await supabase
       .from('teams')
-      .select('name')
+      .select('name, slack_webhook_url')
       .eq('id', teamId)
       .single()
+
+    if (teamError) {
+      throw new Error(`Error fetching team data: ${teamError.message}`)
+    }
+
+    if (!team || !team.slack_webhook_url) {
+      console.log(`No Slack webhook URL configured for team ${teamId}. Skipping notification.`)
+      return new Response(
+        JSON.stringify({ success: true, message: 'No Slack webhook URL configured' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    const { slack_webhook_url: webhookUrl, name: teamName = 'Unknown Team' } = team
 
     // Get user information
     const { data: profile } = await supabase
@@ -56,7 +68,6 @@ serve(async (req) => {
       .single()
 
     const userName = profile?.full_name || 'Someone'
-    const teamName = team?.name || 'Unknown Team'
 
     // Create the Slack message
     const slackMessage: SlackMessage = {
@@ -89,7 +100,7 @@ serve(async (req) => {
             },
             {
               title: 'Join the retro',
-              value: `Click here to participate: ${req.headers.get('origin') || 'https://hooks.slack.com/services/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'}/retro/${roomId}`,
+              value: `Click here to participate: ${req.headers.get('origin') || 'https://preview--retro-vote-sorter-board.lovable.app'}/retro/${roomId}`,
               short: false
             }
           ]

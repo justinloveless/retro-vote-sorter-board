@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,7 @@ const TeamSettings = () => {
           .single();
 
         if (error) throw error;
-        
+
         // Check if user is admin or owner
         const userRole = data.team_members[0]?.role;
         if (!['owner', 'admin'].includes(userRole)) {
@@ -65,7 +64,7 @@ const TeamSettings = () => {
     loadTeam();
   }, [teamId, user, navigate, toast]);
 
-  const handleSave = async (formData: { name: string; description: string }) => {
+  const handleSave = async (formData: { name: string; description: string; slack_webhook_url: string; }) => {
     if (!teamId) return;
 
     setSaving(true);
@@ -74,7 +73,8 @@ const TeamSettings = () => {
         .from('teams')
         .update({
           name: formData.name.trim(),
-          description: formData.description.trim() || null
+          description: formData.description.trim() || null,
+          slack_webhook_url: formData.slack_webhook_url.trim() || null
         })
         .eq('id', teamId);
 
@@ -89,7 +89,8 @@ const TeamSettings = () => {
       setTeam(prev => ({
         ...prev,
         name: formData.name.trim(),
-        description: formData.description.trim() || null
+        description: formData.description.trim() || null,
+        slack_webhook_url: formData.slack_webhook_url.trim() || null
       }));
     } catch (error) {
       console.error('Error updating team:', error);
@@ -139,7 +140,7 @@ const TeamSettings = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => {}} />;
+    return <AuthForm onAuthSuccess={() => { }} />;
   }
 
   if (!team) {
