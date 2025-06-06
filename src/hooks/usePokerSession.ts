@@ -62,7 +62,7 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       const initialSelections: Selections = {};
       teamMembers.forEach(member => {
         initialSelections[member.user_id] = {
-          points: 0,
+          points: 1,
           locked: false,
           name: member.profiles?.full_name || 'Anonymous'
         };
@@ -113,6 +113,58 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
         }
       );
 
+    channel.on(
+      'broadcast',
+      { event: 'selection_update' },
+      ({ payload }: { payload: { userId: string, selection: PlayerSelection }}) => {
+        setSession((prevSession) => {
+          if (!prevSession || !payload) return prevSession;
+
+          const { userId, selection } = payload;
+          
+          const newSelections = {
+            ...prevSession.selections,
+            [userId]: selection,
+          };
+
+          return { ...prevSession, selections: newSelections };
+        });
+      }
+    );
+
+    channel.on(
+      'broadcast',
+      { event: 'play_hand' },
+      ({ payload }: { payload: { newState: Partial<PokerSession> } }) => {
+        setSession((prevSession) => {
+          if (!prevSession) return null;
+          return { ...prevSession, ...payload.newState };
+        });
+      }
+    );
+
+    channel.on(
+      'broadcast',
+      { event: 'next_round' },
+      ({ payload }: { payload: { newState: Partial<PokerSession> } }) => {
+        setSession((prevSession) => {
+          if (!prevSession) return null;
+          return { ...prevSession, ...payload.newState };
+        });
+      }
+    );
+
+    channel.on(
+      'broadcast',
+      { event: 'ticket_update' },
+      ({ payload }: { payload: { ticketNumber: string } }) => {
+        setSession((prevSession) => {
+          if (!prevSession) return null;
+          return { ...prevSession, ticket_number: payload.ticketNumber };
+        });
+      }
+    );
+
     channel.on('presence', { event: 'sync' }, () => {
       const presenceState = channel.presenceState();
       const userIds = Object.keys(presenceState);
@@ -160,18 +212,27 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
     const userSelection = currentSelections[currentUserId];
     
     if (userSelection && !userSelection.locked) {
+      const newSelection = {
+        ...userSelection,
+        points,
+      };
       const newSelections = {
         ...currentSelections,
-        [currentUserId]: {
-          ...userSelection,
-          points,
-        }
+        [currentUserId]: newSelection
       };
       
-      // Optimistic update
+      // Update local state immediately for the current user
       setSession({ ...session, selections: newSelections });
       
       await updateSelections(newSelections);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'selection_update',
+          payload: { userId: currentUserId, selection: newSelection },
+        });
+      }
     }
   };
   
@@ -180,24 +241,34 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
     const currentSelections = session.selections;
     const userSelection = currentSelections[currentUserId];
     if (userSelection) {
+      const newSelection = { ...userSelection, locked: !userSelection.locked };
       const newSelections = {
         ...currentSelections,
-        [currentUserId]: { ...userSelection, locked: !userSelection.locked }
+        [currentUserId]: newSelection
       };
 
-      // Optimistic update
+      // Update local state immediately for the current user
       setSession({ ...session, selections: newSelections });
 
       await updateSelections(newSelections);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'selection_update',
+          payload: { userId: currentUserId, selection: newSelection },
+        });
+      }
     }
   };
 
   const updateTicketNumber = async (ticketNumber: string) => {
     if (!session) return;
 
-    // Optimistic update
+    // Update local state immediately
     setSession({ ...session, ticket_number: ticketNumber });
 
+    // Persist to DB
     const { error } = await supabase
       .from('poker_sessions')
       .update({ ticket_number: ticketNumber })
@@ -206,8 +277,17 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
     if (error) {
       console.error('Error updating ticket number', error);
       toast({ title: 'Error updating ticket number', variant: 'destructive' });
-      // Revert optimistic update on error
+      // Revert on error
       getOrCreateSession();
+    }
+
+    // Broadcast the new ticket number
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'ticket_update',
+        payload: { ticketNumber },
+      });
     }
   };
 
@@ -234,14 +314,24 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       newState.selections = newSelections;
     }
 
-    // Optimistic update
+    // Update local state immediately
     setSession({ ...session, ...newState });
     
+    // Persist to DB
     const { error } = await supabase
       .from('poker_sessions')
       .update(newState)
       .eq('id', session.id);
     if (error) console.error('Error playing hand', error);
+
+    // Broadcast the new state to other clients
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'play_hand',
+        payload: { newState },
+      });
+    }
   };
 
   const nextRound = async () => {
@@ -251,18 +341,35 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
     Object.keys(session.selections).forEach(userId => {
         resetSelections[userId] = {
             ...session.selections[userId],
-            points: 0,
+            points: 1,
             locked: false,
         };
     });
     
-    // Optimistic update
-    setSession({ ...session, selections: resetSelections, game_state: 'Selection', average_points: 0, ticket_number: '' });
+    const newState: Partial<PokerSession> = { 
+      selections: resetSelections, 
+      game_state: 'Selection', 
+      average_points: 0, 
+      ticket_number: '' 
+    };
 
+    // Update local state immediately
+    setSession({ ...session, ...newState });
+
+    // Persist to DB
     await supabase
       .from('poker_sessions')
-      .update({ selections: resetSelections, game_state: 'Selection', average_points: 0, ticket_number: '' })
+      .update(newState)
       .eq('id', session.id);
+
+    // Broadcast the new state to other clients
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'next_round',
+        payload: { newState },
+      });
+    }
   };
 
   return { session, loading, updateUserSelection, toggleLockUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds };

@@ -63,11 +63,11 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
   }
 
   return (
-    <div className="poker-table relative flex flex-col h-full w-full">
-      <div className="flex flex-1">
-        <div className="w-1/4 p-4">
-          <div>
-            <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
+    <div className="poker-table relative flex flex-col h-full">
+      <div className="flex flex-1 min-h-0">
+        <div className="w-1/4 p-4 flex flex-col">
+          <div className="flex-grow overflow-y-auto pr-2">
+            <div className="bg-card/25 border-l-10 border-r-10 border-primary p-4 rounded-lg">
               <PointsDetails
                 selectedPoint={activeUserSelection.points}
                 isHandPlayed={session.game_state === 'Playing'}
@@ -75,7 +75,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
                 ticketNumber={session.ticket_number}
                 onTicketNumberChange={updateTicketNumber}
               />
-              <div className="p-2 flex justify-between">
+              <div className="p-2 flex justify-between gap-2">
                 <PlayHandButton
                   onHandPlayed={playHand}
                   isHandPlayed={session.game_state === 'Playing'}
@@ -112,8 +112,8 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
                 onPointsIncrease={() => handlePointChange(true)}
                 onLockIn={toggleLockUserSelection}
                 isLockedIn={activeUserSelection.locked}
-                onAbstain={() => updateUserSelection(0)} // Simple abstain logic
-                isAbstained={activeUserSelection.points === 0}
+                onAbstain={() => updateUserSelection(-1)} // Simple abstain logic
+                isAbstained={activeUserSelection.points === -1}
                 isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
               />
             </div>

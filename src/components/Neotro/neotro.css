@@ -155,3 +155,8 @@ img {
   animation-delay: -10s;
   /* Further offset animation start */
 }
+
+.locked-card-glow {
+    box-shadow: 0 0 15px 5px rgba(52, 152, 219, 0.7);
+    border-radius: 12px; /* Adjust to match your card's border-radius */
+}
