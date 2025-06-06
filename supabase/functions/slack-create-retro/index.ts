@@ -38,8 +38,8 @@ serve(async (req) => {
     })
 
     // Extract board title from the text parameter, or use default
-    const boardTitle = text && text.toString().trim() 
-      ? text.toString().trim() 
+    const boardTitle = text && text.toString().trim()
+      ? text.toString().trim()
       : `${userName}'s Retrospective`
 
     // Generate a room ID
@@ -103,7 +103,7 @@ serve(async (req) => {
     }
 
     // Generate the board URL
-    const boardUrl = `${req.headers.get('origin') || 'https://your-app-domain.com'}/retro/${roomId}`
+    const boardUrl = `${req.headers.get('origin') || 'https://preview--retro-vote-sorter-board.lovable.app'}/retro/${roomId}`
 
     // Create Slack response
     const slackResponse = {
@@ -145,7 +145,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in slack-create-retro function:', error)
-    
+
     // Return error response to Slack
     const errorResponse = {
       response_type: 'ephemeral', // Only visible to the user who ran the command
