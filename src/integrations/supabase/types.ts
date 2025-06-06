@@ -200,6 +200,9 @@ export type Database = {
       }
       retro_boards: {
         Row: {
+          archived: boolean | null
+          archived_at: string | null
+          archived_by: string | null
           created_at: string | null
           creator_id: string | null
           id: string
@@ -211,6 +214,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived?: boolean | null
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string | null
           creator_id?: string | null
           id?: string
@@ -222,6 +228,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived?: boolean | null
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string | null
           creator_id?: string | null
           id?: string
