@@ -38,7 +38,8 @@ serve(async (req) => {
     console.log('Sending Slack notification for board:', boardId, 'team:', teamId)
 
     // For now, use the hardcoded webhook URL
-    const webhookUrl = "https://hooks.slack.com/services/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"
+    // const webhookUrl = "https://hooks.slack.com/services/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"
+    const webhookUrl = "https://hooks.slack.com/services/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"
 
     // Get team information
     const { data: team } = await supabase
