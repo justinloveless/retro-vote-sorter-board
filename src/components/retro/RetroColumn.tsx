@@ -21,6 +21,7 @@ interface RetroColumnProps {
   dragOverColumn: string | null;
   editingItem: string | null;
   editText: string;
+  isArchived: boolean;
   onAddItem: (text: string, isAnonymous: boolean) => void;
   onUpdateColumn: (columnId: string, updates: any) => void;
   onDeleteColumn: (columnId: string) => void;
