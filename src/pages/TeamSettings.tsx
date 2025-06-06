@@ -9,6 +9,7 @@ import { TeamSettingsForm } from '@/components/team/TeamSettingsForm';
 import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings';
 import { DangerZone } from '@/components/team/DangerZone';
 import { supabase } from '@/integrations/supabase/client';
+import { JiraSettingsForm } from '@/components/team/JiraSettingsForm';
 
 const TeamSettings = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -172,6 +173,8 @@ const TeamSettings = () => {
               onCancel={() => navigate(`/teams/${teamId}`)}
               saving={saving}
             />
+
+            <JiraSettingsForm teamId={teamId!} />
 
             <BoardTemplatesSettings teamId={teamId!} />
           </div>

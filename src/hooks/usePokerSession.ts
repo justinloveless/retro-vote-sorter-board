@@ -93,6 +93,9 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
 
     const channel = supabase.channel(`poker_session:${session.id}`, {
       config: {
+        broadcast: {
+          self: true,
+        },
         presence: {
           key: currentUserId,
         },
@@ -264,9 +267,6 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
 
   const updateTicketNumber = async (ticketNumber: string) => {
     if (!session) return;
-
-    // Update local state immediately
-    setSession({ ...session, ticket_number: ticketNumber });
 
     // Persist to DB
     const { error } = await supabase
