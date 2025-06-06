@@ -44,7 +44,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
         {/* Left Arrow Button */}
         <button
           onClick={onPointsDecrease}
-          className="bg-[#ff4c40ff] text-white text-5xl p-6 font-neotro cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200"
+          className="bg-[#ff4c40ff] text-white text-5xl font-neotro cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-2xl"
         >
           <div className="p-6">&lt;</div>
         </button>
@@ -58,9 +58,8 @@ const PointSelector: React.FC<PointSelectorProps> = ({
             {pointOptions.map((_, index) => (
               <div
                 key={index}
-                className={`w-3 h-3 rounded-full ${
-                  index === pointsIndex ? "bg-white" : "bg-[#173a2bff]"
-                }`}
+                className={`w-3 h-3 rounded-full ${index === pointsIndex ? "bg-white" : "bg-[#173a2bff]"
+                  }`}
               ></div>
             ))}
           </div>
@@ -68,7 +67,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
         {/* Right Arrow Button */}
         <button
           onClick={onPointsIncrease}
-          className="bg-[#ff4c40ff] text-white text-5xl rounded-2xl cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
+          className="bg-[#ff4c40ff] text-white text-5xl font-neotro rounded-2xl cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
         >
           <div className="p-6">&gt;</div>
         </button>
