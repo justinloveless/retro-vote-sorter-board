@@ -3,7 +3,7 @@ import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import Tooltip from "./Tooltip";
 import { getCardImage } from "./cardImage";
-import backCardImage from "@/assets/card_back.png";
+import backCardImage from "@/assets/Card_Back.png";
 
 // Define the possible states of the card
 
