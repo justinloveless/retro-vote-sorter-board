@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,7 +28,7 @@ const InviteAccept = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-gray-600">Loading...</div>
       </div>
     );
@@ -37,7 +36,7 @@ const InviteAccept = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+      <div className="min-h-screen">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-md mx-auto">
             <Card className="mb-6">
@@ -61,7 +60,7 @@ const InviteAccept = () => {
 
   if (accepted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="text-center py-8">
             <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
@@ -76,7 +75,7 @@ const InviteAccept = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <Card className="max-w-md">
         <CardHeader className="text-center">
           <Users className="h-12 w-12 text-blue-600 mx-auto mb-4" />

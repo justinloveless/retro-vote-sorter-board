@@ -12,7 +12,6 @@ import { TeamSidebar } from '@/components/team/TeamSidebar';
 import { TeamMembersList } from '@/components/team/TeamMembersList';
 import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Neotro from '@/components/Neotro/PokerTable';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -92,23 +91,10 @@ const Team = () => {
 
   return (
     <>
-      {/* Fixed background with blobs */}
-      <div className="fixed inset-0 z-0 overflow-hidden bg-[#336852ff]">
-        {/* Blue Blob */}
-        <div className="absolute top-1/3 right-1/4 w-64 h-64 sm:w-72 sm:h-72 md:w-[800px] md:h-[800px] bg-blue-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-        {/* Green Blob */}
-        <div className="absolute bottom-1/3 left-1/2 w-64 h-64 sm:w-72 sm:h-72 md:w-[800px] md:h-[800px] bg-green-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-        {/* Red Blob */}
-        <div className="absolute bottom-1/4 right-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-[800px] md:h-[800px] bg-red-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-        <div className="absolute top-1/4 left-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-[800px] md:h-[800px] bg-red-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-        {/* Yellow Blob */}
-        <div className="absolute bottom-1/4 left-1/3 w-56 h-56 sm:w-64 sm:h-64 md:w-[800px] md:h-[800px] bg-yellow-400 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-10xl md:blur-[300px] animate-blob-3"></div>
-      </div>
-
       {/* Scrollable content */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto px-4 py-8">
-          <TeamHeader team={team} onCreateBoard={() => setShowCreateDialog(true)} />
+          <TeamHeader team={team} onCreateBoard={() => setShowCreateDialog(true)} onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)} />
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
@@ -116,7 +102,6 @@ const Team = () => {
                 <TabsList >
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
-                  <TabsTrigger value="neotro">Pointing Session</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="boards" className="space-y-4">
@@ -135,10 +120,6 @@ const Team = () => {
                     teamName={team.name}
                     currentUserRole={currentUserRole} 
                   />
-                </TabsContent>
-
-                <TabsContent value="neotro" className="space-y-4">
-                  <Neotro />
                 </TabsContent>
               </Tabs>
             </div>

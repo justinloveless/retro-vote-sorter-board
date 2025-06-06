@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Plus } from 'lucide-react';
+import { ArrowLeft, Settings, Plus, Users } from 'lucide-react';
 
 interface TeamHeaderProps {
   team: {
@@ -11,9 +10,10 @@ interface TeamHeaderProps {
     description?: string;
   };
   onCreateBoard: () => void;
+  onJoinPointingSession: () => void;
 }
 
-export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard }) => {
+export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJoinPointingSession }) => {
   const navigate = useNavigate();
 
   return (
@@ -33,6 +33,10 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard }) =
       >
         <Settings className="h-4 w-4 mr-2" />
         Settings
+      </Button>
+      <Button onClick={onJoinPointingSession}>
+        <Users className="h-4 w-4 mr-2" />
+        Join Pointing Session
       </Button>
       <Button onClick={onCreateBoard}>
         <Plus className="h-4 w-4 mr-2" />
