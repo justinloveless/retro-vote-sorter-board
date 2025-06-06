@@ -9,6 +9,7 @@ interface RetroBoard {
   is_private: boolean;
   password_hash: string | null;
   created_at: string;
+  archived: boolean;
 }
 
 interface RetroColumn {
