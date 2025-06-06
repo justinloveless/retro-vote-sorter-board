@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import Tooltip from "./Tooltip";
+import { getCardImage } from "./cardImage";
+import backCardImage from "@/assets/card_back.png";
 
 // Define the possible states of the card
 
@@ -27,11 +29,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
 
   // Determine the front card image based on pointsSelected
-  const isAbstained = pointsSelected == -1;
-  const frontCardImage = isAbstained
-    ? "/src/assets/card_abstained.png"
-    : `/src/assets/card_${pointsSelected}pts.png`;
-  const backCardImage = "/src/assets/card_back.png";
+  const frontCardImage = getCardImage(pointsSelected);
 
   useEffect(() => {
     let flipDelay: NodeJS.Timeout | null = null;
