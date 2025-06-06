@@ -9,7 +9,23 @@ import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import "@/components/Neotro/neotro.css";
 /* CSS for Neotro */
 
-const Neotro: React.FC = () => {
+interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'member';
+  joined_at: string;
+  profiles?: {
+    full_name: string | null;
+  } | null;
+}
+
+interface NeotroProps {
+  teamMembers: TeamMember[];
+  activeUserId: string | undefined;
+}
+
+const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
   const [currentIndex, setCurrentIndex] = useState(3); // Start at index 3 for value 5
@@ -29,8 +45,6 @@ const Neotro: React.FC = () => {
   const [abstainSelection, setAbstainSelection] = useState(false);
   const [isHandPlayed, setIsHandPlayed] = useState(false);
   const [gameState, setGameState] = useState(GameState.Selection);
-
-  const isBgAnimated = true;
 
   const shakeRef = React.useRef<HTMLDivElement>(null);
 
@@ -115,26 +129,11 @@ const Neotro: React.FC = () => {
   console.log("cardState: ", cardStateActivePlayer);
 
   return (
-    <div ref={shakeRef} className="relative min-h-screen poker-table">
-      {isBgAnimated && (
-        <></>
-        // <>
-        //   <div className="absolute inset-0 bg-[#336852ff]"></div>
-        //   {/* Blue Blob */}
-        //   <div className="absolute top-1/3 right-1/4 w-64 h-64 sm:w-72 sm:h-72 md:w-400 md:h-400 bg-blue-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-        //   {/* Green Blob */}
-        //   <div className="absolute bottom-1/3 left-1/2 w-64 h-64 sm:w-72 sm:h-72 md:w-400 md:h-400 bg-green-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-        //   {/* Red Blob */}
-        //   <div className="absolute bottom-1/4 right-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-400 md:h-400 bg-red-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-        //   <div className="absolute top-1/4 left-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-400 md:h-400 bg-red-500 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-        //   {/* Yellow Blob */}
-        //   <div className="absolute bottom-1/4 left-1/3 w-56 h-56 sm:w-64 sm:h-64 md:w-400 md:h-400 bg-yellow-400 rounded-full opacity-60 mix-blend-lighten filter blur-2xl sm:blur-10xl md:blur-[300px] animate-blob-3"></div>
-        // </>
-      )}
-      <div className="flex justify-center items-center">
-        <div className="w-3/12 h-screen pl-10 pr-5">
+    <div ref={shakeRef} className="poker-table relative flex flex-col h-full w-full">
+      <div className="flex flex-1">
+        <div className="w-1/4 p-4">
           <div>
-            <div className="px-5 bg-[#2d2d2d] h-screen border-l-10 border-r-10 border-[#025b95ff]">
+            <div className="bg-[#2d2d2d] h-full border-l-10 border-r-10 border-[#025b95ff] p-4">
               <PointsDetails
                 selectedPoint={pointsSelected}
                 isHandPlayed={isHandPlayed}
@@ -152,66 +151,20 @@ const Neotro: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="w-9/12 h-screen pt-80 pb-80 pl-40 pr-40">
-          <div className="h-[80%] flex items-center">
-            <div>
-              <PlayingCard
-                cardState={cardStateActivePlayer}
-                playerName={"Kim"}
-                pointsSelected={pointsSelected}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Phil"}
-                pointsSelected={1}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"John"}
-                pointsSelected={2}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Diogo"}
-                pointsSelected={3}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Justin"}
-                pointsSelected={5}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Carlos"}
-                pointsSelected={8}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Tiago"}
-                pointsSelected={13}
-              />
-            </div>
-            <div>
-              <PlayingCard
-                cardState={cardStateOtherPlayers}
-                playerName={"Lee"}
-                pointsSelected={21}
-              />
+        <div className="w-3/4 flex flex-col p-4">
+          <div className="flex-grow flex items-center justify-center">
+            <div className="grid grid-cols-4 gap-4">
+              {teamMembers.map((member) => (
+                <PlayingCard
+                  key={member.user_id}
+                  cardState={member.user_id === activeUserId ? cardStateActivePlayer : cardStateOtherPlayers}
+                  playerName={member.profiles?.full_name || 'Anonymous'}
+                  pointsSelected={member.user_id === activeUserId ? pointsSelected : 1}
+                />
+              ))}
             </div>
           </div>
-          <div className="flex flex-row items-center justify-center">
+          <div className="flex-shrink-0 flex items-center justify-center p-4">
             <div>
               <PointSelector
                 pointsIndex={currentSelectorIndex}
