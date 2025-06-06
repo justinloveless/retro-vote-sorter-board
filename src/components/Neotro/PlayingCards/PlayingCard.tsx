@@ -9,6 +9,7 @@ interface PlayingCardProps {
   cardState: CardState;
   playerName: string;
   pointsSelected: number; // For example, 5 for 5 of diamonds, 8 for 8 of spades etc.
+  isPresent: boolean;
 }
 
 const CARD_WIDTH = 71; // pixels, adjust as needed based on your card image size
@@ -19,6 +20,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   cardState,
   playerName,
   pointsSelected,
+  isPresent,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [translateY, setTranslateY] = useState("translate-y-0");
@@ -60,7 +62,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 
   return (
     <div
-      className={`relative transition-transform duration-500 ease-in-out ${translateY}`}
+      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''}`}
       style={{
         height: `${CARD_HEIGHT * SCALE}px`,
         width: `${CARD_WIDTH * SCALE}px`,

@@ -29,6 +29,9 @@ interface PointsDetailsProps {
    */
   selectedPoint: number;
   isHandPlayed: boolean;
+  averagePoints: number;
+  ticketNumber: string | null;
+  onTicketNumberChange: (value: string) => void;
 }
 
 /**
@@ -37,6 +40,9 @@ interface PointsDetailsProps {
 const PointDetails: React.FC<PointsDetailsProps> = ({
   selectedPoint,
   isHandPlayed,
+  averagePoints,
+  ticketNumber,
+  onTicketNumberChange,
 }) => {
   // Find the details for the currently selected point
   const pointData = detailsData.find((detail) => detail.id === selectedPoint);
@@ -56,7 +62,14 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
     <div className="font-custom bg-[#2d2d2d] p-2 space-y-2 rounded-xl pt-[30px]">
       {/* Title Section */}
       <div className="text-5xl text-center text-white text-shadow-[5px_5px_rgba(0,0,0,255)] mb-4 bg-[#0068adff] rounded-lg p-4">
-        RNMT-0000
+        <input
+          type="text"
+          value={ticketNumber || ''}
+          onChange={(e) => onTicketNumberChange(e.target.value)}
+          disabled={isHandPlayed}
+          placeholder="RNMT-0000"
+          className="bg-transparent text-center w-full focus:outline-none"
+        />
       </div>
       <div className="text-5xl text-center text-white mb-4 bg-[#0e435fff] rounded-lg p-4 pt-10 pb-10">
         Title of Ticket
@@ -70,7 +83,7 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
         </div>
         <div className="bg-[#3c3c3c] rounded-lg p-4 flex items-center justify-center grow">
           <p className="text-4xl whitespace-pre-wrap">
-            {isHandPlayed ? "7.25" : "???"}
+            {isHandPlayed ? averagePoints.toFixed(2) : "???"}
           </p>
         </div>
       </div>

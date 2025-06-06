@@ -10,7 +10,6 @@ interface PointSelectorProps {
   onPointsIncrease: () => void;
   onLockIn: () => void;
   isLockedIn: boolean;
-  isLockInDisabled: boolean;
   onAbstain: () => void;
   isAbstained: boolean;
   isAbstainedDisabled: boolean;
@@ -24,7 +23,6 @@ const PointSelector: React.FC<PointSelectorProps> = ({
   onPointsIncrease,
   onLockIn,
   isLockedIn,
-  isLockInDisabled,
   onAbstain,
   isAbstained,
   isAbstainedDisabled,
@@ -41,7 +39,6 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           <LockInButton
             onLockIn={onLockIn}
             isLockedIn={isLockedIn}
-            isDisabled={isLockInDisabled}
           />
         </div>
         {/* Left Arrow Button */}
@@ -72,7 +69,6 @@ const PointSelector: React.FC<PointSelectorProps> = ({
         <button
           onClick={onPointsIncrease}
           className="bg-[#ff4c40ff] text-white text-5xl rounded-2xl cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
-          disabled={false}
         >
           <div className="p-6">&gt;</div>
         </button>
