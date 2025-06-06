@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -34,15 +34,19 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(session?.user ?? null);
   const [loading, setLoading] = useState(!session);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
-      console.log('about to hit supabase for profile');
+      console.log('Fetching profile for user:', userId);
 
-      const { data: profileData } = await supabase
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+
+      if (error) {
+        throw error;
+      }
 
       console.log('after hitting supabase');
       localStorage.setItem('profile', JSON.stringify(profileData));
@@ -53,63 +57,35 @@ export const useAuth = () => {
       localStorage.removeItem('profile');
       setProfile(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    console.log('session', session);
-    if (session?.user && (!profile || profile.id !== session.user.id)) {
-      fetchProfile(session.user.id);
-    }
-  }, [session, profile]);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('Auth state change:', event, newSession?.user?.id);
 
-  useEffect(() => {
-    let mounted = true;
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
 
-    // Set up auth state listener FIRST - this will handle ALL auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        console.log('Auth state change:', event, newSession?.user?.email);
-        console.log('mounted', mounted);
-
-        if (!mounted) return;
-
-        if (newSession) {
-          localStorage.setItem('session', JSON.stringify(newSession));
-        } else {
-          localStorage.removeItem('session');
-          localStorage.removeItem('profile');
-          setProfile(null);
+      if (newSession) {
+        localStorage.setItem('session', JSON.stringify(newSession));
+        if (!profile || profile.id !== newSession.user.id) {
+          fetchProfile(newSession.user.id);
         }
-
-        // Always update session and user synchronously
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        setLoading(false);
-
-        // Defer profile fetching and loading state update
-        // setTimeout(async () => {
-        //   if (newSession?.user) {
-        //     await fetchProfile(newSession.user.id);
-        //   } else {
-        //     setProfile(null);
-        //   }
-
-        //   // Always set loading to false after handling auth state
-        //   setLoading(false);
-        //   console.log('Loading set to false after auth state handling');
-        // }, 0);
+      } else {
+        localStorage.removeItem('session');
+        localStorage.removeItem('profile');
+        setProfile(null);
       }
-    );
 
-    // The onAuthStateChange listener will automatically fire with the current session
-    // so we don't need to manually call getSession() - this eliminates the race condition
+      setLoading(false);
+    });
 
     return () => {
-      console.log('unmounting');
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [profile, fetchProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
