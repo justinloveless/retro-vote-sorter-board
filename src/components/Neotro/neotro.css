@@ -1,0 +1,177 @@
+/* This file is intentionally blank. Global styles are used instead. */
+
+@font-face {
+  font-family: "Neotro";
+  display: swap;
+  src: url("/src/fonts/Neotro.ttf") format("truetype");
+}
+
+@theme {
+  --font-sans: "neotro", sans-serif;
+}
+
+.poker-table {
+  font-family: "Neotro", sans-serif;
+}
+
+/* Hack to prove that font-family can load: */
+.poker-table div {
+  font-family: "Neotro", sans-serif;
+}
+
+.selector-buttons {
+  border-radius: 12px;
+}
+
+.poker-table-grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, 1fr);
+  grid-template-rows: 0.5fr 1fr 0.5fr repeat(2, 0.25fr);
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+}
+
+.point-details-area {
+  grid-area: 1 / 1 / 6 / 2;
+}
+.playing-area {
+  grid-area: 1 / 2 / 4 / 6;
+}
+.selector-area {
+  grid-area: 4 / 2 / 6 / 6;
+}
+
+img:hover {
+  /* Start the shake animation and make the animation last for 0.5 seconds */
+  /* animation: shake 0.5s; */
+  animation: float 5s;
+  animation-timing-function: linear;
+
+  /* When the animation is finished, start again */
+  animation-iteration-count: infinite;
+}
+
+img {
+  box-shadow: 2px 8px 5px #11111133;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-5px);
+  }
+  50% {
+    transform: translateY(0px);
+  }
+  75% {
+    transform: translateY(5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.screen-shake {
+  animation: shake 0.5s;
+}
+
+.screen-shake-mild {
+  animation: shake-mild 0.5s;
+}
+
+@keyframes shake-mild {
+  0% {
+    transform: translate(1px, 1px) rotate(0deg);
+  }
+  20% {
+    transform: translate(-2px, 0px) rotate(1deg);
+  }
+  40% {
+    transform: translate(1px, -1px) rotate(1deg);
+  }
+  60% {
+    transform: translate(-2px, 1px) rotate(0deg);
+  }
+  80% {
+    transform: translate(-1px, -1px) rotate(1deg);
+  }
+  100% {
+    transform: translate(1px, -1px) rotate(-1deg);
+  }
+}
+
+@keyframes shake {
+  0% {
+    transform: translate(1px, 1px) rotate(0deg);
+  }
+  10% {
+    transform: translate(-1px, -2px) rotate(-1deg);
+  }
+  20% {
+    transform: translate(-3px, 0px) rotate(1deg);
+  }
+  30% {
+    transform: translate(3px, 2px) rotate(0deg);
+  }
+  40% {
+    transform: translate(1px, -1px) rotate(1deg);
+  }
+  50% {
+    transform: translate(-1px, 2px) rotate(-1deg);
+  }
+  60% {
+    transform: translate(-3px, 1px) rotate(0deg);
+  }
+  70% {
+    transform: translate(3px, 1px) rotate(-1deg);
+  }
+  80% {
+    transform: translate(-1px, -1px) rotate(1deg);
+  }
+  90% {
+    transform: translate(1px, 2px) rotate(0deg);
+  }
+  100% {
+    transform: translate(1px, -2px) rotate(-1deg);
+  }
+}
+
+/* Custom animation keyframes */
+@keyframes blobAnimation {
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+
+  25% {
+    transform: scale(1.2) translate(20px, -30px);
+  }
+
+  50% {
+    transform: scale(0.9) translate(-10px, 25px);
+  }
+
+  75% {
+    transform: scale(1.1) translate(-25px, -15px);
+  }
+}
+
+/* Applying animation to utility classes (Tailwind JIT will pick these up) */
+.animate-blob-1 {
+  animation: blobAnimation 15s infinite ease-in-out;
+}
+
+.animate-blob-2 {
+  animation: blobAnimation 15s infinite ease-in-out;
+  animation-delay: -5s;
+  /* Offset animation start */
+}
+
+.animate-blob-3 {
+  animation: blobAnimation 15s infinite ease-in-out;
+  animation-delay: -10s;
+  /* Further offset animation start */
+}
