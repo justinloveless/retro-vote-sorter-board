@@ -247,10 +247,10 @@ export const useRetroBoard = (roomId: string) => {
         setActiveUsers(users);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', newPresences);
+        // console.log('User joined:', newPresences);
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', leftPresences);
+        // console.log('User left:', leftPresences);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {

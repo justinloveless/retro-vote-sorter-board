@@ -14,4 +14,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Export environment info for debugging
 export const currentEnv = currentEnvironment.environment;
-console.log(`Supabase client initialized for ${currentEnv} environment`);
+// console.log(`Supabase client initialized for ${currentEnv} environment`);
