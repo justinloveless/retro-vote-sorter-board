@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +6,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
 
@@ -26,7 +26,7 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, rawSetTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
     return savedTheme || 'light';
   });
@@ -43,7 +43,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
             .single();
 
           if (!error && data?.theme_preference) {
-            setTheme(data.theme_preference as Theme);
+            rawSetTheme(data.theme_preference as Theme);
           }
         } catch (error) {
           console.log('No theme preference found, using default');
@@ -63,18 +63,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
   }, [theme]);
 
-  const toggleTheme = async () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
+  const setTheme = async (newTheme: Theme) => {
+    rawSetTheme(newTheme);
 
     // Save theme preference to user profile if authenticated
     if (user) {
       try {
         await supabase
           .from('profiles')
-          .upsert({ 
-            id: user.id, 
-            theme_preference: newTheme 
+          .upsert({
+            id: user.id,
+            theme_preference: newTheme
           });
       } catch (error) {
         console.error('Error saving theme preference:', error);
@@ -82,8 +81,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
   };
 
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
