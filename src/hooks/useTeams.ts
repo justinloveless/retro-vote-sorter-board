@@ -1,7 +1,7 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from './useAuth';
 
 interface Team {
   id: string;
@@ -10,25 +10,41 @@ interface Team {
   creator_id: string | null;
   created_at: string;
   updated_at: string;
+  role: 'owner' | 'admin' | 'member' | null;
 }
 
 export const useTeams = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('teams')
         .select(`
           *,
-          team_members!inner(role)
+          team_members ( role, user_id )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTeams(data || []);
+
+      const teamsWithRoles = data.map(team => {
+        const currentUserMembership = team.team_members.find(m => m.user_id === user.id);
+        return {
+          ...team,
+          role: currentUserMembership?.role || null
+        }
+      });
+
+      setTeams(teamsWithRoles || []);
     } catch (error) {
       console.error('Error loading teams:', error);
       toast({
@@ -39,11 +55,11 @@ export const useTeams = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
   useEffect(() => {
     loadTeams();
-  }, []);
+  }, [loadTeams]);
 
   const createTeam = async (name: string, description?: string) => {
     try {
@@ -65,7 +81,7 @@ export const useTeams = () => {
         description: "Your team has been created successfully.",
       });
 
-      loadTeams();
+      await loadTeams();
     } catch (error) {
       console.error('Error creating team:', error);
       toast({
@@ -90,7 +106,7 @@ export const useTeams = () => {
         description: "Team details have been updated.",
       });
 
-      loadTeams();
+      await loadTeams();
     } catch (error) {
       console.error('Error updating team:', error);
       toast({
@@ -115,7 +131,7 @@ export const useTeams = () => {
         description: "The team has been deleted.",
       });
 
-      loadTeams();
+      await loadTeams();
     } catch (error) {
       console.error('Error deleting team:', error);
       toast({

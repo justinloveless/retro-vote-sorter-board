@@ -11,9 +11,10 @@ interface TeamHeaderProps {
   };
   onCreateBoard: () => void;
   onJoinPointingSession: () => void;
+  currentUserRole?: string;
 }
 
-export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJoinPointingSession }) => {
+export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJoinPointingSession, currentUserRole }) => {
   const navigate = useNavigate();
 
   return (
@@ -35,13 +36,15 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJ
         <Users className="h-4 w-4 mr-2" />
         Join Pointing Session
       </Button>
-      <Button
-        variant="outline"
-        onClick={() => navigate(`/teams/${team.id}/settings`)}
-      >
-        <Settings className="h-4 w-4 mr-2" />
-        Settings
-      </Button>
+      {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
+        <Button
+          variant="outline"
+          onClick={() => navigate(`/teams/${team.id}/settings`)}
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
+      )}
     </div>
   );
 };

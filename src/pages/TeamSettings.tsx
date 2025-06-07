@@ -22,23 +22,28 @@ const TeamSettings = () => {
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (!teamId || !user) return;
+      if (!teamId || !user) {
+        setLoading(false);
+        return;
+      };
+
+      setLoading(true);
 
       try {
         const { data, error } = await supabase
           .from('teams')
           .select(`
             *,
-            team_members!inner(role)
+            team_members!inner(role, user_id)
           `)
           .eq('id', teamId)
+          .eq('team_members.user_id', user.id)
           .single();
 
         if (error) throw error;
 
-        // Check if user is admin or owner
-        const userRole = data.team_members[0]?.role;
-        if (!['owner', 'admin'].includes(userRole)) {
+        const userRole = data?.team_members[0]?.role;
+        if (!userRole || !['owner', 'admin'].includes(userRole)) {
           toast({
             title: "Access denied",
             description: "You don't have permission to access team settings.",
