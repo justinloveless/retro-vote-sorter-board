@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,15 +25,15 @@ interface TeamBoardsListProps {
   onBoardUpdated: () => void;
 }
 
-export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({ 
-  boards, 
-  loading, 
+export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
+  boards,
+  loading,
   currentUserRole,
   onCreateBoard,
-  onBoardUpdated 
+  onBoardUpdated
 }) => {
   const navigate = useNavigate();
-  const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
+  const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
   const [showArchived, setShowArchived] = useState(false);
 
   const canManageBoards = currentUserRole === 'admin' || currentUserRole === 'owner';
@@ -104,14 +103,14 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
         {displayBoards.map((board) => (
           <Card key={board.id} className={`hover:shadow-lg transition-shadow ${board.archived ? 'opacity-75' : ''}`}>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="truncate">{board.title}</span>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold truncate">{board.title}</span>
                   {board.archived && (
-                    <Archive className="h-4 w-4 text-gray-500" />
+                    <Archive className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {board.is_private && (
                     <div className="flex items-center gap-1">
                       <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">

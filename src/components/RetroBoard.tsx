@@ -47,7 +47,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     updatePresence,
     addComment,
     deleteComment,
-    getCommentsForItem
+    getCommentsForItem,
+    sessionId,
   } = useRetroBoard(boardId);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -77,11 +78,11 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   // Debounced presence update - only update when user stops typing
   const debouncedUpdatePresence = useMemo(() => {
     let timeoutId: NodeJS.Timeout;
-    return (name: string) => {
+    return (name: string, avatarUrl?: string) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (name.trim() && board) {
-          updatePresence(name);
+          updatePresence(name, avatarUrl);
         }
       }, 1000); // 1 second delay after user stops typing
     };
@@ -90,15 +91,26 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   // Update presence when user name changes (debounced)
   useEffect(() => {
     if (userName && board) {
-      debouncedUpdatePresence(userName);
+      debouncedUpdatePresence(userName, profile?.avatar_url);
     }
-  }, [userName, board, debouncedUpdatePresence]);
+  }, [userName, board, debouncedUpdatePresence, profile?.avatar_url]);
 
-  const handleAddItem = (columnId: string) => (text: string, isAnonymous: boolean) => {
-    if (isArchived) return; // Prevent adding items to archived boards
-    const authorName = isAnonymous ? 'Anonymous' : userName;
-    addItem(text, columnId, authorName);
+  const handleAddItem = (columnId: string) => (text: string, isAnonymousCheckbox: boolean) => {
+    if (isArchived) return;
+
+    const isEffectivelyAnonymous = isAnonymousUser || isAnonymousCheckbox;
+
+    // Use guest name if anonymous, otherwise use logged-in name.
+    // If a logged-in user posts anonymously, the author name is 'Anonymous'.
+    const authorName = isAnonymousUser ? userName : (isAnonymousCheckbox ? 'Anonymous' : userName);
+
+    addItem(text, columnId, authorName, isEffectivelyAnonymous);
   };
+
+  const handleAddComment = (itemId: string, text: string, author: string) => {
+    if (isArchived) return;
+    addComment(itemId, text, author, isAnonymousUser);
+  }
 
   const handleAddColumn = () => {
     if (!newColumnTitle.trim() || isAnonymousUser || isArchived) return;
@@ -211,20 +223,12 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         onSignOut={signOut}
       />
 
-      {/* User Name Input */}
-      <div className="flex items-center gap-4 mb-4">
-        <Input
-          placeholder="Your display name"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          className="w-48"
-          disabled={isAnonymousUser || isArchived}
-        />
+      {/* User Name Display */}
+      <div className="mb-4">
         <span className="text-sm text-gray-600 dark:text-gray-400">
           {isAnonymousUser
-            ? 'Guest user (sign in for full features)'
-            : `Signed in as ${profile?.full_name || user?.email}`
-          }
+            ? `You are participating as a guest. Your contributions will be anonymous.`
+            : `You are signed in as ${userName}.`}
         </span>
       </div>
 
@@ -246,6 +250,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               editingItem={editingItem}
               editText={editText}
               isArchived={isArchived}
+              sessionId={sessionId}
               onAddItem={handleAddItem(column.id)}
               onUpdateColumn={isArchived ? undefined : updateColumn}
               onDeleteColumn={isArchived ? undefined : deleteColumn}
@@ -256,7 +261,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               onSaveEdit={saveEdit}
               onCancelEdit={cancelEdit}
               onSetEditText={setEditText}
-              onAddComment={isArchived ? undefined : addComment}
+              onAddComment={isArchived ? undefined : handleAddComment}
               onDeleteComment={isArchived ? undefined : deleteComment}
               onGetCommentsForItem={getCommentsForItem}
               onDragStart={handleDragStart}

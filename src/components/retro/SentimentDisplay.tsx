@@ -23,7 +23,7 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
   console.log('SentimentDisplay: isSentimentAnalysisEnabled', isSentimentAnalysisEnabled);
 
   const analyzeSentiment = async () => {
-    if (items.length === 0) {
+    if (!isSentimentAnalysisEnabled || items.length === 0) {
       setSentiment({ sentiment: 'neutral', confidence: 0 });
       return;
     }
@@ -51,6 +51,10 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
   };
 
   useEffect(() => {
+    if (!isSentimentAnalysisEnabled) {
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       analyzeSentiment();
     }, 1000); // Debounce analysis by 1 second
