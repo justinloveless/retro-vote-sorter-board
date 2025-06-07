@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Users, LogOut, Calendar, Home, Palette } from 'lucide-react';
+import { User, Users, LogOut, Calendar, Home, Palette, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeams } from '@/hooks/useTeams';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,7 +13,7 @@ import { BackgroundSettings } from '@/components/account/BackgroundSettings';
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
 
@@ -31,11 +31,31 @@ const Account = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => { }} />;
+    return <AuthForm onAuthSuccess={() => window.location.reload()} />;
   }
+
+  console.log('Account Page: profile', profile);
 
   return (
     <div className="min-h-screen">
+      <header className="p-4 flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/')}>
+          <Home className="h-4 w-4 mr-2" />
+          Home
+        </Button>
+        <div>
+          {profile?.role === 'admin' && (
+            <Button variant="outline" onClick={() => navigate('/admin')} className="mr-2">
+              <Shield className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
+      </header>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

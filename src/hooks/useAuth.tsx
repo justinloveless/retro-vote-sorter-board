@@ -6,6 +6,7 @@ interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  role: 'user' | 'admin' | null;
 }
 
 export const useAuth = () => {
@@ -40,7 +41,7 @@ export const useAuth = () => {
 
       const { data: profileData, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, full_name, avatar_url, role')
         .eq('id', userId)
         .single();
 
@@ -70,7 +71,7 @@ export const useAuth = () => {
 
       if (newSession) {
         localStorage.setItem('session', JSON.stringify(newSession));
-        if (!profile || profile.id !== newSession.user.id) {
+        if (!profile || profile.id !== newSession.user.id || profile.role === undefined) {
           fetchProfile(newSession.user.id);
         }
       } else {
