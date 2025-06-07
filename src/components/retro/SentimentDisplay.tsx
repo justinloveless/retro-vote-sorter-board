@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 interface SentimentDisplayProps {
   items: any[];
@@ -16,6 +16,11 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
   const [sentiment, setSentiment] = useState<SentimentResult>({ sentiment: 'neutral', confidence: 0 });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { isFeatureEnabled } = useFeatureFlags();
+
+  const isSentimentAnalysisEnabled = isFeatureEnabled('sentiment_analysis');
+
+  console.log('SentimentDisplay: isSentimentAnalysisEnabled', isSentimentAnalysisEnabled);
 
   const analyzeSentiment = async () => {
     if (items.length === 0) {
@@ -53,9 +58,13 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
     return () => clearTimeout(timeoutId);
   }, [items]);
 
+  if (!isSentimentAnalysisEnabled) {
+    return null;
+  }
+
   const getSentimentEmoji = () => {
     if (loading) return '🤔';
-    
+
     switch (sentiment.sentiment) {
       case 'positive':
         return sentiment.confidence > 0.7 ? '😊' : '🙂';
@@ -68,11 +77,11 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
 
   const getSentimentLabel = () => {
     if (loading) return 'Analyzing...';
-    
-    const confidenceText = sentiment.confidence > 0.5 
+
+    const confidenceText = sentiment.confidence > 0.5
       ? ` (${Math.round(sentiment.confidence * 100)}% confidence)`
       : '';
-    
+
     return `${sentiment.sentiment.charAt(0).toUpperCase() + sentiment.sentiment.slice(1)} Sentiment${confidenceText}`;
   };
 
