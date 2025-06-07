@@ -29,7 +29,7 @@ const Blob = ({
 }) => (
   <div
     className={cn(
-      'absolute rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px]',
+      'absolute rounded-full opacity-50 dark:opacity-30 mix-blend-multiply dark:mix-blend-lighten filter blur-[40px] sm:blur-3xl md:blur-[300px]',
       animationClass
     )}
     style={{
