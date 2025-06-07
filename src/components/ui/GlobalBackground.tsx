@@ -1,20 +1,89 @@
 import React from 'react';
 import { useBackground } from '@/contexts/BackgroundContext';
+import { cn } from '@/lib/utils';
+
+const animationClasses = {
+  static: 'animate-none',
+  slow: 'animate-blob-3',
+  normal: 'animate-blob-2',
+  fast: 'animate-blob-1',
+  'animate-blob-1': 'animate-blob-1',
+  'animate-blob-2': 'animate-blob-2',
+  'animate-blob-3': 'animate-blob-3',
+};
+
+const Blob = ({
+  color,
+  animationClass,
+  top,
+  left,
+  animationDelay,
+  size,
+}: {
+  color: string;
+  animationClass: string;
+  top: string;
+  left: string;
+  animationDelay: string;
+  size: string;
+}) => (
+  <div
+    className={cn(
+      'absolute rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px]',
+      animationClass
+    )}
+    style={{
+      backgroundColor: color,
+      top,
+      left,
+      animationDelay,
+      width: size,
+      height: size,
+    }}
+  ></div>
+);
 
 export const GlobalBackground: React.FC = () => {
-  const { isOverlayVisible } = useBackground();
+  const { isOverlayVisible, getCurrentConfig } = useBackground();
+  const currentConfig = getCurrentConfig();
+
+  const renderBackground = () => {
+    if (!currentConfig) return null;
+
+    switch (currentConfig.type) {
+      case 'blobs':
+        return (
+          <>
+            {currentConfig.blobs.map((blob, index) => {
+              const animationClass = animationClasses[blob.animation] || animationClasses.normal;
+              return (
+                <Blob
+                  key={index}
+                  color={blob.color}
+                  animationClass={animationClass}
+                  top={blob.top}
+                  left={blob.left}
+                  animationDelay={blob.animationDelay}
+                  size={blob.size}
+                />
+              )
+            })}
+          </>
+        );
+      case 'gradient':
+        const { colors: gradientColors, direction } = currentConfig;
+        const gradientStyle = {
+          backgroundImage: `linear-gradient(${direction}, ${gradientColors.join(', ')})`,
+        };
+        return <div className="absolute inset-0" style={gradientStyle}></div>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-background">
-      {/* Blue Blob */}
-      <div className="absolute top-1/3 right-1/4 w-64 h-64 sm:w-72 sm:h-72 md:w-[800px] md:h-[800px] bg-blue-500 rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-      {/* Green Blob */}
-      <div className="absolute bottom-1/3 left-1/2 w-64 h-64 sm:w-72 sm:h-72 md:w-[800px] md:h-[800px] bg-green-500 rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-2"></div>
-      {/* Red Blob */}
-      <div className="absolute bottom-1/4 right-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-[800px] md:h-[800px] bg-red-500 rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-      <div className="absolute top-1/4 left-1/2 w-64 h-64 sm:w-80 sm:h-80 md:w-[800px] md:h-[800px] bg-red-500 rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-3xl md:blur-[300px] animate-blob-1"></div>
-      {/* Yellow Blob */}
-      <div className="absolute bottom-1/4 left-1/3 w-56 h-56 sm:w-64 sm:h-64 md:w-[800px] md:h-[800px] bg-yellow-400 rounded-full opacity-30 dark:opacity-60 mix-blend-multiply dark:mix-blend-lighten filter blur-2xl sm:blur-10xl md:blur-[300px] animate-blob-3"></div>
+      {renderBackground()}
 
       {/* Overlay */}
       {isOverlayVisible && (

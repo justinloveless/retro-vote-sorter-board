@@ -36,7 +36,7 @@ const Teams = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => {}} />;
+    return <AuthForm onAuthSuccess={() => { }} />;
   }
 
   if (loading) {
@@ -79,41 +79,43 @@ const Teams = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teams.map((team) => (
-              <Card key={team.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="truncate">{team.name}</span>
+          <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {teams.map((team) => (
+                <Card key={team.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="truncate">{team.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/teams/${team.id}/settings`);
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {team.description && (
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">{team.description}</p>
+                    )}
+                    <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      Created {new Date(team.created_at).toLocaleDateString()}
+                    </div>
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/teams/${team.id}/settings`);
-                      }}
+                      onClick={() => navigate(`/teams/${team.id}`)}
+                      className="w-full"
                     >
-                      <Settings className="h-4 w-4" />
+                      View Team
                     </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {team.description && (
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">{team.description}</p>
-                  )}
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Created {new Date(team.created_at).toLocaleDateString()}
-                  </div>
-                  <Button
-                    onClick={() => navigate(`/teams/${team.id}`)}
-                    className="w-full"
-                  >
-                    View Team
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
 

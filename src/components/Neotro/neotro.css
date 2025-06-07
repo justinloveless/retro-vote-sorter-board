@@ -36,19 +36,24 @@ img {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
 @keyframes float {
   0% {
     transform: translateY(0px);
   }
+
   25% {
     transform: translateY(-5px);
   }
+
   50% {
     transform: translateY(0px);
   }
+
   75% {
     transform: translateY(5px);
   }
+
   100% {
     transform: translateY(0px);
   }
@@ -66,18 +71,23 @@ img {
   0% {
     transform: translate(1px, 1px) rotate(0deg);
   }
+
   20% {
     transform: translate(-2px, 0px) rotate(1deg);
   }
+
   40% {
     transform: translate(1px, -1px) rotate(1deg);
   }
+
   60% {
     transform: translate(-2px, 1px) rotate(0deg);
   }
+
   80% {
     transform: translate(-1px, -1px) rotate(1deg);
   }
+
   100% {
     transform: translate(1px, -1px) rotate(-1deg);
   }
@@ -87,33 +97,43 @@ img {
   0% {
     transform: translate(1px, 1px) rotate(0deg);
   }
+
   10% {
     transform: translate(-1px, -2px) rotate(-1deg);
   }
+
   20% {
     transform: translate(-3px, 0px) rotate(1deg);
   }
+
   30% {
     transform: translate(3px, 2px) rotate(0deg);
   }
+
   40% {
     transform: translate(1px, -1px) rotate(1deg);
   }
+
   50% {
     transform: translate(-1px, 2px) rotate(-1deg);
   }
+
   60% {
     transform: translate(-3px, 1px) rotate(0deg);
   }
+
   70% {
     transform: translate(3px, 1px) rotate(-1deg);
   }
+
   80% {
     transform: translate(-1px, -1px) rotate(1deg);
   }
+
   90% {
     transform: translate(1px, 2px) rotate(0deg);
   }
+
   100% {
     transform: translate(1px, -2px) rotate(-1deg);
   }
@@ -121,6 +141,7 @@ img {
 
 /* Custom animation keyframes */
 @keyframes blobAnimation {
+
   0%,
   100% {
     transform: scale(1) translate(0, 0);
@@ -141,22 +162,23 @@ img {
 
 /* Applying animation to utility classes (Tailwind JIT will pick these up) */
 .animate-blob-1 {
-  animation: blobAnimation 15s infinite ease-in-out;
+  animation: blobAnimation 10s infinite ease-in-out;
 }
 
 .animate-blob-2 {
-  animation: blobAnimation 15s infinite ease-in-out;
+  animation: blobAnimation 20s infinite ease-in-out;
   animation-delay: -5s;
   /* Offset animation start */
 }
 
 .animate-blob-3 {
-  animation: blobAnimation 15s infinite ease-in-out;
+  animation: blobAnimation 30s infinite ease-in-out;
   animation-delay: -10s;
   /* Further offset animation start */
 }
 
 .locked-card-glow {
-    box-shadow: 0 0 15px 5px rgba(52, 152, 219, 0.7);
-    border-radius: 12px; /* Adjust to match your card's border-radius */
+  box-shadow: 0 0 15px 5px rgba(52, 152, 219, 0.7);
+  border-radius: 12px;
+  /* Adjust to match your card's border-radius */
 }
