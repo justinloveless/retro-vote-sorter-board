@@ -27,20 +27,20 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJ
           <p className="text-gray-600 dark:text-gray-300 mt-2">{team.description}</p>
         )}
       </div>
+      <Button onClick={onCreateBoard}>
+        <Plus className="h-4 w-4 mr-2" />
+        New Board
+      </Button>
+      <Button variant='default' onClick={onJoinPointingSession}>
+        <Users className="h-4 w-4 mr-2" />
+        Join Pointing Session
+      </Button>
       <Button
         variant="outline"
         onClick={() => navigate(`/teams/${team.id}/settings`)}
       >
         <Settings className="h-4 w-4 mr-2" />
         Settings
-      </Button>
-      <Button onClick={onJoinPointingSession}>
-        <Users className="h-4 w-4 mr-2" />
-        Join Pointing Session
-      </Button>
-      <Button onClick={onCreateBoard}>
-        <Plus className="h-4 w-4 mr-2" />
-        New Board
       </Button>
     </div>
   );
