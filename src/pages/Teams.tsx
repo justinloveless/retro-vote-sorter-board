@@ -86,16 +86,18 @@ const Teams = () => {
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <span className="truncate">{team.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/teams/${team.id}/settings`);
-                        }}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
+                      {(team.role === 'owner' || team.role === 'admin') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/teams/${team.id}/settings`);
+                          }}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

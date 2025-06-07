@@ -41,7 +41,7 @@ const Team = () => {
           .single();
 
         if (error) throw error;
-        
+
         setTeam(data);
         // Get current user's role
         setCurrentUserRole(data.team_members[0]?.role);
@@ -78,7 +78,7 @@ const Team = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => {}} />;
+    return <AuthForm onAuthSuccess={() => { }} />;
   }
 
   if (!team) {
@@ -94,7 +94,12 @@ const Team = () => {
       {/* Scrollable content */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto px-4 py-8">
-          <TeamHeader team={team} onCreateBoard={() => setShowCreateDialog(true)} onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)} />
+          <TeamHeader
+            team={team}
+            onCreateBoard={() => setShowCreateDialog(true)}
+            onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+            currentUserRole={currentUserRole}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
@@ -103,9 +108,9 @@ const Team = () => {
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="boards" className="space-y-4">
-                  <TeamBoardsList 
+                  <TeamBoardsList
                     boards={boards}
                     loading={boardsLoading}
                     currentUserRole={currentUserRole}
@@ -113,20 +118,20 @@ const Team = () => {
                     onBoardUpdated={refetchBoards}
                   />
                 </TabsContent>
-                
+
                 <TabsContent value="members" className="space-y-4">
-                  <TeamMembersList 
-                    teamId={teamId!} 
+                  <TeamMembersList
+                    teamId={teamId!}
                     teamName={team.name}
-                    currentUserRole={currentUserRole} 
+                    currentUserRole={currentUserRole}
                   />
                 </TabsContent>
               </Tabs>
             </div>
 
             <div className="lg:col-span-1">
-              <TeamSidebar 
-                team={team} 
+              <TeamSidebar
+                team={team}
                 boardCount={boards.length}
                 memberCount={members.length}
               />
