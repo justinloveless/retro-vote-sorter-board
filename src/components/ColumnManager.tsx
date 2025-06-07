@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,7 @@ interface RetroColumn {
 
 interface ColumnManagerProps {
   column: RetroColumn;
-  onUpdateColumn: (columnId: string, title: string) => void;
+  onUpdateColumn: (columnId: string, updates: { title: string }) => void;
   onDeleteColumn: (columnId: string) => void;
 }
 
@@ -31,7 +30,7 @@ export const ColumnManager: React.FC<ColumnManagerProps> = ({
 
   const handleSaveEdit = () => {
     if (editTitle.trim()) {
-      onUpdateColumn(column.id, editTitle.trim());
+      onUpdateColumn(column.id, { title: editTitle.trim() });
       setIsEditDialogOpen(false);
     }
   };
