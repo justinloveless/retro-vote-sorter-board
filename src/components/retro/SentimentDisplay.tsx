@@ -20,7 +20,6 @@ export const SentimentDisplay: React.FC<SentimentDisplayProps> = ({ items }) => 
 
   const isSentimentAnalysisEnabled = isFeatureEnabled('sentiment_analysis');
 
-  console.log('SentimentDisplay: isSentimentAnalysisEnabled', isSentimentAnalysisEnabled);
 
   const analyzeSentiment = async () => {
     if (!isSentimentAnalysisEnabled || items.length === 0) {

@@ -37,7 +37,7 @@ export const useAuth = () => {
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      console.log('Fetching profile for user:', userId);
+      // console.log('Fetching profile for user:', userId);
 
       const { data: profileData, error } = await supabase
         .from('profiles')
@@ -49,12 +49,12 @@ export const useAuth = () => {
         throw error;
       }
 
-      console.log('after hitting supabase');
+      // console.log('after hitting supabase');
       localStorage.setItem('profile', JSON.stringify(profileData));
       setProfile(profileData);
-      console.log('profileData set', profileData);
+      // console.log('profileData set', profileData);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // console.error('Error fetching profile:', error);
       localStorage.removeItem('profile');
       setProfile(null);
     }
@@ -64,7 +64,7 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, newSession) => {
-      console.log('Auth state change:', event, newSession?.user?.id);
+      // console.log('Auth state change:', event, newSession?.user?.id);
 
       setSession(newSession);
       setUser(newSession?.user ?? null);
