@@ -73,7 +73,7 @@ export const useRetroBoard = (roomId: string) => {
     if (!presenceChannel || !userName.trim()) return;
 
     const currentUser = (await supabase.auth.getUser()).data.user;
-    
+
     await presenceChannel.track({
       user_id: currentUser?.id || sessionId,
       user_name: userName,
@@ -87,11 +87,11 @@ export const useRetroBoard = (roomId: string) => {
       setLoading(false);
       return;
     }
-    
+
     const loadBoardData = async () => {
       try {
         setLoading(true);
-        
+
         // Load or create board
         let { data: boardData, error: boardError } = await supabase
           .from('retro_boards')
@@ -199,7 +199,7 @@ export const useRetroBoard = (roomId: string) => {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const users: ActiveUser[] = [];
-        
+
         Object.keys(state).forEach(key => {
           const presences = state[key] as any[];
           presences.forEach(presence => {
@@ -210,7 +210,7 @@ export const useRetroBoard = (roomId: string) => {
             });
           });
         });
-        
+
         setActiveUsers(users);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
@@ -283,7 +283,7 @@ export const useRetroBoard = (roomId: string) => {
             .from('retro_items')
             .select('id')
             .eq('board_id', board.id);
-          
+
           if (itemsData) {
             const { data: commentsData } = await supabase
               .from('retro_comments')
@@ -334,8 +334,8 @@ export const useRetroBoard = (roomId: string) => {
         },
         (payload) => {
           const updatedItem = payload.new as RetroItem;
-          setItems(currentItems => 
-            currentItems.map(item => 
+          setItems(currentItems =>
+            currentItems.map(item =>
               item.id === updatedItem.id ? updatedItem : item
             )
           );
@@ -352,7 +352,7 @@ export const useRetroBoard = (roomId: string) => {
         (payload) => {
           const deletedItem = payload.old as RetroItem;
           console.log('Real-time delete event received for item:', deletedItem.id);
-          setItems(currentItems => 
+          setItems(currentItems =>
             currentItems.filter(item => item.id !== deletedItem.id)
           );
         }
@@ -379,6 +379,9 @@ export const useRetroBoard = (roomId: string) => {
   const updateBoardTitle = async (title: string) => {
     if (!board) return;
 
+    const oldTitle = board.title;
+    setBoard(prev => prev ? { ...prev, title } : null); // Optimistic update
+
     const { error } = await supabase
       .from('retro_boards')
       .update({ title })
@@ -386,6 +389,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (error) {
       console.error('Error updating board title:', error);
+      setBoard(prev => prev ? { ...prev, title: oldTitle } : null); // Revert on error
       toast({
         title: "Error updating title",
         description: "Please try again.",
@@ -395,7 +399,10 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const updateBoardConfig = async (config: Partial<RetroBoardConfig>) => {
-    if (!board) return;
+    if (!board || !boardConfig) return;
+
+    const oldConfig = { ...boardConfig };
+    setBoardConfig(prev => prev ? { ...prev, ...config } : null); // Optimistic update
 
     const { error } = await supabase
       .from('retro_board_config')
@@ -404,6 +411,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (error) {
       console.error('Error updating board config:', error);
+      setBoardConfig(oldConfig); // Revert on error
       toast({
         title: "Error updating configuration",
         description: "Please try again.",
@@ -417,7 +425,7 @@ export const useRetroBoard = (roomId: string) => {
 
     const currentUser = (await supabase.auth.getUser()).data.user;
 
-    const { error } = await supabase
+    const { data: newItem, error } = await supabase
       .from('retro_items')
       .insert([{
         board_id: board.id,
@@ -425,7 +433,9 @@ export const useRetroBoard = (roomId: string) => {
         text,
         author,
         author_id: currentUser?.id || null
-      }]);
+      }])
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding item:', error);
@@ -434,6 +444,9 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
+    } else if (newItem) {
+      // Realtime subscription handles this now
+      // setItems(prevItems => [...prevItems, newItem]);
     }
 
     // Update presence when adding item
@@ -450,14 +463,16 @@ export const useRetroBoard = (roomId: string) => {
       'bg-indigo-100 border-indigo-300'
     ];
 
-    const { error } = await supabase
+    const { data: newColumn, error } = await supabase
       .from('retro_columns')
       .insert([{
         board_id: board.id,
         title,
         color: colors[columns.length % colors.length],
         position: columns.length + 1
-      }]);
+      }])
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding column:', error);
@@ -466,17 +481,27 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
+    } else if (newColumn) {
+      setColumns(prevColumns => [...prevColumns, newColumn]);
     }
   };
 
-  const updateColumn = async (columnId: string, title: string) => {
+  const updateColumn = async (columnId: string, updates: { title: string }) => {
+    const oldColumns = [...columns];
+    setColumns(prevColumns =>
+      prevColumns.map(column =>
+        column.id === columnId ? { ...column, ...updates } : column
+      )
+    );
+
     const { error } = await supabase
       .from('retro_columns')
-      .update({ title })
+      .update(updates)
       .eq('id', columnId);
 
     if (error) {
       console.error('Error updating column:', error);
+      setColumns(oldColumns);
       toast({
         title: "Error updating column",
         description: "Please try again.",
@@ -486,12 +511,17 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const deleteColumn = async (columnId: string) => {
-    const { error } = await supabase
-      .from('retro_columns')
-      .delete()
-      .eq('id', columnId);
+    try {
+      const { error } = await supabase
+        .from('retro_columns')
+        .delete()
+        .eq('id', columnId);
 
-    if (error) {
+      if (error) throw error;
+
+      setColumns(prevColumns => prevColumns.filter(c => c.id !== columnId));
+
+    } catch (error) {
       console.error('Error deleting column:', error);
       toast({
         title: "Error deleting column",
@@ -502,6 +532,8 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const reorderColumns = async (newColumns: RetroColumn[]) => {
+    setColumns(newColumns);
+
     const updates = newColumns.map((column, index) => ({
       id: column.id,
       position: index + 1,
@@ -518,7 +550,7 @@ export const useRetroBoard = (roomId: string) => {
 
   const upvoteItem = async (itemId: string) => {
     const currentUser = (await supabase.auth.getUser()).data.user;
-    
+
     const { error } = await supabase
       .from('retro_votes')
       .insert([{
@@ -547,6 +579,13 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const updateItem = async (itemId: string, text: string) => {
+    const oldItems = [...items];
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId ? { ...item, text } : item
+      )
+    );
+
     const { error } = await supabase
       .from('retro_items')
       .update({ text })
@@ -554,6 +593,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (error) {
       console.error('Error updating item:', error);
+      setItems(oldItems);
       toast({
         title: "Error updating item",
         description: "Please try again.",
@@ -563,10 +603,10 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const deleteItem = async (itemId: string) => {
-    console.log('item deleted: ', itemId);
-    setItems(currentItems => 
-            currentItems.filter(item => item.id !== itemId)
-          );
+    const oldItems = [...items];
+    setItems(currentItems =>
+      currentItems.filter(item => item.id !== itemId)
+    );
 
     const { error } = await supabase
       .from('retro_items')
@@ -575,6 +615,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (error) {
       console.error('Error deleting item:', error);
+      setItems(oldItems);
       toast({
         title: "Error deleting item",
         description: "Please try again.",
@@ -586,14 +627,16 @@ export const useRetroBoard = (roomId: string) => {
   const addComment = async (itemId: string, text: string, author: string) => {
     const currentUser = (await supabase.auth.getUser()).data.user;
 
-    const { error } = await supabase
+    const { data: newComment, error } = await supabase
       .from('retro_comments')
       .insert([{
         item_id: itemId,
         text,
         author,
         author_id: currentUser?.id || null
-      }]);
+      }])
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding comment:', error);
@@ -602,10 +645,15 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
+    } else if (newComment) {
+      setComments(prevComments => [...prevComments, newComment]);
     }
   };
 
   const deleteComment = async (commentId: string) => {
+    const oldComments = [...comments];
+    setComments(prevComments => prevComments.filter(c => c.id !== commentId));
+
     const { error } = await supabase
       .from('retro_comments')
       .delete()
@@ -613,6 +661,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (error) {
       console.error('Error deleting comment:', error);
+      setComments(oldComments);
       toast({
         title: "Error deleting comment",
         description: "Please try again.",

@@ -18,38 +18,38 @@ interface RetroBoardProps {
   isAnonymousUser?: boolean;
 }
 
-export const RetroBoard: React.FC<RetroBoardProps> = ({ 
-  boardId, 
-  isPrivate, 
-  onTogglePrivacy, 
+export const RetroBoard: React.FC<RetroBoardProps> = ({
+  boardId,
+  isPrivate,
+  onTogglePrivacy,
   anonymousName = 'Anonymous',
-  isAnonymousUser = false 
+  isAnonymousUser = false
 }) => {
   const { user, profile, signOut } = useAuth();
-  const { 
-    board, 
-    columns, 
-    items, 
+  const {
+    board,
+    columns,
+    items,
     comments,
     boardConfig,
-    activeUsers, 
-    loading, 
-    addItem, 
+    activeUsers,
+    loading,
+    addItem,
     addColumn,
     updateColumn,
-    deleteColumn, 
-    reorderColumns, 
-    upvoteItem, 
-    updateItem, 
-    deleteItem, 
+    deleteColumn,
+    reorderColumns,
+    upvoteItem,
+    updateItem,
+    deleteItem,
     updateBoardTitle,
-    updateBoardConfig, 
+    updateBoardConfig,
     updatePresence,
     addComment,
     deleteComment,
     getCommentsForItem
   } = useRetroBoard(boardId);
-  
+
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [userName, setUserName] = useState(() => {
     if (isAnonymousUser) return anonymousName;
@@ -102,7 +102,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
 
   const handleAddColumn = () => {
     if (!newColumnTitle.trim() || isAnonymousUser || isArchived) return;
-    
+
     addColumn(newColumnTitle);
     setNewColumnTitle('');
   };
@@ -115,7 +115,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
 
   const saveEdit = () => {
     if (!editText.trim() || !editingItem || isArchived) return;
-    
+
     updateItem(editingItem, editText);
     setEditingItem(null);
     setEditText('');
@@ -147,7 +147,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
     if (isAnonymousUser || isArchived) return;
     e.preventDefault();
-    
+
     if (!draggedColumn || draggedColumn === targetColumnId) {
       setDraggedColumn(null);
       setDragOverColumn(null);
@@ -156,11 +156,11 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
 
     const draggedIndex = columns.findIndex(col => col.id === draggedColumn);
     const targetIndex = columns.findIndex(col => col.id === targetColumnId);
-    
+
     const newColumns = [...columns];
     const [removed] = newColumns.splice(draggedIndex, 1);
     newColumns.splice(targetIndex, 0, removed);
-    
+
     reorderColumns(newColumns);
     setDraggedColumn(null);
     setDragOverColumn(null);
@@ -186,7 +186,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   return (
     <div className="min-h-screen p-6">
       <EnvironmentIndicator />
-      
+
       {/* Archived board notice */}
       {isArchived && (
         <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 rounded-lg">
@@ -196,7 +196,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           </div>
         </div>
       )}
-      
+
       <BoardHeader
         board={board}
         profile={profile}
@@ -221,8 +221,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           disabled={isAnonymousUser || isArchived}
         />
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {isAnonymousUser 
-            ? 'Guest user (sign in for full features)' 
+          {isAnonymousUser
+            ? 'Guest user (sign in for full features)'
             : `Signed in as ${profile?.full_name || user?.email}`
           }
         </span>
@@ -266,7 +266,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               onDragEnd={handleDragEnd}
             />
           ))}
-          
+
           {/* Add Column Card - Only show for authenticated users and non-archived boards */}
           {!isAnonymousUser && !isArchived && (
             <div className="w-80 flex-shrink-0">
