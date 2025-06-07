@@ -240,75 +240,45 @@ export const useRetroBoard = (roomId: string) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'retro_columns',
           filter: `board_id=eq.${board.id}`
         },
-        async () => {
-          const { data } = await supabase
-            .from('retro_columns')
-            .select('*')
-            .eq('board_id', board.id)
-            .order('position');
-          setColumns(data || []);
+        (payload) => {
+          const newColumn = payload.new as RetroColumn;
+          setColumns(prevColumns => {
+            if (prevColumns.find(c => c.id === newColumn.id)) return prevColumns;
+            return [...prevColumns, newColumn].sort((a, b) => a.position - b.position);
+          });
         }
       )
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'retro_items',
+          table: 'retro_columns',
           filter: `board_id=eq.${board.id}`
         },
-        async () => {
-          const { data } = await supabase
-            .from('retro_items')
-            .select('*')
-            .eq('board_id', board.id)
-            .order('votes', { ascending: false });
-          setItems(data || []);
+        (payload) => {
+          const updatedColumn = payload.new as RetroColumn;
+          setColumns(prevColumns =>
+            prevColumns.map(c => c.id === updatedColumn.id ? updatedColumn : c).sort((a, b) => a.position - b.position)
+          );
         }
       )
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'DELETE',
           schema: 'public',
-          table: 'retro_comments'
-        },
-        async () => {
-          const { data: itemsData } = await supabase
-            .from('retro_items')
-            .select('id')
-            .eq('board_id', board.id);
-
-          if (itemsData) {
-            const { data: commentsData } = await supabase
-              .from('retro_comments')
-              .select('*')
-              .in('item_id', itemsData.map(item => item.id))
-              .order('created_at');
-            setComments(commentsData || []);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'retro_board_config',
+          table: 'retro_columns',
           filter: `board_id=eq.${board.id}`
         },
-        async () => {
-          const { data } = await supabase
-            .from('retro_board_config')
-            .select('*')
-            .eq('board_id', board.id)
-            .single();
-          setBoardConfig(data);
+        (payload) => {
+          const deletedColumn = payload.old as RetroColumn;
+          setColumns(prevColumns => prevColumns.filter(c => c.id !== deletedColumn.id));
         }
       )
       .on(
@@ -321,7 +291,10 @@ export const useRetroBoard = (roomId: string) => {
         },
         (payload) => {
           const newItem = payload.new as RetroItem;
-          setItems(currentItems => [...currentItems, newItem]);
+          setItems(currentItems => {
+            if (currentItems.find(item => item.id === newItem.id)) return currentItems;
+            return [...currentItems, newItem];
+          });
         }
       )
       .on(
@@ -351,10 +324,58 @@ export const useRetroBoard = (roomId: string) => {
         },
         (payload) => {
           const deletedItem = payload.old as RetroItem;
-          console.log('Real-time delete event received for item:', deletedItem.id);
           setItems(currentItems =>
             currentItems.filter(item => item.id !== deletedItem.id)
           );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'retro_comments'
+        },
+        (payload) => {
+          const newComment = payload.new as RetroComment;
+          const relevantItem = items.find(item => item.id === newComment.item_id);
+          if (relevantItem) {
+            setComments(currentComments => {
+              if (currentComments.find(c => c.id === newComment.id)) return currentComments;
+              return [...currentComments, newComment];
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'retro_comments'
+        },
+        (payload) => {
+          const deletedComment = payload.old as RetroComment;
+          setComments(currentComments =>
+            currentComments.filter(comment => comment.id !== deletedComment.id)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'retro_board_config',
+          filter: `board_id=eq.${board.id}`
+        },
+        async () => {
+          const { data } = await supabase
+            .from('retro_board_config')
+            .select('*')
+            .eq('board_id', board.id)
+            .single();
+          setBoardConfig(data);
         }
       )
       .on(
