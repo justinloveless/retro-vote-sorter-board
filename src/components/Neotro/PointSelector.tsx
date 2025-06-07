@@ -29,7 +29,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
 }) => {
   return (
     <div className="p-8 flex flex-col items-center justify-center font-['Press_Start_2P']">
-      <div className="text-white text-4xl mb-[4px] font-neotro">
+      <div className="text-foreground text-4xl mb-[4px] font-neotro">
         Your Points
       </div>
 
@@ -50,15 +50,17 @@ const PointSelector: React.FC<PointSelectorProps> = ({
         </button>
 
         {/* Points Display and Position Indicator */}
-        <div className="border-4 border-white rounded-2xl p-4 w-64 flex flex-col items-center justify-center">
-          <div className="text-white text-6xl mb-4 text-shadow-[5px_5px_rgba(0,0,0,255)]">
+        <div className="border-4 border-foreground bg-background/50 rounded-2xl p-4 w-64 flex flex-col items-center justify-center">
+          <div className="text-foreground text-6xl mb-4">
             {selectedPoints}
           </div>
           <div className="flex space-x-2">
             {pointOptions.map((_, index) => (
               <div
                 key={index}
-                className={`w-3 h-3 rounded-full ${index === pointsIndex ? "bg-white" : "bg-[#173a2bff]"
+                className={`w-3 h-3 rounded-full ${index === pointsIndex
+                  ? "bg-foreground"
+                  : "bg-muted-foreground/50"
                   }`}
               ></div>
             ))}
