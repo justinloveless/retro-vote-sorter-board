@@ -30,6 +30,8 @@ interface RetroItem {
   author_id?: string;
   votes: number;
   created_at: string;
+  session_id?: string;
+  profiles?: { avatar_url: string; full_name: string } | null;
 }
 
 interface RetroComment {
@@ -39,6 +41,8 @@ interface RetroComment {
   author_id?: string;
   text: string;
   created_at: string;
+  session_id?: string;
+  profiles?: { avatar_url: string; full_name: string } | null;
 }
 
 interface RetroBoardConfig {
@@ -54,6 +58,7 @@ interface ActiveUser {
   id: string;
   user_name: string;
   last_seen: string;
+  avatar_url?: string;
 }
 
 export const useRetroBoard = (roomId: string) => {
@@ -69,7 +74,7 @@ export const useRetroBoard = (roomId: string) => {
   const { toast } = useToast();
 
   // Update user presence using Supabase realtime presence
-  const updatePresence = useCallback(async (userName: string) => {
+  const updatePresence = useCallback(async (userName: string, avatarUrl?: string) => {
     if (!presenceChannel || !userName.trim()) return;
 
     const currentUser = (await supabase.auth.getUser()).data.user;
@@ -77,7 +82,8 @@ export const useRetroBoard = (roomId: string) => {
     await presenceChannel.track({
       user_id: currentUser?.id || sessionId,
       user_name: userName,
-      last_seen: new Date().toISOString()
+      last_seen: new Date().toISOString(),
+      avatar_url: avatarUrl
     });
   }, [presenceChannel, sessionId]);
 
@@ -151,7 +157,7 @@ export const useRetroBoard = (roomId: string) => {
         // Load items
         const { data: itemsData, error: itemsError } = await supabase
           .from('retro_items')
-          .select('*')
+          .select('*, profiles(avatar_url, full_name)')
           .eq('board_id', boardData.id)
           .order('votes', { ascending: false });
 
@@ -161,7 +167,7 @@ export const useRetroBoard = (roomId: string) => {
         // Load comments
         const { data: commentsData, error: commentsError } = await supabase
           .from('retro_comments')
-          .select('*')
+          .select('*, profiles(avatar_url, full_name)')
           .in('item_id', (itemsData || []).map(item => item.id))
           .order('created_at');
 
@@ -182,6 +188,32 @@ export const useRetroBoard = (roomId: string) => {
 
     loadBoardData();
   }, [roomId, toast]);
+
+  const handleNewItem = useCallback((payload: any) => {
+    const newItem = payload.new as RetroItem;
+    // Check if item already exists to prevent duplicates from optimistic updates
+    if (items.some(item => item.id === newItem.id)) {
+      return;
+    }
+    supabase.from('profiles').select('avatar_url, full_name').eq('id', newItem.author_id).single().then(({ data }) => {
+      newItem.profiles = data;
+      setItems(prevItems => [...prevItems, newItem]);
+    });
+  }, [items]);
+
+  const handleNewComment = useCallback((payload: any) => {
+    const newComment = payload.new as RetroComment;
+    if (items.some(item => item.id === newComment.item_id)) {
+      // Check if comment already exists
+      if (comments.some(comment => comment.id === newComment.id)) {
+        return;
+      }
+      supabase.from('profiles').select('avatar_url, full_name').eq('id', newComment.author_id).single().then(({ data }) => {
+        newComment.profiles = data;
+        setComments(prevComments => [...prevComments, newComment]);
+      });
+    }
+  }, [items, comments]);
 
   // Set up realtime presence channel
   useEffect(() => {
@@ -206,7 +238,8 @@ export const useRetroBoard = (roomId: string) => {
             users.push({
               id: presence.user_id,
               user_name: presence.user_name,
-              last_seen: presence.last_seen
+              last_seen: presence.last_seen,
+              avatar_url: presence.avatar_url,
             });
           });
         });
@@ -249,36 +282,8 @@ export const useRetroBoard = (roomId: string) => {
           const newColumn = payload.new as RetroColumn;
           setColumns(prevColumns => {
             if (prevColumns.find(c => c.id === newColumn.id)) return prevColumns;
-            return [...prevColumns, newColumn].sort((a, b) => a.position - b.position);
+            return [...prevColumns, newColumn].sort((a, b) => a.position - b.position)
           });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'retro_columns',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const updatedColumn = payload.new as RetroColumn;
-          setColumns(prevColumns =>
-            prevColumns.map(c => c.id === updatedColumn.id ? updatedColumn : c).sort((a, b) => a.position - b.position)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'retro_columns',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const deletedColumn = payload.old as RetroColumn;
-          setColumns(prevColumns => prevColumns.filter(c => c.id !== deletedColumn.id));
         }
       )
       .on(
@@ -289,13 +294,7 @@ export const useRetroBoard = (roomId: string) => {
           table: 'retro_items',
           filter: `board_id=eq.${board.id}`
         },
-        (payload) => {
-          const newItem = payload.new as RetroItem;
-          setItems(currentItems => {
-            if (currentItems.find(item => item.id === newItem.id)) return currentItems;
-            return [...currentItems, newItem];
-          });
-        }
+        handleNewItem
       )
       .on(
         'postgres_changes',
@@ -309,7 +308,7 @@ export const useRetroBoard = (roomId: string) => {
           const updatedItem = payload.new as RetroItem;
           setItems(currentItems =>
             currentItems.map(item =>
-              item.id === updatedItem.id ? updatedItem : item
+              item.id === updatedItem.id ? { ...item, ...updatedItem } : item
             )
           );
         }
@@ -335,17 +334,9 @@ export const useRetroBoard = (roomId: string) => {
           event: 'INSERT',
           schema: 'public',
           table: 'retro_comments'
+          // We can't filter by board_id here, so we'll check in the handler
         },
-        (payload) => {
-          const newComment = payload.new as RetroComment;
-          const relevantItem = items.find(item => item.id === newComment.item_id);
-          if (relevantItem) {
-            setComments(currentComments => {
-              if (currentComments.find(c => c.id === newComment.id)) return currentComments;
-              return [...currentComments, newComment];
-            });
-          }
-        }
+        handleNewComment
       )
       .on(
         'postgres_changes',
@@ -395,7 +386,7 @@ export const useRetroBoard = (roomId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [board]);
+  }, [board, items, handleNewItem, handleNewComment]);
 
   const updateBoardTitle = async (title: string) => {
     if (!board) return;
@@ -441,7 +432,7 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
-  const addItem = async (text: string, columnId: string, author: string) => {
+  const addItem = async (text: string, columnId: string, author: string, isAnonymous: boolean) => {
     if (!board) return;
 
     const currentUser = (await supabase.auth.getUser()).data.user;
@@ -453,7 +444,8 @@ export const useRetroBoard = (roomId: string) => {
         column_id: columnId,
         text,
         author,
-        author_id: currentUser?.id || null
+        author_id: currentUser?.id || null,
+        session_id: isAnonymous ? sessionId : null
       }])
       .select()
       .single();
@@ -645,7 +637,7 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
-  const addComment = async (itemId: string, text: string, author: string) => {
+  const addComment = async (itemId: string, text: string, author: string, isAnonymous: boolean) => {
     const currentUser = (await supabase.auth.getUser()).data.user;
 
     const { data: newComment, error } = await supabase
@@ -654,7 +646,8 @@ export const useRetroBoard = (roomId: string) => {
         item_id: itemId,
         text,
         author,
-        author_id: currentUser?.id || null
+        author_id: currentUser?.id || null,
+        session_id: isAnonymous ? sessionId : null
       }])
       .select()
       .single();
@@ -716,6 +709,7 @@ export const useRetroBoard = (roomId: string) => {
     updatePresence,
     addComment,
     deleteComment,
-    getCommentsForItem
+    getCommentsForItem,
+    sessionId
   };
 };

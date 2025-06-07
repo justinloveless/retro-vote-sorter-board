@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface RetroComment {
   id: string;
@@ -13,6 +12,11 @@ interface RetroComment {
   author_id?: string;
   text: string;
   created_at: string;
+  session_id?: string;
+  profiles?: {
+    avatar_url: string;
+    full_name: string;
+  } | null;
 }
 
 interface RetroItemCommentsProps {
@@ -23,6 +27,9 @@ interface RetroItemCommentsProps {
   userName: string;
   currentUserId?: string;
   showAuthor?: boolean;
+  sessionId?: string | null;
+  isAnonymousUser?: boolean;
+  isArchived?: boolean;
 }
 
 export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
@@ -32,7 +39,10 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
   onDeleteComment,
   userName,
   currentUserId,
-  showAuthor
+  showAuthor,
+  sessionId,
+  isAnonymousUser,
+  isArchived,
 }) => {
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -44,14 +54,23 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
       handleAddComment();
     }
   };
 
   const canDeleteComment = (comment: RetroComment) => {
-    return currentUserId && comment.author_id === currentUserId;
+    if (isArchived) return false;
+    // User is logged in and is the author
+    if (currentUserId && comment.author_id === currentUserId) {
+      return true;
+    }
+    // User is anonymous and is the author
+    if (isAnonymousUser && comment.session_id && comment.session_id === sessionId) {
+      return true;
+    }
+    return false;
   };
 
   return (
@@ -71,30 +90,33 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
           {comments.map((comment) => (
             <Card key={comment.id} className="bg-gray-50 dark:bg-gray-800">
               <CardContent className="p-3">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-3">
+                  {showAuthor && (
+                    <UserAvatar
+                      userId={comment.author_id}
+                      name={comment.profiles?.full_name ?? comment.author}
+                      avatarUrl={comment.profiles?.avatar_url}
+                      className="h-6 w-6"
+                    />
+                  )}
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      {showAuthor ? (
-                        <Badge variant="outline" className="text-xs">
-                          {comment.author}
-                        </Badge>
-                      ) : <span></span>}
+                    <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(comment.created_at).toLocaleString()}
                       </span>
+                      {canDeleteComment(comment) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDeleteComment(comment.id)}
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{comment.text}</p>
                   </div>
-                  {canDeleteComment(comment) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDeleteComment(comment.id)}
-                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
                 </div>
               </CardContent>
             </Card>

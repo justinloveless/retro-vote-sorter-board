@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,7 +31,7 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
 
   if (!isExpanded) {
     return (
-      <Card 
+      <Card
         className="bg-white/50 border-dashed border-2 hover:bg-white/70 cursor-pointer transition-colors"
         onClick={() => setIsExpanded(true)}
       >
@@ -53,14 +52,20 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
           placeholder="Enter your retro item..."
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
           className="resize-none"
           rows={3}
           autoFocus
         />
         {allowAnonymous && (
           <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="anonymous" 
+            <Checkbox
+              id="anonymous"
               checked={isAnonymous}
               onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
             />
