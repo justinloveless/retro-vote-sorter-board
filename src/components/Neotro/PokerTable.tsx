@@ -38,6 +38,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
   );
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
+  const [shake, setShake] = useState(false);
 
   // Debounce function
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
@@ -71,7 +72,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
           .select('jira_ticket_prefix')
           .eq('id', teamId)
           .single();
-        
+
         if (data && data.jira_ticket_prefix) {
           if (!session?.ticket_number) {
             setDisplayTicketNumber(data.jira_ticket_prefix);
@@ -98,7 +99,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
       fetchTeamPrefix();
     }
   }, [session?.ticket_number, teamId, isTicketInputFocused]);
-  
+
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
   const activeUserSelection = useMemo(() => {
@@ -112,8 +113,14 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
     const currentIndex = pointOptions.indexOf(activeUserSelection.points);
     let newIndex = increment ? currentIndex + 1 : currentIndex - 1;
     if (newIndex < 0) newIndex = 0;
-    if (newIndex >= pointOptions.length) newIndex = pointOptions.length - 1;
-    
+    if (newIndex >= pointOptions.length) {
+      newIndex = pointOptions.length - 1;
+      if (increment) {
+        setShake(true);
+        setTimeout(() => setShake(false), 500); // Reset shake after animation duration
+      }
+    }
+
     updateUserSelection(pointOptions[newIndex]);
   };
 
@@ -134,7 +141,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
       updateTicketNumber(displayTicketNumber);
     }
   }
-  
+
   if (loading || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -144,7 +151,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
   }
 
   return (
-    <div className="poker-table relative flex flex-col h-full">
+    <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
       <div className="flex flex-1 min-h-0">
         <div className="w-1/4 p-4 flex flex-col">
           <div className="flex-grow overflow-y-auto pr-2">
