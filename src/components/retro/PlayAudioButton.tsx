@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Volume2, Loader2, Pause, AlertTriangle } from 'lucide-react';
+import { currentEnvironment } from '@/config/environment';
 
 interface PlayAudioButtonProps {
     itemText: string;
@@ -10,21 +11,26 @@ interface PlayAudioButtonProps {
 export const PlayAudioButton: React.FC<PlayAudioButtonProps> = ({ itemText }) => {
     const [audioState, setAudioState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const blobUrlRef = useRef<string | null>(null);
 
-    // This effect ensures we clean up the audio object when the component is removed
+    // This effect ensures we clean up the audio object and blob URL when the component is removed
     useEffect(() => {
         const audio = audioRef.current;
+        const blobUrl = blobUrlRef.current;
         return () => {
             if (audio) {
                 audio.pause();
                 audio.src = '';
+            }
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
             }
         };
     }, []);
 
     const handlePlay = async () => {
         // If audio is currently playing, pause it.
-        if (audioRef.current && !audioRef.current.paused) {
+        if (audioRef.current && audioState === 'playing') {
             audioRef.current.pause();
             return;
         }
@@ -35,28 +41,60 @@ export const PlayAudioButton: React.FC<PlayAudioButtonProps> = ({ itemText }) =>
             return;
         }
 
+        // Clean up previous audio if we're about to fetch a new one
+        if (blobUrlRef.current) {
+            URL.revokeObjectURL(blobUrlRef.current);
+            blobUrlRef.current = null;
+        }
+        if (audioRef.current) {
+            audioRef.current.src = '';
+            audioRef.current = null;
+        }
+
         setAudioState('loading');
 
         try {
-            const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
-            const urlWithQuery = `${functionUrl}?text=${encodeURIComponent(itemText)}`;
+            // The user updated the edge function to stream audio directly.
+            // This requires a GET request with URL params. We can't use `supabase.functions.invoke()`
+            // because it sends a POST request and is designed for JSON responses, which would corrupt the audio data.
+            // Instead, we manually `fetch` the function's public URL with the necessary auth headers.
 
+            const functionUrl = new URL(`${currentEnvironment.supabaseUrl}/functions/v1/text-to-speech`);
+            functionUrl.searchParams.set('text', itemText);
+
+            // 2. Get the user's session for the auth token.
             const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("User not authenticated.");
 
-            const response = await fetch(urlWithQuery, {
+            // 3. Fetch the audio stream with auth headers.
+            const response = await fetch(functionUrl.toString(), {
                 headers: {
-                    Authorization: `Bearer ${session?.access_token}`,
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': currentEnvironment.supabaseAnonKey,
                 },
             });
 
             if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`Failed to fetch audio: ${response.status} ${errorText}`);
             }
 
             const blob = await response.blob();
-            const audioUrl = URL.createObjectURL(blob);
 
-            const audio = new Audio(audioUrl);
+            if (blob.type !== 'audio/mpeg') {
+                try {
+                    const errorJson = JSON.parse(await blob.text());
+                    throw new Error(errorJson.error || "Invalid audio data received.");
+                } catch {
+                    throw new Error("Invalid audio data received. Expected audio/mpeg.");
+                }
+            }
+
+            // 4. Create a local URL for the blob and play it.
+            const url = URL.createObjectURL(blob);
+            blobUrlRef.current = url;
+
+            const audio = new Audio(url);
             audioRef.current = audio;
 
             audio.onplay = () => setAudioState('playing');
