@@ -11,23 +11,26 @@ export const PlayAudioButton: React.FC<PlayAudioButtonProps> = ({ itemText }) =>
     const [audioState, setAudioState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // Cleanup on unmount
+    // This effect ensures we clean up the audio object when the component is removed
     useEffect(() => {
+        const audio = audioRef.current;
         return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                URL.revokeObjectURL(audioRef.current.src);
+            if (audio) {
+                audio.pause();
+                audio.src = '';
             }
         };
     }, []);
 
     const handlePlay = async () => {
-        if (audioState === 'playing' && audioRef.current) {
+        // If audio is currently playing, pause it.
+        if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
             return;
         }
 
-        if (audioRef.current && audioRef.current.paused && audioState === 'idle') {
+        // If we have already fetched the audio and it's just paused, play it.
+        if (audioRef.current && audioRef.current.paused) {
             audioRef.current.play();
             return;
         }
@@ -35,46 +38,49 @@ export const PlayAudioButton: React.FC<PlayAudioButtonProps> = ({ itemText }) =>
         setAudioState('loading');
 
         try {
-            const { data, error } = await supabase.functions.invoke('text-to-speech', {
-                body: { text: itemText },
-                responseType: 'blob'
-            } as any);
+            const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
+            const urlWithQuery = `${functionUrl}?text=${encodeURIComponent(itemText)}`;
 
-            if (error) throw error;
+            const { data: { session } } = await supabase.auth.getSession();
 
-            const audioUrl = URL.createObjectURL(data);
+            const response = await fetch(urlWithQuery, {
+                headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                },
+            });
 
-            if (audioRef.current) {
-                URL.revokeObjectURL(audioRef.current.src);
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
             }
+
+            const blob = await response.blob();
+            const audioUrl = URL.createObjectURL(blob);
 
             const audio = new Audio(audioUrl);
             audioRef.current = audio;
 
             audio.onplay = () => setAudioState('playing');
             audio.onpause = () => setAudioState('idle');
-            audio.onended = () => {
-                setAudioState('idle');
-            };
+            audio.onended = () => setAudioState('idle');
             audio.onerror = (e) => {
                 console.error('Audio playback error', e);
                 setAudioState('error');
-                URL.revokeObjectURL(audioUrl);
             };
 
-            audio.play();
+            await audio.play();
+
         } catch (e) {
-            console.error('Error fetching or playing audio:', e);
+            console.error('Error playing audio:', e);
             setAudioState('error');
         }
     };
 
     const getIcon = () => {
         switch (audioState) {
-            case 'loading':
-                return <Loader2 className="h-4 w-4 animate-spin" />;
             case 'playing':
                 return <Pause className="h-4 w-4" />;
+            case 'loading':
+                return <Loader2 className="h-4 w-4 animate-spin" />;
             case 'error':
                 return <AlertTriangle className="h-4 w-4 text-red-500" />;
             default:
