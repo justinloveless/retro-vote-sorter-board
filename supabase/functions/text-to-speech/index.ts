@@ -1,130 +1,98 @@
-import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { crypto } from "https://deno.land/std@0.208.0/crypto/mod.ts";
+// Import type definitions for Supabase runtime
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { createClient } from '@supabase/supabase-js'
+import { ElevenLabsClient } from 'npm:elevenlabs'
+import * as hash from 'npm:object-hash'
 
-// --- CONFIGURATION ---
-// IMPORTANT: These environment variables must be set in your Supabase project settings
-const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
-const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Default voice: "Rachel". Change if you like.
+// Constants from previous implementation
 const BUCKET_NAME = 'tts-audio-cache';
+const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Voice: Rachel
 
-// Supabase admin client for server-side operations
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey',
+};
+
+// Supabase and ElevenLabs clients
 const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// --- HELPER FUNCTIONS ---
-const generateCacheKey = async (text: string): Promise<string> => {
-    const hash = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text));
-    const hashArray = Array.from(new Uint8Array(hash));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return `${hashHex}.mp3`;
-};
+const elevenLabsClient = new ElevenLabsClient({
+    apiKey: Deno.env.get('ELEVENLABS_API_KEY'),
+});
 
-// --- MAIN SERVER LOGIC ---
-serve(async (req) => {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', {
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-            }
-        });
-    }
-
+// Background task to upload audio to storage without blocking the response
+async function uploadAudioToStorage(stream: ReadableStream, fileName: string) {
     try {
-        const { text } = await req.json();
-        if (!text || typeof text !== 'string') {
-            return new Response(JSON.stringify({ error: 'Text is required and must be a string.' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        const fileName = await generateCacheKey(text);
-
-        // 1. Check for audio in cache
-        const { data: fileList, error: listError } = await supabaseAdmin
-            .storage
+        await supabaseAdmin.storage
             .from(BUCKET_NAME)
-            .list(undefined, { search: fileName, limit: 1 });
-
-        if (listError) {
-            console.error("Error checking cache:", listError.message);
-            // Don't block request, proceed to generate audio
-        }
-
-        if (fileList && fileList.length > 0) {
-            // 1a. Cache HIT: File exists, stream it from storage
-            const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(fileName);
-            return fetch(publicUrl);
-        }
-
-        // 1b. Cache MISS: Generate new audio
-        if (!ELEVENLABS_API_KEY) {
-            console.error("ELEVENLABS_API_KEY is not set.");
-            return new Response(JSON.stringify({ error: 'Text-to-speech service is not configured.' }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`;
-        const elevenLabsResponse = await fetch(elevenLabsUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'xi-api-key': ELEVENLABS_API_KEY,
-                'Accept': 'audio/mpeg',
-            },
-            body: JSON.stringify({
-                text,
-                model_id: 'eleven_turbo_v2',
-            }),
-        });
-
-        if (!elevenLabsResponse.ok || !elevenLabsResponse.body) {
-            const errorBody = await elevenLabsResponse.text();
-            console.error('ElevenLabs API Error:', errorBody);
-            return new Response(JSON.stringify({ error: 'Failed to generate audio from provider.' }), {
-                status: 502, // Bad Gateway
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        // Clone the stream to use it for both response and caching
-        const [clientStream, cacheStream] = elevenLabsResponse.body.tee();
-
-        // 2. Asynchronously upload to cache (don't block the client response)
-        const uploadPromise = supabaseAdmin
-            .storage
-            .from(BUCKET_NAME)
-            .upload(fileName, cacheStream, {
+            .upload(fileName, stream, {
                 contentType: 'audio/mpeg',
                 upsert: true,
             });
+    } catch (error) {
+        console.error('Storage upload error:', error.message);
+    }
+}
 
-        uploadPromise.catch(uploadError => {
-            // Log errors but don't fail the request
-            console.error('Failed to upload audio to cache:', uploadError.message);
+Deno.serve(async (req) => {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders });
+    }
+
+    try {
+        const url = new URL(req.url);
+        const text = url.searchParams.get('text');
+        const voiceId = url.searchParams.get('voiceId') ?? VOICE_ID;
+
+        if (!text) {
+            return new Response(JSON.stringify({ error: 'Text parameter is required' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
+
+        // Generate a consistent hash for caching
+        const requestHash = hash.MD5({ text, voiceId });
+        const fileName = `${requestHash}.mp3`;
+
+        // Check if the file exists in public storage and stream it if so
+        const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(fileName);
+        const headResponse = await fetch(publicUrl, { method: 'HEAD' });
+
+        if (headResponse.ok) {
+            const storageResponse = await fetch(publicUrl);
+            return new Response(storageResponse.body, {
+                headers: { 'Content-Type': 'audio/mpeg', ...corsHeaders },
+            });
+        }
+
+        // If not in cache, generate speech with ElevenLabs
+        const audioStream = await elevenLabsClient.textToSpeech.convertAsStream(voiceId, {
+            text,
+            model_id: 'eleven_multilingual_v2',
+            output_format: 'mp3_44100_128',
         });
 
-        // 3. Stream the audio directly back to the client
-        return new Response(clientStream, {
-            headers: {
-                'Content-Type': 'audio/mpeg',
-            },
+        // Tee the stream to send one copy to the browser and one to storage
+        const [browserStream, storageStream] = audioStream.tee();
+
+        // Start uploading to storage in the background without waiting for it to finish
+        EdgeRuntime.waitUntil(uploadAudioToStorage(storageStream, fileName));
+
+        // Return the audio stream to the browser immediately
+        return new Response(browserStream, {
+            headers: { 'Content-Type': 'audio/mpeg', ...corsHeaders },
         });
 
     } catch (error) {
-        // General error handler
-        console.error("An unexpected error occurred:", error.message);
-        return new Response(JSON.stringify({ error: 'An internal server error occurred.' }), {
+        console.error('An unexpected error occurred:', error.message);
+        return new Response(JSON.stringify({ error: 'Internal server error.' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
     }
 }); 
