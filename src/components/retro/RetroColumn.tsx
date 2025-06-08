@@ -10,6 +10,7 @@ import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
 import useFeatureFlags from '@/hooks/useFeatureFlags';
 import { PlayAudioButton } from './PlayAudioButton';
+import { ColumnSummary } from './ColumnSummary';
 
 interface RetroItem {
   id: string;
@@ -139,6 +140,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
+            <ColumnSummary items={items} columnTitle={column.title} />
             {!isAnonymousUser && (
               <>
                 <ColumnManager
