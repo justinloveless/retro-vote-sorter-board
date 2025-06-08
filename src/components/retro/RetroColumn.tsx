@@ -8,6 +8,8 @@ import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
+import useFeatureFlags from '@/hooks/useFeatureFlags';
+import { PlayAudioButton } from './PlayAudioButton';
 
 interface RetroItem {
   id: string;
@@ -89,6 +91,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   onDrop,
   onDragEnd
 }) => {
+  const { isFeatureEnabled } = useFeatureFlags();
+
   // Function to check if a column is an "Action Items" column
   const isActionItemsColumn = (columnTitle: string) => {
     return columnTitle.toLowerCase().includes('action') && columnTitle.toLowerCase().includes('item');
@@ -199,6 +203,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             <ThumbsUp className="h-3 w-3" />
                           </Button>
                         )}
+                        {isFeatureEnabled('text_to_speech_enabled') && <PlayAudioButton itemText={item.text} />}
                         {!isArchived &&
                           ((user?.id && item.author_id === user.id) ||
                             (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (
