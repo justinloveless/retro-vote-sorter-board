@@ -140,7 +140,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
-            <ColumnSummary items={items} columnTitle={column.title} />
+            {isFeatureEnabled('text_to_speech_enabled') && <ColumnSummary items={items} columnTitle={column.title} />}
             {!isAnonymousUser && (
               <>
                 <ColumnManager
