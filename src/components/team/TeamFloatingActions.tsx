@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Spade, Settings, X } from 'lucide-react';
+import { Plus, Spade, Settings } from 'lucide-react';
 
 interface TeamFloatingActionsProps {
   onCreateBoard: () => void;
@@ -16,68 +15,47 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
   onSettings,
   currentUserRole
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
   const canManageSettings = currentUserRole === 'owner' || currentUserRole === 'admin';
 
-  const toggleMenu = () => setIsOpen(!isOpen);
-
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      {/* Action buttons */}
-      {isOpen && (
-        <div className="flex flex-col gap-3 mb-4">
-          <Button
-            onClick={() => {
-              onCreateBoard();
-              setIsOpen(false);
-            }}
-            className="rounded-full h-12 w-12 shadow-lg"
-            size="icon"
-          >
-            <Plus className="h-5 w-5" />
-          </Button>
-          
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 safe-area-pb">
+      <div className="flex justify-center items-center gap-8 max-w-sm mx-auto">
+        {/* Join Pointing Session - Left */}
+        <Button
+          variant="outline"
+          onClick={onJoinPointingSession}
+          className="rounded-full h-14 w-14 shadow-lg border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+          size="icon"
+        >
+          <Spade className="h-6 w-6" />
+        </Button>
+        
+        {/* New Board - Center (Main action) */}
+        <Button
+          onClick={onCreateBoard}
+          className="rounded-full h-16 w-16 shadow-lg"
+          size="icon"
+        >
+          <Plus className="h-7 w-7" />
+        </Button>
+        
+        {/* Settings - Right */}
+        {canManageSettings && (
           <Button
             variant="outline"
-            onClick={() => {
-              onJoinPointingSession();
-              setIsOpen(false);
-            }}
-            className="rounded-full h-12 w-12 shadow-lg border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+            onClick={onSettings}
+            className="rounded-full h-14 w-14 shadow-lg"
             size="icon"
           >
-            <Spade className="h-5 w-5" />
+            <Settings className="h-6 w-6" />
           </Button>
-          
-          {canManageSettings && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                onSettings();
-                setIsOpen(false);
-              }}
-              className="rounded-full h-12 w-12 shadow-lg"
-              size="icon"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Main FAB button */}
-      <Button
-        onClick={toggleMenu}
-        className="rounded-full h-14 w-14 shadow-lg"
-        size="icon"
-      >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <Plus className="h-6 w-6" />
         )}
-      </Button>
+        
+        {/* Placeholder if no settings access to keep layout balanced */}
+        {!canManageSettings && (
+          <div className="h-14 w-14" />
+        )}
+      </div>
     </div>
   );
 };
