@@ -276,8 +276,8 @@ export const useRetroBoard = (roomId: string) => {
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         // console.log('User left:', leftPresences);
       })
-      .on('broadcast', { event: 'audio_summary_state_update' }, ({ payload }) => {
-        setAudioSummaryState(payload.state);
+      .on('broadcast', { event: 'audio-summary-state' }, ({ payload }) => {
+        setAudioSummaryState(payload);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -742,8 +742,8 @@ export const useRetroBoard = (roomId: string) => {
     if (presenceChannel) {
       presenceChannel.send({
         type: 'broadcast',
-        event: 'audio_summary_state_update',
-        payload: { state },
+        event: 'audio-summary-state',
+        payload: state,
       });
     }
   };
