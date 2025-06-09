@@ -78,7 +78,15 @@ export const useRetroBoard = (roomId: string) => {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [userVotes, setUserVotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
+  const [sessionId] = useState(() => {
+    const existingSessionId = localStorage.getItem('retroSessionId');
+    if (existingSessionId) {
+      return existingSessionId;
+    }
+    const newSessionId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('retroSessionId', newSessionId);
+    return newSessionId;
+  });
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
   const { toast } = useToast();
