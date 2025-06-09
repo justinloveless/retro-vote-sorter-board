@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import Tooltip from "./Tooltip";
 import { getCardImage } from "./cardImage";
 import backCardImage from "@/assets/Card_Back.png";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Define the possible states of the card
 
@@ -29,6 +29,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   const [translateY, setTranslateY] = useState("translate-y-0");
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom'>('top');
+  const isMobile = useIsMobile();
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Determine the front card image based on pointsSelected
@@ -45,10 +46,10 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       }, 300); // Small delay to allow flip animation to start before translation
     } else if (cardState === CardState.Locked) {
       setIsFlipped(false); // Ensure it's not flipped in Locked state
-      setTranslateY(`-translate-y-1/2`); // Half of card height
+      setTranslateY(`-translate-y-1/4`); 
     } else if (cardState === CardState.Played) {
       // When entering Played state, translate and then flip
-      setTranslateY(`-translate-y-full`); // 1.5 times card height
+      setTranslateY(isMobile ? "-translate-y-1/4" : `-translate-y-full`); 
       flipDelay = setTimeout(() => {
         setIsFlipped(true);
       }, 300); // Small delay to allow translation animation to start before flip
@@ -59,9 +60,10 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         clearTimeout(flipDelay);
       }
     };
-  }, [cardState]);
+  }, [cardState, isMobile]);
 
   const handleMouseEnter = () => {
+    if (isMobile) return;
     setIsHovered(true);
     
     // Check if there's enough space above the card for the tooltip
@@ -76,6 +78,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   };
 
   const handleMouseLeave = () => {
+    if (isMobile) return;
     setIsHovered(false);
   };
 
@@ -90,20 +93,29 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* The Tooltip */}
-      {isHovered && (
-        <div className={`absolute left-1/2 -translate-x-1/2 ${
-          tooltipPosition === 'top' 
-            ? 'bottom-full mb-2' 
-            : 'top-full mt-2'
-        }`}>
-          <Tooltip
-            playerName={playerName}
-            cardState={cardState}
-            pointsSelected={pointsSelected}
-            isPointing={cardState != CardState.Locked}
-          />
+      {isMobile ? (
+        <div className="absolute top-full w-full pt-2">
+          <div className="flex items-center justify-center">
+            <div className="text-center bg-gray-800 text-white text-xs rounded-full px-2 py-1">
+              {playerName}
+            </div>
+          </div>
         </div>
+      ) : (
+        isHovered && (
+          <div
+            className={`absolute left-1/2 -translate-x-1/2 ${
+              tooltipPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
+            }`}
+          >
+            <Tooltip
+              playerName={playerName}
+              cardState={cardState}
+              pointsSelected={pointsSelected}
+              isPointing={cardState !== CardState.Locked}
+            />
+          </div>
+        )
       )}
       <ReactCardFlip
         isFlipped={isFlipped}
