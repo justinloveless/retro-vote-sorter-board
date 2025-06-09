@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -83,6 +82,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
     return { points: 0, locked: false, name: '' };
   }, [session, activeUserId]);
 
+  const totalPlayers = session ? Object.keys(session.selections).length : 0;
+
   const handlePointChange = (increment: boolean) => {
     const currentIndex = pointOptions.indexOf(activeUserSelection.points);
     let newIndex = increment ? currentIndex + 1 : currentIndex - 1;
@@ -122,6 +123,22 @@ const PokerTable: React.FC<PokerTableProps> = ({
       </div>
     );
   }
+
+  // Dynamic grid columns based on number of players
+  const getGridColumns = (playerCount: number, isMobile: boolean) => {
+    if (isMobile) {
+      if (playerCount <= 2) return 'grid-cols-2';
+      if (playerCount <= 6) return 'grid-cols-3';
+      if (playerCount <= 8) return 'grid-cols-4';
+      return 'grid-cols-4';
+    } else {
+      if (playerCount <= 4) return 'grid-cols-4';
+      if (playerCount <= 6) return 'grid-cols-6';
+      if (playerCount <= 8) return 'grid-cols-4';
+      if (playerCount <= 12) return 'grid-cols-6';
+      return 'grid-cols-8';
+    }
+  };
 
   if (isMobile) {
     return (
@@ -172,14 +189,15 @@ const PokerTable: React.FC<PokerTableProps> = ({
         <div className="flex-1 flex flex-col p-4">
           {/* Cards Area */}
           <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-lg">
+            <div className={`grid ${getGridColumns(totalPlayers, true)} gap-2 max-w-full w-full justify-items-center`}>
               {Object.entries(session.selections).map(([userId, selection]) => (
-                <div key={userId} className="flex justify-center">
+                <div key={userId} className="flex flex-col items-center">
                   <PlayingCard
                     cardState={session.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
                     playerName={selection.name}
                     pointsSelected={selection.points}
                     isPresent={presentUserIds.includes(userId)}
+                    totalPlayers={totalPlayers}
                   />
                 </div>
               ))}
@@ -220,7 +238,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
     );
   }
 
-  // Desktop layout (unchanged)
+  // Desktop layout
   return (
     <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
       <div className="flex flex-1 min-h-0">
@@ -252,7 +270,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
         </div>
         <div className="w-3/4 flex flex-col p-4">
           <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
-            <div className="flex flex-wrap gap-4 justify-center items-center">
+            <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
               {Object.entries(session.selections).map(([userId, selection]) => (
                 <PlayingCard
                   key={userId}
@@ -260,6 +278,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
                   playerName={selection.name}
                   pointsSelected={selection.points}
                   isPresent={presentUserIds.includes(userId)}
+                  totalPlayers={totalPlayers}
                 />
               ))}
             </div>
