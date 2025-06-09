@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, Calendar, Settings, Home } from 'lucide-react';
+import { Plus, Users, Calendar, Settings, Home, User, LogOut, Shield } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/AuthForm';
+import { AppHeader } from '@/components/AppHeader';
 
 const Teams = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const { teams, loading, createTeam } = useTeams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -25,6 +26,11 @@ const Teams = () => {
     setShowCreateDialog(false);
     setTeamName('');
     setTeamDescription('');
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
   };
 
   if (authLoading) {
@@ -49,15 +55,11 @@ const Teams = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-8">
+      <AppHeader variant='home' />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => navigate('/')}>
-                <Home className="h-4 w-4" />
-              </Button>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Teams</h1>
-            </div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Teams</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your teams and create retro boards</p>
           </div>
           <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-2">

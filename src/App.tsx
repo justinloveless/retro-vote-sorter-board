@@ -16,6 +16,7 @@ import Account from "./pages/Account";
 import InviteAccept from "./pages/InviteAccept";
 import NotFound from "./pages/NotFound";
 import NeotroPage from "./pages/NeotroPage";
+import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 
@@ -34,6 +35,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/retro/:roomId" element={<Retro />} />
+                <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:teamId" element={<Team />} />
                 <Route path="/teams/:teamId/settings" element={<TeamSettings />} />

@@ -1,28 +1,39 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ArrowLeft, User, LogOut, Shield } from 'lucide-react';
 
 export const NeotroHeader: React.FC = () => {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
+  const { profile, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <div className="p-4 bg-transparent flex items-center justify-between">
-      <div>
-        <Button variant="ghost" onClick={() => navigate(`/teams/${teamId}`)}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Team
-        </Button>
-      </div>
+      <Button variant="ghost" onClick={() => navigate(`/teams/${teamId}`)}>
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Team
+      </Button>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" onClick={() => navigate('/')}>
-          <Home className="h-4 w-4 mr-2" />
-          Home
-        </Button>
-        <Button variant="ghost" onClick={() => navigate('/account')}>
+        {profile?.role === 'admin' && (
+          <Button variant="outline" onClick={() => navigate('/admin')} className="mr-2">
+            <Shield className="h-4 w-4 mr-2" />
+            Admin Dashboard
+          </Button>
+        )}
+        <Button variant="outline" onClick={() => navigate('/account')} className="mr-2">
           <User className="h-4 w-4 mr-2" />
-          Account
+          My Account
+        </Button>
+        <Button variant="outline" onClick={handleSignOut}>
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
         </Button>
       </div>
     </div>

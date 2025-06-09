@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
+import { AppHeader } from './AppHeader';
 
 interface RetroBoardProps {
   boardId: string;
@@ -49,6 +50,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     deleteComment,
     getCommentsForItem,
     sessionId,
+    presenceChannel,
   } = useRetroBoard(boardId);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -196,8 +198,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <EnvironmentIndicator />
+    <div className="min-h-screen ">
+      {/* <EnvironmentIndicator /> */}
 
       {/* Archived board notice */}
       {isArchived && (
@@ -208,103 +210,107 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           </div>
         </div>
       )}
+      <AppHeader variant='back' />
+      <div className='p-6 pt-0'>
+        <BoardHeader
+          board={board}
+          profile={profile}
+          user={user}
+          activeUsers={activeUsers}
+          boardConfig={boardConfig}
+          anonymousName={anonymousName}
+          isAnonymousUser={isAnonymousUser}
+          items={items}
+          onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
+          onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
+          onSignOut={signOut}
+        />
 
-      <BoardHeader
-        board={board}
-        profile={profile}
-        user={user}
-        activeUsers={activeUsers}
-        boardConfig={boardConfig}
-        anonymousName={anonymousName}
-        isAnonymousUser={isAnonymousUser}
-        items={items}
-        onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
-        onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
-        onSignOut={signOut}
-      />
-
-      {/* User Name Display */}
-      <div className="mb-4">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {isAnonymousUser
-            ? `You are participating as a guest. Your contributions will be anonymous.`
-            : `You are signed in as ${userName}.`}
-        </span>
-      </div>
-
-      {/* Columns */}
-      <div className="overflow-x-auto pb-6">
-        <div className="flex gap-6 min-w-max">
-          {columns.map(column => (
-            <RetroColumn
-              key={column.id}
-              column={column}
-              items={getItemsForColumn(column.id)}
-              boardConfig={boardConfig}
-              user={user}
-              userName={userName}
-              isAnonymousUser={isAnonymousUser}
-              comments={comments}
-              draggedColumn={draggedColumn}
-              dragOverColumn={dragOverColumn}
-              editingItem={editingItem}
-              editText={editText}
-              isArchived={isArchived}
-              sessionId={sessionId}
-              onAddItem={handleAddItem(column.id)}
-              onUpdateColumn={isArchived ? undefined : updateColumn}
-              onDeleteColumn={isArchived ? undefined : deleteColumn}
-              onUpvoteItem={isArchived ? undefined : upvoteItem}
-              onUpdateItem={isArchived ? undefined : updateItem}
-              onDeleteItem={isArchived ? undefined : deleteItem}
-              onStartEdit={startEdit}
-              onSaveEdit={saveEdit}
-              onCancelEdit={cancelEdit}
-              onSetEditText={setEditText}
-              onAddComment={isArchived ? undefined : handleAddComment}
-              onDeleteComment={isArchived ? undefined : deleteComment}
-              onGetCommentsForItem={getCommentsForItem}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onDragEnd={handleDragEnd}
-            />
-          ))}
-
-          {/* Add Column Card - Only show for authenticated users and non-archived boards */}
-          {!isAnonymousUser && !isArchived && (
-            <div className="w-80 flex-shrink-0">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Card className="bg-white/50 dark:bg-gray-800/50 border-dashed border-2 hover:bg-white/70 dark:hover:bg-gray-800/70 cursor-pointer transition-colors h-20">
-                    <CardContent className="p-4 flex items-center justify-center h-full">
-                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                        <Plus className="h-4 w-4" />
-                        <span className="text-sm">Add another list</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Column</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      placeholder="Column title"
-                      value={newColumnTitle}
-                      onChange={(e) => setNewColumnTitle(e.target.value)}
-                    />
-                    <Button onClick={handleAddColumn} className="w-full">
-                      Add Column
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
+        {/* User Name Display */}
+        <div className="mb-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {isAnonymousUser
+              ? `You are participating as a guest. Your contributions will be anonymous.`
+              : `You are signed in as ${userName}.`}
+          </span>
         </div>
+
+        {/* Columns */}
+        <div className="overflow-x-auto pb-6">
+          <div className="flex gap-6 min-w-max">
+            {columns.map(column => (
+              <RetroColumn
+                key={column.id}
+                column={column}
+                items={getItemsForColumn(column.id)}
+                boardConfig={boardConfig}
+                user={user}
+                userName={userName}
+                isAnonymousUser={isAnonymousUser}
+                comments={comments}
+                draggedColumn={draggedColumn}
+                dragOverColumn={dragOverColumn}
+                editingItem={editingItem}
+                editText={editText}
+                isArchived={isArchived}
+                sessionId={sessionId}
+                onAddItem={handleAddItem(column.id)}
+                onUpdateColumn={isArchived ? undefined : updateColumn}
+                onDeleteColumn={isArchived ? undefined : deleteColumn}
+                onUpvoteItem={isArchived ? undefined : upvoteItem}
+                onUpdateItem={isArchived ? undefined : updateItem}
+                onDeleteItem={isArchived ? undefined : deleteItem}
+                onStartEdit={startEdit}
+                onSaveEdit={saveEdit}
+                onCancelEdit={cancelEdit}
+                onSetEditText={setEditText}
+                onAddComment={isArchived ? undefined : handleAddComment}
+                onDeleteComment={isArchived ? undefined : deleteComment}
+                onGetCommentsForItem={getCommentsForItem}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                presenceChannel={presenceChannel}
+              />
+            ))}
+
+            {/* Add Column Card - Only show for authenticated users and non-archived boards */}
+            {!isAnonymousUser && !isArchived && (
+              <div className="w-80 flex-shrink-0">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="bg-white/50 dark:bg-gray-800/50 border-dashed border-2 hover:bg-white/70 dark:hover:bg-gray-800/70 cursor-pointer transition-colors h-20">
+                      <CardContent className="p-4 flex items-center justify-center h-full">
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                          <Plus className="h-4 w-4" />
+                          <span className="text-sm">Add another list</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Column</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Column title"
+                        value={newColumnTitle}
+                        onChange={(e) => setNewColumnTitle(e.target.value)}
+                      />
+                      <Button onClick={handleAddColumn} className="w-full">
+                        Add Column
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

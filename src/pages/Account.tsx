@@ -10,6 +10,7 @@ import { AuthForm } from '@/components/AuthForm';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { BackgroundSettings } from '@/components/account/BackgroundSettings';
+import { AppHeader } from '@/components/AppHeader';
 
 const Account = () => {
   const navigate = useNavigate();
@@ -38,37 +39,9 @@ const Account = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="p-4 flex justify-between items-center">
-        <Button variant="ghost" onClick={() => navigate('/')}>
-          <Home className="h-4 w-4 mr-2" />
-          Home
-        </Button>
-        <div>
-          {profile?.role === 'admin' && (
-            <Button variant="outline" onClick={() => navigate('/admin')} className="mr-2">
-              <Shield className="h-4 w-4 mr-2" />
-              Admin Dashboard
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </header>
+      <AppHeader variant="home" />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
-              <Home className="h-4 w-4" />
-            </Button>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Account</h1>
-          </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">My Account</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">

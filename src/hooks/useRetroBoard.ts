@@ -61,6 +61,14 @@ interface ActiveUser {
   avatar_url?: string;
 }
 
+export type AudioSummaryStatus = 'generating' | 'ready' | 'playing' | 'paused';
+
+export interface AudioSummaryState {
+  columnId: string;
+  status: AudioSummaryStatus;
+  script?: string;
+}
+
 export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
   const [columns, setColumns] = useState<RetroColumn[]>([]);
@@ -71,6 +79,7 @@ export const useRetroBoard = (roomId: string) => {
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
+  const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
   const { toast } = useToast();
 
   // Update user presence using Supabase realtime presence
@@ -251,6 +260,9 @@ export const useRetroBoard = (roomId: string) => {
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         // console.log('User left:', leftPresences);
+      })
+      .on('broadcast', { event: 'audio_summary_state_update' }, ({ payload }) => {
+        setAudioSummaryState(payload.state);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -688,6 +700,17 @@ export const useRetroBoard = (roomId: string) => {
     return comments.filter(comment => comment.item_id === itemId);
   };
 
+  const updateAudioSummaryState = (state: AudioSummaryState | null) => {
+    setAudioSummaryState(state);
+    if (presenceChannel) {
+      presenceChannel.send({
+        type: 'broadcast',
+        event: 'audio_summary_state_update',
+        payload: { state },
+      });
+    }
+  };
+
   return {
     board,
     columns,
@@ -710,6 +733,9 @@ export const useRetroBoard = (roomId: string) => {
     addComment,
     deleteComment,
     getCommentsForItem,
-    sessionId
+    sessionId,
+    presenceChannel,
+    audioSummaryState,
+    updateAudioSummaryState,
   };
 };

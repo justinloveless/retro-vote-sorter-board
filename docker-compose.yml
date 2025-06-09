@@ -1,0 +1,24 @@
+version: "3.8"
+services:
+  tts-server:
+    image: ghcr.io/coqui-ai/tts
+    ports:
+      - "5002:5002"
+    volumes:
+      - tts_models:/root/.local/share/tts
+    gpus:
+      - driver: nvidia
+        count: all
+    # Override entrypoint to call python3 directly
+    entrypoint:
+      - python3
+      - TTS/server/server.py
+    # Now give all of your server flags as a YAML list
+    command:
+      - --model_name
+      - tts_models/en/ljspeech/tacotron2-DDC_ph
+      - --use_cuda
+      - "true"
+    restart: unless-stopped
+volumes:
+  tts_models:
