@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
@@ -13,9 +12,10 @@ const NeotroPage = () => {
   const isMobile = useIsMobile();
 
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
-    teamId, // Use teamId as the session identifier
+    !loadingAuth ? teamId : null, // Use teamId as the session identifier
     user?.id,
-    profile?.full_name || user?.email
+    profile?.full_name || user?.email,
+    true
   );
 
   if (loadingAuth || loadingSession) {

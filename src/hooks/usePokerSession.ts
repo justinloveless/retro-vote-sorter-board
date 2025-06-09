@@ -18,7 +18,7 @@ export type GameState = 'Selection' | 'Playing';
 
 export interface PokerSession {
   id: string;
-  team_id: string;
+  room_id: string;
   selections: Selections;
   game_state: GameState;
   average_points: number;
