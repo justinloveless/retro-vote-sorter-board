@@ -1,20 +1,24 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
+
 export const useRoomAccess = (roomId: string, user: any) => {
   const [boardData, setBoardData] = useState<any>(null);
-  const [hasRoomAccess, setHasRoomAccess] = useState(false);
+  const [accessStatus, setAccessStatus] = useState<AccessStatus>('loading');
   const [isPrivate, setIsPrivate] = useState(false);
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [isTeamMember, setIsTeamMember] = useState(false);
   const { toast } = useToast();
 
   const checkRoomAccess = async () => {
-    if (!roomId) return;
+    if (!roomId) {
+      setAccessStatus('loading');
+      return;
+    }
 
     try {
+      setAccessStatus('loading');
       const { data: board, error } = await supabase
         .from('retro_boards')
         .select(`
@@ -33,6 +37,16 @@ export const useRoomAccess = (roomId: string, user: any) => {
       }
 
       if (board) {
+        if (board.deleted) {
+          setAccessStatus('denied');
+          toast({
+            title: "Board not found",
+            description: "This board has been deleted or does not exist.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         setBoardData(board);
         setIsPrivate(board.is_private);
 
@@ -45,7 +59,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
           if (board.is_private && board.password_hash) {
             // If user is a team member, grant access automatically
             if (isMember) {
-              setHasRoomAccess(true);
+              setAccessStatus('granted');
               return;
             }
           }
@@ -57,22 +71,28 @@ export const useRoomAccess = (roomId: string, user: any) => {
           if (savedAuth) {
             const authData = JSON.parse(savedAuth);
             if (authData.authenticated) {
-              setHasRoomAccess(true);
+              setAccessStatus('granted');
             } else {
-              setShowPasswordDialog(true);
+              setAccessStatus('password_required');
             }
           } else {
-            setShowPasswordDialog(true);
+            setAccessStatus('password_required');
           }
         } else {
-          setHasRoomAccess(true);
+          setAccessStatus('granted');
         }
       } else {
-        // Room doesn't exist, allow access to create it
-        setHasRoomAccess(true);
+        // Room doesn't exist
+        setAccessStatus('denied');
+        toast({
+          title: "Board not found",
+          description: "This board has been deleted or does not exist.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error checking room access:', error);
+      setAccessStatus('denied');
       toast({
         title: "Error accessing room",
         description: "Please try again.",
@@ -86,8 +106,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
 
     // Simple password check (in production, you'd hash and compare)
     if (enteredPassword === 'demo123' || boardData.password_hash === enteredPassword) {
-      setHasRoomAccess(true);
-      setShowPasswordDialog(false);
+      setAccessStatus('granted');
       localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({ 
         isPrivate: true, 
         authenticated: true 
@@ -111,9 +130,8 @@ export const useRoomAccess = (roomId: string, user: any) => {
 
   return {
     boardData,
-    hasRoomAccess,
+    accessStatus,
     isPrivate,
-    showPasswordDialog,
     isTeamMember,
     handlePasswordSubmit,
     setIsPrivate

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { RetroBoard } from './RetroBoard';
 import { AuthForm } from './AuthForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useSlackNotification } from '@/hooks/useSlackNotification';
@@ -10,6 +11,7 @@ import { PasswordDialog } from './retro/PasswordDialog';
 import { ShareDialog } from './retro/ShareDialog';
 import { FloatingButtons } from './retro/FloatingButtons';
 import { useRoomAccess } from '@/hooks/useRoomAccess';
+import { BoardNotFound } from './retro/BoardNotFound';
 
 interface RetroRoomProps {
   roomId?: string;
@@ -29,17 +31,17 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [password, setPassword] = useState('');
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showNotifyTeamDialog, setShowNotifyTeamDialog] = useState(false);
+  const [hasBeenNotified, setHasBeenNotified] = useState(false);
   const [anonymousName] = useState(() => generateSillyName());
-  const notificationInProgress = useRef(false);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { sendSlackNotification, createRetroSession } = useSlackNotification();
 
   const {
     boardData,
-    hasRoomAccess,
+    accessStatus,
     isPrivate,
-    showPasswordDialog,
     isTeamMember,
     handlePasswordSubmit,
     setIsPrivate
@@ -55,13 +57,11 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
   // Send Slack notification when board is accessed for the first time
   useEffect(() => {
-    const sendInitialSlackNotification = async () => {
-      if (!boardData || !user || notificationInProgress.current) return;
+    const checkAndAskForNotification = async () => {
+      if (!boardData || !user || hasBeenNotified) return;
 
       // Only send notification for team boards
       if (!boardData.team_id) return;
-
-      notificationInProgress.current = true;
 
       try {
         // Check if a session already exists for this board today
@@ -74,26 +74,47 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
           .eq('board_id', boardData.id)
           .gte('created_at', today.toISOString());
 
-        // If no session exists today, create one and send notification
+        // If no session exists today, ask user for confirmation
         if (!existingSessions || existingSessions.length === 0) {
-          await createRetroSession(boardData.id, boardData.team_id, user.id);
-
-          await sendSlackNotification(
-            boardData.id,
-            boardData.team_id,
-            boardData.title,
-            roomId,
-            user.id
-          );
+          setShowNotifyTeamDialog(true);
+          setHasBeenNotified(true);
         }
       } catch (error) {
-        console.error('Error with Slack notification flow:', error);
-        notificationInProgress.current = false; // Allow retry on error
+        console.error('Error checking for retro session:', error);
       }
     };
 
-    sendInitialSlackNotification();
-  }, [boardData, user, roomId, sendSlackNotification, createRetroSession]);
+    checkAndAskForNotification();
+  }, [boardData, user, hasBeenNotified]);
+
+  const handleNotifyTeam = async () => {
+    if (!boardData || !user) return;
+
+    try {
+      await createRetroSession(boardData.id, boardData.team_id, user.id);
+
+      await sendSlackNotification(
+        boardData.id,
+        boardData.team_id,
+        boardData.title,
+        roomId,
+        user.id
+      );
+      toast({
+        title: "Team notified!",
+        description: "We've let your team know you've started the retro.",
+      });
+    } catch (error) {
+      console.error('Error with Slack notification flow:', error);
+      toast({
+        title: "Notification failed",
+        description: "We couldn't notify your team. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setShowNotifyTeamDialog(false);
+    }
+  };
 
   const togglePrivacy = async () => {
     if (!user) {
@@ -153,7 +174,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     }
   };
 
-  if (authLoading) {
+  if (authLoading || accessStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
@@ -161,16 +182,12 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     );
   }
 
-  if (showPasswordDialog) {
+  if (accessStatus === 'password_required') {
     return <PasswordDialog onPasswordSubmit={handlePasswordSubmit} />;
   }
 
-  if (!hasRoomAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-gray-600 dark:text-gray-300">Checking room access...</div>
-      </div>
-    );
+  if (accessStatus === 'denied') {
+    return <BoardNotFound />;
   }
 
   return (
@@ -196,6 +213,23 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
         isPrivate={isPrivate}
         password={password}
       />
+
+      <AlertDialog open={showNotifyTeamDialog} onOpenChange={setShowNotifyTeamDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start retro and notify team?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will send a notification to your team's Slack channel that you've started the retro session.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleNotifyTeam}>Notify Team</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Auth Dialog for Anonymous Users */}
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
