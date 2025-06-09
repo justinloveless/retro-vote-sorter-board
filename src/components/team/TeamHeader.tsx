@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Plus, Users } from 'lucide-react';
+import { ArrowLeft, Settings, Plus, Users, Spade } from 'lucide-react';
 
 interface TeamHeaderProps {
   team: {
@@ -32,8 +32,12 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({ team, onCreateBoard, onJ
         <Plus className="h-4 w-4 mr-2" />
         New Board
       </Button>
-      <Button variant='default' onClick={onJoinPointingSession}>
-        <Users className="h-4 w-4 mr-2" />
+      <Button
+        variant='outline'
+        onClick={onJoinPointingSession}
+        className="border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+      >
+        <Spade className="h-4 w-4 mr-2" />
         Join Pointing Session
       </Button>
       {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
