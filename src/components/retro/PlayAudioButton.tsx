@@ -14,7 +14,7 @@ export const PlayAudioButton: React.FC<PlayAudioButtonProps> = ({ itemText }) =>
         if (audioState === 'playing') {
             pause();
         } else {
-            play(itemText);
+            play(itemText, { cache: true });
         }
     };
 

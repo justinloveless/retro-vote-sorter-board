@@ -7,33 +7,66 @@ export type AudioPlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'erro
 export const useAudioPlayer = () => {
     const [audioState, setAudioState] = useState<AudioPlayerState>('idle');
     const [error, setError] = useState<string | null>(null);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    // Create a single Audio object and hold it in a ref.
+    const audioRef = useRef<HTMLAudioElement>(new Audio());
     const blobUrlRef = useRef<string | null>(null);
 
+    // Setup event listeners and cleanup on mount/unmount.
     useEffect(() => {
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = '';
-            }
-            if (blobUrlRef.current) {
-                URL.revokeObjectURL(blobUrlRef.current);
+        const audio = audioRef.current;
+
+        const handlePlay = () => setAudioState('playing');
+        const handlePause = () => {
+            // Only set to paused if not at the end of the track.
+            if (!audio.ended) {
+                setAudioState('paused');
             }
         };
-    }, []);
+        const handleEnded = () => setAudioState('idle');
+        const handleError = (e: Event) => {
+            console.error('Audio playback error', e);
+            const mediaError = (e.target as HTMLAudioElement).error;
+            setError(`Audio playback failed: ${mediaError?.message || 'Unknown error'}`);
+            setAudioState('error');
+        };
 
-    const play = useCallback(async (text: string, autoPlay = true) => {
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+        audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
+
+        // Cleanup function
+        return () => {
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause',handlePause);
+            audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
+
+            audio.pause();
+            audio.src = '';
+            if (blobUrlRef.current) {
+                URL.revokeObjectURL(blobUrlRef.current);
+                blobUrlRef.current = null;
+            }
+        };
+    }, []); // Empty dependency array ensures this runs only once.
+
+    const play = useCallback(async (text: string, options: { autoPlay?: boolean, cache?: boolean } = {}) => {
+        const { autoPlay = true, cache = true } = options;
+        const audio = audioRef.current;
+
         if (!text) {
             setError("No text provided to play.");
             setAudioState('error');
             return;
         }
 
-        if (audioRef.current) {
-            audioRef.current.pause();
-        }
+        // Stop any current playback before starting a new one.
+        audio.pause();
         if (blobUrlRef.current) {
             URL.revokeObjectURL(blobUrlRef.current);
+            blobUrlRef.current = null;
         }
 
         setAudioState('loading');
@@ -52,10 +85,10 @@ export const useAudioPlayer = () => {
                     'apikey': currentEnvironment.supabaseAnonKey,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({ text, cache }),
             });
 
-            if (!response.ok || response.headers.get('Content-Type') !== 'audio/wav') {
+            if (!response.ok || !response.body) {
                 let errorText = `Failed to fetch audio: ${response.status}`;
                 try {
                     const errorJson = await response.json();
@@ -68,30 +101,20 @@ export const useAudioPlayer = () => {
             }
 
             const blob = await response.blob();
-
             const url = URL.createObjectURL(blob);
             blobUrlRef.current = url;
-
-            const audio = new Audio(url);
-            audioRef.current = audio;
-
-            audio.onplay = () => setAudioState('playing');
-            audio.onpause = () => setAudioState('paused');
-            audio.onended = () => setAudioState('idle');
-            audio.onerror = (e) => {
-                console.error('Audio playback error', e);
-                setError('Audio playback failed.');
-                setAudioState('error');
-                audioRef.current = null;
-            };
+            audio.src = url;
 
             if (autoPlay) {
                 await audio.play();
             } else {
-                setAudioState('paused'); // Ready to be played
+                audio.load();
+                // When loading but not playing, we are in a 'paused' state, ready to play.
+                // The 'pause' event won't fire here, so we set the state manually.
+                setAudioState('paused');
             }
 
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error playing audio:', e);
             setError(e.message);
             setAudioState('error');
@@ -99,26 +122,21 @@ export const useAudioPlayer = () => {
     }, []);
 
     const pause = useCallback(() => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-        }
+        audioRef.current.pause();
     }, []);
 
     const resume = useCallback(() => {
-        if (audioRef.current) {
-            audioRef.current.play();
-        }
+        audioRef.current.play();
     }, []);
 
     const stop = useCallback(() => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = '';
+        const audio = audioRef.current;
+        audio.pause();
+        // Resetting time is important for re-playing the same audio.
+        if (audio.currentTime) {
+            audio.currentTime = 0;
         }
-        if (blobUrlRef.current) {
-            URL.revokeObjectURL(blobUrlRef.current);
-            blobUrlRef.current = null;
-        }
+        // The 'idle' state indicates nothing is loaded or ready to play.
         setAudioState('idle');
     }, []);
 

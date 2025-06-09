@@ -12,6 +12,7 @@ Here are the items for the column titled "{columnTitle}":
 {itemsText}
 
 Rules:
+- Never include punctuation characters that do not affect speech; for example, don't include quotes, apostrophes, or other punctuation that does not affect speech.
 - Start with a clear and engaging introduction that mentions the column title.
 - Group similar items together and summarize them.
 - Highlight key themes and patterns.
@@ -27,6 +28,7 @@ Items:
 {itemsText}
 
 Guidelines:
+- Never include punctuation characters that do not affect speech; for example, don't include quotes, apostrophes, or other punctuation that does not affect speech.
 - Begin with a formal opening, stating the purpose of the summary.
 - Address each item or group of items systematically.
 - Maintain a professional and objective tone.
@@ -42,6 +44,7 @@ The tea:
 {itemsText}
 
 Instructions:
+- Never include punctuation characters that do not affect speech; for example, don't include quotes, apostrophes, or other punctuation that does not affect speech.
 - Start with a funny or quirky introduction.
 - Use humor, puns, and clever wordplay to present the items.
 - Feel free to gently poke fun at the themes, but keep it positive.
@@ -57,6 +60,7 @@ The Gibberish:
 {itemsText}
 
 Rules of the Game:
+- Never include punctuation characters that do not affect speech; for example, don't include quotes, apostrophes, or other punctuation that does not affect speech.
 - Start with a loud, attention-grabbing, and nonsensical intro.
 - Read through the items with rapid-fire, chaotic energy. Use sound effects in text (e.g., "Bzzzt!", "Boop!").
 - Make wild, funny, and often incorrect assumptions about what the items mean.
