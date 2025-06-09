@@ -151,11 +151,13 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           <div className="flex items-center gap-1">
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && (
               <ColumnSummary
+                key={`${column.id}-${audioSummaryState?.status}`}
                 items={items}
                 columnId={column.id}
                 columnTitle={column.title}
                 presenceChannel={presenceChannel}
                 audioSummaryState={audioSummaryState}
+                updateAudioSummaryState={updateAudioSummaryState}
               />
             )}
             {!isAnonymousUser && (
