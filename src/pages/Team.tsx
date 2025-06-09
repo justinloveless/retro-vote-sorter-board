@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeamBoards } from '@/hooks/useTeamBoards';
@@ -11,6 +12,7 @@ import { TeamBoardsList } from '@/components/team/TeamBoardsList';
 import { TeamSidebar } from '@/components/team/TeamSidebar';
 import { TeamMembersList } from '@/components/team/TeamMembersList';
 import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
+import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Home, User, LogOut, Shield } from 'lucide-react';
@@ -101,15 +103,19 @@ const Team = () => {
 
   return (
     <>
-      <AppHeader variant='home' />
+      <AppHeader 
+        variant={isMobile ? 'back' : 'home'} 
+        backTo={isMobile ? '/teams' : undefined}
+      />
       {/* Scrollable content */}
       <div className="relative z-10 min-h-screen">
-        <div className={`container mx-auto px-4 py-6 ${isMobile ? 'max-w-full' : 'max-w-4xl'}`}>
+        <div className={`container mx-auto px-4 ${isMobile ? 'py-2' : 'py-6'} ${isMobile ? 'max-w-full' : 'max-w-4xl'}`}>
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
             onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
             currentUserRole={currentUserRole}
+            showBackButton={!isMobile}
           />
 
           <div className={`${isMobile ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-4 gap-6'}`}>
@@ -160,6 +166,16 @@ const Team = () => {
             onOpenChange={setShowCreateDialog}
             onCreateBoard={handleCreateBoard}
           />
+
+          {/* Floating Actions - only show on mobile */}
+          {isMobile && (
+            <TeamFloatingActions
+              onCreateBoard={() => setShowCreateDialog(true)}
+              onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+              onSettings={() => navigate(`/teams/${team.id}/settings`)}
+              currentUserRole={currentUserRole}
+            />
+          )}
         </div>
       </div>
     </>

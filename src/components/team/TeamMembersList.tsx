@@ -9,6 +9,7 @@ import { Users, UserMinus, Crown, Shield, User, Mail, X, Clock, Link, UserPlus }
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TeamMembersListProps {
   teamId: string;
@@ -20,6 +21,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
   const { members, invitations, loading, inviteMember, removeMember, updateMemberRole, cancelInvitation } = useTeamMembers(teamId);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const isMobile = useIsMobile();
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -60,18 +62,25 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className={`flex items-center justify-between ${isMobile ? 'flex-col gap-4' : ''}`}>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Team Members ({members.length})
             </CardTitle>
             {canManageMembers && (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowLinkDialog(true)}>
+              <div className={`flex gap-2 ${isMobile ? 'w-full flex-col' : ''}`}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowLinkDialog(true)}
+                  className={isMobile ? 'w-full' : ''}
+                >
                   <Link className="h-4 w-4 mr-2" />
                   Invite Link
                 </Button>
-                <Button onClick={() => setShowInviteDialog(true)}>
+                <Button 
+                  onClick={() => setShowInviteDialog(true)}
+                  className={isMobile ? 'w-full' : ''}
+                >
                   <UserPlus className="h-4 w-4 mr-2" />
                   Invite Member
                 </Button>
@@ -81,15 +90,15 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
         </CardHeader>
         <CardContent className="space-y-4">
           {members.map((member) => (
-            <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
+            <div key={member.id} className={`${isMobile ? 'border rounded-lg p-4 space-y-3' : 'flex items-center justify-between p-3 border rounded-lg'}`}>
+              <div className={`flex items-center gap-3 ${isMobile ? 'justify-between' : ''}`}>
                 <div className="flex items-center gap-2">
                   {getRoleIcon(member.role)}
                   <div>
                     <div className="font-medium">
                       {member.profiles?.full_name || 'Unknown User'}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Joined {new Date(member.joined_at).toLocaleDateString()}
                     </div>
                   </div>
@@ -99,13 +108,13 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
                 </Badge>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isMobile ? 'justify-end' : ''}`}>
                 {canChangeRoles && member.role !== 'owner' && (
                   <Select
                     value={member.role}
                     onValueChange={(newRole) => updateMemberRole(member.id, newRole as any)}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className={isMobile ? 'w-28 h-8 text-xs' : 'w-24'}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -118,7 +127,11 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
                 {canManageMembers && member.role !== 'owner' && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size={isMobile ? "sm" : "sm"}
+                        className={isMobile ? 'h-8 px-2' : ''}
+                      >
                         <UserMinus className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -158,25 +171,29 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
           </CardHeader>
           <CardContent className="space-y-3">
             {invitations.map((invitation) => (
-              <div key={invitation.id} className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50">
+              <div key={invitation.id} className={`${isMobile ? 'border rounded-lg p-4 bg-yellow-50 space-y-3' : 'flex items-center justify-between p-3 border rounded-lg bg-yellow-50'}`}>
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-gray-500" />
                   <div>
                     <div className="font-medium">{invitation.email}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Invited {new Date(invitation.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <Badge variant="outline">Pending</Badge>
+                  {!isMobile && <Badge variant="outline">Pending</Badge>}
                 </div>
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => cancelInvitation(invitation.id)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className={`flex items-center ${isMobile ? 'justify-between' : 'gap-2'}`}>
+                  {isMobile && <Badge variant="outline">Pending</Badge>}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelInvitation(invitation.id)}
+                    className={isMobile ? 'h-8 px-2' : ''}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
