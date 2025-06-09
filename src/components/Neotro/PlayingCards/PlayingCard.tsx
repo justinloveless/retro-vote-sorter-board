@@ -106,7 +106,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''}`}
+      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''} z-0 hover:z-10 mb-8 md:mb-0`}
       style={{
         height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
@@ -117,7 +117,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       {isMobile ? (
         <div className="absolute top-full w-full pt-1">
           <div className="flex items-center justify-center">
-            <div className="text-center bg-gray-800 text-white text-xs rounded-full px-2 py-1 truncate max-w-full">
+            <div className="text-center bg-gray-800 text-white text-xs rounded-full px-2 py-1 truncate max-w-full" style={{ backdropFilter: 'blur(2px)' }}>
               {playerName}
             </div>
           </div>
