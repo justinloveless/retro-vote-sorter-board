@@ -76,6 +76,7 @@ export const useRetroBoard = (roomId: string) => {
   const [comments, setComments] = useState<RetroComment[]>([]);
   const [boardConfig, setBoardConfig] = useState<RetroBoardConfig | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [userVotes, setUserVotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
@@ -182,6 +183,20 @@ export const useRetroBoard = (roomId: string) => {
 
         if (commentsError) throw commentsError;
         setComments(commentsData || []);
+
+        // Load user's votes
+        const currentUser = (await supabase.auth.getUser()).data.user;
+        const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
+        if (currentUser) {
+          voteQuery.eq('user_id', currentUser.id);
+        } else {
+          voteQuery.eq('session_id', sessionId);
+        }
+
+        const { data: userVotesData, error: userVotesError } = await voteQuery;
+
+        if (userVotesError) throw userVotesError;
+        setUserVotes((userVotesData || []).map(v => v.item_id));
 
       } catch (error) {
         console.error('Error loading board data:', error);
@@ -574,32 +589,54 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const upvoteItem = async (itemId: string) => {
+    if (!board || !boardConfig) return;
+
     const currentUser = (await supabase.auth.getUser()).data.user;
+    const voteIdentifier = currentUser ? { user_id: currentUser.id } : { session_id: sessionId };
 
-    const { error } = await supabase
+    // Check if the user has already voted for this item
+    const { data: existingVote, error: existingVoteError } = await supabase
       .from('retro_votes')
-      .insert([{
-        item_id: itemId,
-        user_id: currentUser?.id || null,
-        session_id: currentUser ? null : sessionId
-      }]);
+      .select('id')
+      .eq('item_id', itemId)
+      .match(voteIdentifier)
+      .single();
 
-    if (error && error.code === '23505') {
-      // Already voted, remove vote
-      await supabase
-        .from('retro_votes')
-        .delete()
-        .match({
-          item_id: itemId,
-          ...(currentUser ? { user_id: currentUser.id } : { session_id: sessionId })
+    if (existingVoteError && existingVoteError.code !== 'PGRST116') {
+      toast({ title: 'Error checking vote', variant: 'destructive' });
+      return;
+    }
+
+    if (existingVote) {
+      // User has voted, so un-vote
+      const { error: deleteError } = await supabase.from('retro_votes').delete().eq('id', existingVote.id);
+      if (deleteError) {
+        toast({ title: 'Error removing vote', variant: 'destructive' });
+      } else {
+        setUserVotes(prev => prev.filter(id => id !== itemId));
+      }
+    } else {
+      // User has not voted, so add a new vote
+      if (boardConfig.max_votes_per_user && userVotes.length >= boardConfig.max_votes_per_user) {
+        toast({
+          title: 'Vote limit reached',
+          description: `You can only vote ${boardConfig.max_votes_per_user} times.`,
+          variant: 'destructive'
         });
-    } else if (error) {
-      console.error('Error voting:', error);
-      toast({
-        title: "Error voting",
-        description: "Please try again.",
-        variant: "destructive",
+        return;
+      }
+
+      const { error: insertError } = await supabase.from('retro_votes').insert({
+        item_id: itemId,
+        board_id: board.id,
+        ...voteIdentifier
       });
+
+      if (insertError) {
+        toast({ title: 'Error casting vote', variant: 'destructive' });
+      } else {
+        setUserVotes(prev => [...prev, itemId]);
+      }
     }
   };
 
@@ -737,5 +774,6 @@ export const useRetroBoard = (roomId: string) => {
     presenceChannel,
     audioSummaryState,
     updateAudioSummaryState,
+    userVotes,
   };
 };

@@ -40,6 +40,7 @@ interface RetroColumnProps {
   editText: string;
   isArchived: boolean;
   sessionId?: string | null;
+  userVotes: string[];
   onAddItem: (text: string, isAnonymous: boolean) => void;
   onUpdateColumn: (columnId: string, updates: any) => void;
   onDeleteColumn: (columnId: string) => void;
@@ -77,6 +78,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   editText,
   isArchived,
   sessionId,
+  userVotes,
   onAddItem,
   onUpdateColumn,
   onDeleteColumn,
@@ -214,7 +216,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                         {boardConfig?.voting_enabled && (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant={userVotes.includes(item.id) ? "default" : "outline"}
                             onClick={() => onUpvoteItem(item.id)}
                             className="h-8 w-8 p-0"
                           >

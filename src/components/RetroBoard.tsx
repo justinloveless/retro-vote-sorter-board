@@ -51,6 +51,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     getCommentsForItem,
     sessionId,
     presenceChannel,
+    userVotes,
+    audioSummaryState,
+    updateAudioSummaryState,
   } = useRetroBoard(boardId);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -254,6 +257,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 editText={editText}
                 isArchived={isArchived}
                 sessionId={sessionId}
+                userVotes={userVotes}
+                audioSummaryState={audioSummaryState}
+                updateAudioSummaryState={updateAudioSummaryState}
                 onAddItem={handleAddItem(column.id)}
                 onUpdateColumn={isArchived ? undefined : updateColumn}
                 onDeleteColumn={isArchived ? undefined : deleteColumn}
