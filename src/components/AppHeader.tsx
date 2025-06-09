@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,9 +8,17 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
 import React from 'react';
 
 type HeaderVariant = 'default' | 'home' | 'back';
@@ -25,6 +34,7 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
     const location = useLocation();
     const { user, profile, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
+    const isMobile = useIsMobile();
 
     const renderLeftContent = () => {
         switch (variant) {
@@ -52,69 +62,167 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
         }
     };
 
+    const renderMobileMenuItems = () => (
+        <div className="flex flex-col space-y-4 p-4">
+            <Button variant="ghost" onClick={toggleTheme} className="justify-start">
+                {theme === 'light' ? '🌙' : '☀️'}
+                <span className="ml-2">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+            </Button>
+            
+            {variant === 'home' && location.pathname !== '/' && (
+                <Button variant="ghost" onClick={() => navigate('/')} className="justify-start">
+                    <Home className="h-4 w-4 mr-2" />
+                    Home
+                </Button>
+            )}
+            
+            {variant === 'back' && !(backTo && location.pathname === backTo) && (
+                <Button variant="ghost" onClick={() => (backTo ? navigate(backTo) : navigate(-1))} className="justify-start">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                </Button>
+            )}
+
+            {user ? (
+                <>
+                    {profile?.role === 'admin' && location.pathname !== '/admin' && (
+                        <Button variant="outline" onClick={() => navigate('/admin')} className="justify-start">
+                            <Shield className="h-4 w-4 mr-2" />
+                            Admin
+                        </Button>
+                    )}
+                    {location.pathname !== '/teams' && (
+                        <Button variant="outline" onClick={() => navigate('/teams')} className="justify-start">
+                            <Users className="h-4 w-4 mr-2" />
+                            My Teams
+                        </Button>
+                    )}
+                    {location.pathname !== '/account' && (
+                        <Button variant="outline" onClick={() => navigate('/account')} className="justify-start">
+                            <User className="h-4 w-4 mr-2" />
+                            Account
+                        </Button>
+                    )}
+                    <Button variant="outline" onClick={signOut} className="justify-start">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                    </Button>
+                </>
+            ) : (
+                location.pathname !== '/account' && (
+                    <Button variant="outline" onClick={() => navigate('/account')} className="justify-start">
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Sign In
+                    </Button>
+                )
+            )}
+        </div>
+    );
+
+    const renderDesktopActions = () => (
+        <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                {theme === 'light' ? '🌙' : '☀️'}
+            </Button>
+            {user ? (
+                <>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
+                                    <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
+                    {profile?.role === 'admin' && location.pathname !== '/admin' && (
+                        <Button variant="outline" onClick={() => navigate('/admin')}>
+                            <Shield className="h-4 w-4 mr-2" />
+                            Admin
+                        </Button>
+                    )}
+                    {location.pathname !== '/teams' && (
+                        <Button variant="outline" onClick={() => navigate('/teams')}>
+                            <Users className="h-4 w-4 mr-2" />
+                            My Teams
+                        </Button>
+                    )}
+                    {location.pathname !== '/account' && (
+                        <Button variant="outline" onClick={() => navigate('/account')}>
+                            <User className="h-4 w-4 mr-2" />
+                            Account
+                        </Button>
+                    )}
+                    <Button variant="outline" onClick={signOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                    </Button>
+                </>
+            ) : (
+                location.pathname !== '/account' && (
+                    <Button variant="outline" onClick={() => navigate('/account')}>
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Sign In
+                    </Button>
+                )
+            )}
+        </div>
+    );
+
     return (
         <header className="flex justify-between items-center p-6">
             <div className="flex items-center space-x-4">
-                {renderLeftContent()}
+                {!isMobile && renderLeftContent()}
+                {isMobile && variant === 'default' && (
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">RetroScope</h1>
+                )}
             </div>
             <div className="flex-grow flex">
                 {children}
             </div>
             <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                    {theme === 'light' ? '🌙' : '☀️'}
-                </Button>
-                {user ? (
+                {isMobile ? (
                     <>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Avatar
-                                        className={`h-10 w-10`}
-                                    >
-                                        <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
-                                        <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-
-                        {profile?.role === 'admin' && location.pathname !== '/admin' && (
-                            <Button variant="outline" onClick={() => navigate('/admin')}>
-                                <Shield className="h-4 w-4 mr-2" />
-                                Admin
-                            </Button>
+                        {user && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
+                                            <AvatarFallback className="text-xs">{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
+                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
-                        {location.pathname !== '/teams' && (
-                            <Button variant="outline" onClick={() => navigate('/teams')}>
-                                <Users className="h-4 w-4 mr-2" />
-                                My Teams
-                            </Button>
-                        )}
-                        {location.pathname !== '/account' && (
-                            <Button variant="outline" onClick={() => navigate('/account')}>
-                                <User className="h-4 w-4 mr-2" />
-                                Account
-                            </Button>
-                        )}
-                        <Button variant="outline" onClick={signOut}>
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                        </Button>
+                        <Sheet>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <Menu className="h-5 w-5" />
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="right">
+                                <SheetHeader>
+                                    <SheetTitle>Menu</SheetTitle>
+                                </SheetHeader>
+                                {renderMobileMenuItems()}
+                            </SheetContent>
+                        </Sheet>
                     </>
                 ) : (
-                    location.pathname !== '/account' && (
-                        <Button variant="outline" onClick={() => navigate('/account')}>
-                            <LogIn className="h-4 w-4 mr-2" />
-                            Sign In
-                        </Button>
-                    )
+                    renderDesktopActions()
                 )}
             </div>
         </header>
     );
-}; 
+};
