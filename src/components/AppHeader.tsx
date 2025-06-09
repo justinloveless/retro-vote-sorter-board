@@ -70,13 +70,7 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Avatar
-                                        className={`h-10 w-10 ${location.pathname !== '/account' ? 'cursor-pointer' : ''
-                                            }`}
-                                        onClick={
-                                            location.pathname !== '/account'
-                                                ? () => navigate('/account')
-                                                : undefined
-                                        }
+                                        className={`h-10 w-10`}
                                     >
                                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
                                         <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
