@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { usePokerSession } from '@/hooks/usePokerSession';
@@ -154,7 +153,7 @@ const AnonymousPokerPage: React.FC = () => {
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col">
+        <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
             {!isMobile ? (
                 <AppHeader variant='home'>
                     <div className="pl-12 bg-transparent flex items-center justify-between">

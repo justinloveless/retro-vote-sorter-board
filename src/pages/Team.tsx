@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeamBoards } from '@/hooks/useTeamBoards';
@@ -12,12 +11,12 @@ import { TeamBoardsList } from '@/components/team/TeamBoardsList';
 import { TeamSidebar } from '@/components/team/TeamSidebar';
 import { TeamMembersList } from '@/components/team/TeamMembersList';
 import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
-import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Home, User, LogOut, Shield } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -103,32 +102,23 @@ const Team = () => {
 
   return (
     <>
-      <AppHeader 
-        variant={isMobile ? 'back' : 'home'} 
-        backTo={isMobile ? '/teams' : undefined}
-      />
+      <AppHeader variant={isMobile ? 'back' : 'home'} />
       {/* Scrollable content */}
-      <div className="relative z-10 min-h-screen">
-        <div className={`container mx-auto px-4 ${isMobile ? 'py-2 pb-24' : 'py-6'} ${isMobile ? 'max-w-full' : 'max-w-4xl'}`}>
+      <div className="relative z-10 min-h-screen pt-16 md:pt-0 pb-24 md:pb-0">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
             onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
             currentUserRole={currentUserRole}
-            showBackButton={!isMobile}
           />
 
-          <div className={`${isMobile ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-4 gap-6'}`}>
-            {/* Main content area */}
-            <div className={isMobile ? 'order-1' : 'lg:col-span-3'}>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
               <Tabs defaultValue="boards" className="space-y-4">
-                <TabsList className={`${isMobile ? 'grid w-full grid-cols-2 h-12' : ''}`}>
-                  <TabsTrigger value="boards" className={isMobile ? 'text-sm px-2' : ''}>
-                    {isMobile ? 'Boards' : 'Retro Boards'}
-                  </TabsTrigger>
-                  <TabsTrigger value="members" className={isMobile ? 'text-sm px-2' : ''}>
-                    {isMobile ? 'Members' : 'Team Members'}
-                  </TabsTrigger>
+                <TabsList >
+                  <TabsTrigger value="boards">Retro Boards</TabsTrigger>
+                  <TabsTrigger value="members">Team Members</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
@@ -151,8 +141,7 @@ const Team = () => {
               </Tabs>
             </div>
 
-            {/* Sidebar */}
-            <div className={`${isMobile ? 'order-2' : 'lg:col-span-1'}`}>
+            <div className="lg:col-span-1">
               <TeamSidebar
                 team={team}
                 boardCount={boards.length}
@@ -166,18 +155,16 @@ const Team = () => {
             onOpenChange={setShowCreateDialog}
             onCreateBoard={handleCreateBoard}
           />
-
-          {/* Footer Actions - only show on mobile */}
-          {isMobile && (
-            <TeamFloatingActions
-              onCreateBoard={() => setShowCreateDialog(true)}
-              onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
-              onSettings={() => navigate(`/teams/${team.id}/settings`)}
-              currentUserRole={currentUserRole}
-            />
-          )}
         </div>
       </div>
+      {isMobile && (
+        <TeamFloatingActions
+          onCreateBoard={() => setShowCreateDialog(true)}
+          onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+          onSettings={() => navigate(`/teams/${teamId}/settings`)}
+          currentUserRole={currentUserRole}
+        />
+      )}
     </>
   );
 };

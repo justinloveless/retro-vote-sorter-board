@@ -23,7 +23,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
         .from('retro_boards')
         .select(`
           *,
-          teams!inner(
+          teams(
             id,
             name,
             team_members(user_id, role)
@@ -57,7 +57,6 @@ export const useRoomAccess = (roomId: string, user: any) => {
           setIsTeamMember(isMember);
 
           if (board.is_private && board.password_hash) {
-            // If user is a team member, grant access automatically
             if (isMember) {
               setAccessStatus('granted');
               return;
