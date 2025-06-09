@@ -107,6 +107,7 @@ export const useAudioPlayer = () => {
 
             if (autoPlay) {
                 await audio.play();
+                setAudioState('playing');
             } else {
                 audio.load();
                 // When loading but not playing, we are in a 'paused' state, ready to play.
