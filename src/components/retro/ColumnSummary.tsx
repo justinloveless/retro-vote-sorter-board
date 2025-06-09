@@ -74,6 +74,9 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     useEffect(() => {
         if (isThisColumnActive && (audioState === 'idle' || audioState === 'error')) {
             if (audioSummaryState?.status === 'playing' || audioSummaryState?.status === 'paused' || audioSummaryState?.status === 'ready') {
+                if (audioSummaryState.script && audioSummaryState.script.startsWith('blob:')) {
+                    URL.revokeObjectURL(audioSummaryState.script);
+                }
                 updateAudioSummaryState(null);
             }
         }
@@ -92,18 +95,20 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
         updateAudioSummaryState({ columnId, status: 'generating' });
 
         try {
-            const { data, error } = await supabase.functions.invoke('generate-script', {
+            const { data, error } = await supabase.functions.invoke('generate-audio-summary', {
                 body: { items, columnTitle, style },
             });
 
             if (error) throw error;
-            if (!data.script) throw new Error("The generated script was empty.");
+            if (!data || data.size === 0) throw new Error("The generated audio was empty.");
 
-            // Announce that the script is ready for all clients
-            updateAudioSummaryState({ columnId, status: 'ready', script: data.script });
+            const audioUrl = URL.createObjectURL(data);
+
+            // Announce that the audio is ready for all clients
+            updateAudioSummaryState({ columnId, status: 'ready', script: audioUrl });
 
         } catch (error) {
-            console.error(`Error generating ${style} script:`, error);
+            console.error(`Error generating ${style} summary:`, error);
             toast({
                 title: `Failed to generate ${style} summary`,
                 description: error.message,
