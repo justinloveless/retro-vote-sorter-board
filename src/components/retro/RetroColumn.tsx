@@ -103,6 +103,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
 
+  const sortedItems = [...items].sort((a, b) => b.votes - a.votes);
+
   // Function to check if a column is an "Action Items" column
   const isActionItemsColumn = (columnTitle: string) => {
     return columnTitle.toLowerCase().includes('action') && columnTitle.toLowerCase().includes('item');
@@ -174,7 +176,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         </div>
 
         <div className="space-y-3 min-h-[200px]">
-          {items.map(item => (
+          {sortedItems.map(item => (
             <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 {editingItem === item.id ? (
