@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/AuthForm';
-import { TeamSettingsForm } from '@/components/team/TeamSettingsForm';
+import { TeamSettingsForm, TeamSettings } from '@/components/team/TeamSettingsForm';
 import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings';
 import { DangerZone } from '@/components/team/DangerZone';
 import { supabase } from '@/integrations/supabase/client';
-import { JiraSettingsForm } from '@/components/team/JiraSettingsForm';
+import { JiraSettingsForm, JiraSettings } from '@/components/team/JiraSettingsForm';
 import { AppHeader } from '@/components/AppHeader';
 
-const TeamSettings = () => {
+const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [team, setTeam] = useState<any>(null);
+  const [teamSettings, setTeamSettings] = useState<TeamSettings | null>(null);
+  const [jiraSettings, setJiraSettings] = useState<JiraSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -55,6 +57,17 @@ const TeamSettings = () => {
         }
 
         setTeam(data);
+        setTeamSettings({
+          name: data.name || '',
+          description: data.description || '',
+          slack_webhook_url: data.slack_webhook_url || ''
+        });
+        setJiraSettings({
+          jira_domain: data.jira_domain || '',
+          jira_email: data.jira_email || '',
+          jira_api_key: data.jira_api_key || '',
+          jira_ticket_prefix: data.jira_ticket_prefix || '',
+        });
       } catch (error) {
         console.error('Error loading team:', error);
         toast({
@@ -71,38 +84,37 @@ const TeamSettings = () => {
     loadTeam();
   }, [teamId, user, navigate, toast]);
 
-  const handleSave = async (formData: { name: string; description: string; slack_webhook_url: string; }) => {
-    if (!teamId) return;
+  const handleSave = async () => {
+    if (!teamId || !teamSettings) return;
 
     setSaving(true);
     try {
+      const updates = {
+        ...teamSettings,
+        name: teamSettings.name.trim(),
+        description: teamSettings.description.trim() || null,
+        slack_webhook_url: teamSettings.slack_webhook_url.trim() || null,
+        ...jiraSettings
+      };
+
       const { error } = await supabase
         .from('teams')
-        .update({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          slack_webhook_url: formData.slack_webhook_url.trim() || null
-        })
+        .update(updates)
         .eq('id', teamId);
 
       if (error) throw error;
 
       toast({
-        title: "Team updated",
+        title: "Settings updated",
         description: "Team settings have been saved successfully.",
       });
 
       // Update local state
-      setTeam(prev => ({
-        ...prev,
-        name: formData.name.trim(),
-        description: formData.description.trim() || null,
-        slack_webhook_url: formData.slack_webhook_url.trim() || null
-      }));
+      setTeam(prev => ({ ...prev, ...updates }));
     } catch (error) {
       console.error('Error updating team:', error);
       toast({
-        title: "Error updating team",
+        title: "Error updating settings",
         description: "Please try again.",
         variant: "destructive",
       });
@@ -150,7 +162,7 @@ const TeamSettings = () => {
     return <AuthForm onAuthSuccess={() => { }} />;
   }
 
-  if (!team) {
+  if (!team || !teamSettings || !jiraSettings) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-gray-600 dark:text-gray-300">Team not found</div>
@@ -172,27 +184,34 @@ const TeamSettings = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <TeamSettingsForm
-              team={team}
-              onSave={handleSave}
-              onCancel={() => navigate(`/teams/${teamId}`)}
-              saving={saving}
-            />
+        <div className="space-y-6">
+          <TeamSettingsForm
+            settings={teamSettings}
+            onSettingsChange={setTeamSettings}
+          />
 
-            <JiraSettingsForm teamId={teamId!} />
+          <JiraSettingsForm
+            settings={jiraSettings}
+            onSettingsChange={setJiraSettings}
+          />
 
-            <BoardTemplatesSettings teamId={teamId!} />
-          </div>
+          <BoardTemplatesSettings teamId={teamId!} />
+        </div>
 
-          <div className="lg:col-span-1">
-            <DangerZone teamName={team.name} onDelete={handleDelete} />
-          </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => navigate(`/teams/${teamId}`)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? 'Saving...' : 'Save All Settings'}
+          </Button>
+        </div>
+
+        <div className="mt-8 border-t pt-8">
+          <DangerZone teamName={team.name} onDelete={handleDelete} />
         </div>
       </div>
     </div>
   );
 };
 
-export default TeamSettings;
+export default TeamSettingsPage;
