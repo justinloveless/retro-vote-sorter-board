@@ -22,7 +22,12 @@ interface ColumnSummaryProps {
     updateAudioSummaryState: (state: AudioSummaryState | null) => void;
 }
 
-const NARRATION_STYLES = ["News Anchor", "Comedian", "Roast Me", "Documentary", "Epic"];
+const NARRATION_STYLES = [
+    { label: 'Default', value: 'default' },
+    { label: 'Formal', value: 'formal' },
+    { label: 'Humorous', value: 'humorous' },
+    { label: 'Jackbox Announcer', value: 'jackbox' },
+];
 
 export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     items,
@@ -88,11 +93,11 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
 
         setIsGenerating(true);
         // Announce intent to generate
-        updateAudioSummaryState({ columnId, status: 'generating', script: null });
+        updateAudioSummaryState({ columnId, status: 'generating' });
 
         try {
             const { data, error } = await supabase.functions.invoke('generate-script', {
-                body: { items, style },
+                body: { items, columnTitle, style },
             });
 
             if (error) throw error;
@@ -189,11 +194,11 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
                 <DropdownMenuContent>
                     {NARRATION_STYLES.map((style) => (
                         <DropdownMenuItem
-                            key={style}
-                            onClick={() => handleStyleSelect(style)}
+                            key={style.value}
+                            onClick={() => handleStyleSelect(style.value)}
                             disabled={isDisabled}
                         >
-                            {style}
+                            {style.label}
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>
