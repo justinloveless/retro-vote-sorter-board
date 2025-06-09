@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Home, User, LogOut, Shield } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -27,6 +28,7 @@ const Team = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -102,7 +104,7 @@ const Team = () => {
       <AppHeader variant='home' />
       {/* Scrollable content */}
       <div className="relative z-10 min-h-screen">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className={`container mx-auto px-4 py-6 ${isMobile ? 'max-w-full' : 'max-w-4xl'}`}>
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
@@ -110,12 +112,17 @@ const Team = () => {
             currentUserRole={currentUserRole}
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
+          <div className={`${isMobile ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-4 gap-6'}`}>
+            {/* Main content area */}
+            <div className={isMobile ? 'order-1' : 'lg:col-span-3'}>
               <Tabs defaultValue="boards" className="space-y-4">
-                <TabsList >
-                  <TabsTrigger value="boards">Retro Boards</TabsTrigger>
-                  <TabsTrigger value="members">Team Members</TabsTrigger>
+                <TabsList className={`${isMobile ? 'grid w-full grid-cols-2 h-12' : ''}`}>
+                  <TabsTrigger value="boards" className={isMobile ? 'text-sm px-2' : ''}>
+                    {isMobile ? 'Boards' : 'Retro Boards'}
+                  </TabsTrigger>
+                  <TabsTrigger value="members" className={isMobile ? 'text-sm px-2' : ''}>
+                    {isMobile ? 'Members' : 'Team Members'}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
@@ -138,7 +145,8 @@ const Team = () => {
               </Tabs>
             </div>
 
-            <div className="lg:col-span-1">
+            {/* Sidebar */}
+            <div className={`${isMobile ? 'order-2' : 'lg:col-span-1'}`}>
               <TeamSidebar
                 team={team}
                 boardCount={boards.length}

@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Plus, Eye, EyeOff, Lock, Archive } from 'lucide-react';
 import { BoardActions } from './BoardActions';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TeamBoard {
   id: string;
@@ -35,6 +37,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
   const navigate = useNavigate();
   const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
   const [showArchived, setShowArchived] = useState(false);
+  const isMobile = useIsMobile();
 
   const canManageBoards = currentUserRole === 'admin' || currentUserRole === 'owner';
 
@@ -76,15 +79,16 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
   return (
     <div className="space-y-4">
       {/* Archive toggle */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${isMobile ? 'flex-col gap-3' : ''}`}>
         <h3 className="text-lg font-semibold">
           {showArchived ? 'Archived Boards' : 'Active Boards'}
         </h3>
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${isMobile ? 'w-full' : ''}`}>
           <Button
             variant={showArchived ? "outline" : "default"}
             size="sm"
             onClick={() => setShowArchived(false)}
+            className={isMobile ? 'flex-1' : ''}
           >
             Active ({activeBoards.length})
           </Button>
@@ -92,6 +96,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
             variant={showArchived ? "default" : "outline"}
             size="sm"
             onClick={() => setShowArchived(true)}
+            className={isMobile ? 'flex-1' : ''}
           >
             <Archive className="h-4 w-4 mr-1" />
             Archived ({archivedBoards.length})
@@ -99,10 +104,10 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
         {displayBoards.map((board) => (
           <Card key={board.id} className={`hover:shadow-lg transition-shadow ${board.archived ? 'opacity-75' : ''}`}>
-            <CardHeader>
+            <CardHeader className={isMobile ? 'pb-3' : ''}>
               <CardTitle className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold truncate">{board.title}</span>
@@ -113,7 +118,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {board.is_private && (
                     <div className="flex items-center gap-1">
-                      <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
+                      <span className={`text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ${isMobile ? 'text-[10px]' : ''}`}>
                         Private
                       </span>
                       <Button
@@ -136,8 +141,8 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <CardContent className={isMobile ? 'pt-0' : ''}>
+              <div className={`flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4 ${isMobile ? 'text-xs' : ''}`}>
                 <Calendar className="h-4 w-4 mr-1" />
                 {new Date(board.created_at).toLocaleDateString()}
                 {board.archived && board.archived_at && (
@@ -147,7 +152,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
                 )}
               </div>
               {board.is_private && board.password_hash && (
-                <div className="mb-4 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
+                <div className={`mb-4 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm ${isMobile ? 'text-xs' : ''}`}>
                   <div className="flex items-center gap-2">
                     <Lock className="h-3 w-3" />
                     <span className="font-medium">Password:</span>
@@ -159,7 +164,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
               )}
               <Button
                 onClick={() => navigate(`/retro/${board.room_id}`)}
-                className="w-full"
+                className={`w-full ${isMobile ? 'h-12 text-base' : ''}`}
                 disabled={board.archived}
               >
                 {board.archived ? 'View (Read-only)' : 'Open Board'}
