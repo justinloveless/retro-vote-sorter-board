@@ -156,7 +156,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                 columnTitle={column.title}
                 presenceChannel={presenceChannel}
                 audioSummaryState={audioSummaryState}
-                updateAudioSummaryState={updateAudioSummaryState}
               />
             )}
             {!isAnonymousUser && (
