@@ -1,0 +1,187 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { usePokerSession } from '@/hooks/usePokerSession';
+import PokerTable from '@/components/Neotro/PokerTable';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { v4 as uuidv4 } from 'uuid';
+import { useToast } from "@/hooks/use-toast";
+import { Copy, ArrowLeft, Home, LogIn } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+
+// Helper function to get or create anonymous user identity
+const getAnonymousUser = () => {
+    let user = JSON.parse(localStorage.getItem('anonymousPokerUser') || '{}');
+    if (!user.id) {
+        user = { id: uuidv4() };
+        // We will prompt for name, so save only the ID for now
+        localStorage.setItem('anonymousPokerUser', JSON.stringify({ id: user.id }));
+    }
+    return user;
+};
+
+const AnonymousPokerPage: React.FC = () => {
+    const { roomId } = useParams<{ roomId: string }>();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { toast } = useToast();
+    const { user, profile, loading: authLoading } = useAuth();
+
+    const [player, setPlayer] = useState<{ id?: string, name?: string }>({});
+    const [isIdentityReady, setIsIdentityReady] = useState(false);
+    const [anonymousNameInput, setAnonymousNameInput] = useState('');
+
+    const isCreating = location.state?.isCreating;
+
+    useEffect(() => {
+        if (authLoading) return;
+
+        if (user && profile) {
+            setPlayer({ id: user.id, name: profile.full_name || user.email });
+            setIsIdentityReady(true);
+        } else {
+            const anonymousUser = getAnonymousUser();
+            if (anonymousUser.name) {
+                setPlayer(anonymousUser);
+                setIsIdentityReady(true);
+            } else {
+                setPlayer({ id: anonymousUser.id });
+                setIsIdentityReady(false);
+            }
+        }
+    }, [user, profile, authLoading]);
+
+    const { session, loading: sessionLoading, ...pokerActions } = usePokerSession(
+        isIdentityReady ? roomId : null,
+        player.id,
+        player.name,
+        isCreating
+    );
+
+    const copyLink = () => {
+        navigator.clipboard.writeText(window.location.href);
+        toast({
+            title: "Link Copied!",
+            description: "The session link has been copied to your clipboard.",
+        });
+    };
+
+    const handleNameSubmit = () => {
+        if (anonymousNameInput.trim()) {
+            const newAnonymousUser = { ...player, name: anonymousNameInput.trim() };
+            localStorage.setItem('anonymousPokerUser', JSON.stringify(newAnonymousUser));
+            setPlayer(newAnonymousUser);
+            setIsIdentityReady(true);
+        }
+    };
+
+    const renderContent = () => {
+        if (authLoading) {
+            return (
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
+                </div>
+            )
+        }
+
+        if (!isIdentityReady) {
+            return (
+                <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+                    <Card className="w-full max-w-sm">
+                        <CardHeader>
+                            <CardTitle>Enter Your Name</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p>To join the poker session, please enter a display name.</p>
+                            <Input
+                                value={anonymousNameInput}
+                                onChange={(e) => setAnonymousNameInput(e.target.value)}
+                                placeholder="Your Name"
+                                onKeyPress={(e) => e.key === 'Enter' && handleNameSubmit()}
+                            />
+                            <Button onClick={handleNameSubmit} className="w-full" disabled={!anonymousNameInput.trim()}>
+                                Join Session
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            );
+        }
+
+        if (sessionLoading) {
+            return (
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-lg text-gray-600 dark:text-gray-300">Loading Session...</div>
+                </div>
+            )
+        }
+
+        if (!session) {
+            return (
+                <div className="flex-1 flex items-center justify-center text-center">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4">Poker Session Closed</h2>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">
+                            This session is no longer available.
+                        </p>
+                        <Button
+                            onClick={() => {
+                                const newRoomId = Math.random().toString(36).substring(2, 8);
+                                navigate(`/poker/${newRoomId}`, { state: { isCreating: true } });
+                            }}
+                        >
+                            Start a New Quick Poker Session
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex-1 min-h-0">
+                <PokerTable
+                    session={session}
+                    activeUserId={player.id}
+                    {...pokerActions}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-screen w-screen flex flex-col">
+            <header className="p-4 bg-transparent flex items-center justify-between">
+                <div className='flex items-center gap-4'>
+                    <Button variant="ghost" onClick={() => navigate('/')}>
+                        <Home className="h-4 w-4 mr-2" />
+                        Home
+                    </Button>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
+                        <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
+                        <Button variant="outline" size="sm" onClick={copyLink}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Link
+                        </Button>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {user ? (
+                        <Button variant="outline" onClick={() => navigate('/teams')}>
+                            Go to My Teams
+                        </Button>
+                    ) : (
+                        <Button variant="outline" onClick={() => navigate('/account')}>
+                            <LogIn className="h-4 w-4 mr-2" />
+                            Sign In
+                        </Button>
+                    )}
+                </div>
+            </header>
+            {renderContent()}
+        </div>
+    );
+};
+
+export default AnonymousPokerPage; 

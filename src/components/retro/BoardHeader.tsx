@@ -83,46 +83,16 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
             </p>
           )}
         </div>
-        
+
         <div className="flex items-center gap-4">
           <RetroTimer />
-          
+
           <SentimentDisplay items={items} />
-          
+
           <ActiveUsers users={activeUsers} />
-          
+
           {!isAnonymousUser && (
             <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
-          )}
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleTheme}
-            className="flex items-center gap-2"
-          >
-            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-          >
-            <Home className="h-4 w-4" />
-            Home
-          </Button>
-          
-          {!isAnonymousUser && (
-            <Button 
-              variant="outline"
-              onClick={onSignOut}
-              className="flex items-center gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
           )}
         </div>
       </div>

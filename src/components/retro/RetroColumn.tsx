@@ -11,6 +11,7 @@ import { UserAvatar } from '../ui/UserAvatar';
 import useFeatureFlags from '@/hooks/useFeatureFlags';
 import { PlayAudioButton } from './PlayAudioButton';
 import { ColumnSummary } from './ColumnSummary';
+import { AudioSummaryState } from '@/hooks/useRetroBoard';
 
 interface RetroItem {
   id: string;
@@ -57,6 +58,9 @@ interface RetroColumnProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent, columnId: string) => void;
   onDragEnd: () => void;
+  presenceChannel?: any;
+  audioSummaryState: AudioSummaryState | null;
+  updateAudioSummaryState: (state: AudioSummaryState | null) => void;
 }
 
 export const RetroColumn: React.FC<RetroColumnProps> = ({
@@ -90,7 +94,10 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   onDragOver,
   onDragLeave,
   onDrop,
-  onDragEnd
+  onDragEnd,
+  presenceChannel,
+  audioSummaryState,
+  updateAudioSummaryState,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
 
@@ -140,7 +147,16 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
-            {isFeatureEnabled('text_to_speech_enabled') && <ColumnSummary items={items} columnTitle={column.title} />}
+            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && (
+              <ColumnSummary
+                items={items}
+                columnId={column.id}
+                columnTitle={column.title}
+                presenceChannel={presenceChannel}
+                audioSummaryState={audioSummaryState}
+                updateAudioSummaryState={updateAudioSummaryState}
+              />
+            )}
             {!isAnonymousUser && (
               <>
                 <ColumnManager
@@ -205,7 +221,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             <ThumbsUp className="h-3 w-3" />
                           </Button>
                         )}
-                        {isFeatureEnabled('text_to_speech_enabled') && <PlayAudioButton itemText={item.text} />}
+                        {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && <PlayAudioButton itemText={item.text} />}
                         {!isArchived &&
                           ((user?.id && item.author_id === user.id) ||
                             (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (

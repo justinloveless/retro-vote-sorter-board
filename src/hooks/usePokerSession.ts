@@ -32,24 +32,29 @@ interface TeamMember {
   } | null;
 }
 
-export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[], currentUserId: string | undefined) => {
+export const usePokerSession = (
+  roomId: string | null,
+  currentUserId: string | undefined,
+  currentUserDisplayName: string | undefined,
+  shouldCreate: boolean = false
+) => {
   const [session, setSession] = useState<PokerSession | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [presentUserIds, setPresentUserIds] = useState<string[]>([]);
 
-  const getOrCreateSession = useCallback(async () => {
-    if (!teamId || !currentUserId || teamMembers.length === 0) return;
+  const manageSession = useCallback(async () => {
+    if (!roomId || !currentUserId || !currentUserDisplayName) return;
     setLoading(true);
 
     let { data: existingSession, error } = await supabase
       .from('poker_sessions')
       .select('*')
-      .eq('team_id', teamId)
+      .eq('room_id', roomId)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+    if (error && error.code !== 'PGRST116') { // "No rows found"
       console.error('Error fetching poker session:', error);
       toast({ title: 'Error fetching session', variant: 'destructive' });
       setLoading(false);
@@ -57,74 +62,91 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
     }
 
     if (existingSession) {
-      setSession(existingSession);
-    } else {
-      const initialSelections: Selections = {};
-      teamMembers.forEach(member => {
-        initialSelections[member.user_id] = {
+      if (!existingSession.selections[currentUserId]) {
+        const newSelections = {
+          ...existingSession.selections,
+          [currentUserId]: {
+            points: 1,
+            locked: false,
+            name: currentUserDisplayName,
+          },
+        };
+        const { data: updatedSession, error: updateError } = await supabase
+          .from('poker_sessions')
+          .update({ selections: newSelections })
+          .eq('id', existingSession.id)
+          .select()
+          .single();
+
+        if (updateError) console.error('Error adding user to session:', updateError);
+        setSession(updatedSession || existingSession);
+      } else {
+        setSession(existingSession);
+      }
+    } else if (shouldCreate) {
+      const initialSelections: Selections = {
+        [currentUserId]: {
           points: 1,
           locked: false,
-          name: member.profiles?.full_name || 'Anonymous'
-        };
-      });
+          name: currentUserDisplayName,
+        },
+      };
 
       const { data: newSession, error: createError } = await supabase
         .from('poker_sessions')
-        .insert({ team_id: teamId, selections: initialSelections, game_state: 'Selection', ticket_number: '' })
+        .insert({ room_id: roomId, selections: initialSelections, game_state: 'Selection' })
         .select()
         .single();
-      
+
       if (createError) {
         console.error('Error creating poker session:', createError);
         toast({ title: 'Error creating session', variant: 'destructive' });
       } else {
         setSession(newSession);
       }
+    } else {
+      setSession(null); // Explicitly set to null if not found and not creating
     }
     setLoading(false);
-  }, [teamId, currentUserId, teamMembers, toast]);
+  }, [roomId, currentUserId, currentUserDisplayName, toast, shouldCreate]);
 
   useEffect(() => {
-    getOrCreateSession();
-  }, [getOrCreateSession]);
-  
+    manageSession();
+  }, [manageSession]);
+
   useEffect(() => {
-    if (!session || !currentUserId) return;
+    if (!session || !currentUserId || !currentUserDisplayName) return;
 
     const channel = supabase.channel(`poker_session:${session.id}`, {
       config: {
-        broadcast: {
-          self: true,
-        },
-        presence: {
-          key: currentUserId,
-        },
+        broadcast: { self: true },
+        presence: { key: currentUserId },
       },
     });
     channelRef.current = channel;
 
     channel.on<PokerSession>(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'poker_sessions',
-          filter: `id=eq.${session.id}`,
-        },
-        (payload) => {
-          setSession(payload.new as PokerSession);
-        }
-      );
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'poker_sessions',
+        filter: `id=eq.${session.id}`,
+      },
+      (payload) => {
+        setSession(payload.new as PokerSession);
+      }
+    );
 
     channel.on(
       'broadcast',
       { event: 'selection_update' },
-      ({ payload }: { payload: { userId: string, selection: PlayerSelection }}) => {
+      ({ payload }: { payload: { userId: string, selection: PlayerSelection } }) => {
         setSession((prevSession) => {
           if (!prevSession || !payload) return prevSession;
 
           const { userId, selection } = payload;
-          
+
           const newSelections = {
             ...prevSession.selections,
             [userId]: selection,
@@ -168,23 +190,56 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       }
     );
 
+    channel.on(
+      'broadcast',
+      { event: 'user_joined' },
+      ({ payload }: { payload: { userId: string, name: string } }) => {
+        setSession((prevSession) => {
+          if (!prevSession || !payload || prevSession.selections[payload.userId]) {
+            return prevSession; // Do nothing if no session or user already exists
+          }
+
+          const newUserSelection: PlayerSelection = {
+            points: 1,
+            locked: false,
+            name: payload.name,
+          };
+
+          const newSelections = {
+            ...prevSession.selections,
+            [payload.userId]: newUserSelection,
+          };
+
+          return { ...prevSession, selections: newSelections };
+        });
+      }
+    );
+
     channel.on('presence', { event: 'sync' }, () => {
       const presenceState = channel.presenceState();
       const userIds = Object.keys(presenceState);
       setPresentUserIds(userIds);
     });
-    
+
     channel.on('presence', { event: 'join' }, ({ key }) => {
       setPresentUserIds((prev) => [...new Set([...prev, key])]);
     });
-    
-    channel.on('presence', { event: 'leave' }, ({ key }) => {
-      setPresentUserIds((prev) => prev.filter(id => id !== key));
+
+    channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      const leavingKeys = leftPresences.map(p => p.key);
+      setPresentUserIds((prev) => prev.filter(id => !leavingKeys.includes(id)));
     });
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await channel.track({ user_id: currentUserId });
+
+        // Announce that this user has joined
+        await channel.send({
+          type: 'broadcast',
+          event: 'user_joined',
+          payload: { userId: currentUserId, name: currentUserDisplayName },
+        });
       }
     });
 
@@ -194,7 +249,7 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
         channelRef.current = null;
       }
     };
-  }, [session, currentUserId]);
+  }, [session, currentUserId, currentUserDisplayName]);
 
   const updateSelections = async (newSelections: Selections) => {
     if (!session) return;
@@ -208,12 +263,12 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       toast({ title: 'Error updating selections', variant: 'destructive' });
     }
   };
-  
+
   const updateUserSelection = async (points: number) => {
     if (!session || !currentUserId) return;
     const currentSelections = session.selections;
     const userSelection = currentSelections[currentUserId];
-    
+
     if (userSelection && !userSelection.locked) {
       const newSelection = {
         ...userSelection,
@@ -223,10 +278,10 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
         ...currentSelections,
         [currentUserId]: newSelection
       };
-      
+
       // Update local state immediately for the current user
       setSession({ ...session, selections: newSelections });
-      
+
       await updateSelections(newSelections);
 
       if (channelRef.current) {
@@ -238,7 +293,7 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       }
     }
   };
-  
+
   const toggleLockUserSelection = async () => {
     if (!session || !currentUserId) return;
     const currentSelections = session.selections;
@@ -278,7 +333,7 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
       console.error('Error updating ticket number', error);
       toast({ title: 'Error updating ticket number', variant: 'destructive' });
       // Revert on error
-      getOrCreateSession();
+      manageSession();
     }
 
     // Broadcast the new ticket number
@@ -316,7 +371,7 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
 
     // Update local state immediately
     setSession({ ...session, ...newState });
-    
+
     // Persist to DB
     const { error } = await supabase
       .from('poker_sessions')
@@ -339,18 +394,18 @@ export const usePokerSession = (teamId: string | null, teamMembers: TeamMember[]
 
     const resetSelections: Selections = {};
     Object.keys(session.selections).forEach(userId => {
-        resetSelections[userId] = {
-            ...session.selections[userId],
-            points: 1,
-            locked: false,
-        };
+      resetSelections[userId] = {
+        ...session.selections[userId],
+        points: 1,
+        locked: false,
+      };
     });
-    
-    const newState: Partial<PokerSession> = { 
-      selections: resetSelections, 
-      game_state: 'Selection', 
-      average_points: 0, 
-      ticket_number: '' 
+
+    const newState: Partial<PokerSession> = {
+      selections: resetSelections,
+      game_state: 'Selection',
+      average_points: 0,
+      ticket_number: ''
     };
 
     // Update local state immediately

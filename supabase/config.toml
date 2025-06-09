@@ -1,4 +1,3 @@
-
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
 project_id = "nwfwbjmzbwuyxehindpv"
@@ -248,4 +247,7 @@ url = ""
 verify_jwt = false
 
 [functions.slack-create-retro]
+verify_jwt = false
+
+[functions.cleanup-poker-sessions]
 verify_jwt = false

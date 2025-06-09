@@ -10,6 +10,7 @@ import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings
 import { DangerZone } from '@/components/team/DangerZone';
 import { supabase } from '@/integrations/supabase/client';
 import { JiraSettingsForm } from '@/components/team/JiraSettingsForm';
+import { AppHeader } from '@/components/AppHeader';
 
 const TeamSettings = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -159,14 +160,15 @@ const TeamSettings = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-8">
+      <AppHeader variant='home' />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" onClick={() => navigate(`/teams/${teamId}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/teams/${teamId}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team Settings</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your team configuration</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your team configuration for '{team.name}'</p>
           </div>
         </div>
 

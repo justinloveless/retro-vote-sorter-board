@@ -35,7 +35,7 @@ interface PointsDetailsProps {
   onTicketNumberChange: (value: string) => void;
   onTicketNumberFocus: () => void;
   onTicketNumberBlur: () => void;
-  teamId: string | null;
+  teamId?: string | null;
 }
 
 /**
@@ -80,7 +80,7 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
           className="bg-transparent text-center w-full focus:outline-none"
         />
       </div>
-      <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />
+      {teamId && <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />}
       {/* Team Points Section */}
       <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
         <div className="text-xl mr-2">

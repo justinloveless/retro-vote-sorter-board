@@ -12,11 +12,14 @@ import { TeamSidebar } from '@/components/team/TeamSidebar';
 import { TeamMembersList } from '@/components/team/TeamMembersList';
 import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Home, User, LogOut, Shield } from 'lucide-react';
+import { AppHeader } from '@/components/AppHeader';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const { boards, loading: boardsLoading, createBoardForTeam, refetch: refetchBoards } = useTeamBoards(teamId || null);
   const { members } = useTeamMembers(teamId || null);
   const [team, setTeam] = useState<any>(null);
@@ -61,6 +64,11 @@ const Team = () => {
     loadTeam();
   }, [teamId, user, navigate, toast]);
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   const handleCreateBoard = async (title: string, isPrivate: boolean, password: string | null) => {
     const board = await createBoardForTeam(title, isPrivate, password);
     if (board) {
@@ -91,9 +99,10 @@ const Team = () => {
 
   return (
     <>
+      <AppHeader variant='home' />
       {/* Scrollable content */}
       <div className="relative z-10 min-h-screen">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}

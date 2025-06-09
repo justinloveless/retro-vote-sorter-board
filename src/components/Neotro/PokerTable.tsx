@@ -1,41 +1,34 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useMemo, useCallback } from 'react';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
 import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
-import { usePokerSession, PlayerSelection, Selections } from '@/hooks/usePokerSession';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { PokerSession } from '@/hooks/usePokerSession';
 import "@/components/Neotro/neotro.css";
-/* CSS for Neotro */
 
-interface TeamMember {
-  id: string;
-  team_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'member';
-  joined_at: string;
-  profiles?: {
-    full_name: string | null;
-  } | null;
-}
-
-interface NeotroProps {
-  teamMembers: TeamMember[];
+interface PokerTableProps {
+  session: PokerSession | null;
   activeUserId: string | undefined;
+  updateUserSelection: (points: number) => void;
+  toggleLockUserSelection: () => void;
+  playHand: () => void;
+  nextRound: () => void;
+  updateTicketNumber: (ticketNumber: string) => void;
+  presentUserIds: string[];
 }
 
-const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
-  const { teamId } = useParams<{ teamId: string }>();
-  const { user } = useAuth();
-  const { session, loading, updateUserSelection, toggleLockUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds } = usePokerSession(
-    teamId || null,
-    teamMembers,
-    activeUserId
-  );
+const PokerTable: React.FC<PokerTableProps> = ({
+  session,
+  activeUserId,
+  updateUserSelection,
+  toggleLockUserSelection,
+  playHand,
+  nextRound,
+  updateTicketNumber,
+  presentUserIds
+}) => {
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
   const [shake, setShake] = useState(false);
@@ -64,46 +57,16 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
     [updateTicketNumber]
   );
 
-  useEffect(() => {
-    const fetchTeamPrefix = async () => {
-      if (teamId) {
-        const { data, error } = await supabase
-          .from('teams')
-          .select('jira_ticket_prefix')
-          .eq('id', teamId)
-          .single();
-
-        if (data && data.jira_ticket_prefix) {
-          if (!session?.ticket_number) {
-            setDisplayTicketNumber(data.jira_ticket_prefix);
-          }
-        }
-      }
-    };
-    fetchTeamPrefix();
-  }, [teamId, session?.ticket_number]);
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (session?.ticket_number && !isTicketInputFocused) {
       setDisplayTicketNumber(session.ticket_number);
-    } else if (teamId && !session?.ticket_number && !isTicketInputFocused) {
-      // If session ticket number is cleared (e.g., new round), re-apply prefix
-      const fetchTeamPrefix = async () => {
-        const { data } = await supabase
-          .from('teams')
-          .select('jira_ticket_prefix')
-          .eq('id', teamId)
-          .single();
-        setDisplayTicketNumber(data?.jira_ticket_prefix || '');
-      };
-      fetchTeamPrefix();
     }
-  }, [session?.ticket_number, teamId, isTicketInputFocused]);
+  }, [session?.ticket_number, isTicketInputFocused]);
 
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
   const activeUserSelection = useMemo(() => {
-    if (session && activeUserId && session.selections) {
+    if (session && activeUserId && session.selections[activeUserId]) {
       return session.selections[activeUserId];
     }
     return { points: 0, locked: false, name: '' };
@@ -135,14 +98,13 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
 
   const handleTicketNumberBlur = () => {
     setIsTicketInputFocused(false);
-    // On blur, immediately update the ticket number, cancelling any pending debounce
     debouncedUpdateTicketNumber.cancel();
     if (session && displayTicketNumber !== session.ticket_number) {
       updateTicketNumber(displayTicketNumber);
     }
   }
 
-  if (loading || !session) {
+  if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-gray-600 dark:text-gray-300">Loading Session...</div>
@@ -157,7 +119,6 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
           <div className="flex-grow overflow-y-auto pr-2">
             <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
               <PointsDetails
-                teamId={teamId}
                 selectedPoint={activeUserSelection.points}
                 isHandPlayed={session.game_state === 'Playing'}
                 averagePoints={session.average_points}
@@ -203,7 +164,7 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
                 onPointsIncrease={() => handlePointChange(true)}
                 onLockIn={toggleLockUserSelection}
                 isLockedIn={activeUserSelection.locked}
-                onAbstain={() => updateUserSelection(-1)} // Simple abstain logic
+                onAbstain={() => updateUserSelection(-1)}
                 isAbstained={activeUserSelection.points === -1}
                 isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
               />
@@ -215,4 +176,4 @@ const Neotro: React.FC<NeotroProps> = ({ teamMembers, activeUserId }) => {
   );
 };
 
-export default Neotro;
+export default PokerTable;
