@@ -7,33 +7,23 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          operationName?: string
-          query?: string
-          variables?: Json
-          extensions?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          key: string
+          value: string | null
+        }
+        Insert: {
+          key: string
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       board_presence: {
         Row: {
           board_id: string | null
@@ -113,29 +103,59 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          description: string | null
+          flag_name: string
+          is_enabled: boolean
+        }
+        Insert: {
+          description?: string | null
+          flag_name: string
+          is_enabled?: boolean
+        }
+        Update: {
+          description?: string | null
+          flag_name?: string
+          is_enabled?: boolean
+        }
+        Relationships: []
+      }
       poker_sessions: {
         Row: {
           created_at: string
           game_state: string
           id: string
+          last_activity_at: string
+          room_id: string | null
           selections: Json
-          team_id: string
+          team_id: string | null
+          ticket_number: string | null
+          ticket_title: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           game_state?: string
           id?: string
+          last_activity_at?: string
+          room_id?: string | null
           selections?: Json
-          team_id: string
+          team_id?: string | null
+          ticket_number?: string | null
+          ticket_title?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           game_state?: string
           id?: string
+          last_activity_at?: string
+          room_id?: string | null
           selections?: Json
-          team_id?: string
+          team_id?: string | null
+          ticket_number?: string | null
+          ticket_title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -151,25 +171,31 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          background_preference: Json | null
           created_at: string | null
           full_name: string | null
           id: string
+          role: string
           theme_preference: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
+          background_preference?: Json | null
           created_at?: string | null
           full_name?: string | null
           id: string
+          role?: string
           theme_preference?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
+          background_preference?: Json | null
           created_at?: string | null
           full_name?: string | null
           id?: string
+          role?: string
           theme_preference?: string | null
           updated_at?: string | null
         }
@@ -265,6 +291,7 @@ export type Database = {
           archived_by: string | null
           created_at: string | null
           creator_id: string | null
+          deleted: boolean | null
           id: string
           is_private: boolean | null
           password_hash: string | null
@@ -279,6 +306,7 @@ export type Database = {
           archived_by?: string | null
           created_at?: string | null
           creator_id?: string | null
+          deleted?: boolean | null
           id?: string
           is_private?: boolean | null
           password_hash?: string | null
@@ -293,6 +321,7 @@ export type Database = {
           archived_by?: string | null
           created_at?: string | null
           creator_id?: string | null
+          deleted?: boolean | null
           id?: string
           is_private?: boolean | null
           password_hash?: string | null
@@ -356,6 +385,7 @@ export type Database = {
           created_at: string
           id: string
           item_id: string
+          session_id: string | null
           text: string
           updated_at: string
         }
@@ -365,6 +395,7 @@ export type Database = {
           created_at?: string
           id?: string
           item_id: string
+          session_id?: string | null
           text: string
           updated_at?: string
         }
@@ -374,10 +405,18 @@ export type Database = {
           created_at?: string
           id?: string
           item_id?: string
+          session_id?: string | null
           text?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "retro_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "retro_comments_item_id_fkey"
             columns: ["item_id"]
@@ -395,6 +434,7 @@ export type Database = {
           column_id: string | null
           created_at: string | null
           id: string
+          session_id: string | null
           text: string
           updated_at: string | null
           votes: number | null
@@ -406,6 +446,7 @@ export type Database = {
           column_id?: string | null
           created_at?: string | null
           id?: string
+          session_id?: string | null
           text: string
           updated_at?: string | null
           votes?: number | null
@@ -417,11 +458,19 @@ export type Database = {
           column_id?: string | null
           created_at?: string | null
           id?: string
+          session_id?: string | null
           text?: string
           updated_at?: string | null
           votes?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "retro_items_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "retro_items_board_id_fkey"
             columns: ["board_id"]
@@ -440,6 +489,7 @@ export type Database = {
       }
       retro_votes: {
         Row: {
+          board_id: string | null
           created_at: string | null
           id: string
           item_id: string | null
@@ -447,6 +497,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          board_id?: string | null
           created_at?: string | null
           id?: string
           item_id?: string | null
@@ -454,6 +505,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          board_id?: string | null
           created_at?: string | null
           id?: string
           item_id?: string | null
@@ -461,6 +513,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "retro_votes_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "retro_votes_item_id_fkey"
             columns: ["item_id"]
@@ -603,6 +662,10 @@ export type Database = {
           creator_id: string | null
           description: string | null
           id: string
+          jira_api_key: string | null
+          jira_domain: string | null
+          jira_email: string | null
+          jira_ticket_prefix: string | null
           name: string
           slack_webhook_url: string | null
           updated_at: string
@@ -612,6 +675,10 @@ export type Database = {
           creator_id?: string | null
           description?: string | null
           id?: string
+          jira_api_key?: string | null
+          jira_domain?: string | null
+          jira_email?: string | null
+          jira_ticket_prefix?: string | null
           name: string
           slack_webhook_url?: string | null
           updated_at?: string
@@ -621,6 +688,10 @@ export type Database = {
           creator_id?: string | null
           description?: string | null
           id?: string
+          jira_api_key?: string | null
+          jira_domain?: string | null
+          jira_email?: string | null
+          jira_ticket_prefix?: string | null
           name?: string
           slack_webhook_url?: string | null
           updated_at?: string
@@ -670,6 +741,10 @@ export type Database = {
       accept_team_invitation: {
         Args: { invitation_token: string }
         Returns: Json
+      }
+      cleanup_stale_poker_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       create_columns_from_template: {
         Args: { board_id: string; template_id?: string }
@@ -807,9 +882,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

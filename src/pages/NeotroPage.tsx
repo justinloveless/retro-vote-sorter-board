@@ -1,13 +1,16 @@
+
 import { useParams } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import { AppHeader } from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const { user, profile, loading: loadingAuth } = useAuth();
+  const isMobile = useIsMobile();
 
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
     teamId, // Use teamId as the session identifier
@@ -25,11 +28,12 @@ const NeotroPage = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col">
-      <AppHeader variant='back' />
+      {!isMobile && <AppHeader variant='back' />}
       <div className="flex-1 min-h-0">
         <PokerTable
           session={session}
           activeUserId={user?.id}
+          teamId={teamId}
           {...pokerActions}
         />
       </div>
@@ -37,4 +41,4 @@ const NeotroPage = () => {
   );
 };
 
-export default NeotroPage; 
+export default NeotroPage;

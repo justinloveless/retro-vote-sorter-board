@@ -1,6 +1,7 @@
 import React from "react";
 import LockInButton from "@/components/Neotro/LockInButton";
 import AbstainButton from "@/components/Neotro/AbstainButton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PointSelectorProps {
   pointsIndex: number;
@@ -27,6 +28,68 @@ const PointSelector: React.FC<PointSelectorProps> = ({
   isAbstained,
   isAbstainedDisabled,
 }) => {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center font-['Press_Start_2P'] bg-black/20 backdrop-blur rounded-2xl">
+        <div className="text-white text-2xl mb-4 font-neotro text-center">
+          Your Points
+        </div>
+
+        <div className="flex items-center justify-center w-full mb-4">
+          {/* Left Arrow Button */}
+          <button
+            onClick={onPointsDecrease}
+            className="bg-[#ff4c40ff] text-white text-3xl font-neotro cursor-pointer select-none selector-buttons shadow-[0px_6px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-xl mr-3"
+          >
+            <div className="p-3">&lt;</div>
+          </button>
+
+          {/* Points Display */}
+          <div className="border-3 border-white bg-white/20 backdrop-blur rounded-xl p-3 min-w-[120px] flex flex-col items-center justify-center">
+            <div className="text-white text-4xl mb-2">
+              {selectedPoints}
+            </div>
+            <div className="flex space-x-1">
+              {pointOptions.map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-2 h-2 rounded-full ${index === pointsIndex
+                    ? "bg-white"
+                    : "bg-white/50"
+                    }`}
+                ></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Arrow Button */}
+          <button
+            onClick={onPointsIncrease}
+            className="bg-[#ff4c40ff] text-white text-3xl font-neotro rounded-xl cursor-pointer select-none ml-3 selector-buttons shadow-[0px_6px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
+          >
+            <div className="p-3">&gt;</div>
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-center w-full">
+          <LockInButton
+            onLockIn={onLockIn}
+            isLockedIn={isLockedIn}
+          />
+          <AbstainButton
+            onAbstain={onAbstain}
+            isAbstained={isAbstained}
+            isDisabled={isAbstainedDisabled}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout (unchanged)
   return (
     <div className="p-8 flex flex-col items-center justify-center font-['Press_Start_2P']">
       <div className="text-foreground text-4xl mb-[4px] font-neotro">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { usePokerSession } from '@/hooks/usePokerSession';
@@ -7,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
-import { Copy, ArrowLeft, Home, LogIn } from 'lucide-react';
+import { Copy, ArrowLeft, Home, LogIn, Menu } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { AppHeader } from '@/components/AppHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Helper function to get or create anonymous user identity
 const getAnonymousUser = () => {
@@ -28,6 +30,7 @@ const AnonymousPokerPage: React.FC = () => {
     const location = useLocation();
     const { toast } = useToast();
     const { user, profile, loading: authLoading } = useAuth();
+    const isMobile = useIsMobile();
 
     const [player, setPlayer] = useState<{ id?: string, name?: string }>({});
     const [isIdentityReady, setIsIdentityReady] = useState(false);
@@ -88,7 +91,7 @@ const AnonymousPokerPage: React.FC = () => {
 
         if (!isIdentityReady) {
             return (
-                <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+                <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
                     <Card className="w-full max-w-sm">
                         <CardHeader>
                             <CardTitle>Enter Your Name</CardTitle>
@@ -120,7 +123,7 @@ const AnonymousPokerPage: React.FC = () => {
 
         if (!session) {
             return (
-                <div className="flex-1 flex items-center justify-center text-center">
+                <div className="flex-1 flex items-center justify-center text-center p-4">
                     <div>
                         <h2 className="text-2xl font-bold mb-4">Poker Session Closed</h2>
                         <p className="text-gray-600 dark:text-gray-300 mb-6">
@@ -152,26 +155,51 @@ const AnonymousPokerPage: React.FC = () => {
 
     return (
         <div className="h-screen w-screen flex flex-col">
-            <AppHeader variant='home'>
-
-                <div className="pl-12 bg-transparent flex items-center justify-between">
-                    <div className='flex items-center gap-6'>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
-                            <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
+            {!isMobile ? (
+                <AppHeader variant='home'>
+                    <div className="pl-12 bg-transparent flex items-center justify-between">
+                        <div className='flex items-center gap-6'>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
+                                <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={copyLink}>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy Link
+                            </Button>
                         </div>
-                        <Button variant="outline" size="sm" onClick={copyLink}>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy Link
-                        </Button>
                     </div>
+                </AppHeader>
+            ) : (
+                <div className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => navigate('/')}
+                            className="text-white hover:bg-white/20"
+                        >
+                            <Home className="h-5 w-5" />
+                        </Button>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-white/80">Room ID:</span>
+                            <span className="font-mono text-sm bg-white/20 backdrop-blur rounded px-2 py-1 text-white">{roomId}</span>
+                        </div>
+                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={copyLink}
+                        className="text-white hover:bg-white/20"
+                    >
+                        <Copy className="h-4 w-4" />
+                    </Button>
                 </div>
-            </AppHeader>
-
+            )}
 
             {renderContent()}
         </div>
     );
 };
 
-export default AnonymousPokerPage; 
+export default AnonymousPokerPage;

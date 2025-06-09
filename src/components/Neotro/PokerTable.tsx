@@ -6,6 +6,11 @@ import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import { PokerSession } from '@/hooks/usePokerSession';
+import { Button } from '@/components/ui/button';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Home, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import "@/components/Neotro/neotro.css";
 
 interface PokerTableProps {
@@ -17,6 +22,7 @@ interface PokerTableProps {
   nextRound: () => void;
   updateTicketNumber: (ticketNumber: string) => void;
   presentUserIds: string[];
+  teamId?: string;
 }
 
 const PokerTable: React.FC<PokerTableProps> = ({
@@ -27,11 +33,15 @@ const PokerTable: React.FC<PokerTableProps> = ({
   playHand,
   nextRound,
   updateTicketNumber,
-  presentUserIds
+  presentUserIds,
+  teamId
 }) => {
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
   const [shake, setShake] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   // Debounce function
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
@@ -80,7 +90,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
       newIndex = pointOptions.length - 1;
       if (increment) {
         setShake(true);
-        setTimeout(() => setShake(false), 500); // Reset shake after animation duration
+        setTimeout(() => setShake(false), 500);
       }
     }
 
@@ -112,6 +122,100 @@ const PokerTable: React.FC<PokerTableProps> = ({
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className={`poker-table relative flex flex-col h-full bg-gradient-to-br from-purple-400 via-pink-400 to-purple-600 ${shake ? 'screen-shake' : ''}`}>
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between p-4 bg-black/10 backdrop-blur">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/')}
+            className="text-white hover:bg-white/20"
+          >
+            <Home className="h-5 w-5" />
+          </Button>
+          
+          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+            <DrawerTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30"
+              >
+                <Menu className="h-4 w-4 mr-2" />
+                Show Details
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Session Details</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4">
+                <PointsDetails
+                  selectedPoint={activeUserSelection.points}
+                  isHandPlayed={session.game_state === 'Playing'}
+                  averagePoints={session.average_points}
+                  ticketNumber={displayTicketNumber}
+                  onTicketNumberChange={handleTicketNumberChange}
+                  onTicketNumberFocus={handleTicketNumberFocus}
+                  onTicketNumberBlur={handleTicketNumberBlur}
+                  teamId={teamId}
+                />
+                <div className="mt-4 flex gap-2">
+                  <PlayHandButton
+                    onHandPlayed={playHand}
+                    isHandPlayed={session.game_state === 'Playing'}
+                  />
+                  <NextRoundButton
+                    onHandPlayed={nextRound}
+                    isHandPlayed={session.game_state === 'Playing'}
+                  />
+                </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </div>
+
+        {/* Mobile Main Content */}
+        <div className="flex-1 flex flex-col p-4">
+          {/* Cards Area */}
+          <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-lg">
+              {Object.entries(session.selections).map(([userId, selection]) => (
+                <div key={userId} className="flex justify-center">
+                  <PlayingCard
+                    cardState={session.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
+                    playerName={selection.name}
+                    pointsSelected={selection.points}
+                    isPresent={presentUserIds.includes(userId)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile Point Selector */}
+          <div className="flex-shrink-0">
+            <PointSelector
+              pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+              selectedPoints={activeUserSelection.points}
+              pointOptions={pointOptions}
+              onPointsDecrease={() => handlePointChange(false)}
+              onPointsIncrease={() => handlePointChange(true)}
+              onLockIn={toggleLockUserSelection}
+              isLockedIn={activeUserSelection.locked}
+              onAbstain={() => updateUserSelection(-1)}
+              isAbstained={activeUserSelection.points === -1}
+              isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout (unchanged)
   return (
     <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
       <div className="flex flex-1 min-h-0">
@@ -126,6 +230,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 onTicketNumberChange={handleTicketNumberChange}
                 onTicketNumberFocus={handleTicketNumberFocus}
                 onTicketNumberBlur={handleTicketNumberBlur}
+                teamId={teamId}
               />
               <div className="p-2 flex justify-between gap-2">
                 <PlayHandButton
