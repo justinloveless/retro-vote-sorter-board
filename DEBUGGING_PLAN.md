@@ -1,45 +1,49 @@
-# Debugging Plan: "Summarize" Button Regression
+# Debugging Plan: "Summarize" Button Audio Playback Failure
 
-This document outlines the step-by-step plan to diagnose and fix the regression where the "Summarize" button in the retro board does not play the generated audio.
+This document outlines the step-by-step plan to diagnose and fix the issue where the "Summarize" button in the retro board fails to play audio when `autoPlay` is set to `false`.
 
-The last known working commit is `1dc3a6b914ec5a99fdb9e7e585223d2b092fd95e`.
+## Problem Analysis
 
-## Analysis of `git diff`
+The `PlayAudioButton` component works correctly, but it uses `autoPlay: true`. The `ColumnSummary` component, which uses `autoPlay: false` to defer playback, fails with an "Invalid URI. Load of media resource failed" error.
 
-The primary change between the working commit and the current state is the removal of the `updateAudioSummaryState` prop from `ColumnSummary` and `RetroColumn`. The component was refactored to use the `presenceChannel` to broadcast state changes directly.
+The core issue has been isolated:
+- Playback works when `play` is called with `{ autoPlay: true }`.
+- Playback fails when `play` is called with `{ autoPlay: false }`.
+- A previous attempt to fix this by adding `audio.load()` was not successful.
 
--   **`ColumnSummary.tsx`**: No longer receives or calls `updateAudioSummaryState`. Instead, uses `presenceChannel.send()` to broadcast `'audio-summary-state'` events.
--   **`RetroColumn.tsx`**: No longer passes `updateAudioSummaryState` to `ColumnSummary`.
--   **`useRetroBoard.ts`**: The `updateAudioSummaryState` function still exists but is no longer passed down as a prop. A listener for `'audio-summary-state'` was added to the presence channel `useEffect`.
+This points to a fundamental issue in how the `useAudioPlayer` hook manages the `Audio` object and its lifecycle, especially in relation to React's rendering and state updates.
 
-## Potential Causes of Regression
+## New Hypothesis
 
-1.  **State Management & Event Flow (FIXED):** The `audioSummaryState` was not being correctly propagated because the component was only broadcasting events and not updating its own state. This was fixed by reverting to the prop-based `updateAudioSummaryState` function.
+Creating a new `Audio` object on every `play` call is fragile. When playback is deferred (`autoPlay: false`), the reference to the `Audio` object or its blob URL `src` may be getting lost or invalidated between the time it's created and the time the user tries to play it. This is a common source of bugs in React when dealing with external objects that have their own state and lifecycle.
 
-2.  **UI Interaction & Component Lifecycle (FIXED):** The `onClick` handler was not firing. This was a symptom of the state management issue.
+The solution is to refactor the `useAudioPlayer` hook to follow a more robust pattern:
+1.  Create a **single, persistent `Audio` object** that lasts for the entire lifecycle of the component using the hook.
+2.  Attach event listeners to this single object once, when the hook is first mounted.
+3.  The `play` function will no longer create a new `Audio` object. Instead, it will simply update the `.src` property of the existing one.
 
-3.  **Script Generation & State (Current Focus):**
-    - The `generate-script` function may be returning an empty or invalid script.
-    - The script value might be getting lost in the `audioSummaryState` object.
+This approach ensures a stable reference to the `Audio` element and simplifies its state management.
 
-4.  **`useAudioPlayer` Hook Logic:**
-    -   This is now a possibility again. The hook might not be handling the `src` correctly.
+## Debugging & Solution Steps
 
-## Debugging Steps
+1.  **Acknowledge previous fix was insufficient.** The `audio.load()` call did not address the root cause.
 
--   [x] **Step 1 & 2: Complete.** UI interaction and state flow have been debugged and fixed. The button now correctly triggers the summary generation process.
+2.  **Implement the Fix (Current Step):** Refactor `src/hooks/useAudioPlayer.ts`.
+    -   Instantiate the `Audio` object once using `useRef(new Audio())`.
+    -   Move all event listener assignments (`.onplay`, `.onpause`, etc.) into a `useEffect` with an empty dependency array (`[]`) so they are set up only on mount and cleaned up on unmount.
+    -   Modify the `play` function to get the persistent audio object from the ref (`audioRef.current`) and simply update its `src`. It should no longer create a `new Audio()`.
+    -   Ensure the `stop`, `pause`, and `resume` functions all operate on this single, persistent `Audio` object.
 
--   [ ] **Step 3: Investigate Script Generation and State (Current Step).**
-    -   [ ] Add logging in `ColumnSummary.tsx` to inspect the `script` returned from the `generate-script` function.
-    -   [ ] Add logging in `ColumnSummary.tsx` inside the playback `useEffect` to check the value of `audioSummaryState.script` right before it's passed to the `play()` function.
-    -   [ ] Read the `useAudioPlayer.ts` hook to understand how it handles the source.
-
+3.  **Verify the Fix:**
+    -   Test the "Summarize" functionality. Confirm that generating a summary and then clicking the play button works as expected without errors.
+    -   Test the "Read Aloud" (`PlayAudioButton`) functionality to ensure there are no regressions.
 
 ---
 ### Investigation Log
 
-- **2023-10-27:** Identified that the UI was not firing events.
-- **2023-10-27:** Fixed the state management architecture by restoring `updateAudioSummaryState` prop. This resolved the UI interaction issue.
-- **2023-10-27:** New issue: Audio playback error. The player is receiving an empty `src`. Investigation now focused on the script generation and propagation.
+- **Previously:** Fixed initial state management and UI interaction issues.
+- **Previously:** Encountered an "Invalid URI" error.
+- **Previously:** Incorrectly attempted to fix the issue with `audio.load()`.
+- **Current:** The investigation has revealed a more fundamental architectural issue in `useAudioPlayer`. The new plan is to refactor the hook to use a single, persistent `Audio` object to ensure stability.
 
 *(This section will be updated as steps are completed)* 

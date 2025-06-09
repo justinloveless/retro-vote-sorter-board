@@ -66,14 +66,14 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     // This effect handles the initial loading of the audio when a script is ready
     useEffect(() => {
         if (isThisColumnActive && audioSummaryState?.status === 'ready' && audioSummaryState.script && audioState === 'idle') {
-            play(audioSummaryState.script, false);
+            play(audioSummaryState.script, { autoPlay: true, cache: false });
         }
     }, [audioSummaryState, isThisColumnActive, audioState, play]);
 
     // This effect cleans up the global state when audio ends or errors out
     useEffect(() => {
         if (isThisColumnActive && (audioState === 'idle' || audioState === 'error')) {
-            if (audioSummaryState?.status === 'playing' || audioSummaryState?.status === 'paused') {
+            if (audioSummaryState?.status === 'playing' || audioSummaryState?.status === 'paused' || audioSummaryState?.status === 'ready') {
                 updateAudioSummaryState(null);
             }
         }

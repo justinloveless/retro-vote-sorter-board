@@ -35,7 +35,7 @@ async function getSelfHostedTtsUrl(supabaseClient: SupabaseClient): Promise<stri
 
 // Upload audio to Supabase Storage in a background task
 async function uploadAudioToStorage(stream, requestHash) {
-    const { data, error } = await supabase.storage.from('audio').upload(`${requestHash}.wav`, stream, {
+    const { data, error } = await supabase.storage.from('tts-audio-cache').upload(`${requestHash}.wav`, stream, {
         contentType: 'audio/wav'
     });
     console.log('Storage upload result', {
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
             });
         }
 
-        const { text } = await req.json();
+        const { text, cache: shouldCache = true } = await req.json();
 
         if (!text) {
             return new Response(JSON.stringify({ error: 'Text parameter is required' }), {
@@ -74,18 +74,20 @@ Deno.serve(async (req) => {
 
         const requestHash = hash.MD5({ text });
 
-        // Check storage for existing audio file first
-        const { data: signedUrlData } = await supabase.storage.from('audio').createSignedUrl(`${requestHash}.wav`, 60 * 60); // 1 hour expiry
-        if (signedUrlData) {
-            const storageRes = await fetch(signedUrlData.signedUrl);
-            if (storageRes.ok) {
-                console.log('Audio file found in cache, returning from storage.');
-                // For cached files, we still need to stream the body back correctly.
-                const headers = new Headers(storageRes.headers);
-                for (const [key, value] of Object.entries(corsHeaders)) {
-                    headers.set(key, value);
+        if (shouldCache) {
+            // Check storage for existing audio file first
+            const { data: signedUrlData } = await supabase.storage.from('tts-audio-cache').createSignedUrl(`${requestHash}.wav`, 60 * 60); // 1 hour expiry
+            if (signedUrlData) {
+                const storageRes = await fetch(signedUrlData.signedUrl);
+                if (storageRes.ok) {
+                    console.log('Audio file found in cache, returning from storage.');
+                    // For cached files, we still need to stream the body back correctly.
+                    const headers = new Headers(storageRes.headers);
+                    for (const [key, value] of Object.entries(corsHeaders)) {
+                        headers.set(key, value);
+                    }
+                    return new Response(storageRes.body, { status: storageRes.status, headers });
                 }
-                return new Response(storageRes.body, { status: storageRes.status, headers });
             }
         }
 
@@ -106,14 +108,24 @@ Deno.serve(async (req) => {
             throw new Error('TTS server response did not contain a body.');
         }
 
-        // Branch stream to Supabase Storage
-        const [browserStream, storageStream] = response.body.tee();
+        if (shouldCache) {
+            // Branch stream to Supabase Storage
+            const [browserStream, storageStream] = response.body.tee();
+    
+            // Upload to Supabase Storage in the background, don't await it
+            EdgeRuntime.waitUntil(uploadAudioToStorage(storageStream, requestHash));
 
-        // Upload to Supabase Storage in the background, don't await it
-        EdgeRuntime.waitUntil(uploadAudioToStorage(storageStream, requestHash));
+            // Return the streaming response immediately
+            return new Response(browserStream, {
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'audio/wav'
+                }
+            });
+        }
 
         // Return the streaming response immediately
-        return new Response(browserStream, {
+        return new Response(response.body, {
             headers: {
                 ...corsHeaders,
                 'Content-Type': 'audio/wav'
