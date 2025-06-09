@@ -92,11 +92,35 @@ export const useAuth = () => {
     await supabase.auth.signOut();
   };
 
+  const updateProfile = async (updates: Partial<Profile>) => {
+    if (!user) throw new Error("No user is logged in");
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      localStorage.setItem('profile', JSON.stringify(data));
+      setProfile(data);
+
+      return data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
   return {
     user,
     session,
     profile,
     loading,
-    signOut
+    signOut,
+    updateProfile
   };
 };

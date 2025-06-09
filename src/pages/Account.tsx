@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Users, LogOut, Calendar, Home, Palette, Shield } from 'lucide-react';
+import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeams } from '@/hooks/useTeams';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -11,16 +11,51 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { BackgroundSettings } from '@/components/account/BackgroundSettings';
 import { AppHeader } from '@/components/AppHeader';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth();
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile?.full_name]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleNameSave = async () => {
+    if (!fullName.trim()) {
+      toast({
+        title: 'Name cannot be empty',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      await updateProfile({ full_name: fullName });
+      toast({
+        title: 'Profile updated',
+        description: 'Your name has been successfully updated.',
+      });
+      setIsEditingName(false);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to update profile',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   if (authLoading) {
@@ -53,7 +88,35 @@ const Account = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-4">
+                  <div>
+                    <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Full Name</span>
+                    {!isEditingName ? (
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-900 dark:text-gray-100">{profile?.full_name || 'Not set'}</p>
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingName(true)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="flex-grow"
+                        />
+                        <Button variant="ghost" size="icon" onClick={handleNameSave}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setIsEditingName(false);
+                          setFullName(profile?.full_name || '');
+                        }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Email</span>
                     <p className="text-gray-900 dark:text-gray-100">{user.email}</p>
