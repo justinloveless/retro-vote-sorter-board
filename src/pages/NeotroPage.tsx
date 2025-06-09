@@ -25,7 +25,12 @@ const NeotroPage = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col">
-      <AppHeader variant='back' />
+      <AppHeader variant='home'>
+        <div className="flex items-center bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
+          <span className="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">Room ID:</span>
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">{teamId}</span>
+        </div>
+      </AppHeader>
       <div className="flex-1 min-h-0">
         <PokerTable
           session={session}

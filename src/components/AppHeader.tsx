@@ -7,9 +7,17 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft } from 'lucide-react';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
 import React from 'react';
 
 type HeaderVariant = 'default' | 'home' | 'back';
@@ -57,7 +65,7 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
             <div className="flex items-center space-x-4">
                 {renderLeftContent()}
             </div>
-            <div className="flex-grow flex">
+            <div className="flex-grow flex justify-center">
                 {children}
             </div>
             <div className="flex items-center space-x-2">
@@ -66,45 +74,79 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
                 </Button>
                 {user ? (
                     <>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Avatar
-                                        className={`h-10 w-10`}
-                                    >
-                                        <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
-                                        <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <div className="hidden md:flex items-center space-x-2">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Avatar
+                                            className={`h-10 w-10`}
+                                        >
+                                            <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
+                                            <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
+                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
 
-                        {profile?.role === 'admin' && location.pathname !== '/admin' && (
-                            <Button variant="outline" onClick={() => navigate('/admin')}>
-                                <Shield className="h-4 w-4 mr-2" />
-                                Admin
+                            {profile?.role === 'admin' && location.pathname !== '/admin' && (
+                                <Button variant="outline" onClick={() => navigate('/admin')}>
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Admin
+                                </Button>
+                            )}
+                            {location.pathname !== '/teams' && (
+                                <Button variant="outline" onClick={() => navigate('/teams')}>
+                                    <Users className="h-4 w-4 mr-2" />
+                                    My Teams
+                                </Button>
+                            )}
+                            {location.pathname !== '/account' && (
+                                <Button variant="outline" onClick={() => navigate('/account')}>
+                                    <User className="h-4 w-4 mr-2" />
+                                    Account
+                                </Button>
+                            )}
+                            <Button variant="outline" onClick={signOut}>
+                                <LogOut className="h-4 w-4 mr-2" />
+                                Sign Out
                             </Button>
-                        )}
-                        {location.pathname !== '/teams' && (
-                            <Button variant="outline" onClick={() => navigate('/teams')}>
-                                <Users className="h-4 w-4 mr-2" />
-                                My Teams
-                            </Button>
-                        )}
-                        {location.pathname !== '/account' && (
-                            <Button variant="outline" onClick={() => navigate('/account')}>
-                                <User className="h-4 w-4 mr-2" />
-                                Account
-                            </Button>
-                        )}
-                        <Button variant="outline" onClick={signOut}>
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                        </Button>
+                        </div>
+                        <div className="md:hidden">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <Menu />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => navigate('/account')}>
+                                        <User className="h-4 w-4 mr-2" />
+                                        Account
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate('/teams')}>
+                                        <Users className="h-4 w-4 mr-2" />
+                                        My Teams
+                                    </DropdownMenuItem>
+                                    {profile?.role === 'admin' && (
+                                    <DropdownMenuItem onClick={() => navigate('/admin')}>
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        Admin
+                                    </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={signOut}>
+                                        <LogOut className="h-4 w-4 mr-2" />
+                                        Sign Out
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </>
                 ) : (
                     location.pathname !== '/account' && (

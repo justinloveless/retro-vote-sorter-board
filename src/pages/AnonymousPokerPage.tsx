@@ -140,13 +140,11 @@ const AnonymousPokerPage: React.FC = () => {
         }
 
         return (
-            <div className="flex-1 min-h-0">
-                <PokerTable
-                    session={session}
-                    activeUserId={player.id}
-                    {...pokerActions}
-                />
-            </div>
+            <PokerTable
+                session={session}
+                activeUserId={player.id}
+                {...pokerActions}
+            />
         );
     }
 
