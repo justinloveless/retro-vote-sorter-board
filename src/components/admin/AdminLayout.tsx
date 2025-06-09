@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { AppHeader } from '../AppHeader';
 
 export const AdminLayout: React.FC = () => {
     const { user, profile, loading } = useAuth();
@@ -15,9 +16,7 @@ export const AdminLayout: React.FC = () => {
 
     return (
         <div>
-            <header className="bg-gray-800 text-white p-4">
-                <h1 className="text-xl">Admin Dashboard</h1>
-            </header>
+            <AppHeader variant='back' />
             <main className="p-4">
                 <Outlet />
             </main>
