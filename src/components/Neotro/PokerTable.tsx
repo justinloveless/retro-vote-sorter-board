@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -162,16 +163,6 @@ const PokerTable: React.FC<PokerTableProps> = ({
                   onTicketNumberBlur={handleTicketNumberBlur}
                   teamId={teamId}
                 />
-                <div className="mt-4 flex gap-2">
-                  <PlayHandButton
-                    onHandPlayed={playHand}
-                    isHandPlayed={session.game_state === 'Playing'}
-                  />
-                  <NextRoundButton
-                    onHandPlayed={nextRound}
-                    isHandPlayed={session.game_state === 'Playing'}
-                  />
-                </div>
               </div>
             </DrawerContent>
           </Drawer>
@@ -192,6 +183,20 @@ const PokerTable: React.FC<PokerTableProps> = ({
                   />
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex-shrink-0 mb-4">
+            <div className="flex gap-2 mb-4">
+              <PlayHandButton
+                onHandPlayed={playHand}
+                isHandPlayed={session.game_state === 'Playing'}
+              />
+              <NextRoundButton
+                onHandPlayed={nextRound}
+                isHandPlayed={session.game_state === 'Playing'}
+              />
             </div>
           </div>
 
