@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import Tooltip from "./Tooltip";
@@ -27,6 +28,8 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [translateY, setTranslateY] = useState("translate-y-0");
   const [isHovered, setIsHovered] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom'>('top');
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Determine the front card image based on pointsSelected
   const frontCardImage = getCardImage(pointsSelected);
@@ -58,19 +61,42 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
     };
   }, [cardState]);
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    
+    // Check if there's enough space above the card for the tooltip
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      const tooltipHeight = 120; // Approximate tooltip height
+      const spaceAbove = rect.top;
+      
+      // If there's not enough space above, position tooltip below
+      setTooltipPosition(spaceAbove < tooltipHeight ? 'bottom' : 'top');
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
   return (
     <div
+      ref={cardRef}
       className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''}`}
       style={{
         height: `${CARD_HEIGHT * SCALE}px`,
         width: `${CARD_WIDTH * SCALE}px`,
       }} // Approximate aspect ratio
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* The Tooltip */}
       {isHovered && (
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2">
+        <div className={`absolute left-1/2 -translate-x-1/2 ${
+          tooltipPosition === 'top' 
+            ? 'bottom-full mb-2' 
+            : 'top-full mt-2'
+        }`}>
           <Tooltip
             playerName={playerName}
             cardState={cardState}
