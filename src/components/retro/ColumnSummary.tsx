@@ -19,7 +19,6 @@ interface ColumnSummaryProps {
     columnId: string;
     presenceChannel?: any;
     audioSummaryState: AudioSummaryState | null;
-    updateAudioSummaryState: (state: AudioSummaryState | null) => void;
 }
 
 const NARRATION_STYLES = [
@@ -35,7 +34,6 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     columnId,
     presenceChannel,
     audioSummaryState,
-    updateAudioSummaryState,
 }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const { play, pause, resume, audioState, stop, error } = useAudioPlayer();
@@ -77,10 +75,14 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
         if (isThisColumnActive && (audioState === 'idle' || audioState === 'error')) {
             // Only clear state if it was previously playing/paused, not on initial load
             if (audioSummaryState?.status === 'playing' || audioSummaryState?.status === 'paused') {
-                updateAudioSummaryState(null);
+                presenceChannel?.send({
+                    type: 'broadcast',
+                    event: 'audio-summary-state',
+                    payload: null,
+                });
             }
         }
-    }, [audioState, isThisColumnActive, audioSummaryState, updateAudioSummaryState]);
+    }, [audioState, isThisColumnActive, audioSummaryState, presenceChannel]);
 
     const handleStyleSelect = async (style: string) => {
         if (items.length === 0) {
@@ -93,7 +95,11 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
 
         setIsGenerating(true);
         // Announce intent to generate
-        updateAudioSummaryState({ columnId, status: 'generating' });
+        presenceChannel?.send({
+            type: 'broadcast',
+            event: 'audio-summary-state',
+            payload: { columnId, status: 'generating' },
+        });
 
         try {
             const { data, error } = await supabase.functions.invoke('generate-script', {
@@ -104,7 +110,11 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
             if (!data.script) throw new Error("The generated script was empty.");
 
             // Announce that the script is ready for all clients
-            updateAudioSummaryState({ columnId, status: 'ready', script: data.script });
+            presenceChannel?.send({
+                type: 'broadcast',
+                event: 'audio-summary-state',
+                payload: { columnId, status: 'ready', script: data.script },
+            });
 
         } catch (error) {
             console.error(`Error generating ${style} script:`, error);
@@ -114,7 +124,11 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
                 variant: "destructive",
             });
             // Clear global state on error
-            updateAudioSummaryState(null);
+            presenceChannel?.send({
+                type: 'broadcast',
+                event: 'audio-summary-state',
+                payload: null,
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -127,9 +141,17 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
         const script = audioSummaryState?.script;
 
         if (currentStatus === 'paused' || currentStatus === 'ready') {
-            updateAudioSummaryState({ columnId, status: 'playing', script });
+            presenceChannel?.send({
+                type: 'broadcast',
+                event: 'audio-summary-state',
+                payload: { columnId, status: 'playing', script },
+            });
         } else if (currentStatus === 'playing') {
-            updateAudioSummaryState({ columnId, status: 'paused', script });
+            presenceChannel?.send({
+                type: 'broadcast',
+                event: 'audio-summary-state',
+                payload: { columnId, status: 'paused', script },
+            });
         }
     };
 
