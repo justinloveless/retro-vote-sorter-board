@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -73,7 +72,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
     try {
       const { error } = await supabase
         .from('retro_boards')
-        .delete()
+        .update({ deleted: true })
         .eq('id', boardId);
 
       if (error) throw error;
