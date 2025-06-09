@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { Copy, ArrowLeft, Home, LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { AppHeader } from '@/components/AppHeader';
 
 // Helper function to get or create anonymous user identity
 const getAnonymousUser = () => {
@@ -151,34 +152,23 @@ const AnonymousPokerPage: React.FC = () => {
 
     return (
         <div className="h-screen w-screen flex flex-col">
-            <header className="p-4 bg-transparent flex items-center justify-between">
-                <div className='flex items-center gap-4'>
-                    <Button variant="ghost" onClick={() => navigate('/')}>
-                        <Home className="h-4 w-4 mr-2" />
-                        Home
-                    </Button>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
-                        <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
+            <AppHeader variant='home'>
+
+                <div className="pl-12 bg-transparent flex items-center justify-between">
+                    <div className='flex items-center gap-6'>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
+                            <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
+                        </div>
                         <Button variant="outline" size="sm" onClick={copyLink}>
                             <Copy className="h-4 w-4 mr-2" />
                             Copy Link
                         </Button>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {user ? (
-                        <Button variant="outline" onClick={() => navigate('/teams')}>
-                            Go to My Teams
-                        </Button>
-                    ) : (
-                        <Button variant="outline" onClick={() => navigate('/account')}>
-                            <LogIn className="h-4 w-4 mr-2" />
-                            Sign In
-                        </Button>
-                    )}
-                </div>
-            </header>
+            </AppHeader>
+
+
             {renderContent()}
         </div>
     );
