@@ -73,7 +73,7 @@ const Account = () => {
   // console.log('Account Page: profile', profile);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pt-16 md:pt-0">
       <AppHeader variant="home" />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">My Account</h1>

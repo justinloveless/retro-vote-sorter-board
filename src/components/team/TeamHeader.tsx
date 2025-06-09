@@ -30,11 +30,6 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
     return (
       <div className="mb-6">
         <div className="flex items-start gap-3">
-          {showBackButton && (
-            <Button variant="ghost" size="icon" onClick={() => navigate('/teams')} className="mt-1 flex-shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white break-words">{team.name}</h1>
             {team.description && (

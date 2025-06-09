@@ -18,7 +18,7 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
   const canManageSettings = currentUserRole === 'owner' || currentUserRole === 'admin';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 safe-area-pb">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 safe-area-pb">
       <div className="flex justify-center items-center gap-8 max-w-sm mx-auto">
         {/* Join Pointing Session - Left */}
         <Button

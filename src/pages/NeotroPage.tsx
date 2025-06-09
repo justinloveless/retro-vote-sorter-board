@@ -27,7 +27,7 @@ const NeotroPage = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col">
+    <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
       {!isMobile && <AppHeader variant='back' />}
       <div className="flex-1 min-h-0">
         <PokerTable

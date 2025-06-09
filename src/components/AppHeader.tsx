@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -176,14 +175,11 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
     );
 
     return (
-        <header className="flex justify-between items-center p-6">
+        <header className={`flex justify-between items-center p-4 md:p-6 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
             <div className="flex items-center space-x-4">
-                {!isMobile && renderLeftContent()}
-                {isMobile && variant === 'default' && (
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">RetroScope</h1>
-                )}
+                {renderLeftContent()}
             </div>
-            <div className="flex-grow flex">
+            <div className="flex-grow flex justify-center">
                 {children}
             </div>
             <div className="flex items-center space-x-2">
