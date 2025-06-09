@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import Retro from "./pages/Retro";
 import Teams from "./pages/Teams";
 import Team from "./pages/Team";
-import TeamSettings from "./pages/TeamSettings";
+import TeamSettingsPage from "./pages/TeamSettings";
 import Account from "./pages/Account";
 import InviteAccept from "./pages/InviteAccept";
 import NotFound from "./pages/NotFound";
@@ -38,7 +38,7 @@ const App = () => (
                 <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:teamId" element={<Team />} />
-                <Route path="/teams/:teamId/settings" element={<TeamSettings />} />
+                <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
                 <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/invite/:token" element={<InviteAccept />} />
