@@ -52,6 +52,41 @@ export const useAudioPlayer = () => {
         };
     }, []); // Empty dependency array ensures this runs only once.
 
+
+    const playAudioUrl = useCallback(async (audioUrl: string) => {
+        // const audio = audioRef.current;
+        // audio.src = audioUrl;
+        // await audio.play();
+        // setAudioState('playing');
+
+        try {
+            const audio = audioRef.current;
+            
+            // Create a new audio element to test the URL
+            const testAudio = new Audio();
+            testAudio.src = audioUrl;
+            
+            // Wait for the audio to be loaded and validated
+            await new Promise((resolve, reject) => {
+                testAudio.oncanplaythrough = resolve;
+                testAudio.onerror = (e) => {
+                    const mediaError = ((e as Event).target as HTMLAudioElement).error;
+                    reject(new Error(`Audio validation failed: ${mediaError?.message || 'Unknown error'}`));
+                };
+                testAudio.load();
+            });
+            
+            // If we get here, the audio is valid
+            audio.src = audioUrl;
+            await audio.play();
+            setAudioState('playing');
+        } catch (err) {
+            console.error('Error playing audio URL:', err);
+            setError(err instanceof Error ? err.message : 'Failed to play audio');
+            setAudioState('error');
+        }
+    }, []);
+
     const play = useCallback(async (text: string, options: { autoPlay?: boolean, cache?: boolean } = {}) => {
         const { autoPlay = true, cache = true } = options;
         const audio = audioRef.current;
@@ -141,5 +176,5 @@ export const useAudioPlayer = () => {
         setAudioState('idle');
     }, []);
 
-    return { play, pause, resume, stop, audioState, error };
+    return { play, playAudioUrl, pause, resume, stop, audioState, error };
 }; 
