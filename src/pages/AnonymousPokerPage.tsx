@@ -147,6 +147,7 @@ const AnonymousPokerPage: React.FC = () => {
                     session={session}
                     activeUserId={player.id}
                     {...pokerActions}
+                    presentUserIds={pokerActions.presentUserIds}
                 />
             </div>
         );

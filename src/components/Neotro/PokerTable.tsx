@@ -116,6 +116,14 @@ const PokerTable: React.FC<PokerTableProps> = ({
     }
   }
 
+  const handleAbstain = () => {
+    if (activeUserSelection.points === -1) {
+      updateUserSelection(1);
+    } else {
+      updateUserSelection(-1);
+    }
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -142,19 +150,10 @@ const PokerTable: React.FC<PokerTableProps> = ({
 
   if (isMobile) {
     return (
-      <div className={`poker-table relative flex flex-col h-full bg-gradient-to-br from-purple-400 via-pink-400 to-purple-600 ${shake ? 'screen-shake' : ''}`}>
+      <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
         {/* Mobile Header */}
-        <div className="flex items-center justify-between p-4 bg-black/10 backdrop-blur">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/')}
-            className="text-white hover:bg-white/20"
-          >
-            <Home className="h-5 w-5" />
-          </Button>
-          
-          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <div className="flex items-center justify-center p-4">
+          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
             <DrawerTrigger asChild>
               <Button 
                 variant="outline" 
@@ -228,7 +227,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
               onPointsIncrease={() => handlePointChange(true)}
               onLockIn={toggleLockUserSelection}
               isLockedIn={activeUserSelection.locked}
-              onAbstain={() => updateUserSelection(-1)}
+              onAbstain={handleAbstain}
               isAbstained={activeUserSelection.points === -1}
               isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
             />
@@ -293,7 +292,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 onPointsIncrease={() => handlePointChange(true)}
                 onLockIn={toggleLockUserSelection}
                 isLockedIn={activeUserSelection.locked}
-                onAbstain={() => updateUserSelection(-1)}
+                onAbstain={handleAbstain}
                 isAbstained={activeUserSelection.points === -1}
                 isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
               />
