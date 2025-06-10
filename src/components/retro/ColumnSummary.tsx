@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { Button } from '@/components/ui/button';
@@ -37,17 +37,22 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     audioSummaryState,
     updateAudioSummaryState,
 }) => {
-    const { play, pause, resume, audioState, stop, error } = useAudioPlayer();
+    const { pause, resume, audioState, stop, error, playAudioUrl } = useAudioPlayer();
     const { toast } = useToast();
+    const prevAudioState = useRef(audioState);
+
+    useEffect(() => {
+        prevAudioState.current = audioState;
+    }, [audioState]);
+
+
 
     const isThisColumnActive = audioSummaryState?.columnId === columnId;
 
     // This effect synchronizes remote actions to the local player
     useEffect(() => {
         if (!isThisColumnActive) {
-            if (audioState !== 'idle') {
-                stop();
-            }
+            // This logic is now handled by the explicit stop() call in handleStyleSelect
             return;
         }
 
@@ -65,16 +70,23 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
 
     // This effect handles the initial loading of the audio when a script is ready
     useEffect(() => {
-        if (isThisColumnActive && audioSummaryState?.status === 'ready' && audioSummaryState.script && audioState === 'idle') {
-            play(audioSummaryState.script, { autoPlay: true, cache: false });
-        }
-    }, [audioSummaryState, isThisColumnActive, audioState, play]);
+        // No auto-play when status is 'ready'. Only play on user action.
+    }, [audioSummaryState, isThisColumnActive, audioState, playAudioUrl]);
 
     // This effect cleans up the global state when audio ends or errors out
     useEffect(() => {
-        if (isThisColumnActive && (audioState === 'idle' || audioState === 'error')) {
-            if (audioSummaryState?.status === 'playing' || audioSummaryState?.status === 'paused' || audioSummaryState?.status === 'ready') {
-                if (audioSummaryState.script && audioSummaryState.script.startsWith('blob:')) {
+        if (isThisColumnActive &&
+            (audioState === 'idle' || audioState === 'error') &&
+            (prevAudioState.current === 'playing' || prevAudioState.current === 'paused')
+        ) {
+            if (
+                audioSummaryState?.status === 'playing' ||
+                audioSummaryState?.status === 'paused'
+            ) {
+                if (
+                    typeof audioSummaryState.script === 'string' &&
+                    audioSummaryState.script.startsWith('blob:')
+                ) {
                     URL.revokeObjectURL(audioSummaryState.script);
                 }
                 updateAudioSummaryState(null);
@@ -91,24 +103,37 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
             return;
         }
 
+        // Stop any currently playing audio before starting a new one.
+        stop();
+
         // Announce intent to generate
         updateAudioSummaryState({ columnId, status: 'generating' });
 
         try {
-            const { data, error } = await supabase.functions.invoke('generate-audio-summary', {
-                body: { items, columnTitle, style },
+            // Use fetch directly to get the audio as a blob
+            const session = (await supabase.auth.getSession()).data.session;
+            const response = await fetch(`https://nwfwbjmzbwuyxehindpv.supabase.co/functions/v1/generate-audio-summary`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                },
+                body: JSON.stringify({ items, columnTitle, style }),
             });
 
-            if (error) throw error;
-            if (!data || data.size === 0) throw new Error("The generated audio was empty.");
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
 
-            const audioUrl = URL.createObjectURL(data);
+            const audioBlob = await response.blob();
+            if (!audioBlob || audioBlob.size === 0) throw new Error("The generated audio was empty.");
 
-            // Announce that the audio is ready for all clients
-            updateAudioSummaryState({ columnId, status: 'ready', script: audioUrl });
+            // Store the audioBlob in state instead of the blob URL
+            updateAudioSummaryState({ columnId, status: 'ready', script: audioBlob });
 
-        } catch (error) {
-            console.error(`Error generating ${style} summary:`, error);
+        } catch (error: any) {
+            console.error('Error generating summary:', error);
             toast({
                 title: `Failed to generate ${style} summary`,
                 description: error.message,
@@ -119,43 +144,56 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
         }
     };
 
-    const handleTogglePlayPause = () => {
-        if (!isThisColumnActive) return;
-
-        const currentStatus = audioSummaryState?.status;
-        const script = audioSummaryState?.script;
-
-        if (currentStatus === 'paused' || currentStatus === 'ready') {
-            updateAudioSummaryState({ columnId, status: 'playing', script });
-        } else if (currentStatus === 'playing') {
-            updateAudioSummaryState({ columnId, status: 'paused', script });
-        }
-    };
-
+    // Determine the primary display mode based on local audio state and global active state
     const isLoading = isThisColumnActive && (audioSummaryState?.status === 'generating' || audioState === 'loading');
-    const isPlaying = isThisColumnActive && audioState === 'playing';
+    const isPlaying = isThisColumnActive && (audioState === 'playing' || audioSummaryState?.status === 'playing');
     const isPaused = isThisColumnActive && audioState === 'paused';
-    // The "ready" state is now purely when the player is loaded and paused.
-    const isReady = isThisColumnActive && isPaused;
-
+    const isReady = isThisColumnActive && audioSummaryState?.status === 'ready' && audioState === 'idle';
     const isAnyColumnActive = audioSummaryState !== null;
     const isDisabled = (isAnyColumnActive && !isThisColumnActive) || isLoading;
 
     const getButtonIcon = () => {
-        if (isLoading) return <Loader2 className="h-4 w-4 animate-spin" />;
-        if (isPlaying) return <Pause className="h-4 w-4" />;
-        if (isPaused) return <Play className="h-4 w-4" />;
-        // If we have a script but are paused, show play icon
-        if (isThisColumnActive && audioSummaryState?.script && audioState === 'paused') return <Play className="h-4 w-4" />;
-        return <Sparkles className="h-4 w-4" />;
+        if (isLoading) 
+            return (
+                <div className="relative z-10 flex items-center">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="ml-2 hidden sm:inline">Working...</span>
+                </div>
+            );
+        if (isPlaying) 
+            return (
+                <div className="relative z-10 flex items-center">
+                    <Pause className="h-4 w-4" />
+                    <span className="ml-2 hidden sm:inline">Pause</span>
+                </div>
+            );
+        if (isPaused)
+            return (
+                <div className="relative z-10 flex items-center">
+                    <Play className="h-4 w-4" />
+                    <span className="ml-2 hidden sm:inline">Resume</span>
+                </div>
+            ); 
+            if ( isReady) 
+            return (
+                <div className="relative z-10 flex items-center">
+                    <Play className="h-4 w-4" />
+                    <span className="ml-2 hidden sm:inline">Play Summary</span>
+                </div>
+            );
+        return (
+            <div className="relative z-10 flex items-center">
+                <Sparkles className="h-4 w-4" />
+                <span className="ml-2 hidden sm:inline">Summarize</span>
+            </div>
+        )
     };
 
     if (error) {
-        // Handle error state specifically
+        // Optionally render an error state here
     }
 
-    // Determine the primary display mode based on local audio state and global active state
-    if (isThisColumnActive && (isPlaying || isPaused || isLoading)) {
+    if ((isPlaying || isPaused || isLoading || ( audioSummaryState?.status === 'ready'))) {
         return (
             <div className="relative group">
                 <Button
@@ -165,19 +203,33 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
                         "h-8",
                         { "bg-purple-100 dark:bg-purple-800/20": isReady && !isPlaying }
                     )}
-                    onClick={handleTogglePlayPause}
+                    onClick={async () => {
+                        const currentStatus = audioSummaryState?.status;
+                        const script = audioSummaryState?.script;
+                        if (currentStatus === 'paused') {
+                            resume();
+                            updateAudioSummaryState({ columnId, status: 'playing', script });
+                        }
+                        else if (currentStatus === 'ready' && script instanceof Blob) {
+                            // Play audio if ready or paused and user clicks
+                            const audioUrl = URL.createObjectURL(script);
+                            await playAudioUrl(audioUrl);
+                            // Optionally update state to 'playing'
+                            updateAudioSummaryState({ columnId, status: 'playing', script });
+                        } else if (currentStatus === 'playing') {
+                            updateAudioSummaryState({ columnId, status: 'paused', script });
+                        }
+                    }}
                     disabled={isLoading}
                 >
-                    <div className="relative z-10 flex items-center">
-                        {getButtonIcon()}
-                        <span className="ml-2 hidden sm:inline">Summarize</span>
-                    </div>
+                    {getButtonIcon()}
                 </Button>
                 {isReady && !isPlaying && (
                     <div className="absolute inset-0 bg-white/10 dark:bg-white/5 animate-shine group-hover:animate-none -z-1" />
                 )}
             </div>
         );
+    } else {
     }
 
     // Default state: Dropdown menu to select a style
@@ -187,7 +239,6 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8" disabled={isDisabled}>
                         {getButtonIcon()}
-                        <span className="ml-2 hidden sm:inline">Summarize</span>
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -204,4 +255,4 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
             </DropdownMenu>
         </div>
     );
-}; 
+};

@@ -191,7 +191,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   }
 
   return (
-    <div className="relative">
+    <div className="relative pt-24 md:pt-0">
       <RetroBoard
         boardId={roomId}
         isPrivate={isPrivate}
