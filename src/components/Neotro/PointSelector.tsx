@@ -41,6 +41,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           {/* Left Arrow Button */}
           <button
             onClick={onPointsDecrease}
+            disabled={isAbstained || isLockedIn}
             className="bg-[#ff4c40ff] text-white text-3xl font-neotro cursor-pointer select-none selector-buttons shadow-[0px_6px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-xl mr-3"
           >
             <div className="p-3">&lt;</div>
@@ -67,7 +68,8 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           {/* Right Arrow Button */}
           <button
             onClick={onPointsIncrease}
-            className="bg-[#ff4c40ff] text-white text-3xl font-neotro rounded-xl cursor-pointer select-none ml-3 selector-buttons shadow-[0px_6px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
+            disabled={isAbstained || isLockedIn}
+            className="bg-[#ff4c40ff] text-white text-3xl font-neotro rounded-xl cursor-pointer select-none ml-3 selector-buttons shadow-[0px_6px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200"
           >
             <div className="p-3">&gt;</div>
           </button>
@@ -78,6 +80,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           <LockInButton
             onLockIn={onLockIn}
             isLockedIn={isLockedIn}
+            isDisabled={isAbstained}
           />
           <AbstainButton
             onAbstain={onAbstain}
@@ -102,12 +105,14 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           <LockInButton
             onLockIn={onLockIn}
             isLockedIn={isLockedIn}
+            isDisabled={isAbstained}
           />
         </div>
         {/* Left Arrow Button */}
         <button
           onClick={onPointsDecrease}
-          className="bg-[#ff4c40ff] text-white text-5xl font-neotro cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-2xl"
+          disabled={isAbstained || isLockedIn}
+          className="bg-[#ff4c40ff] text-white text-5xl font-neotro cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-2xl"
         >
           <div className="p-6">&lt;</div>
         </button>
@@ -132,7 +137,8 @@ const PointSelector: React.FC<PointSelectorProps> = ({
         {/* Right Arrow Button */}
         <button
           onClick={onPointsIncrease}
-          className="bg-[#ff4c40ff] text-white text-5xl font-neotro rounded-2xl cursor-pointer select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 disabled:bg-yellow-700 transition-colors duration-200"
+          disabled={isAbstained || isLockedIn}
+          className="bg-[#ff4c40ff] text-white text-5xl font-neotro rounded-2xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons shadow-[0px_8px_rgba(200,50,50,255)] hover:bg-red-600 active:bg-red-700 transition-colors duration-200"
         >
           <div className="p-6">&gt;</div>
         </button>

@@ -298,7 +298,7 @@ export const usePokerSession = (
     if (!session || !currentUserId) return;
     const currentSelections = session.selections;
     const userSelection = currentSelections[currentUserId];
-    if (userSelection) {
+    if (userSelection && userSelection.points !== -1) {
       const newSelection = { ...userSelection, locked: !userSelection.locked };
       const newSelections = {
         ...currentSelections,
