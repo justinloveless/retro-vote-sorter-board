@@ -27,7 +27,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pt-16 md:pt-0">
       <AppHeader />
 
       {/* Main Content */}
