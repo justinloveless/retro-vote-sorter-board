@@ -66,7 +66,7 @@ export type AudioSummaryStatus = 'generating' | 'ready' | 'playing' | 'paused';
 export interface AudioSummaryState {
   columnId: string;
   status: AudioSummaryStatus;
-  script?: string;
+  script?: string | Blob;
 }
 
 export const useRetroBoard = (roomId: string) => {

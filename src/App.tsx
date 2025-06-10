@@ -19,6 +19,7 @@ import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
+import { AudioPlayerProvider } from "./context/AudioPlayerContext";
 
 const queryClient = new QueryClient();
 
@@ -28,29 +29,31 @@ const App = () => (
       <BackgroundProvider>
         <FeatureFlagProvider>
           <TooltipProvider>
-            <GlobalBackground />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/retro/:roomId" element={<Retro />} />
-                <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
-                <Route path="/teams" element={<Teams />} />
-                <Route path="/teams/:teamId" element={<Team />} />
-                <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
-                <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
-                <Route path="/account" element={<Account />} />
-                <Route path="/invite/:token" element={<InviteAccept />} />
+            <AudioPlayerProvider>
+              <GlobalBackground />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/retro/:roomId" element={<Retro />} />
+                  <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
+                  <Route path="/teams" element={<Teams />} />
+                  <Route path="/teams/:teamId" element={<Team />} />
+                  <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
+                  <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
+                  <Route path="/account" element={<Account />} />
+                  <Route path="/invite/:token" element={<InviteAccept />} />
 
-                {/* Admin Routes */}
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminPage />} />
-                </Route>
+                  {/* Admin Routes */}
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminPage />} />
+                  </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </AudioPlayerProvider>
           </TooltipProvider>
         </FeatureFlagProvider>
       </BackgroundProvider>
