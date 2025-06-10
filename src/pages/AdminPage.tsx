@@ -10,7 +10,7 @@ const AdminPage: React.FC = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 pb-8 pt-16 md:pt-0">
             <div className="flex items-center gap-4 mb-8">
                 <div className="flex-1">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
