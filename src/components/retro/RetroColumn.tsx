@@ -12,6 +12,7 @@ import useFeatureFlags from '@/hooks/useFeatureFlags';
 import { PlayAudioButton } from './PlayAudioButton';
 import { ColumnSummary } from './ColumnSummary';
 import { AudioSummaryState } from '@/hooks/useRetroBoard';
+import { SummaryButton } from './SummaryButton';
 
 interface RetroItem {
   id: string;
@@ -152,15 +153,16 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && (
-              <ColumnSummary
-                key={`${column.id}-${audioSummaryState?.status}`}
-                items={items}
-                columnId={column.id}
-                columnTitle={column.title}
-                presenceChannel={presenceChannel}
-                audioSummaryState={audioSummaryState}
-                updateAudioSummaryState={updateAudioSummaryState}
-              />
+              <SummaryButton items={items} columnTitle={column.title} />
+              // <ColumnSummary
+              //   key={`${column.id}-${audioSummaryState?.status}`}
+              //   items={items}
+              //   columnId={column.id}
+              //   columnTitle={column.title}
+              //   presenceChannel={presenceChannel}
+              //   audioSummaryState={audioSummaryState}
+              //   updateAudioSummaryState={updateAudioSummaryState}
+              // />
             )}
             {!isAnonymousUser && (
               <>
