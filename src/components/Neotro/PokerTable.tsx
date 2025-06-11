@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -6,12 +7,13 @@ import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
+import { PokerSessionChat } from "@/components/Neotro/PokerSessionChat";
 import { PokerSession } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Home, Menu } from 'lucide-react';
+import { Home, Menu, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import "@/components/Neotro/neotro.css";
 
@@ -42,6 +44,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
   const [shake, setShake] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -186,35 +189,61 @@ const PokerTable: React.FC<PokerTableProps> = ({
       <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
         {/* Mobile Header with History Navigation */}
         <div className="flex flex-col items-center justify-center p-4 space-y-3">
-          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
-            <DrawerTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30"
-              >
-                <Menu className="h-4 w-4 mr-2" />
-                Show Details
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>Session Details</DrawerTitle>
-              </DrawerHeader>
-              <div className="p-4">
-                <PointsDetails
-                  selectedPoint={activeUserSelection.points}
-                  isHandPlayed={displaySession.game_state === 'Playing'}
-                  averagePoints={displaySession.average_points}
-                  ticketNumber={displayTicketNumber}
-                  onTicketNumberChange={handleTicketNumberChange}
-                  onTicketNumberFocus={handleTicketNumberFocus}
-                  onTicketNumberBlur={handleTicketNumberBlur}
-                  teamId={teamId}
-                />
-              </div>
-            </DrawerContent>
-          </Drawer>
+          <div className="flex gap-2">
+            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
+              <DrawerTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30"
+                >
+                  <Menu className="h-4 w-4 mr-2" />
+                  Details
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader>
+                  <DrawerTitle>Session Details</DrawerTitle>
+                </DrawerHeader>
+                <div className="p-4">
+                  <PointsDetails
+                    selectedPoint={activeUserSelection.points}
+                    isHandPlayed={displaySession.game_state === 'Playing'}
+                    averagePoints={displaySession.average_points}
+                    ticketNumber={displayTicketNumber}
+                    onTicketNumberChange={handleTicketNumberChange}
+                    onTicketNumberFocus={handleTicketNumberFocus}
+                    onTicketNumberBlur={handleTicketNumberBlur}
+                    teamId={teamId}
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
+
+            <Drawer open={isChatDrawerOpen} onOpenChange={setIsChatDrawerOpen}>
+              <DrawerTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Chat
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[80vh]">
+                <div className="h-full p-4">
+                  <PokerSessionChat
+                    sessionId={session.id}
+                    currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
+                    currentUserId={activeUserId}
+                    currentUserName={activeUserSelection.name}
+                    isViewingHistory={isViewingHistory}
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          </div>
 
           {/* History Navigation */}
           <HistoryNavigation
@@ -305,8 +334,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
 
       <div className="flex flex-1 min-h-0">
         <div className="w-1/4 p-4 flex flex-col">
-          <div className="flex-grow overflow-y-auto pr-2">
-            <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
+          <div className="flex-grow overflow-y-auto pr-2 space-y-4">
+            <div className="bg-card/25 border-l-10 border-r-10 border-primary p-4 rounded-lg">
               <PointsDetails
                 selectedPoint={activeUserSelection.points}
                 isHandPlayed={displaySession.game_state === 'Playing'}
@@ -331,8 +360,20 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Chat Component */}
+            <div className="bg-card/25 border-l-10 border-r-10 border-primary rounded-lg h-80">
+              <PokerSessionChat
+                sessionId={session.id}
+                currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
+                currentUserId={activeUserId}
+                currentUserName={activeUserSelection.name}
+                isViewingHistory={isViewingHistory}
+              />
+            </div>
           </div>
         </div>
+        
         <div className="w-3/4 flex flex-col p-4">
           <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
             <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
