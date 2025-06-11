@@ -47,9 +47,13 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || isViewingHistory) return;
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    const editor = quillRef.current?.getEditor();
+    const textContent = editor?.getText().trim() ?? '';
+    
+    if (!textContent || isViewingHistory) return;
 
     const processedMessage = newMessage.replace(/:(\w+):/g, (match, shortcode) => {
       const emojiChar = emoji.get(shortcode);
@@ -205,6 +209,18 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                 toolbar: false,
                 clipboard: {
                   matchVisual: false,
+                },
+                keyboard: {
+                  bindings: {
+                    enter: {
+                      key: 13,
+                      shiftKey: false,
+                      handler: () => {
+                        handleSendMessage();
+                        return false;
+                      }
+                    }
+                  }
                 }
               }}
               placeholder="Type a message..."
