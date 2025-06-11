@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+export interface ChatMessageReaction {
+  user_id: string;
+  user_name: string;
+  emoji: string;
+}
+
 export interface ChatMessage {
   id: string;
   session_id: string;
@@ -11,6 +17,10 @@ export interface ChatMessage {
   user_name: string;
   message: string;
   created_at: string;
+  reply_to_message_id?: string;
+  reply_to_message_user?: string;
+  reply_to_message_content?: string;
+  reactions: ChatMessageReaction[];
 }
 
 export const usePokerSessionChat = (
@@ -30,7 +40,7 @@ export const usePokerSessionChat = (
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('poker_session_chat')
+        .from('poker_session_chat_with_details')
         .select('*')
         .eq('session_id', sessionId)
         .eq('round_number', currentRoundNumber)
@@ -70,13 +80,103 @@ export const usePokerSessionChat = (
         filter: `session_id=eq.${sessionId}`,
       },
       (payload) => {
-        const newMessage = payload.new as ChatMessage;
-        // Only add messages for the current round
-        if (newMessage.round_number === currentRoundNumber) {
-          setMessages((prev) => [...prev, newMessage]);
-        }
+        const newMessageId = payload.new.id;
+        // The view won't be updated in time for the realtime message, so we fetch the details
+        supabase.from('poker_session_chat_with_details').select('*').eq('id', newMessageId).single()
+          .then(({ data: newMessageDetails, error }) => {
+            if (error) {
+              console.error('Error fetching new message details:', error);
+              // Fallback to the raw payload if details fetch fails
+              const newMessage = payload.new as ChatMessage;
+              if (newMessage.round_number === currentRoundNumber) {
+                setMessages((prev) => [...prev, { ...newMessage, reactions: [] }]);
+              }
+            } else if (newMessageDetails) {
+              const newMessage = newMessageDetails as ChatMessage;
+              if (newMessage.round_number === currentRoundNumber) {
+                setMessages((prev) => [...prev, newMessage]);
+              }
+            }
+          });
       }
     );
+
+    const reactionChannel = supabase.channel(`poker_chat_reactions:${sessionId}:${currentRoundNumber}`);
+    reactionChannel
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'poker_session_chat_message_reactions',
+        filter: `session_id=eq.${sessionId}`
+      }, 
+        (payload) => {
+          const newReaction = payload.new as { message_id: string; user_id: string; user_name: string; emoji: string };
+          setMessages(prevMessages => prevMessages.map(msg => {
+            if (msg.id === newReaction.message_id) {
+              // Avoid adding duplicate reactions from the user's own action
+              if (msg.reactions.some(r => r.user_id === newReaction.user_id && r.emoji === newReaction.emoji)) {
+                return msg;
+              }
+              const updatedReactions = [...msg.reactions, {
+                user_id: newReaction.user_id,
+                user_name: newReaction.user_name,
+                emoji: newReaction.emoji
+              }];
+              return { ...msg, reactions: updatedReactions };
+            }
+            return msg;
+          }));
+        }
+      )
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'poker_session_chat_message_reactions',
+        filter: `session_id=eq.${sessionId}`
+      },
+        (payload) => {
+          const updatedReaction = payload.new as { message_id: string; user_id: string; emoji: string; user_name: string };
+          setMessages(prevMessages => prevMessages.map(msg => {
+            if (msg.id === updatedReaction.message_id) {
+              const reactionExists = msg.reactions.some(r => r.user_id === updatedReaction.user_id);
+              let updatedReactions;
+              if (reactionExists) {
+                updatedReactions = msg.reactions.map(r => 
+                  r.user_id === updatedReaction.user_id ? { ...r, emoji: updatedReaction.emoji } : r
+                );
+              } else {
+                updatedReactions = [...msg.reactions, {
+                  user_id: updatedReaction.user_id,
+                  user_name: updatedReaction.user_name,
+                  emoji: updatedReaction.emoji
+                }];
+              }
+              return { ...msg, reactions: updatedReactions };
+            }
+            return msg;
+          }));
+        }
+      )
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'poker_session_chat_message_reactions',
+        filter: `session_id=eq.${sessionId}`
+      }, 
+        (payload) => {
+          const oldReaction = payload.old as { message_id: string; user_id: string; emoji: string };
+          setMessages(prevMessages => prevMessages.map(msg => {
+            if (msg.id === oldReaction.message_id) {
+              const updatedReactions = msg.reactions.filter(
+                r => !(r.user_id === oldReaction.user_id)
+              );
+              return { ...msg, reactions: updatedReactions };
+            }
+            return msg;
+          }));
+        }
+      )
+      .subscribe();
 
     channel.subscribe();
 
@@ -85,10 +185,11 @@ export const usePokerSessionChat = (
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      supabase.removeChannel(reactionChannel);
     };
   }, [sessionId, currentRoundNumber]);
 
-  const sendMessage = async (messageText: string) => {
+  const sendMessage = async (messageText: string, replyToMessageId?: string) => {
     if (!sessionId || !currentUserId || !currentUserName || !messageText.trim()) return;
 
     try {
@@ -100,6 +201,7 @@ export const usePokerSessionChat = (
           user_id: currentUserId,
           user_name: currentUserName,
           message: messageText.trim(),
+          reply_to_message_id: replyToMessageId,
         });
 
       if (error) {
@@ -113,6 +215,35 @@ export const usePokerSessionChat = (
       console.error('Error sending message:', error);
       toast({ title: 'Error sending message', variant: 'destructive' });
       return false;
+    }
+  };
+
+  const addReaction = async (messageId: string, emoji: string) => {
+    if (!currentUserId || !currentUserName || !sessionId) return;
+    const { error } = await supabase.from('poker_session_chat_message_reactions').upsert({
+      message_id: messageId,
+      user_id: currentUserId,
+      user_name: currentUserName,
+      emoji: emoji,
+      session_id: sessionId
+    }, {
+      onConflict: 'message_id,user_id'
+    });
+    if (error) {
+      console.error('Error adding reaction:', error);
+      toast({ title: 'Error adding reaction', variant: 'destructive' });
+    }
+  };
+
+  const removeReaction = async (messageId: string) => {
+    if (!currentUserId) return;
+    const { error } = await supabase.from('poker_session_chat_message_reactions').delete()
+      .eq('message_id', messageId)
+      .eq('user_id', currentUserId);
+
+    if (error) {
+      console.error('Error removing reaction:', error);
+      toast({ title: 'Error removing reaction', variant: 'destructive' });
     }
   };
 
@@ -154,6 +285,8 @@ export const usePokerSessionChat = (
     messages,
     loading,
     sendMessage,
+    addReaction,
+    removeReaction,
     fetchMessages,
     uploadImage,
   };
