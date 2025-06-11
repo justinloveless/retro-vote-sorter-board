@@ -237,9 +237,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
               {Object.entries(displaySession.selections).map(([userId, selection]) => (
                 <div key={userId} className="flex flex-col items-center">
                   <PlayingCard
-                    cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
-                    playerName={selection.name}
-                    pointsSelected={selection.points}
+                    cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
+                    playerName={(selection as any).name}
+                    pointsSelected={(selection as any).points}
                     isPresent={presentUserIds.includes(userId)}
                     totalPlayers={totalPlayers}
                   />
@@ -339,9 +339,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
               {Object.entries(displaySession.selections).map(([userId, selection]) => (
                 <PlayingCard
                   key={userId}
-                  cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
-                  playerName={selection.name}
-                  pointsSelected={selection.points}
+                  cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
+                  playerName={(selection as any).name}
+                  pointsSelected={(selection as any).points}
                   isPresent={presentUserIds.includes(userId)}
                   totalPlayers={totalPlayers}
                 />
