@@ -1,12 +1,17 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle, Smile } from 'lucide-react';
 import { usePokerSessionChat, ChatMessage } from '@/hooks/usePokerSessionChat';
 import { Badge } from '@/components/ui/badge';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import DOMPurify from 'dompurify';
+import linkifyHtml from 'linkify-html';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import * as emoji from 'node-emoji';
+import './PokerSessionChat.css';
 
 interface PokerSessionChatProps {
   sessionId: string | null;
@@ -24,8 +29,10 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   isViewingHistory,
 }) => {
   const [newMessage, setNewMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { messages, loading, sendMessage } = usePokerSessionChat(
+  const quillRef = useRef<ReactQuill>(null);
+  const { messages, loading, sendMessage, uploadImage } = usePokerSessionChat(
     sessionId,
     currentRoundNumber,
     currentUserId,
@@ -44,9 +51,57 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     e.preventDefault();
     if (!newMessage.trim() || isViewingHistory) return;
 
-    const success = await sendMessage(newMessage);
+    const processedMessage = newMessage.replace(/:(\w+):/g, (match, shortcode) => {
+      const emojiChar = emoji.get(shortcode);
+      return emojiChar || match;
+    });
+
+    const success = await sendMessage(processedMessage);
     if (success) {
       setNewMessage('');
+    }
+  };
+
+  const handlePaste = useCallback(async (event: ClipboardEvent) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill || !event.clipboardData) return;
+
+    const items = event.clipboardData.items;
+    const imageItem = Array.from(items).find(item => item.type.startsWith('image/'));
+
+    if (imageItem) {
+      event.preventDefault();
+      const file = imageItem.getAsFile();
+      if (!file || !uploadImage) return;
+      
+      const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+      const imageUrl = await uploadImage(file);
+
+      if (imageUrl) {
+        quill.insertEmbed(range.index, 'image', imageUrl);
+        quill.setSelection(range.index + 1, 0);
+      } else {
+        quill.insertText(range.index, ' [image upload failed] ');
+      }
+    }
+  }, [uploadImage]);
+
+  useEffect(() => {
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      quill.root.addEventListener('paste', handlePaste as EventListener);
+      return () => {
+        quill.root.removeEventListener('paste', handlePaste as EventListener);
+      };
+    }
+  }, [handlePaste]);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      const range = quill.getSelection(true);
+      quill.insertText(range.index, emojiData.emoji);
+      quill.setSelection(range.index + emojiData.emoji.length, 0);
     }
   };
 
@@ -59,6 +114,19 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   const renderMessage = (message: ChatMessage) => {
     const isCurrentUser = message.user_id === currentUserId;
+    const messageWithLinks = linkifyHtml(message.message, {
+      defaultProtocol: 'https',
+      target: {
+        url: '_blank',
+      },
+      validate: {
+        url: (value) => /^https?:\/\//.test(value),
+      }
+    });
+    const sanitizedMessage = DOMPurify.sanitize(messageWithLinks, {
+      ADD_TAGS: ['img'],
+      ADD_ATTR: ['src', 'alt', 'style'],
+    });
     
     return (
       <div
@@ -76,10 +144,22 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             <span className="text-xs font-medium">{message.user_name}</span>
             <span className="text-xs opacity-70">{formatTime(message.created_at)}</span>
           </div>
-          <p className="text-sm">{message.message}</p>
+          <div 
+            className="text-sm prose dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: sanitizedMessage }} 
+          />
         </div>
       </div>
     );
+  };
+
+  const quillModules = {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      ['link'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['clean']
+    ],
   };
 
   return (
@@ -115,21 +195,43 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
         </ScrollArea>
 
         {!isViewingHistory && (
-          <form onSubmit={handleSendMessage} className="flex gap-2 mt-3 pt-3 border-t">
-            <Input
+          <form onSubmit={handleSendMessage} className="relative flex items-center gap-2 mt-3 pt-3 border-t">
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={setNewMessage}
+              modules={{ 
+                toolbar: false,
+                clipboard: {
+                  matchVisual: false,
+                }
+              }}
               placeholder="Type a message..."
               className="flex-1"
-              maxLength={500}
             />
-            <Button 
-              type="submit" 
-              size="icon"
-              disabled={!newMessage.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              >
+                <Smile className="h-5 w-5" />
+              </Button>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!newMessage.trim() || newMessage === '<p><br></p>'}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            {showEmojiPicker && (
+              <div className="emoji-picker-container">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
           </form>
         )}
 

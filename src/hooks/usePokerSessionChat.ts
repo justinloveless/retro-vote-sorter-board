@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -117,10 +116,45 @@ export const usePokerSessionChat = (
     }
   };
 
+  const uploadImage = async (file: File): Promise<string | null> => {
+    if (!sessionId) {
+      toast({ title: 'Session ID is missing', variant: 'destructive' });
+      return null;
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${sessionId}/${currentRoundNumber}/${fileName}`;
+    const bucketName = 'poker-session-chat-images';
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      toast({ title: 'Failed to upload image', variant: 'destructive' });
+      return null;
+    }
+
+    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+
+    if (!data.publicUrl) {
+      toast({ title: 'Failed to get image URL', variant: 'destructive' });
+      return null;
+    }
+    
+    return data.publicUrl;
+  };
+
   return {
     messages,
     loading,
     sendMessage,
     fetchMessages,
+    uploadImage,
   };
 };
