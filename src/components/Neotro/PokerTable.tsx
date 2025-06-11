@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -334,7 +333,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
 
       <div className="flex flex-1 min-h-0">
         <div className="w-1/4 p-4 flex flex-col">
-          <div className="flex-grow overflow-y-auto pr-2 space-y-4">
+          <div className="flex-grow overflow-y-auto pr-2">
             <div className="bg-card/25 border-l-10 border-r-10 border-primary p-4 rounded-lg">
               <PointsDetails
                 selectedPoint={activeUserSelection.points}
@@ -360,21 +359,10 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Chat Component */}
-            <div className="bg-card/25 border-l-10 border-r-10 border-primary rounded-lg h-80">
-              <PokerSessionChat
-                sessionId={session.id}
-                currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
-                currentUserId={activeUserId}
-                currentUserName={activeUserSelection.name}
-                isViewingHistory={isViewingHistory}
-              />
-            </div>
           </div>
         </div>
         
-        <div className="w-3/4 flex flex-col p-4">
+        <div className="w-1/2 flex flex-col p-4">
           <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
             <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
               {Object.entries(displaySession.selections).map(([userId, selection]) => (
@@ -408,6 +396,17 @@ const PokerTable: React.FC<PokerTableProps> = ({
               </div>
             </div>
           )}
+        </div>
+        <div className="w-1/4 p-4 flex flex-col">
+            <div className="bg-card/25 border-l-10 border-r-10 border-primary rounded-lg h-full flex flex-col">
+              <PokerSessionChat
+                sessionId={session.id}
+                currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
+                currentUserId={activeUserId}
+                currentUserName={activeUserSelection.name}
+                isViewingHistory={isViewingHistory}
+              />
+            </div>
         </div>
       </div>
     </div>
