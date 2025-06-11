@@ -4,10 +4,16 @@ import { currentEnvironment } from '@/config/environment';
 
 export type AudioPlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
+interface PlayOptions {
+  autoPlay?: boolean;
+  cache?: boolean;
+}
+
 interface AudioPlayerContextType {
   audioState: AudioPlayerState;
   error: string | null;
   playAudioUrl: (audioUrl: string) => Promise<void>;
+  play: (text: string, options: PlayOptions) => Promise<void>;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -150,7 +156,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   return (
-    <AudioPlayerContext.Provider value={{ audioState, error, playAudioUrl, pause, resume, stop }}>
+    <AudioPlayerContext.Provider value={{ audioState, error, playAudioUrl, play, pause, resume, stop }}>
       {children}
     </AudioPlayerContext.Provider>
   );
