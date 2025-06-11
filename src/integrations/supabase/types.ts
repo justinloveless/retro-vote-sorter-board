@@ -121,9 +121,55 @@ export type Database = {
         }
         Relationships: []
       }
+      poker_session_rounds: {
+        Row: {
+          average_points: number
+          completed_at: string
+          created_at: string
+          id: string
+          round_number: number
+          selections: Json
+          session_id: string
+          ticket_number: string | null
+          ticket_title: string | null
+        }
+        Insert: {
+          average_points?: number
+          completed_at?: string
+          created_at?: string
+          id?: string
+          round_number: number
+          selections?: Json
+          session_id: string
+          ticket_number?: string | null
+          ticket_title?: string | null
+        }
+        Update: {
+          average_points?: number
+          completed_at?: string
+          created_at?: string
+          id?: string
+          round_number?: number
+          selections?: Json
+          session_id?: string
+          ticket_number?: string | null
+          ticket_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poker_session_rounds_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "poker_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poker_sessions: {
         Row: {
+          average_points: number
           created_at: string
+          current_round_number: number
           game_state: string
           id: string
           last_activity_at: string
@@ -135,7 +181,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          average_points?: number
           created_at?: string
+          current_round_number?: number
           game_state?: string
           id?: string
           last_activity_at?: string
@@ -147,7 +195,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          average_points?: number
           created_at?: string
+          current_round_number?: number
           game_state?: string
           id?: string
           last_activity_at?: string

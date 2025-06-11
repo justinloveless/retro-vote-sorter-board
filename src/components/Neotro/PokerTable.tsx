@@ -5,7 +5,9 @@ import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
+import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
 import { PokerSession } from '@/hooks/usePokerSession';
+import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -43,6 +45,28 @@ const PokerTable: React.FC<PokerTableProps> = ({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
+  // Use history hook
+  const {
+    rounds,
+    currentRound,
+    isViewingHistory,
+    canGoBack,
+    canGoForward,
+    goToPreviousRound,
+    goToNextRound,
+    goToCurrentRound,
+  } = usePokerSessionHistory(session?.id || null);
+
+  // Determine what data to display - history round or current session
+  const displaySession = isViewingHistory && currentRound ? {
+    ...session!,
+    selections: currentRound.selections,
+    average_points: currentRound.average_points,
+    ticket_number: currentRound.ticket_number,
+    ticket_title: currentRound.ticket_title,
+    game_state: 'Playing' as const, // History rounds are always in "played" state
+  } : session;
+
   // Debounce function
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
     let timeoutId: NodeJS.Timeout;
@@ -76,15 +100,18 @@ const PokerTable: React.FC<PokerTableProps> = ({
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
   const activeUserSelection = useMemo(() => {
-    if (session && activeUserId && session.selections[activeUserId]) {
-      return session.selections[activeUserId];
+    if (displaySession && activeUserId && displaySession.selections[activeUserId]) {
+      return displaySession.selections[activeUserId];
     }
     return { points: 0, locked: false, name: '' };
-  }, [session, activeUserId]);
+  }, [displaySession, activeUserId]);
 
-  const totalPlayers = session ? Object.keys(session.selections).length : 0;
+  const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
 
   const handlePointChange = (increment: boolean) => {
+    // Don't allow point changes when viewing history
+    if (isViewingHistory) return;
+    
     const currentIndex = pointOptions.indexOf(activeUserSelection.points);
     let newIndex = increment ? currentIndex + 1 : currentIndex - 1;
     if (newIndex < 0) newIndex = 0;
@@ -100,6 +127,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
   };
 
   const handleTicketNumberChange = (value: string) => {
+    // Don't allow ticket changes when viewing history
+    if (isViewingHistory) return;
+    
     setDisplayTicketNumber(value);
     debouncedUpdateTicketNumber(value);
   }
@@ -117,6 +147,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
   }
 
   const handleAbstain = () => {
+    // Don't allow abstain changes when viewing history
+    if (isViewingHistory) return;
+    
     if (activeUserSelection.points === -1) {
       updateUserSelection(1);
     } else {
@@ -151,8 +184,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
   if (isMobile) {
     return (
       <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
-        {/* Mobile Header */}
-        <div className="flex items-center justify-center p-4">
+        {/* Mobile Header with History Navigation */}
+        <div className="flex flex-col items-center justify-center p-4 space-y-3">
           <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
             <DrawerTrigger asChild>
               <Button 
@@ -171,8 +204,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
               <div className="p-4">
                 <PointsDetails
                   selectedPoint={activeUserSelection.points}
-                  isHandPlayed={session.game_state === 'Playing'}
-                  averagePoints={session.average_points}
+                  isHandPlayed={displaySession.game_state === 'Playing'}
+                  averagePoints={displaySession.average_points}
                   ticketNumber={displayTicketNumber}
                   onTicketNumberChange={handleTicketNumberChange}
                   onTicketNumberFocus={handleTicketNumberFocus}
@@ -182,6 +215,18 @@ const PokerTable: React.FC<PokerTableProps> = ({
               </div>
             </DrawerContent>
           </Drawer>
+
+          {/* History Navigation */}
+          <HistoryNavigation
+            currentRoundNumber={(currentRound?.round_number || session.current_round_number || 1)}
+            totalRounds={Math.max(rounds.length, session.current_round_number || 1)}
+            isViewingHistory={isViewingHistory}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            onPrevious={goToPreviousRound}
+            onNext={goToNextRound}
+            onGoToCurrent={goToCurrentRound}
+          />
         </div>
 
         {/* Mobile Main Content */}
@@ -189,10 +234,10 @@ const PokerTable: React.FC<PokerTableProps> = ({
           {/* Cards Area */}
           <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
             <div className={`grid ${getGridColumns(totalPlayers, true)} gap-2 max-w-full w-full justify-items-center`}>
-              {Object.entries(session.selections).map(([userId, selection]) => (
+              {Object.entries(displaySession.selections).map(([userId, selection]) => (
                 <div key={userId} className="flex flex-col items-center">
                   <PlayingCard
-                    cardState={session.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
+                    cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
                     playerName={selection.name}
                     pointsSelected={selection.points}
                     isPresent={presentUserIds.includes(userId)}
@@ -203,58 +248,10 @@ const PokerTable: React.FC<PokerTableProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex-shrink-0 mb-4">
-            <div className="flex gap-2 mb-4">
-              <PlayHandButton
-                onHandPlayed={playHand}
-                isHandPlayed={session.game_state === 'Playing'}
-              />
-              <NextRoundButton
-                onHandPlayed={nextRound}
-                isHandPlayed={session.game_state === 'Playing'}
-              />
-            </div>
-          </div>
-
-          {/* Mobile Point Selector */}
-          <div className="flex-shrink-0">
-            <PointSelector
-              pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
-              selectedPoints={activeUserSelection.points}
-              pointOptions={pointOptions}
-              onPointsDecrease={() => handlePointChange(false)}
-              onPointsIncrease={() => handlePointChange(true)}
-              onLockIn={toggleLockUserSelection}
-              isLockedIn={activeUserSelection.locked}
-              onAbstain={handleAbstain}
-              isAbstained={activeUserSelection.points === -1}
-              isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Desktop layout
-  return (
-    <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
-      <div className="flex flex-1 min-h-0">
-        <div className="w-1/4 p-4 flex flex-col">
-          <div className="flex-grow overflow-y-auto pr-2">
-            <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
-              <PointsDetails
-                selectedPoint={activeUserSelection.points}
-                isHandPlayed={session.game_state === 'Playing'}
-                averagePoints={session.average_points}
-                ticketNumber={displayTicketNumber}
-                onTicketNumberChange={handleTicketNumberChange}
-                onTicketNumberFocus={handleTicketNumberFocus}
-                onTicketNumberBlur={handleTicketNumberBlur}
-                teamId={teamId}
-              />
-              <div className="p-2 flex justify-between gap-2">
+          {/* Action Buttons - Only show if not viewing history */}
+          {!isViewingHistory && (
+            <div className="flex-shrink-0 mb-4">
+              <div className="flex gap-2 mb-4">
                 <PlayHandButton
                   onHandPlayed={playHand}
                   isHandPlayed={session.game_state === 'Playing'}
@@ -265,25 +262,11 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 />
               </div>
             </div>
-          </div>
-        </div>
-        <div className="w-3/4 flex flex-col p-4">
-          <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
-            <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
-              {Object.entries(session.selections).map(([userId, selection]) => (
-                <PlayingCard
-                  key={userId}
-                  cardState={session.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
-                  playerName={selection.name}
-                  pointsSelected={selection.points}
-                  isPresent={presentUserIds.includes(userId)}
-                  totalPlayers={totalPlayers}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex-shrink-0 flex items-center justify-center p-4">
-            <div>
+          )}
+
+          {/* Mobile Point Selector - Only show if not viewing history */}
+          {!isViewingHistory && (
+            <div className="flex-shrink-0">
               <PointSelector
                 pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
                 selectedPoints={activeUserSelection.points}
@@ -297,7 +280,93 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
               />
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout
+  return (
+    <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
+      {/* History Navigation for Desktop */}
+      <div className="p-4">
+        <HistoryNavigation
+          currentRoundNumber={(currentRound?.round_number || session.current_round_number || 1)}
+          totalRounds={Math.max(rounds.length, session.current_round_number || 1)}
+          isViewingHistory={isViewingHistory}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onPrevious={goToPreviousRound}
+          onNext={goToNextRound}
+          onGoToCurrent={goToCurrentRound}
+        />
+      </div>
+
+      <div className="flex flex-1 min-h-0">
+        <div className="w-1/4 p-4 flex flex-col">
+          <div className="flex-grow overflow-y-auto pr-2">
+            <div className="bg-card/25 h-full border-l-10 border-r-10 border-primary p-4 rounded-lg">
+              <PointsDetails
+                selectedPoint={activeUserSelection.points}
+                isHandPlayed={displaySession.game_state === 'Playing'}
+                averagePoints={displaySession.average_points}
+                ticketNumber={displayTicketNumber}
+                onTicketNumberChange={handleTicketNumberChange}
+                onTicketNumberFocus={handleTicketNumberFocus}
+                onTicketNumberBlur={handleTicketNumberBlur}
+                teamId={teamId}
+              />
+              {/* Action Buttons - Only show if not viewing history */}
+              {!isViewingHistory && (
+                <div className="p-2 flex justify-between gap-2">
+                  <PlayHandButton
+                    onHandPlayed={playHand}
+                    isHandPlayed={session.game_state === 'Playing'}
+                  />
+                  <NextRoundButton
+                    onHandPlayed={nextRound}
+                    isHandPlayed={session.game_state === 'Playing'}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+        <div className="w-3/4 flex flex-col p-4">
+          <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
+            <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
+              {Object.entries(displaySession.selections).map(([userId, selection]) => (
+                <PlayingCard
+                  key={userId}
+                  cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
+                  playerName={selection.name}
+                  pointsSelected={selection.points}
+                  isPresent={presentUserIds.includes(userId)}
+                  totalPlayers={totalPlayers}
+                />
+              ))}
+            </div>
+          </div>
+          {/* Point Selector - Only show if not viewing history */}
+          {!isViewingHistory && (
+            <div className="flex-shrink-0 flex items-center justify-center p-4">
+              <div>
+                <PointSelector
+                  pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                  selectedPoints={activeUserSelection.points}
+                  pointOptions={pointOptions}
+                  onPointsDecrease={() => handlePointChange(false)}
+                  onPointsIncrease={() => handlePointChange(true)}
+                  onLockIn={toggleLockUserSelection}
+                  isLockedIn={activeUserSelection.locked}
+                  onAbstain={handleAbstain}
+                  isAbstained={activeUserSelection.points === -1}
+                  isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
