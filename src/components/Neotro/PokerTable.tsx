@@ -246,8 +246,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
 
           {/* History Navigation */}
           <HistoryNavigation
-            currentRoundNumber={(currentRound?.round_number || session.current_round_number || 1)}
-            totalRounds={Math.max(rounds.length, session.current_round_number || 1)}
+            currentRoundNumber={currentRound?.round_number || 1}
+            totalRounds={rounds.length}
             isViewingHistory={isViewingHistory}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
@@ -314,14 +314,18 @@ const PokerTable: React.FC<PokerTableProps> = ({
     );
   }
 
+  console.log('rounds', rounds);
+  console.log('currentRound', currentRound);
+  console.log('session', session);
+  console.log('currentRound', currentRound);
   // Desktop layout
   return (
     <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
       {/* History Navigation for Desktop */}
       <div className="p-4">
         <HistoryNavigation
-          currentRoundNumber={(currentRound?.round_number || session.current_round_number || 1)}
-          totalRounds={Math.max(rounds.length, session.current_round_number || 1)}
+          currentRoundNumber={currentRound?.round_number || 1}
+          totalRounds={rounds.length}
           isViewingHistory={isViewingHistory}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
