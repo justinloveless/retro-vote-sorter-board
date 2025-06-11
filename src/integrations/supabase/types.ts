@@ -121,6 +121,44 @@ export type Database = {
         }
         Relationships: []
       }
+      poker_session_chat: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          round_number: number
+          session_id: string
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          round_number: number
+          session_id: string
+          user_id?: string | null
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          round_number?: number
+          session_id?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poker_session_chat_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "poker_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poker_session_rounds: {
         Row: {
           average_points: number
