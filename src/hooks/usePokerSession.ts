@@ -23,6 +23,8 @@ export interface PokerSession {
   game_state: GameState;
   average_points: number;
   ticket_number: string | null;
+  current_round_number?: number;
+  ticket_title?: string | null;
 }
 
 interface TeamMember {
@@ -346,6 +348,33 @@ export const usePokerSession = (
     }
   };
 
+  const saveRoundToHistory = async () => {
+    if (!session) return false;
+
+    try {
+      const { error } = await supabase
+        .from('poker_session_rounds')
+        .insert({
+          session_id: session.id,
+          round_number: session.current_round_number || 1,
+          selections: session.selections,
+          average_points: session.average_points,
+          ticket_number: session.ticket_number,
+          ticket_title: session.ticket_title,
+        });
+
+      if (error) {
+        console.error('Error saving round to history:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error saving round to history:', error);
+      return false;
+    }
+  };
+
   const playHand = async () => {
     if (!session) return;
 
@@ -392,6 +421,9 @@ export const usePokerSession = (
   const nextRound = async () => {
     if (!session) return;
 
+    // Save current round to history before starting next round
+    await saveRoundToHistory();
+
     const resetSelections: Selections = {};
     Object.keys(session.selections).forEach(userId => {
       resetSelections[userId] = {
@@ -401,11 +433,14 @@ export const usePokerSession = (
       };
     });
 
+    const newRoundNumber = (session.current_round_number || 1) + 1;
+
     const newState: Partial<PokerSession> = {
       selections: resetSelections,
       game_state: 'Selection',
       average_points: 0,
-      ticket_number: ''
+      ticket_number: '',
+      current_round_number: newRoundNumber
     };
 
     // Update local state immediately
@@ -428,4 +463,4 @@ export const usePokerSession = (
   };
 
   return { session, loading, updateUserSelection, toggleLockUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds };
-}; 
+};
