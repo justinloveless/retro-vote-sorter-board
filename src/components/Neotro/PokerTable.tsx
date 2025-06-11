@@ -398,7 +398,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
           )}
         </div>
         <div className="w-1/4 p-4 flex flex-col">
-            <div className="bg-card/25 border-l-10 border-r-10 border-primary rounded-lg h-full flex flex-col">
+            <div className=" rounded-lg h-full flex flex-col justify-end">
               <PokerSessionChat
                 sessionId={session.id}
                 currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
