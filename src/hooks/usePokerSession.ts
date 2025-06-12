@@ -322,6 +322,39 @@ export const usePokerSession = (
     }
   };
 
+  const toggleAbstainUserSelection = async () => {
+    if (!session || !currentUserId) return;
+    const currentSelections = session.selections;
+    const userSelection = currentSelections[currentUserId];
+
+    if (userSelection) {
+      const isCurrentlyAbstained = userSelection.points === -1;
+
+      const newSelection = { 
+        ...userSelection,
+        points: isCurrentlyAbstained ? 1 : -1, // If abstained, set points to 1. If not, set to -1.
+        locked: !isCurrentlyAbstained, // If abstained, unlock. If not, lock.
+      };
+      
+      const newSelections = {
+        ...currentSelections,
+        [currentUserId]: newSelection
+      };
+
+      // Update local state immediately for the current user
+      setSession({ ...session, selections: newSelections });
+      await updateSelections(newSelections);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'selection_update',
+          payload: { userId: currentUserId, selection: newSelection },
+        });
+      }
+    }
+  };
+
   const updateTicketNumber = async (ticketNumber: string) => {
     if (!session) return;
 
@@ -462,5 +495,5 @@ export const usePokerSession = (
     }
   };
 
-  return { session, loading, updateUserSelection, toggleLockUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds };
+  return { session, loading, updateUserSelection, toggleLockUserSelection, toggleAbstainUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds };
 };
