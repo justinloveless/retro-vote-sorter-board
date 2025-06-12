@@ -6,15 +6,15 @@ import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
-import { PokerSessionChat } from "@/components/Neotro/PokerSessionChat";
+import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerSession } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Home, Menu, MessageCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Menu, MessageCircle } from 'lucide-react';
 import "@/components/Neotro/neotro.css";
+import { useNavigate } from 'react-router-dom';
 
 interface PokerTableProps {
   session: PokerSession | null;
@@ -238,6 +238,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
                     currentUserId={activeUserId}
                     currentUserName={activeUserSelection.name}
                     isViewingHistory={isViewingHistory}
+                    isCollapsible={false}
                   />
                 </div>
               </DrawerContent>
@@ -314,10 +315,6 @@ const PokerTable: React.FC<PokerTableProps> = ({
     );
   }
 
-  console.log('rounds', rounds);
-  console.log('currentRound', currentRound);
-  console.log('session', session);
-  console.log('currentRound', currentRound);
   // Desktop layout
   return (
     <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
