@@ -15,6 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Menu, MessageCircle } from 'lucide-react';
 import "@/components/Neotro/neotro.css";
 import { useNavigate } from 'react-router-dom';
+import { PokerConfig, PokerSessionConfig } from './PokerConfig';
 
 interface PokerTableProps {
   session: PokerSession | null;
@@ -25,6 +26,8 @@ interface PokerTableProps {
   playHand: () => void;
   nextRound: () => void;
   updateTicketNumber: (ticketNumber: string) => void;
+  updateSessionConfig: (config: Partial<PokerSessionConfig>) => void;
+  deleteAllRounds: () => void;
   presentUserIds: string[];
   teamId?: string;
 }
@@ -38,6 +41,8 @@ const PokerTable: React.FC<PokerTableProps> = ({
   playHand,
   nextRound,
   updateTicketNumber,
+  updateSessionConfig,
+  deleteAllRounds,
   presentUserIds,
   teamId
 }) => {
@@ -232,6 +237,13 @@ const PokerTable: React.FC<PokerTableProps> = ({
                     onTicketNumberBlur={handleTicketNumberBlur}
                     teamId={teamId}
                   />
+                  <div className='flex justify-end pt-2'>
+                    <PokerConfig 
+                      config={session}
+                      onUpdateConfig={updateSessionConfig}
+                      onDeleteAllRounds={deleteAllRounds}
+                    />
+                  </div>
                 </div>
               </DrawerContent>
             </Drawer>
@@ -260,6 +272,11 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 </div>
               </DrawerContent>
             </Drawer>
+            <PokerConfig 
+              config={session}
+              onUpdateConfig={updateSessionConfig}
+              onDeleteAllRounds={deleteAllRounds}
+            />
           </div>
 
           {/* History Navigation */}
@@ -389,6 +406,13 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 onTicketNumberBlur={handleTicketNumberBlur}
                 teamId={teamId}
               />
+              <div className='flex justify-end pt-2'>
+                <PokerConfig 
+                  config={session}
+                  onUpdateConfig={updateSessionConfig}
+                  onDeleteAllRounds={deleteAllRounds}
+                />
+              </div>
               {/* Action Buttons - Only show if not viewing history */}
               {!isViewingHistory && (
                 <div className="p-2 flex justify-between gap-2">
