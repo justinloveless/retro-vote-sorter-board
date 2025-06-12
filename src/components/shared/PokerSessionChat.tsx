@@ -96,9 +96,8 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
-    // This logic would need to be adapted if we want to insert emojis into Tiptap
-    // For now, we keep it simple as it's for the main input emoji picker
-    console.log('Emoji clicked, but editor integration is needed', emojiData);
+    setNewMessage(newMessage + emojiData.emoji);
+    setShowEmojiPicker(false);
   };
 
   const handleReactionClick = (message: ChatMessage, emoji: string) => {

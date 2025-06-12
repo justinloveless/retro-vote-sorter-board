@@ -30,17 +30,13 @@ export const useSlackNotification = () => {
       });
 
       if (error) {
-        // console.error('Error sending Slack notification:', error);
         toast({
           title: "Slack notification failed",
           description: "The retro started but we couldn't send the Slack notification.",
           variant: "destructive",
         });
-      } else {
-        // console.log('Slack notification sent successfully');
-      }
+      } 
     } catch (error) {
-      // console.error('Error invoking Slack notification function:', error);
     }
   }, [toast]);
 

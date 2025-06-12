@@ -7,11 +7,6 @@ import { currentEnvironment } from '@/config/environment';
 const SUPABASE_URL = currentEnvironment.supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY = currentEnvironment.supabaseAnonKey;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Export environment info for debugging
 export const currentEnv = currentEnvironment.environment;
-// console.log(`Supabase client initialized for ${currentEnv} environment`);

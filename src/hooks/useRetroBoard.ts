@@ -279,10 +279,8 @@ export const useRetroBoard = (roomId: string) => {
         setActiveUsers(users);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        // console.log('User joined:', newPresences);
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        // console.log('User left:', leftPresences);
       })
       .on('broadcast', { event: 'audio-summary-state' }, ({ payload }) => {
         setAudioSummaryState(payload);
@@ -369,7 +367,6 @@ export const useRetroBoard = (roomId: string) => {
           event: 'INSERT',
           schema: 'public',
           table: 'retro_comments'
-          // We can't filter by board_id here, so we'll check in the handler
         },
         handleNewComment
       )
@@ -492,9 +489,6 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
-    } else if (newItem) {
-      // Realtime subscription handles this now
-      // setItems(prevItems => [...prevItems, newItem]);
     }
 
     // Update presence when adding item

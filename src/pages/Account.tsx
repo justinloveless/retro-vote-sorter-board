@@ -70,8 +70,6 @@ const Account = () => {
     return <AuthForm onAuthSuccess={() => window.location.reload()} />;
   }
 
-  // console.log('Account Page: profile', profile);
-
   return (
     <div className="min-h-screen pt-16 md:pt-0">
       <AppHeader variant="home" />
