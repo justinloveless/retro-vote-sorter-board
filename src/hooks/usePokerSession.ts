@@ -455,7 +455,12 @@ export const usePokerSession = (
     if (!session) return;
 
     // Save current round to history before starting next round
-    await saveRoundToHistory();
+    const saved = await saveRoundToHistory();
+    if (saved) {
+      // This part is a bit of a hack, we need a better way to trigger a refresh
+      // of the history hook.
+      window.dispatchEvent(new Event('round-ended'));
+    }
 
     const resetSelections: Selections = {};
     Object.keys(session.selections).forEach(userId => {
