@@ -32,7 +32,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
 
   if (isMobile) {
     return (
-      <div className="p-4 flex flex-col items-center justify-center font-['Press_Start_2P'] bg-black/20 backdrop-blur rounded-2xl">
+      <div className="p-4 flex flex-col items-center justify-center font-custom bg-black/20 backdrop-blur rounded-2xl">
         <div className="text-white text-2xl mb-4 font-neotro text-center">
           Your Points
         </div>
@@ -94,7 +94,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
 
   // Desktop layout (unchanged)
   return (
-    <div className="p-8 flex flex-col items-center justify-center font-['Press_Start_2P']">
+    <div className="p-8 flex flex-col items-center justify-center font-custom">
       <div className="text-foreground text-4xl mb-[4px] font-neotro">
         Your Points
       </div>
