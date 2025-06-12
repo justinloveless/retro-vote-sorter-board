@@ -7,7 +7,7 @@ import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
-import { PokerSession } from '@/hooks/usePokerSession';
+import { PokerSession, PlayerSelection } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
@@ -70,6 +70,32 @@ const PokerTable: React.FC<PokerTableProps> = ({
     ticket_title: currentRound.ticket_title,
     game_state: 'Playing' as const, // History rounds are always in "played" state
   } : session;
+
+  const cardGroups = useMemo(() => {
+    if (!displaySession || displaySession.game_state !== 'Playing') {
+      return null;
+    }
+
+    const selections = Object.entries(displaySession.selections);
+    
+    type SelectionWithUserId = PlayerSelection & { userId: string };
+
+    const groups = selections.reduce((acc, [userId, selection]) => {
+      const points = (selection as PlayerSelection).points;
+      if (!acc[points]) {
+        acc[points] = [];
+      }
+      acc[points].push({ userId, ...(selection as PlayerSelection) });
+      return acc;
+    }, {} as Record<number, SelectionWithUserId[]>);
+    
+    const sortedGroupKeys = Object.keys(groups).map(Number).sort((a, b) => a - b);
+    
+    return sortedGroupKeys.map(points => ({
+      points,
+      selections: groups[points],
+    }));
+  }, [displaySession]);
 
   // Debounce function
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
@@ -253,19 +279,45 @@ const PokerTable: React.FC<PokerTableProps> = ({
         <div className="flex-1 flex flex-col p-4">
           {/* Cards Area */}
           <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
-            <div className={`grid ${getGridColumns(totalPlayers, true)} gap-2 max-w-full w-full justify-items-center`}>
-              {Object.entries(displaySession.selections).map(([userId, selection]) => (
-                <div key={userId} className="flex flex-col items-center">
-                  <PlayingCard
-                    cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
-                    playerName={(selection as any).name}
-                    pointsSelected={(selection as any).points}
-                    isPresent={presentUserIds.includes(userId)}
-                    totalPlayers={totalPlayers}
-                  />
-                </div>
-              ))}
-            </div>
+            {displaySession.game_state === 'Playing' && cardGroups ? (
+              <div className="flex flex-wrap items-end justify-center gap-x-2 gap-y-4">
+                {cardGroups.map(({ points, selections }) => (
+                  <div key={points} className="flex flex-col items-center space-y-2">
+                    <div className="flex justify-center -space-x-10">
+                      {selections.map((selection, index) => (
+                        <div key={selection.userId} className="transition-transform transform hover:-translate-y-2"
+                          style={{ zIndex: selections.length - index }}>
+                          <PlayingCard
+                            cardState={CardState.Played}
+                            playerName={selection.name}
+                            pointsSelected={selection.points}
+                            isPresent={presentUserIds.includes(selection.userId)}
+                            totalPlayers={totalPlayers}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-center font-bold text-sm text-foreground bg-card/75 rounded-full px-3 py-1">
+                      {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={`grid ${getGridColumns(totalPlayers, true)} gap-2 max-w-full w-full justify-items-center`}>
+                {Object.entries(displaySession.selections).map(([userId, selection]) => (
+                  <div key={userId} className="flex flex-col items-center">
+                    <PlayingCard
+                      cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
+                      playerName={(selection as any).name}
+                      pointsSelected={(selection as any).points}
+                      isPresent={presentUserIds.includes(userId)}
+                      totalPlayers={totalPlayers}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons - Only show if not viewing history */}
@@ -356,18 +408,44 @@ const PokerTable: React.FC<PokerTableProps> = ({
         
         <div className="w-1/2 flex flex-col p-4">
           <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
-            <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
-              {Object.entries(displaySession.selections).map(([userId, selection]) => (
-                <PlayingCard
-                  key={userId}
-                  cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
-                  playerName={(selection as any).name}
-                  pointsSelected={(selection as any).points}
-                  isPresent={presentUserIds.includes(userId)}
-                  totalPlayers={totalPlayers}
-                />
-              ))}
-            </div>
+            {displaySession.game_state === 'Playing' && cardGroups ? (
+              <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-8">
+                {cardGroups.map(({ points, selections }) => (
+                  <div key={points} className="flex flex-col items-center space-y-2">
+                    <div className="flex justify-center -space-x-14">
+                      {selections.map((selection, index) => (
+                        <div key={selection.userId} className="transition-transform transform hover:-translate-y-4"
+                          style={{ zIndex: selections.length - index }}>
+                          <PlayingCard
+                            cardState={CardState.Played}
+                            playerName={selection.name}
+                            pointsSelected={selection.points}
+                            isPresent={presentUserIds.includes(selection.userId)}
+                            totalPlayers={totalPlayers}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-center font-bold text-lg text-foreground bg-card/75 rounded-full px-4 py-1">
+                      {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={`grid ${getGridColumns(totalPlayers, false)} gap-4 justify-items-center max-w-full`}>
+                {Object.entries(displaySession.selections).map(([userId, selection]) => (
+                  <PlayingCard
+                    key={userId}
+                    cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
+                    playerName={(selection as any).name}
+                    pointsSelected={(selection as any).points}
+                    isPresent={presentUserIds.includes(userId)}
+                    totalPlayers={totalPlayers}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           {/* Point Selector - Only show if not viewing history */}
           {!isViewingHistory && (
