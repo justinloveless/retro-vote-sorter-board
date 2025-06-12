@@ -73,11 +73,16 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
         }
       )
       .subscribe();
+    
+    // Listen for the custom event to refetch rounds
+    const handleRoundEnded = () => fetchRounds();
+    window.addEventListener('round-ended', handleRoundEnded);
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('round-ended', handleRoundEnded);
     };
-  }, [sessionId, fetchRounds]);
+  }, [sessionId]);
 
   const saveCurrentRound = async (
     sessionId: string,
