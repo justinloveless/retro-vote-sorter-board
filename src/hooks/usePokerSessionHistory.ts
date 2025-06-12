@@ -37,11 +37,9 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
         return;
       }
 
-      console.log('setting rounds', data);
       setRounds(data || []);
       // Set to the latest round by default
       if (data && data.length > 0) {
-        console.log('setting current round index to', data.length - 1);
         setCurrentRoundIndex(data.length - 1);
       }
     } catch (error) {
@@ -119,21 +117,18 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
 
   const goToPreviousRound = () => {
     if (currentRoundIndex > 0) {
-      console.log('going to previous round', currentRoundIndex - 1);
       setCurrentRoundIndex(currentRoundIndex - 1);
     }
   };
 
   const goToNextRound = () => {
     if (currentRoundIndex < rounds.length - 1) {
-      console.log('going to next round', currentRoundIndex + 1);
       setCurrentRoundIndex(currentRoundIndex + 1);
     }
   };
 
   const goToCurrentRound = () => {
     if (rounds.length > 0) {
-      console.log('going to current round', rounds.length - 1);
       setCurrentRoundIndex(rounds.length - 1);
     }
   };
