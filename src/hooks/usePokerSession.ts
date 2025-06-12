@@ -25,6 +25,8 @@ export interface PokerSession {
   ticket_number: string | null;
   current_round_number?: number;
   ticket_title?: string | null;
+  presence_enabled?: boolean;
+  send_to_slack?: boolean;
 }
 
 interface TeamMember {
@@ -45,6 +47,7 @@ export const usePokerSession = (
   const { toast } = useToast();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [presentUserIds, setPresentUserIds] = useState<string[]>([]);
+  const [allUserIds, setAllUserIds] = useState<string[]>([]);
 
   const manageSession = useCallback(async () => {
     if (!roomId || !currentUserId || !currentUserDisplayName) return;
@@ -118,6 +121,8 @@ export const usePokerSession = (
 
   useEffect(() => {
     if (!session || !currentUserId || !currentUserDisplayName) return;
+
+    const isPresenceEnabled = session.presence_enabled !== false;
 
     const channel = supabase.channel(`poker_session:${session.id}`, {
       config: {
@@ -217,24 +222,28 @@ export const usePokerSession = (
       }
     );
 
-    channel.on('presence', { event: 'sync' }, () => {
-      const presenceState = channel.presenceState();
-      const userIds = Object.keys(presenceState);
-      setPresentUserIds(userIds);
-    });
-
-    channel.on('presence', { event: 'join' }, ({ key }) => {
-      setPresentUserIds((prev) => [...new Set([...prev, key])]);
-    });
-
-    channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
-      const leavingKeys = leftPresences.map(p => p.key);
-      setPresentUserIds((prev) => prev.filter(id => !leavingKeys.includes(id)));
-    });
+    if (isPresenceEnabled) {
+      channel.on('presence', { event: 'sync' }, () => {
+        const presenceState = channel.presenceState();
+        const userIds = Object.keys(presenceState);
+        setPresentUserIds(userIds);
+      });
+  
+      channel.on('presence', { event: 'join' }, ({ key }) => {
+        setPresentUserIds((prev) => [...new Set([...prev, key])]);
+      });
+  
+      channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const leavingKeys = leftPresences.map(p => p.key);
+        setPresentUserIds((prev) => prev.filter(id => !leavingKeys.includes(id)));
+      });
+    }
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        await channel.track({ user_id: currentUserId });
+        if (isPresenceEnabled) {
+          await channel.track({ user_id: currentUserId });
+        }
 
         // Announce that this user has joined
         await channel.send({
@@ -251,7 +260,17 @@ export const usePokerSession = (
         channelRef.current = null;
       }
     };
-  }, [session, currentUserId, currentUserDisplayName]);
+  }, [session?.id, session?.presence_enabled, currentUserId, currentUserDisplayName]);
+
+  useEffect(() => {
+    if (session) {
+      const userIds = Object.keys(session.selections);
+      setAllUserIds(userIds);
+      if (session.presence_enabled === false) {
+        setPresentUserIds(userIds);
+      }
+    }
+  }, [session?.selections, session?.presence_enabled]);
 
   const updateSelections = async (newSelections: Selections) => {
     if (!session) return;
@@ -352,6 +371,19 @@ export const usePokerSession = (
           payload: { userId: currentUserId, selection: newSelection },
         });
       }
+    }
+  };
+
+  const updateSessionConfig = async (newConfig: { presence_enabled?: boolean; send_to_slack?: boolean; }) => {
+    if (!session) return;
+    const { error } = await supabase
+      .from('poker_sessions')
+      .update(newConfig)
+      .eq('id', session.id);
+
+    if (error) {
+      console.error('Error updating session config', error);
+      toast({ title: 'Error updating session config', variant: 'destructive' });
     }
   };
 
@@ -500,5 +532,22 @@ export const usePokerSession = (
     }
   };
 
-  return { session, loading, updateUserSelection, toggleLockUserSelection, toggleAbstainUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds };
+  const deleteAllRounds = async () => {
+    if (!session) return;
+
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .delete()
+      .eq('session_id', session.id);
+
+    if (error) {
+      console.error('Error deleting rounds', error);
+      toast({ title: 'Error deleting rounds', variant: 'destructive' });
+    } else {
+      toast({ title: 'All previous rounds have been deleted.' });
+      window.dispatchEvent(new Event('rounds-deleted'));
+    }
+  };
+
+  return { session, loading, updateUserSelection, toggleLockUserSelection, toggleAbstainUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds: session?.presence_enabled === false ? allUserIds : presentUserIds, updateSessionConfig, deleteAllRounds };
 };

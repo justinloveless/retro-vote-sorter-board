@@ -41,6 +41,9 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
       // Set to the latest round by default
       if (data && data.length > 0) {
         setCurrentRoundIndex(data.length - 1);
+      } else {
+        // If no rounds, reset index
+        setCurrentRoundIndex(0);
       }
     } catch (error) {
       console.error('Error fetching rounds:', error);
@@ -78,9 +81,13 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
     const handleRoundEnded = () => fetchRounds();
     window.addEventListener('round-ended', handleRoundEnded);
 
+    const handleRoundsDeleted = () => fetchRounds();
+    window.addEventListener('rounds-deleted', handleRoundsDeleted);
+
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('round-ended', handleRoundEnded);
+      window.removeEventListener('rounds-deleted', handleRoundsDeleted);
     };
   }, [sessionId]);
 
