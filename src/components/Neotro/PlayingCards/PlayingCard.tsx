@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
-import Tooltip from "./Tooltip";
 import { getCardImage } from "./cardImage";
 import backCardImage from "@/assets/Card_Back.png";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -44,8 +43,6 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [translateY, setTranslateY] = useState("translate-y-0");
-  const [isHovered, setIsHovered] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom'>('top');
   const isMobile = useIsMobile();
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +53,6 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 
   useEffect(() => {
     let flipDelay: NodeJS.Timeout | null = null;
-    console.log(`Card state changed to: ${cardState}`);
     if (cardState === CardState.Selection) {
       // When going back to Selection, flip first then translate
       setIsFlipped(false);
@@ -83,26 +79,6 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
     };
   }, [cardState, isMobile, totalPlayers]);
 
-  const handleMouseEnter = () => {
-    if (isMobile) return;
-    setIsHovered(true);
-    
-    // Check if there's enough space above the card for the tooltip
-    if (cardRef.current) {
-      const rect = cardRef.current.getBoundingClientRect();
-      const tooltipHeight = 120; // Approximate tooltip height
-      const spaceAbove = rect.top;
-      
-      // If there's not enough space above, position tooltip below
-      setTooltipPosition(spaceAbove < tooltipHeight ? 'bottom' : 'top');
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (isMobile) return;
-    setIsHovered(false);
-  };
-
   return (
     <div
       ref={cardRef}
@@ -111,33 +87,14 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
       }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
-      {isMobile ? (
-        <div className="absolute top-full w-full pt-1">
-          <div className="flex items-center justify-center">
-            <div className="text-center bg-gray-800 text-white text-xs rounded-full px-2 py-1 truncate max-w-full" style={{ backdropFilter: 'blur(2px)' }}>
-              {playerName}
-            </div>
+      <div className="absolute top-full w-full pt-1">
+        <div className="flex items-center justify-center">
+          <div className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full" style={{ backdropFilter: 'blur(2px)' }}>
+            {playerName}
           </div>
         </div>
-      ) : (
-        isHovered && (
-          <div
-            className={`absolute left-1/2 -translate-x-1/2 z-10 ${
-              tooltipPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
-            }`}
-          >
-            <Tooltip
-              playerName={playerName}
-              cardState={cardState}
-              pointsSelected={pointsSelected}
-              isPointing={cardState !== CardState.Locked}
-            />
-          </div>
-        )
-      )}
+      </div>
       <ReactCardFlip
         isFlipped={isFlipped}
         flipDirection="horizontal"
