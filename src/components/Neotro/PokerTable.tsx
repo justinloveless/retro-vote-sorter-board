@@ -21,6 +21,7 @@ interface PokerTableProps {
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
   toggleLockUserSelection: () => void;
+  toggleAbstainUserSelection: () => void;
   playHand: () => void;
   nextRound: () => void;
   updateTicketNumber: (ticketNumber: string) => void;
@@ -33,6 +34,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
   activeUserId,
   updateUserSelection,
   toggleLockUserSelection,
+  toggleAbstainUserSelection,
   playHand,
   nextRound,
   updateTicketNumber,
@@ -147,17 +149,6 @@ const PokerTable: React.FC<PokerTableProps> = ({
       updateTicketNumber(displayTicketNumber);
     }
   }
-
-  const handleAbstain = () => {
-    // Don't allow abstain changes when viewing history
-    if (isViewingHistory) return;
-    
-    if (activeUserSelection.points === -1) {
-      updateUserSelection(1);
-    } else {
-      updateUserSelection(-1);
-    }
-  };
 
   if (!session) {
     return (
@@ -304,9 +295,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
                 onPointsIncrease={() => handlePointChange(true)}
                 onLockIn={toggleLockUserSelection}
                 isLockedIn={activeUserSelection.locked}
-                onAbstain={handleAbstain}
+                onAbstain={toggleAbstainUserSelection}
                 isAbstained={activeUserSelection.points === -1}
-                isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
+                isAbstainedDisabled={session.game_state === 'Playing'}
               />
             </div>
           )}
@@ -390,9 +381,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
                   onPointsIncrease={() => handlePointChange(true)}
                   onLockIn={toggleLockUserSelection}
                   isLockedIn={activeUserSelection.locked}
-                  onAbstain={handleAbstain}
+                  onAbstain={toggleAbstainUserSelection}
                   isAbstained={activeUserSelection.points === -1}
-                  isAbstainedDisabled={session.game_state === 'Playing' || activeUserSelection.locked}
+                  isAbstainedDisabled={session.game_state === 'Playing'}
                 />
               </div>
             </div>
