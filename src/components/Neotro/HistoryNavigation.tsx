@@ -26,7 +26,6 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
   onGoToCurrent,
 }) => {
   const isMobile = useIsMobile();
-  console.log('totalRounds', totalRounds);
 
   if (totalRounds <= 1) return null;
 
