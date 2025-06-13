@@ -12,10 +12,13 @@ import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Menu, MessageCircle } from 'lucide-react';
+import { Menu, MessageCircle, Send } from 'lucide-react';
 import "@/components/Neotro/neotro.css";
 import { useNavigate } from 'react-router-dom';
 import { PokerConfig, PokerSessionConfig } from './PokerConfig';
+import { useSlackIntegration } from '@/hooks/useSlackIntegration';
+import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
+import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 
 interface PokerTableProps {
   session: PokerSession | null;
@@ -53,6 +56,9 @@ const PokerTable: React.FC<PokerTableProps> = ({
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { isSlackInstalled } = useSlackIntegration(teamId);
+  const { sendPokerRoundToSlack } = usePokerSlackNotification();
+  const [isSending, setIsSending] = useState(false);
 
   // Use history hook
   const {
@@ -66,6 +72,32 @@ const PokerTable: React.FC<PokerTableProps> = ({
     goToCurrentRound,
   } = usePokerSessionHistory(session?.id || null);
 
+  // Use chat hook for the displayed round
+  const { messages: chatMessagesForRound } = usePokerSessionChat(
+    session?.id || null,
+    currentRound?.round_number || session?.current_round_number || 1,
+    activeUserId,
+    session?.selections[activeUserId]?.name
+  );
+  console.log('session', session);
+  console.log('activeUserId', activeUserId);
+  console.log('session?.selections[activeUserId]', session?.selections[activeUserId]);
+
+  const handleSendToSlack = async () => {
+    if (!session || !teamId) return;
+    setIsSending(true);
+    console.log('chatMessagesForRound', chatMessagesForRound);
+    await sendPokerRoundToSlack(
+      teamId,
+      session.ticket_number,
+      session.ticket_title,
+      session.selections,
+      session.average_points,
+      chatMessagesForRound?.map(m => ({ user_name: m.user_name, message: m.message }))
+    );
+    setIsSending(false);
+  };
+
   // Determine what data to display - history round or current session
   const displaySession = isViewingHistory && currentRound ? {
     ...session!,
@@ -74,6 +106,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
     ticket_number: currentRound.ticket_number,
     ticket_title: currentRound.ticket_title,
     game_state: 'Playing' as const, // History rounds are always in "played" state
+    current_round_number: currentRound.round_number,
   } : session;
 
   const cardGroups = useMemo(() => {
@@ -242,8 +275,21 @@ const PokerTable: React.FC<PokerTableProps> = ({
                       config={session}
                       onUpdateConfig={updateSessionConfig}
                       onDeleteAllRounds={deleteAllRounds}
+                      isSlackIntegrated={isSlackInstalled}
                     />
                   </div>
+                  {displaySession.game_state === 'Playing' && (
+                    <div className="pt-4">
+                      <Button 
+                        onClick={handleSendToSlack} 
+                        disabled={!isSlackInstalled || isSending}
+                        className="w-full"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {isSending ? 'Sending...' : 'Send to Slack'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </DrawerContent>
             </Drawer>
@@ -276,6 +322,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
               config={session}
               onUpdateConfig={updateSessionConfig}
               onDeleteAllRounds={deleteAllRounds}
+              isSlackIntegrated={isSlackInstalled}
             />
           </div>
 
@@ -411,6 +458,7 @@ const PokerTable: React.FC<PokerTableProps> = ({
                   config={session}
                   onUpdateConfig={updateSessionConfig}
                   onDeleteAllRounds={deleteAllRounds}
+                  isSlackIntegrated={isSlackInstalled}
                 />
               </div>
               {/* Action Buttons - Only show if not viewing history */}
@@ -424,6 +472,18 @@ const PokerTable: React.FC<PokerTableProps> = ({
                     onHandPlayed={nextRound}
                     isHandPlayed={session.game_state === 'Playing'}
                   />
+                </div>
+              )}
+              {displaySession.game_state === 'Playing' && (
+                <div className="pt-2 px-2">
+                  <Button 
+                    onClick={handleSendToSlack} 
+                    disabled={!isSlackInstalled || isSending}
+                    className="w-full"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {isSending ? 'Sending...' : 'Send to Slack'}
+                  </Button>
                 </div>
               )}
             </div>

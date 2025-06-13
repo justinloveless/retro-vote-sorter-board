@@ -13,12 +13,13 @@ export interface PokerSessionConfig {
 }
 
 interface PokerConfigProps {
-  config: Partial<PokerSessionConfig> | null;
+  config: Partial<PokerSessionConfig> & { room_id?: string | null };
   onUpdateConfig: (config: Partial<PokerSessionConfig>) => void;
   onDeleteAllRounds: () => void;
+  isSlackIntegrated: boolean;
 }
 
-export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig, onDeleteAllRounds }) => {
+export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig, onDeleteAllRounds, isSlackIntegrated }) => {
   const [localConfig, setLocalConfig] = useState<Partial<PokerSessionConfig>>(config || {});
   const [open, setOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -82,7 +83,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig
                   id="send-to-slack"
                   checked={localConfig.send_to_slack ?? false}
                   onCheckedChange={(checked) => handleConfigChange('send_to_slack', checked)}
-                  disabled={true}
+                  disabled={!isSlackIntegrated}
                 />
               </div>
             </CardContent>

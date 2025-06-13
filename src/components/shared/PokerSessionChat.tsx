@@ -88,7 +88,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   const handleSendMessage = async () => {
     if (!newMessage.trim() || newMessage === '<p></p>' || isViewingHistory) return;
 
-    const success = await sendMessage(newMessage, replyingTo?.id);
+    const success = await sendMessage(newMessage, currentRoundNumber, replyingTo?.id);
     if (success) {
       setNewMessage('');
       setReplyingTo(null);
