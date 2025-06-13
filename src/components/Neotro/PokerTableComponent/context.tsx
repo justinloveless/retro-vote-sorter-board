@@ -1,0 +1,275 @@
+import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { PokerSession, PlayerSelection } from '@/hooks/usePokerSession';
+import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
+import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
+import { useSlackIntegration } from '@/hooks/useSlackIntegration';
+import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
+import { PokerSessionConfig } from '../PokerConfig';
+import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
+
+interface PokerTableContextProps {
+  session: PokerSession | null;
+  activeUserId: string | undefined;
+  updateUserSelection: (points: number) => void;
+  toggleLockUserSelection: () => void;
+  toggleAbstainUserSelection: () => void;
+  playHand: () => void;
+  nextRound: () => void;
+  updateTicketNumber: (ticketNumber: string) => void;
+  updateSessionConfig: (config: Partial<PokerSessionConfig>) => void;
+  deleteAllRounds: () => void;
+  presentUserIds: string[];
+  teamId?: string;
+  isMobile: boolean;
+
+  // Derived state and handlers
+  displayTicketNumber: string;
+  isTicketInputFocused: boolean;
+  shake: boolean;
+  isDrawerOpen: boolean;
+  isChatDrawerOpen: boolean;
+  isSending: boolean;
+  isSlackInstalled: boolean;
+  rounds: ReturnType<typeof usePokerSessionHistory>['rounds'];
+  currentRound: ReturnType<typeof usePokerSessionHistory>['currentRound'];
+  isViewingHistory: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  goToPreviousRound: () => void;
+  goToNextRound: () => void;
+  goToCurrentRound: () => void;
+  chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
+  handleSendToSlack: () => Promise<void>;
+  displaySession: PokerSession | null;
+  cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
+  activeUserSelection: PlayerSelection & { points: number; locked: boolean; name: string; };
+  totalPlayers: number;
+  pointOptions: number[];
+  handlePointChange: (increment: boolean) => void;
+  handleTicketNumberChange: (value: string) => void;
+  handleTicketNumberFocus: () => void;
+  handleTicketNumberBlur: () => void;
+  setDisplayTicketNumber: React.Dispatch<React.SetStateAction<string>>;
+  setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsChatDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const PokerTableContext = createContext<PokerTableContextProps | null>(null);
+
+export const usePokerTable = () => {
+  const context = useContext(PokerTableContext);
+  if (!context) {
+    throw new Error('usePokerTable must be used within a PokerTableProvider');
+  }
+  return context;
+};
+
+interface PokerTableProviderProps {
+  children: React.ReactNode;
+  session: PokerSession | null;
+  activeUserId: string | undefined;
+  updateUserSelection: (points: number) => void;
+  toggleLockUserSelection: () => void;
+  toggleAbstainUserSelection: () => void;
+  playHand: () => void;
+  nextRound: () => void;
+  updateTicketNumber: (ticketNumber: string) => void;
+  updateSessionConfig: (config: Partial<PokerSessionConfig>) => void;
+  deleteAllRounds: () => void;
+  presentUserIds: string[];
+  teamId?: string;
+  isMobile: boolean;
+}
+
+export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
+  const { 
+    session, activeUserId, updateUserSelection, teamId, isMobile,
+    toggleLockUserSelection, toggleAbstainUserSelection, playHand,
+    nextRound, updateTicketNumber
+  } = props;
+
+  const [displayTicketNumber, setDisplayTicketNumber] = useState('');
+  const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  const { isSlackInstalled } = useSlackIntegration(teamId);
+  const { sendPokerRoundToSlack } = usePokerSlackNotification();
+
+  const {
+    rounds,
+    currentRound,
+    isViewingHistory,
+    canGoBack,
+    canGoForward,
+    goToPreviousRound,
+    goToNextRound,
+    goToCurrentRound,
+  } = usePokerSessionHistory(session?.id || null);
+
+  const { messages: chatMessagesForRound } = usePokerSessionChat(
+    session?.id || null,
+    currentRound?.round_number || session?.current_round_number || 1,
+    activeUserId,
+    session?.selections[activeUserId || '']?.name
+  );
+
+  const handleSendToSlack = async () => {
+    if (!session || !teamId) return;
+    setIsSending(true);
+    await sendPokerRoundToSlack(
+      teamId,
+      session.ticket_number,
+      session.ticket_title,
+      session.selections,
+      session.average_points,
+      chatMessagesForRound?.map(m => ({ user_name: m.user_name, message: m.message }))
+    );
+    setIsSending(false);
+  };
+
+  const displaySession = useMemo(() => {
+    if (isViewingHistory && currentRound) {
+      return {
+        ...session!,
+        selections: currentRound.selections,
+        average_points: currentRound.average_points,
+        ticket_number: currentRound.ticket_number,
+        ticket_title: currentRound.ticket_title,
+        game_state: 'Playing' as const,
+        current_round_number: currentRound.round_number,
+      };
+    }
+    return session;
+  }, [isViewingHistory, currentRound, session]);
+
+  const cardGroups = useMemo(() => {
+    if (!displaySession || displaySession.game_state !== 'Playing') {
+      return null;
+    }
+    const selections = Object.entries(displaySession.selections);
+    type SelectionWithUserId = PlayerSelection & { userId: string };
+    const groups = selections.reduce((acc, [userId, selection]) => {
+      const points = (selection as PlayerSelection).points;
+      if (!acc[points]) {
+        acc[points] = [];
+      }
+      acc[points].push({ userId, ...(selection as PlayerSelection) });
+      return acc;
+    }, {} as Record<number, SelectionWithUserId[]>);
+    const sortedGroupKeys = Object.keys(groups).map(Number).sort((a, b) => a - b);
+    return sortedGroupKeys.map(points => ({
+      points,
+      selections: groups[points],
+    }));
+  }, [displaySession]);
+
+  const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    const debouncedFunc = (...args: Parameters<F>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        func(...args);
+      }, delay);
+    };
+    debouncedFunc.cancel = () => {
+      clearTimeout(timeoutId);
+    };
+    return debouncedFunc;
+  };
+
+  const debouncedUpdateTicketNumber = useCallback(
+    debounce((value: string) => {
+      updateTicketNumber(value);
+    }, 500),
+    [updateTicketNumber]
+  );
+
+  React.useEffect(() => {
+    if (session?.ticket_number && !isTicketInputFocused) {
+      setDisplayTicketNumber(session.ticket_number);
+    }
+  }, [session?.ticket_number, isTicketInputFocused]);
+
+  const pointOptions = [1, 2, 3, 5, 8, 13, 21];
+
+  const activeUserSelection = useMemo(() => {
+    if (displaySession && activeUserId && displaySession.selections[activeUserId]) {
+      return displaySession.selections[activeUserId];
+    }
+    return { points: 0, locked: false, name: '' };
+  }, [displaySession, activeUserId]);
+
+  const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
+
+  const handlePointChange = (increment: boolean) => {
+    if (isViewingHistory) return;
+    const currentIndex = pointOptions.indexOf(activeUserSelection.points);
+    let newIndex = increment ? currentIndex + 1 : currentIndex - 1;
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex >= pointOptions.length) {
+      newIndex = pointOptions.length - 1;
+      if (increment) {
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+      }
+    }
+    updateUserSelection(pointOptions[newIndex]);
+  };
+
+  const handleTicketNumberChange = (value: string) => {
+    if (isViewingHistory) return;
+    setDisplayTicketNumber(value);
+    debouncedUpdateTicketNumber(value);
+  }
+
+  const handleTicketNumberFocus = () => {
+    setIsTicketInputFocused(true);
+  }
+
+  const handleTicketNumberBlur = () => {
+    setIsTicketInputFocused(false);
+    debouncedUpdateTicketNumber.cancel();
+    if (session && displayTicketNumber !== session.ticket_number) {
+      updateTicketNumber(displayTicketNumber);
+    }
+  }
+
+  const value: PokerTableContextProps = {
+    ...props,
+    isMobile,
+    displayTicketNumber,
+    isTicketInputFocused,
+    shake,
+    isDrawerOpen,
+    isChatDrawerOpen,
+    isSending,
+    isSlackInstalled,
+    rounds,
+    currentRound,
+    isViewingHistory,
+    canGoBack,
+    canGoForward,
+    goToPreviousRound,
+    goToNextRound,
+    goToCurrentRound,
+    chatMessagesForRound,
+    handleSendToSlack,
+    displaySession,
+    cardGroups,
+    activeUserSelection,
+    totalPlayers,
+    pointOptions,
+    handlePointChange,
+    handleTicketNumberChange,
+    handleTicketNumberFocus,
+    handleTicketNumberBlur,
+    setDisplayTicketNumber,
+    setIsDrawerOpen,
+    setIsChatDrawerOpen,
+  };
+
+  return <PokerTableContext.Provider value={value}>{children}</PokerTableContext.Provider>;
+}; 

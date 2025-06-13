@@ -21,7 +21,6 @@ export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle
 
     const { playAudioUrl, pause, resume, audioState, stop, error } = useAudioPlayer();
     const styleSelected = async (style: string) => {
-        console.log(style);
 
         // Use fetch directly instead of supabase.functions.invoke
         const response = await fetch(`https://nwfwbjmzbwuyxehindpv.supabase.co/functions/v1/generate-audio-summary`, {
