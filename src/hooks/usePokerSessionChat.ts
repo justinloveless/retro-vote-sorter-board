@@ -189,15 +189,15 @@ export const usePokerSessionChat = (
     };
   }, [sessionId, currentRoundNumber]);
 
-  const sendMessage = async (messageText: string, replyToMessageId?: string) => {
-    if (!sessionId || !currentUserId || !currentUserName || !messageText.trim()) return;
+  const sendMessage = async (messageText: string, currentRound: number, replyToMessageId?: string) => {
+    if (!sessionId || !currentUserId || !currentUserName || !messageText.trim()) return false;
 
     try {
       const { error } = await supabase
         .from('poker_session_chat')
         .insert({
           session_id: sessionId,
-          round_number: currentRoundNumber,
+          round_number: currentRound,
           user_id: currentUserId,
           user_name: currentUserName,
           message: messageText.trim(),
