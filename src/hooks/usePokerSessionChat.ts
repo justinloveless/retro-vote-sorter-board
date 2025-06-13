@@ -79,25 +79,39 @@ export const usePokerSessionChat = (
         table: 'poker_session_chat',
         filter: `session_id=eq.${sessionId}`,
       },
-      (payload) => {
-        const newMessageId = payload.new.id;
-        // The view won't be updated in time for the realtime message, so we fetch the details
-        supabase.from('poker_session_chat_with_details').select('*').eq('id', newMessageId).single()
-          .then(({ data: newMessageDetails, error }) => {
-            if (error) {
-              console.error('Error fetching new message details:', error);
-              // Fallback to the raw payload if details fetch fails
-              const newMessage = payload.new as ChatMessage;
-              if (newMessage.round_number === currentRoundNumber) {
-                setMessages((prev) => [...prev, { ...newMessage, reactions: [] }]);
-              }
-            } else if (newMessageDetails) {
-              const newMessage = newMessageDetails as ChatMessage;
-              if (newMessage.round_number === currentRoundNumber) {
-                setMessages((prev) => [...prev, newMessage]);
-              }
-            }
-          });
+      async (payload) => {
+        const newMessage = payload.new as ChatMessage;
+
+        if (newMessage.round_number !== currentRoundNumber) {
+          return;
+        }
+
+        // If it's a reply, we need to fetch the original message content
+        if (newMessage.reply_to_message_id) {
+          const { data: repliedToMessage, error } = await supabase
+            .from('poker_session_chat')
+            .select('user_name, message')
+            .eq('id', newMessage.reply_to_message_id)
+            .single();
+          
+          if (!error && repliedToMessage) {
+            newMessage.reply_to_message_user = repliedToMessage.user_name;
+            newMessage.reply_to_message_content = repliedToMessage.message;
+          }
+        }
+        
+        // Initialize reactions array if it doesn't exist
+        if (!newMessage.reactions) {
+          newMessage.reactions = [];
+        }
+
+        setMessages((prev) => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
       }
     );
 
@@ -209,7 +223,7 @@ export const usePokerSessionChat = (
         toast({ title: 'Error sending message', variant: 'destructive' });
         return false;
       }
-
+      
       return true;
     } catch (error) {
       console.error('Error sending message:', error);
