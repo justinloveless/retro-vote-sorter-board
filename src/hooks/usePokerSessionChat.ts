@@ -150,28 +150,7 @@ export const usePokerSessionChat = (
         table: 'poker_session_chat_message_reactions',
         filter: `session_id=eq.${sessionId}`
       },
-        (payload) => {
-          const updatedReaction = payload.new as { message_id: string; user_id: string; emoji: string; user_name: string };
-          setMessages(prevMessages => prevMessages.map(msg => {
-            if (msg.id === updatedReaction.message_id) {
-              const reactionExists = msg.reactions.some(r => r.user_id === updatedReaction.user_id);
-              let updatedReactions;
-              if (reactionExists) {
-                updatedReactions = msg.reactions.map(r => 
-                  r.user_id === updatedReaction.user_id ? { ...r, emoji: updatedReaction.emoji } : r
-                );
-              } else {
-                updatedReactions = [...msg.reactions, {
-                  user_id: updatedReaction.user_id,
-                  user_name: updatedReaction.user_name,
-                  emoji: updatedReaction.emoji
-                }];
-              }
-              return { ...msg, reactions: updatedReactions };
-            }
-            return msg;
-          }));
-        }
+        () => {}
       )
       .on('postgres_changes', { 
         event: 'DELETE', 
@@ -184,7 +163,7 @@ export const usePokerSessionChat = (
           setMessages(prevMessages => prevMessages.map(msg => {
             if (msg.id === oldReaction.message_id) {
               const updatedReactions = msg.reactions.filter(
-                r => !(r.user_id === oldReaction.user_id)
+                r => !(r.user_id === oldReaction.user_id && r.emoji === oldReaction.emoji)
               );
               return { ...msg, reactions: updatedReactions };
             }
@@ -236,26 +215,24 @@ export const usePokerSessionChat = (
 
   const addReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId || !currentUserName || !sessionId) return;
-    const { error } = await supabase.from('poker_session_chat_message_reactions').upsert({
+    const { error } = await supabase.from('poker_session_chat_message_reactions').insert({
       message_id: messageId,
       user_id: currentUserId,
       user_name: currentUserName,
       emoji: emoji,
       session_id: sessionId
-    }, {
-      onConflict: 'message_id,user_id'
     });
     if (error) {
-      console.error('Error adding reaction:', error);
-      toast({ title: 'Error adding reaction', variant: 'destructive' });
+      console.error('Error adding reaction:', error.message);
     }
   };
 
-  const removeReaction = async (messageId: string) => {
+  const removeReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId) return;
     const { error } = await supabase.from('poker_session_chat_message_reactions').delete()
       .eq('message_id', messageId)
-      .eq('user_id', currentUserId);
+      .eq('user_id', currentUserId)
+      .eq('emoji', emoji);
 
     if (error) {
       console.error('Error removing reaction:', error);
