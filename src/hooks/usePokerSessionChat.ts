@@ -65,6 +65,18 @@ export const usePokerSessionChat = (
 
   useEffect(() => {
     fetchMessages();
+
+    // Listen for the custom event to refetch rounds
+    const handleRoundEnded = () => fetchMessages();
+    window.addEventListener('round-ended', handleRoundEnded);
+
+    const handleChatsDeleted = () => fetchMessages();
+    window.addEventListener('chats-deleted', handleChatsDeleted);
+
+    return () => {
+      window.removeEventListener('round-ended', handleRoundEnded);
+      window.removeEventListener('chats-deleted', handleChatsDeleted);
+    };
   }, [fetchMessages]);
 
   useEffect(() => {

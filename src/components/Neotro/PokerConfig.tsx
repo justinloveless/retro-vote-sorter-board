@@ -6,52 +6,51 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DialogFooter } from '@/components/ui/dialog';
 
 export interface PokerSessionConfig {
-  presence_enabled: boolean;
-  send_to_slack: boolean;
+  room_id?: string | null;
+  presence_enabled?: boolean;
+  send_to_slack?: boolean;
 }
 
 interface PokerConfigProps {
-  config: Partial<PokerSessionConfig> & { room_id?: string | null };
+  config: PokerSessionConfig;
   onUpdateConfig: (config: Partial<PokerSessionConfig>) => void;
   onDeleteAllRounds: () => void;
   isSlackIntegrated: boolean;
+  userRole?: string;
 }
 
-export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig, onDeleteAllRounds, isSlackIntegrated }) => {
-  const [localConfig, setLocalConfig] = useState<Partial<PokerSessionConfig>>(config || {});
-  const [open, setOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteInput, setDeleteInput] = useState('');
+export const PokerConfig: React.FC<PokerConfigProps> = ({ 
+  config, 
+  onUpdateConfig,
+  onDeleteAllRounds,
+  isSlackIntegrated,
+  userRole,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [presenceEnabled, setPresenceEnabled] = useState(config.presence_enabled !== false);
+  const [sendToSlack, setSendToSlack] = useState(config.send_to_slack === true);
 
-  useEffect(() => {
-    if (config) {
-      setLocalConfig(config);
-    }
-  }, [config]);
+  const canDelete = !userRole || userRole === 'admin' || userRole === 'owner';
 
   const handleSave = () => {
-    onUpdateConfig(localConfig);
-    setOpen(false);
-  };
-
-  const handleDeleteRounds = () => {
-    onDeleteAllRounds();
-    setDeleteInput('');
-    setDeleteConfirmOpen(false);
-    setOpen(false);
+    onUpdateConfig({
+      presence_enabled: presenceEnabled,
+      send_to_slack: sendToSlack,
+    });
+    setIsOpen(false);
   };
 
   const handleConfigChange = (key: keyof PokerSessionConfig, value: any) => {
-    setLocalConfig(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setPresenceEnabled(key === 'presence_enabled' ? value : presenceEnabled);
+    setSendToSlack(key === 'send_to_slack' ? value : sendToSlack);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30">
           <Settings className="h-4 w-4 mr-2" />
@@ -72,7 +71,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig
                 <Label htmlFor="presence-enabled">Enable Presence Detection</Label>
                 <Switch
                   id="presence-enabled"
-                  checked={localConfig.presence_enabled ?? true}
+                  checked={presenceEnabled}
                   onCheckedChange={(checked) => handleConfigChange('presence_enabled', checked)}
                 />
               </div>
@@ -81,7 +80,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig
                 <Label htmlFor="send-to-slack">Send Round Results to Slack</Label>
                 <Switch
                   id="send-to-slack"
-                  checked={localConfig.send_to_slack ?? false}
+                  checked={sendToSlack}
                   onCheckedChange={(checked) => handleConfigChange('send_to_slack', checked)}
                   disabled={!isSlackIntegrated}
                 />
@@ -89,51 +88,40 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({ config, onUpdateConfig
             </CardContent>
           </Card>
 
-          <Card className="border-destructive">
-            <CardHeader>
-              <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" className="w-full">
-                    Delete All Previous Rounds
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Are you absolutely sure?</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p>
-                      This action cannot be undone. This will permanently delete all
-                      previous round history for this session.
-                    </p>
-                    <Label htmlFor="delete-confirm">Please type "delete" to confirm.</Label>
-                    <Input
-                      id="delete-confirm"
-                      value={deleteInput}
-                      onChange={(e) => setDeleteInput(e.target.value)}
-                    />
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={handleDeleteRounds}
-                      disabled={deleteInput !== 'delete'}
-                    >
-                      I understand the consequence, delete all rounds
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
+          {canDelete && (
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="w-full">
+                        Delete All Previous Rounds
+                      </Button>
+                    </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete all previous rounds and chat history for this session. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={onDeleteAllRounds}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1">
               Save Changes
             </Button>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
           </div>

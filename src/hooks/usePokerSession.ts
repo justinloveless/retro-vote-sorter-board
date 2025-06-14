@@ -543,17 +543,24 @@ export const usePokerSession = (
   const deleteAllRounds = async () => {
     if (!session) return;
 
-    const { error } = await supabase
-      .from('poker_session_rounds')
-      .delete()
-      .eq('session_id', session.id);
+    try {
+      const { error } = await supabase.functions.invoke('delete-session-data', {
+        body: { session_id: session.id },
+      });
 
-    if (error) {
-      console.error('Error deleting rounds', error);
-      toast({ title: 'Error deleting rounds', variant: 'destructive' });
-    } else {
+      if (error) {
+        throw new Error(`Function invocation failed: ${error.message}`);
+      }
+
       toast({ title: 'All previous rounds have been deleted.' });
+      // The postgres_changes listeners will handle UI updates, but we can also
+      // trigger a manual refetch for immediate feedback.
       window.dispatchEvent(new Event('rounds-deleted'));
+      window.dispatchEvent(new Event('chats-deleted'));
+
+    } catch (e: any) {
+      console.error('Error deleting session data:', e);
+      toast({ title: 'Error deleting session data', description: e.message, variant: 'destructive' });
     }
   };
 

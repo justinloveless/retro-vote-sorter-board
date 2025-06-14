@@ -20,6 +20,7 @@ interface PokerTableContextProps {
   presentUserIds: string[];
   teamId?: string;
   isMobile: boolean;
+  userRole?: string;
 
   // Derived state and handlers
   displayTicketNumber: string;
@@ -83,13 +84,14 @@ interface PokerTableProviderProps {
   presentUserIds: string[];
   teamId?: string;
   isMobile: boolean;
+  userRole?: string;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
   const { 
     session, activeUserId, updateUserSelection, teamId, isMobile,
     toggleLockUserSelection, toggleAbstainUserSelection, playHand,
-    nextRound, updateTicketNumber
+    nextRound, updateTicketNumber, userRole
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -285,6 +287,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setDisplayTicketNumber,
     setIsDrawerOpen,
     setIsChatDrawerOpen,
+    userRole,
   };
 
   return <PokerTableContext.Provider value={value}>{children}</PokerTableContext.Provider>;

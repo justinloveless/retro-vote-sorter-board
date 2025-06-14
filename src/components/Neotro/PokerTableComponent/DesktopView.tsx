@@ -53,7 +53,8 @@ export const DesktopView: React.FC = () => {
         handleTicketNumberFocus,
         handleTicketNumberBlur,
         teamId,
-        activeUserId
+        activeUserId,
+        userRole
     } = usePokerTable();
 
     useEffect(() => {
@@ -97,6 +98,7 @@ export const DesktopView: React.FC = () => {
                                     onUpdateConfig={updateSessionConfig}
                                     onDeleteAllRounds={deleteAllRounds}
                                     isSlackIntegrated={isSlackInstalled}
+                                    userRole={userRole}
                                 />
                             </div>
                             {!isViewingHistory && (
