@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { usePokerTable } from './context';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -55,6 +55,10 @@ export const DesktopView: React.FC = () => {
         teamId,
         activeUserId
     } = usePokerTable();
+
+    useEffect(() => {
+        console.log('currentRound updated', currentRound)
+    }, [currentRound]);
 
     if (!displaySession || !session) return null;
 
@@ -187,7 +191,7 @@ export const DesktopView: React.FC = () => {
                     <div className=" rounded-lg h-full flex flex-col justify-end">
                         <PokerSessionChat
                             sessionId={session.id}
-                            currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
+                            currentRoundNumber={currentRound?.round_number}
                             currentUserId={activeUserId}
                             currentUserName={activeUserSelection.name}
                             isViewingHistory={isViewingHistory}

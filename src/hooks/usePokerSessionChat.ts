@@ -23,6 +23,8 @@ export interface ChatMessage {
   reactions: ChatMessageReaction[];
 }
 
+export type UploadImageFn = (file: File) => Promise<string | null>;
+
 export const usePokerSessionChat = (
   sessionId: string | null,
   currentRoundNumber: number,
@@ -33,6 +35,7 @@ export const usePokerSessionChat = (
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const channelRef = useRef<RealtimeChannel | null>(null);
+  console.log('usePokerSessionChat initialized with sessionId:', sessionId, 'and currentRoundNumber:', currentRoundNumber);
 
   const fetchMessages = useCallback(async () => {
     if (!sessionId) return;
@@ -52,7 +55,10 @@ export const usePokerSessionChat = (
         return;
       }
 
+      console.log('setting messages to', data);
+      
       setMessages(data || []);
+      console.log('Messages fetched successfully:', messages);
     } catch (error) {
       console.error('Error fetching chat messages:', error);
       toast({ title: 'Error loading chat', variant: 'destructive' });
@@ -64,6 +70,11 @@ export const usePokerSessionChat = (
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  useEffect(() => {
+    console.log('Messages state updated:', messages);
+    
+  }, [messages]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -80,14 +91,17 @@ export const usePokerSessionChat = (
         filter: `session_id=eq.${sessionId}`,
       },
       async (payload) => {
+        console.log('New message received:', payload);
         const newMessage = payload.new as ChatMessage;
 
         if (newMessage.round_number !== currentRoundNumber) {
+          console.warn('Message received for a different round:', newMessage.round_number);
           return;
         }
 
         // If it's a reply, we need to fetch the original message content
         if (newMessage.reply_to_message_id) {
+          console.log('Fetching replied message details for:', newMessage.reply_to_message_id);
           const { data: repliedToMessage, error } = await supabase
             .from('poker_session_chat')
             .select('user_name, message')
@@ -95,6 +109,7 @@ export const usePokerSessionChat = (
             .single();
           
           if (!error && repliedToMessage) {
+            console.log('Replied message details:', repliedToMessage);
             newMessage.reply_to_message_user = repliedToMessage.user_name;
             newMessage.reply_to_message_content = repliedToMessage.message;
           }
@@ -105,13 +120,18 @@ export const usePokerSessionChat = (
           newMessage.reactions = [];
         }
 
+        console.log('current messages state before adding new message:', messages);
+        console.log('Adding new message to state:', newMessage);
         setMessages((prev) => {
           // Avoid duplicates
           if (prev.some(m => m.id === newMessage.id)) {
+            console.log('Message already exists in state, not adding:', newMessage.id);
             return prev;
           }
+          console.log('Adding new message to state:', newMessage);
           return [...prev, newMessage];
         });
+        console.log('Updated messages state:', messages);
       }
     );
 
@@ -204,6 +224,12 @@ export const usePokerSessionChat = (
   }, [sessionId, currentRoundNumber]);
 
   const sendMessage = async (messageText: string, replyToMessageId?: string) => {
+    console.log('Sending message', messageText, replyToMessageId);
+    console.log('Session ID', sessionId);
+    console.log('Current User ID', currentUserId);
+    console.log('Current User Name', currentUserName);
+    console.log('Message Text', messageText);
+    console.log('Reply To Message ID', replyToMessageId);
     if (!sessionId || !currentUserId || !currentUserName || !messageText.trim()) return false;
 
     try {

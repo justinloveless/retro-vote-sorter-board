@@ -5,7 +5,6 @@ import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
-import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 
 interface PokerTableContextProps {
   session: PokerSession | null;
@@ -39,6 +38,11 @@ interface PokerTableContextProps {
   goToNextRound: () => void;
   goToCurrentRound: () => void;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
+  isChatLoading: boolean;
+  sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
+  addReaction: (messageId: string, emoji: string) => Promise<void>;
+  removeReaction: (messageId: string) => Promise<void>;
+  uploadChatImage: (file: File) => Promise<string | null>;
   handleSendToSlack: () => Promise<void>;
   displaySession: PokerSession | null;
   cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
@@ -109,9 +113,16 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToCurrentRound,
   } = usePokerSessionHistory(session?.id || null);
 
-  const { messages: chatMessagesForRound } = usePokerSessionChat(
+  const {
+    messages: chatMessagesForRound,
+    loading: isChatLoading,
+    sendMessage,
+    addReaction,
+    removeReaction,
+    uploadImage: uploadChatImage,
+  } = usePokerSessionChat(
     session?.id || null,
-    currentRound?.round_number || session?.current_round_number || 1,
+    currentRound?.round_number || 1,
     activeUserId,
     session?.selections[activeUserId || '']?.name
   );
@@ -256,6 +267,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToNextRound,
     goToCurrentRound,
     chatMessagesForRound,
+    isChatLoading,
+    sendMessage,
+    addReaction,
+    removeReaction,
+    uploadChatImage,
     handleSendToSlack,
     displaySession,
     cardGroups,
