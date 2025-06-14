@@ -179,10 +179,12 @@ export const usePokerSession = (
       'broadcast',
       { event: 'next_round' },
       ({ payload }: { payload: { newState: Partial<PokerSession> } }) => {
+        console.log('got next_round from broadcast', payload);
         setSession((prevSession) => {
           if (!prevSession) return null;
           return { ...prevSession, ...payload.newState };
         });
+        window.dispatchEvent(new Event('round-ended'));
       }
     );
 
@@ -484,6 +486,7 @@ export const usePokerSession = (
   };
 
   const nextRound = async () => {
+    console.log('nextRound');
     if (!session) return;
 
     // Save current round to history before starting next round
@@ -510,25 +513,30 @@ export const usePokerSession = (
       game_state: 'Selection',
       average_points: 0,
       ticket_number: '',
+      ticket_title: '',
       current_round_number: newRoundNumber
     };
 
     // Update local state immediately
     setSession({ ...session, ...newState });
+    console.log('setSession');
 
     // Persist to DB
     await supabase
       .from('poker_sessions')
       .update(newState)
       .eq('id', session.id);
+    console.log('supabase update');
 
     // Broadcast the new state to other clients
     if (channelRef.current) {
+      console.log('sending to channel');
       await channelRef.current.send({
         type: 'broadcast',
         event: 'next_round',
         payload: { newState },
       });
+      console.log('sent to channel');
     }
   };
 
