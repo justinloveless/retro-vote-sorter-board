@@ -130,14 +130,7 @@ export const MobileView: React.FC = () => {
                         </DrawerTrigger>
                         <DrawerContent className="h-[80vh]">
                             <div className="h-full p-4">
-                                <PokerSessionChat
-                                    sessionId={session.id}
-                                    currentRoundNumber={currentRound?.round_number || session.current_round_number || 1}
-                                    currentUserId={activeUserId}
-                                    currentUserName={activeUserSelection.name}
-                                    isViewingHistory={isViewingHistory}
-                                    isCollapsible={false}
-                                />
+                                <PokerSessionChat isCollapsible={false} />
                             </div>
                         </DrawerContent>
                     </Drawer>

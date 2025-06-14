@@ -136,7 +136,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       session.ticket_title,
       session.selections,
       session.average_points,
-      chatMessagesForRound?.map(m => ({ user_name: m.user_name, message: m.message }))
+      chatMessagesForRound?.map(m => ({ user_name: m.user_name, message: m.message, created_at: m.created_at }))
     );
     setIsSending(false);
   };

@@ -3,7 +3,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import * as hash from 'npm:object-hash';
 
-const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -30,11 +30,11 @@ async function getSelfHostedTtsUrl(supabaseClient: SupabaseClient): Promise<stri
     }
 
     ttsUrl = data.value;
-    return ttsUrl;
+    return ttsUrl ?? '';
 }
 
 // Upload audio to Supabase Storage in a background task
-async function uploadAudioToStorage(stream, requestHash) {
+async function uploadAudioToStorage(stream: ReadableStream, requestHash: string) {
     const { data, error } = await supabase.storage.from('tts-audio-cache').upload(`${requestHash}.wav`, stream, {
         contentType: 'audio/wav'
     });
@@ -44,7 +44,7 @@ async function uploadAudioToStorage(stream, requestHash) {
     });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     // To secure your function for production, you can for example validate the request origin,
     // or append a user access token and validate it with a Supabase Auth.
     if (req.method === 'OPTIONS') {
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Error in text-to-speech function:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

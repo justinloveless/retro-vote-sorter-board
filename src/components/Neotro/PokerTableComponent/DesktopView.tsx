@@ -189,13 +189,7 @@ export const DesktopView: React.FC = () => {
                 </div>
                 <div className="w-1/4 p-4 flex flex-col">
                     <div className=" rounded-lg h-full flex flex-col justify-end">
-                        <PokerSessionChat
-                            sessionId={session.id}
-                            currentRoundNumber={currentRound?.round_number}
-                            currentUserId={activeUserId}
-                            currentUserName={activeUserSelection.name}
-                            isViewingHistory={isViewingHistory}
-                        />
+                        <PokerSessionChat />
                     </div>
                 </div>
             </div>

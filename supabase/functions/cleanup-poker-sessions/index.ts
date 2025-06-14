@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 console.log("Cleanup poker sessions function running");
 
-serve(async (req) => {
+serve(async (req: Request) => {
     try {
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
@@ -36,7 +36,7 @@ serve(async (req) => {
         });
     } catch (error) {
         console.error("Error in cleanup function:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
         });
