@@ -20,6 +20,7 @@ interface PokerTableProps {
   deleteAllRounds: () => void;
   presentUserIds: string[];
   teamId?: string;
+  userRole?: string;
 }
 
 const PokerTableContent: React.FC = () => {

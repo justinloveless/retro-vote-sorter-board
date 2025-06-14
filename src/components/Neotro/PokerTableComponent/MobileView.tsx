@@ -58,6 +58,7 @@ export const MobileView: React.FC = () => {
         handleTicketNumberBlur,
         teamId,
         activeUserId,
+        userRole,
     } = usePokerTable();
 
     if (!displaySession || !session) return null;
@@ -99,6 +100,7 @@ export const MobileView: React.FC = () => {
                                         onUpdateConfig={updateSessionConfig}
                                         onDeleteAllRounds={deleteAllRounds}
                                         isSlackIntegrated={isSlackInstalled}
+                                        userRole={userRole}
                                     />
                                 </div>
                                 {displaySession.game_state === 'Playing' && (
@@ -139,6 +141,7 @@ export const MobileView: React.FC = () => {
                         onUpdateConfig={updateSessionConfig}
                         onDeleteAllRounds={deleteAllRounds}
                         isSlackIntegrated={isSlackInstalled}
+                        userRole={userRole}
                     />
                 </div>
 
