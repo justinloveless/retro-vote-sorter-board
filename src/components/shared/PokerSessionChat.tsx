@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, MessageCircle, Smile, CornerUpLeft, X, ChevronDown } from 'lucide-react';
-import { usePokerSessionChat, ChatMessage } from '@/hooks/usePokerSessionChat';
+import type { ChatMessage } from '@/hooks/usePokerSessionChat';
+import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
@@ -21,22 +22,29 @@ import { TiptapEditor } from './TiptapEditor';
 import { QuickReactionPicker } from './QuickReactionPicker';
 
 interface PokerSessionChatProps {
-  sessionId: string | null;
-  currentRoundNumber: number;
-  currentUserId: string | undefined;
-  currentUserName: string | undefined;
-  isViewingHistory: boolean;
   isCollapsible?: boolean;
 }
 
 export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
-  sessionId,
-  currentRoundNumber,
-  currentUserId,
-  currentUserName,
-  isViewingHistory,
   isCollapsible = true,
 }) => {
+  const {
+    activeUserId,
+    isViewingHistory,
+    currentRound,
+    chatMessagesForRound: messages,
+    isChatLoading: loading,
+    sendMessage,
+    addReaction,
+    removeReaction,
+    uploadChatImage: uploadImage,
+    activeUserSelection,
+  } = usePokerTable();
+
+  const currentUserId = activeUserId;
+  const currentUserName = activeUserSelection?.name;
+  const currentRoundNumber = currentRound?.round_number || 1;
+
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean | string>(false);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -46,25 +54,13 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { 
-    messages, 
-    loading, 
-    sendMessage, 
-    uploadImage,
-    addReaction,
-    removeReaction
-  } = usePokerSessionChat(
-    sessionId,
-    currentRoundNumber,
-    currentUserId,
-    currentUserName
-  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
+    console.log('messages length changed:', messages.length);
     if (!userHasScrolledUp) {
       scrollToBottom();
     }
@@ -84,6 +80,10 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     viewport.addEventListener('scroll', handleScroll);
     return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    console.log('Messages updated:', messages);
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || newMessage === '<p></p>' || isViewingHistory) return;
@@ -244,6 +244,10 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     </CardHeader>
   );
 
+  const renderChatContent = () => (
+    <ChatContent />
+  );
+
   const ChatContent = () => (
       <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
         <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
@@ -327,7 +331,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     return (
       <Card className="h-full flex flex-col">
         <ChatHeader isCollapsible={false} />
-        <ChatContent />
+        {renderChatContent()}
       </Card>
     );
   }

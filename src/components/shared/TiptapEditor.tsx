@@ -4,14 +4,14 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
+import type { UploadImageFn } from '@/hooks/usePokerSessionChat';
 
 interface TiptapEditorProps {
   content: string;
   onChange: (content: string) => void;
   onSubmit: () => void;
   placeholder?: string;
-  uploadImage: ReturnType<typeof usePokerSessionChat>['uploadImage'];
+  uploadImage: UploadImageFn;
 }
 
 export const TiptapEditor: React.FC<TiptapEditorProps> = ({
