@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Selections } from './usePokerSession';
+import { ChatMessageReaction } from './usePokerSessionChat';
 
 export const usePokerSlackNotification = () => {
   const { toast } = useToast();
@@ -12,7 +13,14 @@ export const usePokerSlackNotification = () => {
     ticketTitle: string | null,
     selections: Selections,
     averagePoints: number,
-    chatMessages: { user_name: string; message: string; created_at: string }[] | undefined
+    chatMessages: { 
+      user_name: string; 
+      message: string; 
+      created_at: string; 
+      reactions: ChatMessageReaction[];
+      reply_to_message_user?: string;
+      reply_to_message_content?: string;
+    }[] | undefined
   ) => {
     try {
       // Fetch Jira domain for the team
