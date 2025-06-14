@@ -9,7 +9,14 @@ interface PokerRoundPayload {
   ticketTitle?: string;
   selections: Record<string, { name: string; points: number }>;
   averagePoints: number;
-  chatMessages?: { user_name: string; message: string; created_at: string }[];
+  chatMessages?: { 
+    user_name: string; 
+    message: string; 
+    created_at: string; 
+    reactions: { user_name: string; emoji: string }[],
+    reply_to_message_user?: string,
+    reply_to_message_content?: string,
+  }[];
   jiraUrl?: string | null;
 }
 
@@ -27,6 +34,10 @@ type Block = {
   }[];
   image_url?: string;
   alt_text?: string;
+  elements?: {
+    type: string;
+    text: string;
+  }[];
 };
 
 const postToSlack = async (botToken: string, channelId: string, message: any, threadTs?: string) => {
@@ -182,29 +193,23 @@ serve(async (req: Request) => {
       await postToSlack(team.slack_bot_token, team.slack_channel_id, chatSummary, parentTs);
 
       for (const chat of sortedMessages) {
-        const html = chat.message;
-        
-        // Custom HTML to Slack Blocks parser
-        const generatedBlocks: Block[] = [];
-
-        // 1. Strip <p> tags and split by image tags to handle mixed content
-        const parts = html.replace(/<p>|<\/p>/g, '').split(/<img src="([^"]+)"[^>]*>/g);
-
+        // 1. Parse the main message content into blocks
+        const messageContentBlocks: Block[] = [];
+        const parts = chat.message.replace(/<p>|<\/p>/g, '').split(/<img src="([^"]+)"[^>]*>/g);
         parts.forEach((part, index) => {
           if (index % 2 === 0) { // Text part
             if (part.trim()) {
-              // Convert <a href> tags to Slack's format with a more robust regex
               const textWithoutBr = part.replace(/<br\s*\/?>/g, ' ').trim();
               const slackText = textWithoutBr.replace(/<a.*?href="([^"]+)".*?>([^<]+)<\/a>/g, '<$1|$2>');
               if (slackText) {
-                generatedBlocks.push({
+                messageContentBlocks.push({
                   type: 'section',
                   text: { type: 'mrkdwn', text: slackText },
                 });
               }
             }
           } else { // Image URL part
-            generatedBlocks.push({
+            messageContentBlocks.push({
               type: 'image',
               image_url: part,
               alt_text: 'User-uploaded image',
@@ -212,24 +217,61 @@ serve(async (req: Request) => {
           }
         });
 
-        if (generatedBlocks.length === 0) continue;
-
-        // Prepend the username to the first block of text
-        const firstTextIndex = generatedBlocks.findIndex(b => b.type === 'section' && b.text);
-        if (firstTextIndex !== -1) {
-          const firstTextBlock = generatedBlocks[firstTextIndex];
-          if(firstTextBlock.text) {
-            firstTextBlock.text.text = `*${chat.user_name}*: ${firstTextBlock.text.text}`;
+        // 2. Prepend the username to the main message content
+        if (messageContentBlocks.length > 0) {
+          const firstTextIndex = messageContentBlocks.findIndex(b => b.type === 'section' && b.text);
+          if (firstTextIndex !== -1) {
+            const firstTextBlock = messageContentBlocks[firstTextIndex];
+            if (firstTextBlock.text) {
+              firstTextBlock.text.text = `*${chat.user_name}*: ${firstTextBlock.text.text}`;
+            }
+          } else {
+            messageContentBlocks.unshift({
+              type: 'section',
+              text: { type: 'mrkdwn', text: `*${chat.user_name}*:` },
+            });
           }
-        } else {
-          // Message contains only images, so add username as a separate block
-          generatedBlocks.unshift({
+        }
+        
+        // 3. Prepend the reply quote block if it exists
+        const finalBlocks: Block[] = [];
+        if (chat.reply_to_message_user && chat.reply_to_message_content) {
+          const cleanReplyContent = chat.reply_to_message_content.replace(/<[^>]+>/g, '');
+          finalBlocks.push({
             type: 'section',
-            text: { type: 'mrkdwn', text: `*${chat.user_name}*:` },
+            text: {
+              type: 'mrkdwn',
+              text: `> *${chat.reply_to_message_user}*: ${cleanReplyContent}`
+            }
           });
         }
+        finalBlocks.push(...messageContentBlocks);
 
-        const chatMessage = { blocks: generatedBlocks };
+        // 4. Add reactions as a context block
+        if (chat.reactions && chat.reactions.length > 0) {
+          const reactionsByUser = chat.reactions.reduce((acc, reaction) => {
+            if (!acc[reaction.emoji]) {
+              acc[reaction.emoji] = [];
+            }
+            acc[reaction.emoji].push(reaction.user_name);
+            return acc;
+          }, {} as Record<string, string[]>);
+
+          const reactionText = Object.entries(reactionsByUser)
+            .map(([emoji, users]) => `${emoji} ${users.join(', ')}`)
+            .join('  |  ');
+          
+          if(reactionText) {
+            finalBlocks.push({
+              type: 'context',
+              elements: [{ type: 'mrkdwn', text: reactionText }],
+            });
+          }
+        }
+
+        if (finalBlocks.length === 0) continue;
+
+        const chatMessage = { blocks: finalBlocks };
         await postToSlack(team.slack_bot_token, team.slack_channel_id, chatMessage, parentTs);
       }
     }
