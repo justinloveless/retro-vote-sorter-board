@@ -8,7 +8,8 @@ import { Users, MessageSquare } from 'lucide-react';
 export interface TeamSettings {
   name: string;
   description: string;
-  slack_webhook_url: string;
+  slack_bot_token: string;
+  slack_channel_id: string;
 }
 
 interface TeamSettingsFormProps {
@@ -66,16 +67,28 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="slack-webhook">Slack Webhook URL (optional)</Label>
+            <Label htmlFor="slack-bot-token">Slack Bot Token</Label>
             <Input
-              id="slack-webhook"
-              value={settings.slack_webhook_url}
-              onChange={(e) => handleChange('slack_webhook_url', e.target.value)}
-              placeholder="https://hooks.slack.com/services/..."
-              type="url"
+              id="slack-bot-token"
+              type="password"
+              value={settings.slack_bot_token}
+              onChange={(e) => handleChange('slack_bot_token', e.target.value)}
+              placeholder="xoxb-..."
             />
             <p className="text-xs text-gray-500">
-              Get a webhook URL from your Slack workspace to receive notifications when retros start.
+              Create a Slack App with `chat:write` permissions to get your token.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="slack-channel-id">Slack Channel ID</Label>
+            <Input
+              id="slack-channel-id"
+              value={settings.slack_channel_id}
+              onChange={(e) => handleChange('slack_channel_id', e.target.value)}
+              placeholder="C0..."
+            />
+            <p className="text-xs text-gray-500">
+              The ID of the public channel your bot should post in.
             </p>
           </div>
         </CardContent>

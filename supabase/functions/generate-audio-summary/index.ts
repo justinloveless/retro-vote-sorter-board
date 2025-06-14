@@ -4,9 +4,16 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import * as hash from 'npm:object-hash'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 const openAIEndpoint = "https://api.openai.com/v1/chat/completions";
 const ttsEndpoint = "https://api.openai.com/v1/audio/speech";
+
+interface Prompt {
+    default: string;
+    formal: string;
+    humorous: string;
+    jackbox: string;
+}
 
 const prompts = {
     default: `You are a script generator. Given a list of items from a retrospective board column, generate a concise, engaging, and informative summary script. The script should be suitable for text-to-speech conversion.
@@ -73,7 +80,7 @@ Rules of the Game:
 - Only output the script, with no preamble. It's go time!`
 };
 
-async function uploadAudioToStorage(stream, requestHash) {
+async function uploadAudioToStorage(stream: ReadableStream, requestHash: string) {
     const { data, error } = await supabase.storage.from('tts-audio-cache').upload(`${requestHash}.mp3`, stream, {
         contentType: 'audio/mpeg'
     });
@@ -83,7 +90,7 @@ async function uploadAudioToStorage(stream, requestHash) {
     });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
@@ -109,7 +116,7 @@ Deno.serve(async (req) => {
 
         const itemsText = items.map((item: { text: string }) => `- ${item.text}`).join('\n');
 
-        const selectedPrompt = prompts[style] || prompts.default;
+        const selectedPrompt = prompts[style as keyof Prompt] || prompts.default;
         const prompt = selectedPrompt
             .replace('{columnTitle}', columnTitle)
             .replace('{itemsText}', itemsText);
@@ -174,7 +181,7 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Error in generate-audio-summary function:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 500,
         });

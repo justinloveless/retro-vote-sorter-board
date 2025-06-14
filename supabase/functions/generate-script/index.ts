@@ -5,6 +5,13 @@ import { corsHeaders } from '../_shared/cors.ts';
 // Assuming OPENAI_API_KEY is set in your environment variables
 const openAIEndpoint = "https://api.openai.com/v1/chat/completions";
 
+interface Prompt {
+    default: string;
+    formal: string;
+    humorous: string;
+    jackbox: string;
+}
+
 const prompts = {
     default: `You are a script generator. Given a list of items from a retrospective board column, generate a concise, engaging, and informative summary script. The script should be suitable for text-to-speech conversion.
 
@@ -70,7 +77,7 @@ Rules of the Game:
 - Only output the script, with no preamble. It's go time!`
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
@@ -79,7 +86,7 @@ serve(async (req) => {
         const { items, columnTitle, style = 'default' } = await req.json();
         const itemsText = items.map((item: { text: string }) => `- ${item.text}`).join('\n');
 
-        const selectedPrompt = prompts[style] || prompts.default;
+        const selectedPrompt = prompts[style as keyof Prompt] || prompts.default;
         const prompt = selectedPrompt
             .replace('{columnTitle}', columnTitle)
             .replace('{itemsText}', itemsText);
@@ -112,7 +119,7 @@ serve(async (req) => {
         });
     } catch (error) {
         console.error('Error in generate-script function:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 500,
         });

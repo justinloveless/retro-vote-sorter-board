@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Selections } from './usePokerSession';
-import htmlToMd from 'html-to-md';
 
 export const usePokerSlackNotification = () => {
   const { toast } = useToast();
@@ -13,22 +12,34 @@ export const usePokerSlackNotification = () => {
     ticketTitle: string | null,
     selections: Selections,
     averagePoints: number,
-    chatMessages: { user_name: string; message: string }[] | undefined
+    chatMessages: { user_name: string; message: string; created_at: string }[] | undefined
   ) => {
     try {
-      // Convert chat messages from HTML to Markdown for Slack
-      const chatMessagesMarkdown = chatMessages?.map(msg => ({
-        user_name: msg.user_name,
-        message: htmlToMd(msg.message).trim(),
-      }));
-      console.log('Sending poker round to Slack', {
-        teamId,
-        ticketNumber,
-        ticketTitle,
-        selections,
-        averagePoints,
-        chatMessages: chatMessagesMarkdown
-      });
+      // Fetch Jira domain for the team
+      let jiraUrl: string | null = null;
+      if (teamId && ticketNumber) {
+        const { data: teamData, error: teamError } = await supabase
+          .from('teams')
+          .select('jira_domain')
+          .eq('id', teamId)
+          .single();
+
+        if (teamError) {
+          console.error("Could not fetch team's Jira settings.", teamError);
+          // Non-critical, so we don't block the notification
+        }
+
+        if (teamData?.jira_domain) {
+          let domain = teamData.jira_domain;
+          // Ensure the domain has a protocol and remove any trailing slashes
+          if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+            domain = `https://${domain}`;
+          }
+          domain = domain.replace(/\/$/, '');
+          jiraUrl = `${domain}/browse/${ticketNumber}`;
+        }
+      }
+      
       const { error } = await supabase.functions.invoke('send-poker-round-to-slack', {
         body: {
           teamId,
@@ -36,7 +47,8 @@ export const usePokerSlackNotification = () => {
           ticketTitle,
           selections,
           averagePoints,
-          chatMessages: chatMessagesMarkdown
+          chatMessages: chatMessages, // Pass raw HTML messages
+          jiraUrl,
         }
       });
 
