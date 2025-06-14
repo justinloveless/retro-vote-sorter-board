@@ -41,7 +41,7 @@ interface PokerTableContextProps {
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
   addReaction: (messageId: string, emoji: string) => Promise<void>;
-  removeReaction: (messageId: string) => Promise<void>;
+  removeReaction: (messageId: string, emoji: string) => Promise<void>;
   uploadChatImage: (file: File) => Promise<string | null>;
   handleSendToSlack: () => Promise<void>;
   displaySession: PokerSession | null;

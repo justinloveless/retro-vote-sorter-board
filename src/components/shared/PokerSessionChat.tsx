@@ -101,15 +101,15 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   };
 
   const handleReactionClick = (message: ChatMessage, emoji: string) => {
-    const existingReaction = message.reactions.find(
-      (r) => r.user_id === currentUserId
+    const userHasReactedWithEmoji = message.reactions.some(
+      (r) => r.user_id === currentUserId && r.emoji === emoji
     );
 
-    if (existingReaction && existingReaction.emoji === emoji) {
-      // User is clicking the same emoji again, so remove it
-      removeReaction(message.id);
+    if (userHasReactedWithEmoji) {
+      console.log('removing reaction', emoji);
+      removeReaction(message.id, emoji);
     } else {
-      // User is adding a new reaction or changing an existing one
+      console.log('adding reaction', emoji);
       addReaction(message.id, emoji);
     }
   };
