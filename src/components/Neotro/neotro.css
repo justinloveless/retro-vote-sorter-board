@@ -182,3 +182,39 @@ img {
   border-radius: 12px;
   /* Adjust to match your card's border-radius */
 }
+
+/* Custom styles for Tiptap editor content within the chat */
+.prose code {
+  background-color: hsl(var(--muted));
+  opacity: 0.8;
+  color: hsl(var(--secondary-foreground));
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  border-radius: 6px;
+  font-weight: normal;
+}
+
+.prose code::before,
+.prose code::after {
+  content: "" !important;
+}
+
+.prose pre {
+  background-color: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--secondary-foreground));
+  font-family: monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.prose pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}

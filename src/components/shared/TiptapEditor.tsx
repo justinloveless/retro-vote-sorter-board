@@ -26,8 +26,8 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       StarterKit.configure({
         heading: false,
         strike: false,
-        code: false,
-        codeBlock: false,
+        code: {},
+        codeBlock: {},
         blockquote: false,
         horizontalRule: false,
       }),

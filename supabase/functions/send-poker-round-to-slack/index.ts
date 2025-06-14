@@ -199,7 +199,14 @@ serve(async (req: Request) => {
         parts.forEach((part, index) => {
           if (index % 2 === 0) { // Text part
             if (part.trim()) {
-              const textWithoutBr = part.replace(/<br\s*\/?>/g, ' ').trim();
+              // Convert <pre> blocks to Slack's format
+              const withCodeBlocks = part.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```');
+              
+              // Convert inline <code> tags to Slack's format
+              const withInlineCode = withCodeBlocks.replace(/<code>(.*?)<\/code>/g, '`$1`');
+
+              // Convert <a href> tags to Slack's format
+              const textWithoutBr = withInlineCode.replace(/<br\s*\/?>/g, ' ').trim();
               const slackText = textWithoutBr.replace(/<a.*?href="([^"]+)".*?>([^<]+)<\/a>/g, '<$1|$2>');
               if (slackText) {
                 messageContentBlocks.push({
