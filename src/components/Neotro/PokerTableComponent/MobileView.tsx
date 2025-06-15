@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePokerTable } from './context';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -12,6 +12,7 @@ import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Menu, MessageCircle, Send } from 'lucide-react';
+import { NextRoundDialog } from '../NextRoundDialog';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';
@@ -60,6 +61,7 @@ export const MobileView: React.FC = () => {
         activeUserId,
         userRole,
     } = usePokerTable();
+    const [isNextRoundDialogOpen, setIsNextRoundDialogOpen] = useState(false);
 
     if (!displaySession || !session) return null;
 
@@ -212,7 +214,7 @@ export const MobileView: React.FC = () => {
                                 isHandPlayed={session.game_state === 'Playing'}
                             />
                             <NextRoundButton
-                                onHandPlayed={nextRound}
+                                onHandPlayed={() => setIsNextRoundDialogOpen(true)}
                                 isHandPlayed={session.game_state === 'Playing'}
                             />
                         </div>
@@ -237,6 +239,11 @@ export const MobileView: React.FC = () => {
                     </div>
                 )}
             </div>
+            <NextRoundDialog
+                isOpen={isNextRoundDialogOpen}
+                onOpenChange={setIsNextRoundDialogOpen}
+                onConfirm={nextRound}
+            />
         </div>
     );
 } 
