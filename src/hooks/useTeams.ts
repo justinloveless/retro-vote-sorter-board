@@ -30,8 +30,9 @@ export const useTeams = () => {
         .from('teams')
         .select(`
           *,
-          team_members ( role, user_id )
+          team_members!inner( role, user_id )
         `)
+        .eq('team_members.user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
