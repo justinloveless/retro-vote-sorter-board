@@ -1,21 +1,22 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { PokerSession, PlayerSelection } from '@/hooks/usePokerSession';
-import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
+import { PlayerSelection, PokerSessionState } from '@/hooks/usePokerSession';
+import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
+import { ReactNode, Dispatch, SetStateAction } from 'react';
 
 interface PokerTableContextProps {
-  session: PokerSession | null;
+  session: PokerSessionState | PokerSessionRound | null;
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
   toggleLockUserSelection: () => void;
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
-  nextRound: () => void;
+  nextRound: (ticketNumber?: string) => void;
   updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: Partial<PokerSessionConfig>) => void;
+  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; }) => void;
   deleteAllRounds: () => void;
   presentUserIds: string[];
   teamId?: string;
@@ -45,7 +46,7 @@ interface PokerTableContextProps {
   removeReaction: (messageId: string, emoji: string) => Promise<void>;
   uploadChatImage: (file: File) => Promise<string | null>;
   handleSendToSlack: () => Promise<void>;
-  displaySession: PokerSession | null;
+  displaySession: PokerSessionState | PokerSessionRound | null;
   cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
   activeUserSelection: PlayerSelection & { points: number; locked: boolean; name: string; };
   totalPlayers: number;
@@ -57,9 +58,11 @@ interface PokerTableContextProps {
   setDisplayTicketNumber: React.Dispatch<React.SetStateAction<string>>;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsChatDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isNextRoundDialogOpen: boolean;
+  setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
 }
 
-const PokerTableContext = createContext<PokerTableContextProps | null>(null);
+const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
 
 export const usePokerTable = () => {
   const context = useContext(PokerTableContext);
@@ -69,29 +72,34 @@ export const usePokerTable = () => {
   return context;
 };
 
-interface PokerTableProviderProps {
-  children: React.ReactNode;
-  session: PokerSession | null;
+export interface PokerTableProviderProps {
+  session: PokerSessionState | null;
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
   toggleLockUserSelection: () => void;
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
-  nextRound: () => void;
+  nextRound: (ticketNumber?: string) => void;
   updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: Partial<PokerSessionConfig>) => void;
+  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; }) => void;
   deleteAllRounds: () => void;
   presentUserIds: string[];
-  teamId?: string;
+  children: ReactNode;
   isMobile: boolean;
+  teamId?: string;
   userRole?: string;
+  isNextRoundDialogOpen: boolean;
+  setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
   const { 
     session, activeUserId, updateUserSelection, teamId, isMobile,
     toggleLockUserSelection, toggleAbstainUserSelection, playHand,
-    nextRound, updateTicketNumber, userRole
+    deleteAllRounds, updateSessionConfig,
+    nextRound,
+    updateTicketNumber, userRole, presentUserIds,
+    isNextRoundDialogOpen, setNextRoundDialogOpen
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -113,7 +121,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
-  } = usePokerSessionHistory(session?.id || null);
+  } = usePokerSessionHistory(session?.session_id || null);
 
   const {
     messages: chatMessagesForRound,
@@ -123,40 +131,29 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     removeReaction,
     uploadImage: uploadChatImage,
   } = usePokerSessionChat(
-    session?.id || null,
-    currentRound?.round_number || 1,
+    session?.session_id || null,
+    currentRound?.round_number || session?.round_number || 1,
     activeUserId,
     session?.selections[activeUserId || '']?.name
   );
 
+  const displaySession = useMemo(() => {
+    return isViewingHistory && currentRound ? currentRound : session;
+  }, [isViewingHistory, currentRound, session]);
+
   const handleSendToSlack = async () => {
-    if (!session || !teamId) return;
+    if (!displaySession || !teamId) return;
     setIsSending(true);
     await sendPokerRoundToSlack(
       teamId,
-      session.ticket_number,
-      session.ticket_title,
-      session.selections,
-      session.average_points,
+      displaySession.ticket_number,
+      displaySession.ticket_title,
+      displaySession.selections,
+      displaySession.average_points,
       chatMessagesForRound
     );
     setIsSending(false);
   };
-
-  const displaySession = useMemo(() => {
-    if (isViewingHistory && currentRound) {
-      return {
-        ...session!,
-        selections: currentRound.selections,
-        average_points: currentRound.average_points,
-        ticket_number: currentRound.ticket_number,
-        ticket_title: currentRound.ticket_title,
-        game_state: 'Playing' as const,
-        current_round_number: currentRound.round_number,
-      };
-    }
-    return session;
-  }, [isViewingHistory, currentRound, session]);
 
   const cardGroups = useMemo(() => {
     if (!displaySession || displaySession.game_state !== 'Playing') {
@@ -201,10 +198,12 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   );
 
   React.useEffect(() => {
-    if (session?.ticket_number && !isTicketInputFocused) {
-      setDisplayTicketNumber(session.ticket_number);
+    if (displaySession?.ticket_number && !isTicketInputFocused) {
+      setDisplayTicketNumber(displaySession.ticket_number);
+    } else if (!isTicketInputFocused) {
+      setDisplayTicketNumber(displaySession?.ticket_number || '');
     }
-  }, [session?.ticket_number, isTicketInputFocused]);
+  }, [displaySession?.ticket_number, isTicketInputFocused]);
 
   const pointOptions = [1, 2, 3, 5, 8, 13, 21];
 
@@ -251,8 +250,20 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   }
 
   const value: PokerTableContextProps = {
-    ...props,
+    session,
+    activeUserId,
+    updateUserSelection,
+    toggleLockUserSelection,
+    toggleAbstainUserSelection,
+    playHand,
+    nextRound,
+    updateTicketNumber,
+    updateSessionConfig,
+    deleteAllRounds,
+    presentUserIds,
+    teamId,
     isMobile,
+    userRole,
     displayTicketNumber,
     isTicketInputFocused,
     shake,
@@ -287,8 +298,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setDisplayTicketNumber,
     setIsDrawerOpen,
     setIsChatDrawerOpen,
-    userRole,
+    isNextRoundDialogOpen,
+    setNextRoundDialogOpen,
   };
 
-  return <PokerTableContext.Provider value={value}>{children}</PokerTableContext.Provider>;
+  return (
+    <PokerTableContext.Provider value={value}>
+      {children}
+    </PokerTableContext.Provider>
+  );
 }; 

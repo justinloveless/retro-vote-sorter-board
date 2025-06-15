@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePokerTable } from './context';
 import PointSelector from "@/components/Neotro/PointSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -11,6 +11,7 @@ import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
+import { PlayerSelection } from '@/hooks/usePokerSession';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 4) return 'grid-cols-4';
@@ -54,7 +55,8 @@ export const DesktopView: React.FC = () => {
         handleTicketNumberBlur,
         teamId,
         activeUserId,
-        userRole
+        userRole,
+        setNextRoundDialogOpen
     } = usePokerTable();
 
     useEffect(() => {
@@ -94,7 +96,10 @@ export const DesktopView: React.FC = () => {
                             />
                             <div className='flex justify-end pt-2'>
                                 <PokerConfig
-                                    config={session}
+                                    config={{ 
+                                        presence_enabled: 'presence_enabled' in session && session.presence_enabled,
+                                        send_to_slack: 'send_to_slack' in session && session.send_to_slack
+                                    }}
                                     onUpdateConfig={updateSessionConfig}
                                     onDeleteAllRounds={deleteAllRounds}
                                     isSlackIntegrated={isSlackInstalled}
@@ -108,7 +113,7 @@ export const DesktopView: React.FC = () => {
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={nextRound}
+                                        onHandPlayed={() => setNextRoundDialogOpen(true)}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>
@@ -157,12 +162,12 @@ export const DesktopView: React.FC = () => {
                             </div>
                         ) : (
                             <div className={`grid ${getGridColumns(totalPlayers)} gap-4 justify-items-center max-w-full`}>
-                                {Object.entries(displaySession.selections).map(([userId, selection]) => (
+                                {Object.entries(displaySession.selections).map(([userId, selection]: [string, PlayerSelection]) => (
                                     <PlayingCard
                                         key={userId}
-                                        cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
-                                        playerName={(selection as any).name}
-                                        pointsSelected={(selection as any).points}
+                                        cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
+                                        playerName={selection.name}
+                                        pointsSelected={selection.points}
                                         isPresent={presentUserIds.includes(userId)}
                                         totalPlayers={totalPlayers}
                                     />

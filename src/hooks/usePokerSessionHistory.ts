@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Selections } from './usePokerSession';
+import { GameState } from './usePokerSession';
 
 export interface PokerSessionRound {
   id: string;
@@ -12,6 +14,7 @@ export interface PokerSessionRound {
   ticket_title: string | null;
   completed_at: string;
   created_at: string;
+  game_state: GameState;
 }
 
 export const usePokerSessionHistory = (sessionId: string | null) => {
