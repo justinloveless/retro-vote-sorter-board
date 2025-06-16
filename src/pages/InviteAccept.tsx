@@ -46,12 +46,12 @@ const InviteAccept = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-center mb-4">
-                  You need to be signed in to accept this team invitation. 
+                  You need to be signed in to accept this team invitation.
                   Please sign in or create an account below.
                 </p>
               </CardContent>
             </Card>
-            <AuthForm onAuthSuccess={() => {}} />
+            <AuthForm onAuthSuccess={() => { }} />
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@ const InviteAccept = () => {
           <p className="text-gray-600 text-center">
             You've been invited to join a team. Click the button below to accept the invitation.
           </p>
-          <Button 
+          <Button
             onClick={handleAcceptInvitation}
             disabled={loading}
             className="w-full"

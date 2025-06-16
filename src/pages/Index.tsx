@@ -34,7 +34,7 @@ const Index = () => {
       <main className="container mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            Collaborative Tools for Agile Teams
+            Collaborative Tools for Agile Teams 2
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Run engaging retrospectives or story point estimation sessions with your team.

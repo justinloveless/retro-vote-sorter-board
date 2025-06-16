@@ -10,9 +10,10 @@ import { GlobalBackground } from './ui/GlobalBackground';
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
+  redirectTo?: string;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -20,17 +21,22 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
 
-  const rawBasePath = import.meta.env.VITE_PUBLIC_BASE_PATH || "";
-  let pathForConstructor: string;
-  if (!rawBasePath || rawBasePath === "/") {
-    pathForConstructor = '/';
-  } else {
-    pathForConstructor = rawBasePath.startsWith('/') ? rawBasePath : '/' + rawBasePath;
-    if (!pathForConstructor.endsWith('/')) {
-      pathForConstructor += '/';
+  const getRedirectURL = () => {
+    const rawBasePath = import.meta.env.VITE_PUBLIC_BASE_PATH || "";
+    let pathForConstructor: string;
+    if (!rawBasePath || rawBasePath === "/") {
+      pathForConstructor = '/';
+    } else {
+      pathForConstructor = rawBasePath.startsWith('/') ? rawBasePath : '/' + rawBasePath;
+      if (!pathForConstructor.endsWith('/')) {
+        pathForConstructor += '/';
+      }
     }
-  }
-  const redirectBaseUrl = new URL(pathForConstructor, window.location.origin).href;
+    const finalPath = redirectTo || pathForConstructor;
+    return new URL(finalPath, window.location.origin).href;
+  };
+
+  const redirectURL = getRedirectURL();
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -39,7 +45,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectBaseUrl
+          redirectTo: redirectURL,
         }
       });
 
@@ -68,7 +74,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           data: {
             full_name: fullName,
           },
-          emailRedirectTo: redirectBaseUrl
+          emailRedirectTo: redirectURL,
         }
       });
 
@@ -123,7 +129,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   return (
     <>
       <GlobalBackground />
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-center text-gray-900 dark:text-gray-50">Join Retro Board</CardTitle>

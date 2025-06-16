@@ -42,7 +42,7 @@ const Teams = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={`/teams`} onAuthSuccess={() => { }} />;
   }
 
   if (loading) {

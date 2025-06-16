@@ -160,7 +160,7 @@ const TeamSettingsPage = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={`/teams/${teamId}/settings`} onAuthSuccess={() => { }} />;
   }
 
   if (!team || !teamSettings || !jiraSettings) {

@@ -12,6 +12,7 @@ import { ShareDialog } from './retro/ShareDialog';
 import { FloatingButtons } from './retro/FloatingButtons';
 import { useRoomAccess } from '@/hooks/useRoomAccess';
 import { BoardNotFound } from './retro/BoardNotFound';
+import { AppHeader } from './AppHeader';
 
 interface RetroRoomProps {
   roomId?: string;
@@ -191,7 +192,9 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   }
 
   return (
-    <div className="relative pt-24 md:pt-0">
+    <div className="relative pt-24 md:pt-0 min-h-screen">
+
+      <AppHeader variant='back' handleSignIn={() => setShowAuthDialog(true)} />
       <RetroBoard
         boardId={roomId}
         isPrivate={isPrivate}
@@ -235,9 +238,9 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Sign In</DialogTitle>
+            <DialogTitle>Sign In 2</DialogTitle>
           </DialogHeader>
-          <AuthForm onAuthSuccess={() => setShowAuthDialog(false)} />
+          <AuthForm redirectTo={`/retro/${roomId}`} onAuthSuccess={() => setShowAuthDialog(false)} />
         </DialogContent>
       </Dialog>
     </div>

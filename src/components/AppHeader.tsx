@@ -18,17 +18,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
+import { DialogHeader } from './ui/dialog';
+import { AuthForm } from './AuthForm';
 
 type HeaderVariant = 'default' | 'home' | 'back';
 
 interface AppHeaderProps {
     variant?: HeaderVariant;
     backTo?: string;
+    handleSignIn?: () => void;
     children?: React.ReactNode;
 }
 
-export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderProps) => {
+export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn }: AppHeaderProps) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, profile, signOut } = useAuth();
@@ -67,14 +71,14 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
                 {theme === 'light' ? '🌙' : '☀️'}
                 <span className="ml-2">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </Button>
-            
+
             {variant === 'home' && location.pathname !== '/' && (
                 <Button variant="ghost" onClick={() => navigate('/')} className="justify-start">
                     <Home className="h-4 w-4 mr-2" />
                     Home
                 </Button>
             )}
-            
+
             {variant === 'back' && !(backTo && location.pathname === backTo) && (
                 <Button variant="ghost" onClick={() => (backTo ? navigate(backTo) : navigate(-1))} className="justify-start">
                     <ArrowLeft className="h-4 w-4 mr-2" />
@@ -165,13 +169,17 @@ export const AppHeader = ({ variant = 'default', backTo, children }: AppHeaderPr
                 </>
             ) : (
                 location.pathname !== '/account' && (
-                    <Button variant="outline" onClick={() => navigate('/account')}>
-                        <LogIn className="h-4 w-4 mr-2" />
+                    <Button
+                        onClick={handleSignIn || (() => navigate('/account'))}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                    >
+                        <User className="h-4 w-4" />
                         Sign In
                     </Button>
                 )
             )}
-        </div>
+        </div >
     );
 
     return (
