@@ -8,7 +8,7 @@ import { PokerSessionConfig } from '../PokerConfig';
 import { ReactNode, Dispatch, SetStateAction } from 'react';
 
 interface PokerTableContextProps {
-  session: PokerSessionState | PokerSessionRound | null;
+  session: PokerSessionState | null;
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
   toggleLockUserSelection: () => void;
@@ -93,7 +93,7 @@ export interface PokerTableProviderProps {
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
-  const { 
+  const {
     session, activeUserId, updateUserSelection, teamId, isMobile,
     toggleLockUserSelection, toggleAbstainUserSelection, playHand,
     deleteAllRounds, updateSessionConfig,
