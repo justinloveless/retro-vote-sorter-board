@@ -103,7 +103,7 @@ serve(async (req: Request) => {
     }
 
     // Generate the board URL
-    const boardUrl = `${req.headers.get('origin') || 'https://preview--retro-vote-sorter-board.lovable.app'}/retro/${roomId}`
+    const boardUrl = `${req.headers.get('origin') || 'https://retroscope.lovelesslabstx.com'}/retro/${roomId}`
 
     // Create Slack response
     const slackResponse = {
