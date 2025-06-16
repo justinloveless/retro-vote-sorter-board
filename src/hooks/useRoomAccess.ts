@@ -81,13 +81,75 @@ export const useRoomAccess = (roomId: string, user: any) => {
           setAccessStatus('granted');
         }
       } else {
-        // Room doesn't exist
-        setAccessStatus('denied');
-        toast({
-          title: "Board not found",
-          description: "This board has been deleted or does not exist.",
-          variant: "destructive",
-        });
+        // Room doesn't exist, create it
+        const createNewRoom = async () => {
+          try {
+            const newBoardTitle = 'Quick Retro Board';
+            const { data: newBoard, error: boardError } = await supabase
+              .from('retro_boards')
+              .insert([{
+                room_id: roomId,
+                title: newBoardTitle,
+                creator_id: user?.id || null,
+                is_private: false,
+              }])
+              .select()
+              .single();
+
+            if (boardError) {
+              throw boardError;
+            }
+
+            const { error: configError } = await supabase
+              .from('retro_board_config')
+              .insert([{
+                board_id: newBoard.id,
+                allow_anonymous: true,
+                voting_enabled: true,
+                max_votes_per_user: 3,
+                show_author_names: true
+              }]);
+
+            if (configError) {
+              console.error('Error creating board config:', configError);
+            }
+
+            // Refetch board data to include team info if any
+            const { data: board, error } = await supabase
+              .from('retro_boards')
+              .select(`
+                *,
+                teams(
+                  id,
+                  name,
+                  team_members(user_id, role)
+                )
+              `)
+              .eq('room_id', roomId)
+              .single();
+
+            if (error) throw error;
+
+            setBoardData(board);
+            setAccessStatus('granted');
+            setIsPrivate(false);
+            toast({
+              title: "New board created!",
+              description: "Welcome to your new retro board.",
+            });
+
+          } catch (creationError) {
+            console.error('Error creating new room:', creationError);
+            setAccessStatus('denied');
+            toast({
+              title: "Error creating board",
+              description: "Could not create a new board. Please try again.",
+              variant: "destructive",
+            });
+          }
+        };
+
+        createNewRoom();
       }
     } catch (error) {
       console.error('Error checking room access:', error);
@@ -106,9 +168,9 @@ export const useRoomAccess = (roomId: string, user: any) => {
     // Simple password check (in production, you'd hash and compare)
     if (enteredPassword === 'demo123' || boardData.password_hash === enteredPassword) {
       setAccessStatus('granted');
-      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({ 
-        isPrivate: true, 
-        authenticated: true 
+      localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({
+        isPrivate: true,
+        authenticated: true
       }));
       toast({
         title: "Access granted",
