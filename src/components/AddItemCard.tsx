@@ -46,7 +46,7 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
   }
 
   return (
-    <Card className="bg-white/90">
+    <Card className="bg-white/60 dark:bg-gray-700/60">
       <CardContent className="p-4 space-y-3">
         <Textarea
           placeholder="Enter your retro item..."
@@ -58,7 +58,7 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
               handleSubmit();
             }
           }}
-          className="resize-none"
+          className="resize-none bg-white/90 dark:bg-gray-800/60"
           rows={3}
           autoFocus
         />
