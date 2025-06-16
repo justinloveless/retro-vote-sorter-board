@@ -67,7 +67,7 @@ const Account = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => window.location.reload()} />;
+    return <AuthForm redirectTo={`/account`} onAuthSuccess={() => window.location.reload()} />;
   }
 
   return (

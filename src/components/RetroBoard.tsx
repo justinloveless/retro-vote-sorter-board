@@ -201,9 +201,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   }
 
   return (
-    <div className="min-h-screen ">
-      {/* <EnvironmentIndicator /> */}
-
+    <div className="">
       {/* Archived board notice */}
       {isArchived && (
         <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 rounded-lg">
@@ -213,7 +211,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           </div>
         </div>
       )}
-      <AppHeader variant='back' />
       <div className='p-6 pt-0'>
         <BoardHeader
           board={board}

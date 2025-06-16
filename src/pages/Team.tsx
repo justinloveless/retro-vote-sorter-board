@@ -89,7 +89,7 @@ const Team = () => {
   }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={`/teams/${teamId}`} onAuthSuccess={() => { }} />;
   }
 
   if (!team) {
