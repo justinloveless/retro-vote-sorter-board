@@ -58,6 +58,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
 
   // Send Slack notification when board is accessed for the first time
   useEffect(() => {
+
     const checkAndAskForNotification = async () => {
       if (!boardData || !user || hasBeenNotified) return;
 
@@ -84,6 +85,9 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
         console.error('Error checking for retro session:', error);
       }
     };
+
+    setPassword(boardData?.password_hash || '');
+    setIsPrivate(boardData?.is_private || false);
 
     checkAndAskForNotification();
   }, [boardData, user, hasBeenNotified]);

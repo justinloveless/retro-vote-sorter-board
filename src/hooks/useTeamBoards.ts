@@ -33,6 +33,7 @@ export const useTeamBoards = (teamId: string | null) => {
         .from('retro_boards')
         .select('*')
         .eq('team_id', teamId)
+        .neq('deleted', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
