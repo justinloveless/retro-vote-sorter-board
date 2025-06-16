@@ -124,7 +124,7 @@ serve(async (req: Request) => {
             },
             {
               title: 'Join the retro',
-              value: `Click here to participate: ${req.headers.get('origin') || 'https://preview--retro-vote-sorter-board.lovable.app'}/retro/${roomId}`,
+              value: `Click here to participate: ${req.headers.get('origin') || 'https://retroscope.lovelesslabstx.com'}/retro/${roomId}`,
               short: false
             }
           ]
