@@ -23,8 +23,8 @@ interface PokerConfigProps {
   userRole?: string;
 }
 
-export const PokerConfig: React.FC<PokerConfigProps> = ({ 
-  config, 
+export const PokerConfig: React.FC<PokerConfigProps> = ({
+  config,
   onUpdateConfig,
   onDeleteAllRounds,
   isSlackIntegrated,
@@ -52,7 +52,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="bg-white/20 backdrop-blur border-white/30 text-white hover:bg-white/30">
+        <Button variant="outline" size="sm" className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30">
           <Settings className="h-4 w-4 mr-2" />
           Settings
         </Button>
@@ -95,11 +95,11 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
               </CardHeader>
               <CardContent>
                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full">
-                        Delete All Previous Rounds
-                      </Button>
-                    </AlertDialogTrigger>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full">
+                      Delete All Previous Rounds
+                    </Button>
+                  </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>

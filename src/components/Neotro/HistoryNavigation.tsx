@@ -31,18 +31,18 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
 
   if (isMobile) {
     return (
-      <div className="bg-white/10 backdrop-blur rounded-xl p-3 flex items-center justify-between">
+      <div className="bg-primary/10 backdrop-blur rounded-xl p-3 flex items-center justify-between">
         <Button
           variant="ghost"
           size="sm"
           onClick={onPrevious}
           disabled={!canGoBack}
-          className="text-white hover:bg-white/20 disabled:opacity-50"
+          className="text-primary hover:bg-primary/20 disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        
-        <div className="flex items-center gap-2 text-white">
+
+        <div className="flex items-center gap-2 text-primary">
           {isViewingHistory && <Clock className="h-4 w-4" />}
           <span className="text-sm font-medium">
             Round {currentRoundNumber} of {totalRounds}
@@ -55,17 +55,17 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
             size="sm"
             onClick={onNext}
             disabled={!canGoForward}
-            className="text-white hover:bg-white/20 disabled:opacity-50"
+            className="text-primary hover:bg-primary/20 disabled:opacity-50"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
+
           {isViewingHistory && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onGoToCurrent}
-              className="text-white hover:bg-white/20"
+              className="text-primary hover:bg-primary/20"
               title="Go to current round"
             >
               <Play className="h-4 w-4" />
@@ -89,7 +89,7 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
-        
+
         <div className="flex items-center gap-2">
           {isViewingHistory && (
             <div className="flex items-center gap-1 text-muted-foreground">
@@ -113,7 +113,7 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
+
           {isViewingHistory && (
             <Button
               variant="default"
