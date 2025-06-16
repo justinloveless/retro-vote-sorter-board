@@ -24,6 +24,8 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
+  console.log('password', password);
+
   const shareRoom = () => {
     const url = `${window.location.origin}/retro/${roomId}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -46,14 +48,14 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Room URL:</p>
             <div className="flex items-center gap-2">
-              <Input 
+              <Input
                 value={`${window.location.origin}/retro/${roomId}`}
                 readOnly
                 className="font-mono text-sm"
               />
-              <Button 
+              <Button
                 onClick={shareRoom}
-                variant="outline" 
+                variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
               >
@@ -62,7 +64,7 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
               </Button>
             </div>
           </div>
-          
+
           {isPrivate && password && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-700">
               <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
@@ -71,7 +73,7 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
               </p>
             </div>
           )}
-          
+
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             Share this link with your team members
           </div>

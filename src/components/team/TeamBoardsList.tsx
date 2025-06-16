@@ -106,7 +106,7 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
 
       <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
         {displayBoards.map((board) => (
-          <Card key={board.id} className={`hover:shadow-lg transition-shadow ${board.archived ? 'opacity-75' : ''}`}>
+          <Card key={board.id} className={`hover:shadow-lg transition-shadow ${board.archived ? 'opacity-90' : ''}`}>
             <CardHeader className={isMobile ? 'pb-3' : ''}>
               <CardTitle className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -165,7 +165,6 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
               <Button
                 onClick={() => navigate(`/retro/${board.room_id}`)}
                 className={`w-full ${isMobile ? 'h-12 text-base' : ''}`}
-                disabled={board.archived}
               >
                 {board.archived ? 'View (Read-only)' : 'Open Board'}
               </Button>
