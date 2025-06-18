@@ -58,6 +58,7 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
               handleSubmit();
             }
           }}
+          onDragStart={(e) => e.stopPropagation()}
           className="resize-none bg-white/90 dark:bg-gray-800/60"
           rows={3}
           autoFocus
