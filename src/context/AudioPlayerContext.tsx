@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { currentEnvironment } from '@/config/environment';
+import { useToast } from '@/hooks/use-toast';
 
 export type AudioPlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
@@ -26,6 +27,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const { toast } = useToast();
 
 
   // Only create the audio element once
@@ -127,8 +129,13 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         console.error('Error playing audio:', e);
         setError(e.message);
         setAudioState('error');
+        toast({
+            title: 'Text-to-Speech Error',
+            description: "There was an issue with the text-to-speech service. Please try again later.",
+            variant: 'destructive',
+        });
     }
-}, []);
+}, [toast]);
 
   const playAudioUrl = useCallback(async (audioUrl: string) => {
     try {
