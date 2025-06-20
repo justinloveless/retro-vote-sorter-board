@@ -6,18 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// More flexible Block type for Slack messages
+type Block = {
+  type: string;
+  text?: {
+    type: string;
+    text: string;
+    emoji?: boolean;
+  };
+  fields?: {
+    type: string;
+    text: string;
+  }[];
+};
+
 interface SlackMessage {
-  text: string;
+  blocks: Block[];
+  text: string; // Fallback text
   username?: string;
   icon_emoji?: string;
-  attachments?: Array<{
-    color: string;
-    fields: Array<{
-      title: string;
-      value: string;
-      short: boolean;
-    }>;
-  }>;
 }
 
 serve(async (req: Request) => {
@@ -60,10 +67,10 @@ serve(async (req: Request) => {
 
     console.log('Sending Slack notification for board:', boardId, 'team:', teamId)
 
-    // Get team information, including the Slack webhook URL
+    // Get team information, including the Slack bot token and channel ID
     const { data: team, error: teamError } = await supabase
       .from('teams')
-      .select('name, slack_webhook_url')
+      .select('name, slack_bot_token, slack_channel_id')
       .eq('id', teamId)
       .single()
 
@@ -71,10 +78,10 @@ serve(async (req: Request) => {
       throw new Error(`Error fetching team data: ${teamError.message}`)
     }
 
-    if (!team || !team.slack_webhook_url) {
-      console.log(`No Slack webhook URL configured for team ${teamId}. Skipping notification.`)
+    if (!team || !team.slack_bot_token || !team.slack_channel_id) {
+      console.log(`No Slack integration configured for team ${teamId}. Skipping notification.`)
       return new Response(
-        JSON.stringify({ success: true, message: 'No Slack webhook URL configured' }),
+        JSON.stringify({ success: true, message: 'No Slack integration configured' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
@@ -82,7 +89,7 @@ serve(async (req: Request) => {
       )
     }
 
-    const { slack_webhook_url: webhookUrl, name: teamName = 'Unknown Team' } = team
+    const { slack_bot_token: botToken, slack_channel_id: channelId, name: teamName = 'Unknown Team' } = team
 
     // Get user information
     const { data: profile } = await supabase
@@ -93,56 +100,67 @@ serve(async (req: Request) => {
 
     const userName = profile?.full_name || 'Someone'
 
-    // Create the Slack message
+    // Create the Slack message using blocks
     const slackMessage: SlackMessage = {
-      text: `🎯 Retrospective Session Started!`,
+      text: `🎯 Retrospective Session Started!`, // Fallback text
       username: 'RetroScope Bot',
       icon_emoji: ':spiral_calendar_pad:',
-      attachments: [
+      blocks: [
         {
-          color: '#4F46E5',
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: '🎯 Retrospective Session Started!',
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
           fields: [
             {
-              title: 'Board Title',
-              value: boardTitle,
-              short: true
+              type: 'mrkdwn',
+              text: `*Board Title:*\n${boardTitle}`,
             },
             {
-              title: 'Team',
-              value: teamName,
-              short: true
+              type: 'mrkdwn',
+              text: `*Team:*\n${teamName}`,
             },
             {
-              title: 'Started by',
-              value: userName,
-              short: true
+              type: 'mrkdwn',
+              text: `*Started by:*\n${userName}`,
             },
             {
-              title: 'Room ID',
-              value: roomId,
-              short: true
+              type: 'mrkdwn',
+              text: `*Room ID:*\n${roomId}`,
             },
-            {
-              title: 'Join the retro',
-              value: `Click here to participate: ${req.headers.get('origin') || 'https://retroscope.lovelesslabstx.com'}/retro/${roomId}`,
-              short: false
-            }
-          ]
-        }
-      ]
+          ],
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*<${req.headers.get('origin') || 'https://retroscope.lovelesslabstx.com'}/retro/${roomId}|Join the retro>*`,
+          },
+        },
+      ],
     }
 
     // Send the message to Slack
-    const slackResponse = await fetch(webhookUrl, {
+    const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${botToken}`,
       },
-      body: JSON.stringify(slackMessage),
+      body: JSON.stringify({
+        channel: channelId,
+        ...slackMessage,
+      }),
     })
-
-    if (!slackResponse.ok) {
-      throw new Error(`Slack API error: ${slackResponse.status} ${slackResponse.statusText}`)
+    
+    const slackResponseData = await slackResponse.json()
+    if (!slackResponseData.ok) {
+      throw new Error(`Slack API error: ${slackResponseData.error}`)
     }
 
     console.log('Slack notification sent successfully')
