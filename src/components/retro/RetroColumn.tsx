@@ -28,7 +28,13 @@ interface RetroItem {
   created_at: string;
 }
 
+interface RetroBoard {
+  id: string;
+  [key: string]: any;
+}
+
 interface RetroColumnProps {
+  board: RetroBoard | null;
   column: any;
   items: RetroItem[];
   boardConfig: any;
@@ -67,6 +73,7 @@ interface RetroColumnProps {
 }
 
 export const RetroColumn: React.FC<RetroColumnProps> = ({
+  board,
   column,
   items,
   boardConfig,
@@ -158,17 +165,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
-            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && (
-              // <SummaryButton items={items} columnTitle={column.title} />
-              <ColumnSummary
-                key={`${column.id}-${audioSummaryState?.status}`}
-                items={items}
-                columnId={column.id}
-                columnTitle={column.title}
-                presenceChannel={presenceChannel}
-                audioSummaryState={audioSummaryState}
-                updateAudioSummaryState={updateAudioSummaryState}
-              />
+            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board &&(
+              <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
             {!isAnonymousUser && (
               <>

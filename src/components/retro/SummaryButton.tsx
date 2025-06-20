@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import { currentEnvironment } from '@/config/environment';
 
 
 const NARRATION_STYLES = [
@@ -15,21 +16,22 @@ const NARRATION_STYLES = [
 interface SummaryButtonProps {
     items: { id: string; text: string }[];
     columnTitle: string;
+    boardId: string;
 }
 
-export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle }) => {
+export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle, boardId }) => {
 
     const { playAudioUrl, pause, resume, audioState, stop, error } = useAudioPlayer();
     const styleSelected = async (style: string) => {
 
         // Use fetch directly instead of supabase.functions.invoke
-        const response = await fetch(`https://nwfwbjmzbwuyxehindpv.supabase.co/functions/v1/generate-audio-summary`, {
+        const response = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/generate-audio-summary`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
             },
-            body: JSON.stringify({ items, columnTitle, style }),
+            body: JSON.stringify({ items, columnTitle, style, boardId }),
         });
 
         if (!response.ok) {

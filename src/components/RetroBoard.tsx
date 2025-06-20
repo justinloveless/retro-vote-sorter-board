@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
+import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
@@ -27,6 +28,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   isAnonymousUser = false
 }) => {
   const { user, profile, signOut } = useAuth();
+  const { playAudioUrl } = useAudioPlayer();
   const {
     board,
     columns,
@@ -54,6 +56,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     userVotes,
     audioSummaryState,
     updateAudioSummaryState,
+    audioUrlToPlay,
+    clearAudioUrlToPlay,
   } = useRetroBoard(boardId);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -65,6 +69,14 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [editText, setEditText] = useState('');
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (audioUrlToPlay) {
+      playAudioUrl(audioUrlToPlay).then(() => {
+        clearAudioUrlToPlay();
+      });
+    }
+  }, [audioUrlToPlay, playAudioUrl, clearAudioUrlToPlay]);
 
   // Check if board is archived (read-only)
   const isArchived = board?.archived || false;
@@ -241,6 +253,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
             {columns.map(column => (
               <RetroColumn
                 key={column.id}
+                board={board}
                 column={column}
                 items={getItemsForColumn(column.id)}
                 boardConfig={boardConfig}
