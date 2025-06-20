@@ -25,6 +25,7 @@ interface RetroItem {
     avatar_url: string;
     full_name: string;
   } | null;
+  created_at: string;
 }
 
 interface RetroColumnProps {
@@ -104,7 +105,12 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
 
-  const sortedItems = [...items].sort((a, b) => b.votes - a.votes);
+  const sortedItems = [...items].sort((a, b) => {
+    if (b.votes !== a.votes) {
+      return b.votes - a.votes;
+    }
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
 
   // Function to check if a column is an "Action Items" column
   const isActionItemsColumn = (columnTitle: string) => {
