@@ -209,25 +209,20 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                           />
                         )}
                         {boardConfig?.voting_enabled && (
-                          <Badge variant={item.votes > 0 ? "default" : "outline"} className="flex items-center gap-1">
+                          <Button
+                            variant={userVotes.includes(item.id) ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onUpvoteItem(item.id)}
+                            className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                          >
                             <ThumbsUp className="h-3 w-3" />
                             {item.votes}
-                          </Badge>
+                          </Button>
                         )}
                       </div>
 
                       {/* Row 2: Buttons */}
                       <div className="flex justify-end gap-1">
-                        {boardConfig?.voting_enabled && (
-                          <Button
-                            size="sm"
-                            variant={userVotes.includes(item.id) ? "default" : "outline"}
-                            onClick={() => onUpvoteItem(item.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <ThumbsUp className="h-3 w-3" />
-                          </Button>
-                        )}
                         {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && <PlayAudioButton itemText={item.text} />}
                         {!isArchived &&
                           ((user?.id && item.author_id === user.id) ||
