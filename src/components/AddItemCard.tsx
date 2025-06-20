@@ -53,15 +53,15 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
+            if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               handleSubmit();
             }
           }}
-          onDragStart={(e) => e.stopPropagation()}
           className="resize-none bg-white/90 dark:bg-gray-800/60"
           rows={3}
           autoFocus
+          preventDrag={true}
         />
         {allowAnonymous && (
           <div className="flex items-center space-x-2">
