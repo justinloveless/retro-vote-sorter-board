@@ -15,7 +15,7 @@ export const useSlackIntegration = (teamId: string | null | undefined) => {
       setLoading(true);
       const { data, error } = await supabase
         .from('teams')
-        .select('slack_webhook_url')
+        .select('slack_bot_token')
         .eq('id', teamId)
         .single();
 
@@ -23,7 +23,7 @@ export const useSlackIntegration = (teamId: string | null | undefined) => {
         console.error('Error checking slack installation', error);
         setIsSlackInstalled(false);
       } else {
-        setIsSlackInstalled(!!data?.slack_webhook_url);
+        setIsSlackInstalled(!!data?.slack_bot_token);
       }
       setLoading(false);
     };
