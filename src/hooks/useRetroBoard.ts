@@ -594,50 +594,66 @@ export const useRetroBoard = (roomId: string) => {
     if (!board || !boardConfig) return;
 
     const currentUser = (await supabase.auth.getUser()).data.user;
-    const voteIdentifier = currentUser ? { user_id: currentUser.id } : { session_id: sessionId };
+    const userId = currentUser?.id;
+    const voteSessionId = !currentUser ? sessionId : undefined;
 
-    // Check if the user has already voted for this item
-    const { data: existingVote, error: existingVoteError } = await supabase
-      .from('retro_votes')
-      .select('id')
-      .eq('item_id', itemId)
-      .match(voteIdentifier)
-      .single();
+    const hasVoted = userVotes.includes(itemId);
 
-    if (existingVoteError && existingVoteError.code !== 'PGRST116') {
-      toast({ title: 'Error checking vote', variant: 'destructive' });
+    // Prevent adding a new vote if the limit is reached
+    if (!hasVoted && boardConfig.max_votes_per_user && userVotes.length >= boardConfig.max_votes_per_user) {
+      toast({
+        title: 'Vote limit reached',
+        description: `You can only vote ${boardConfig.max_votes_per_user} times.`,
+        variant: 'destructive'
+      });
       return;
     }
 
-    if (existingVote) {
-      // User has voted, so un-vote
-      const { error: deleteError } = await supabase.from('retro_votes').delete().eq('id', existingVote.id);
-      if (deleteError) {
+    // Optimistic UI updates
+    setUserVotes(prev => (hasVoted ? prev.filter(id => id !== itemId) : [...prev, itemId]));
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId
+          ? { ...item, votes: hasVoted ? item.votes - 1 : item.votes + 1 }
+          : item
+      )
+    );
+
+    if (hasVoted) {
+      // Remove vote from server
+      const { error } = await supabase
+        .from('retro_votes')
+        .delete()
+        .match({ item_id: itemId, board_id: board.id, user_id: userId, session_id: voteSessionId });
+
+      if (error) {
         toast({ title: 'Error removing vote', variant: 'destructive' });
-      } else {
-        setUserVotes(prev => prev.filter(id => id !== itemId));
+        // Revert UI changes on error
+        setUserVotes(prev => [...prev, itemId]);
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId ? { ...item, votes: item.votes + 1 } : item
+          )
+        );
       }
     } else {
-      // User has not voted, so add a new vote
-      if (boardConfig.max_votes_per_user && userVotes.length >= boardConfig.max_votes_per_user) {
-        toast({
-          title: 'Vote limit reached',
-          description: `You can only vote ${boardConfig.max_votes_per_user} times.`,
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      const { error: insertError } = await supabase.from('retro_votes').insert({
+      // Add vote to server
+      const { error } = await supabase.from('retro_votes').insert({
         item_id: itemId,
         board_id: board.id,
-        ...voteIdentifier
+        user_id: userId,
+        session_id: voteSessionId,
       });
 
-      if (insertError) {
-        toast({ title: 'Error casting vote', variant: 'destructive' });
-      } else {
-        setUserVotes(prev => [...prev, itemId]);
+      if (error) {
+        toast({ title: 'Error adding vote', variant: 'destructive' });
+        // Revert UI changes on error
+        setUserVotes(prev => prev.filter(id => id !== itemId));
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId ? { ...item, votes: item.votes - 1 } : item
+          )
+        );
       }
     }
   };
