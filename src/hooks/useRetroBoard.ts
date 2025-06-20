@@ -89,6 +89,7 @@ export const useRetroBoard = (roomId: string) => {
   });
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
+  const [audioUrlToPlay, setAudioUrlToPlay] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Update user presence using Supabase realtime presence
@@ -104,6 +105,10 @@ export const useRetroBoard = (roomId: string) => {
       avatar_url: avatarUrl
     });
   }, [presenceChannel, sessionId]);
+
+  const clearAudioUrlToPlay = useCallback(() => {
+    setAudioUrlToPlay(null);
+  }, []);
 
   // Load board data with better error handling and loading state management
   useEffect(() => {
@@ -247,178 +252,62 @@ export const useRetroBoard = (roomId: string) => {
     }
   }, [items, comments]);
 
-  // Set up realtime presence channel
+  // Set up realtime presence and data subscriptions
   useEffect(() => {
     if (!board) return;
 
-    const channel = supabase.channel(`board_${board.id}`, {
+    const channel = supabase.channel(`retro-board-${board.id}`, {
       config: {
         presence: {
-          key: 'users'
-        }
+          key: sessionId,
+        },
+      },
+    });
+
+    // Presence events
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const users = Object.values(state).map((p: any) => p[0]);
+      setActiveUsers(users as ActiveUser[]);
+    });
+
+    // Broadcast events
+    channel.on('broadcast', { event: 'play-summary-audio' }, ({ payload }) => {
+      if (payload.url) {
+        setAudioUrlToPlay(payload.url);
       }
     });
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const users: ActiveUser[] = [];
+    // Database changes
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, handleNewItem)
+           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'retro_items' }, (payload) => {
+              const updatedItem = payload.new as RetroItem;
+              setItems(currentItems =>
+                currentItems.map(item =>
+                  item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                )
+              );
+            })
+           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_items' }, (payload) => {
+              const deletedItem = payload.old as RetroItem;
+              setItems(currentItems => currentItems.filter(item => item.id !== deletedItem.id));
+            })
+           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, handleNewComment)
+           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
+            const deletedComment = payload.old as RetroComment;
+            setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
+           });
 
-        Object.keys(state).forEach(key => {
-          const presences = state[key] as any[];
-          presences.forEach(presence => {
-            users.push({
-              id: presence.user_id,
-              user_name: presence.user_name,
-              last_seen: presence.last_seen,
-              avatar_url: presence.avatar_url,
-            });
-          });
-        });
-
-        setActiveUsers(users);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      })
-      .on('broadcast', { event: 'audio-summary-state' }, ({ payload }) => {
-        setAudioSummaryState(payload);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          setPresenceChannel(channel);
-        }
-      });
-
-    return () => {
-      channel.unsubscribe();
-      setPresenceChannel(null);
-    };
-  }, [board]);
-
-  // Set up real-time subscriptions for board data
-  useEffect(() => {
-    if (!board) return;
-
-    const channel = supabase
-      .channel('retro-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'retro_columns',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const newColumn = payload.new as RetroColumn;
-          setColumns(prevColumns => {
-            if (prevColumns.find(c => c.id === newColumn.id)) return prevColumns;
-            return [...prevColumns, newColumn].sort((a, b) => a.position - b.position)
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'retro_items',
-          filter: `board_id=eq.${board.id}`
-        },
-        handleNewItem
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'retro_items',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const updatedItem = payload.new as RetroItem;
-          setItems(currentItems =>
-            currentItems.map(item =>
-              item.id === updatedItem.id ? { ...item, ...updatedItem } : item
-            )
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'retro_items',
-          filter: `board_id=eq.${board.id}`
-        },
-        (payload) => {
-          const deletedItem = payload.old as RetroItem;
-          setItems(currentItems =>
-            currentItems.filter(item => item.id !== deletedItem.id)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'retro_comments'
-        },
-        handleNewComment
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'retro_comments'
-        },
-        (payload) => {
-          const deletedComment = payload.old as RetroComment;
-          setComments(currentComments =>
-            currentComments.filter(comment => comment.id !== deletedComment.id)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'retro_board_config',
-          filter: `board_id=eq.${board.id}`
-        },
-        async () => {
-          const { data } = await supabase
-            .from('retro_board_config')
-            .select('*')
-            .eq('board_id', board.id)
-            .single();
-          setBoardConfig(data);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'retro_boards',
-          filter: `id=eq.${board.id}`
-        },
-        (payload) => {
-          setBoard(payload.new as RetroBoard);
-        }
-      )
-      .subscribe();
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        setPresenceChannel(channel);
+      }
+    });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [board, items, handleNewItem, handleNewComment]);
+  }, [board, sessionId, handleNewItem, handleNewComment]);
 
   const updateBoardTitle = async (title: string) => {
     if (!board) return;
@@ -752,18 +641,11 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const getCommentsForItem = (itemId: string) => {
-    return comments.filter(comment => comment.item_id === itemId);
+    return comments.filter(c => c.item_id === itemId);
   };
 
   const updateAudioSummaryState = (state: AudioSummaryState | null) => {
     setAudioSummaryState(state);
-    if (presenceChannel) {
-      presenceChannel.send({
-        type: 'broadcast',
-        event: 'audio-summary-state',
-        payload: state,
-      });
-    }
   };
 
   return {
@@ -773,7 +655,17 @@ export const useRetroBoard = (roomId: string) => {
     comments,
     boardConfig,
     activeUsers,
+    userVotes,
     loading,
+    sessionId,
+    presenceChannel,
+    audioSummaryState,
+    updateAudioSummaryState,
+    audioUrlToPlay,
+    clearAudioUrlToPlay,
+    updatePresence,
+    updateBoardTitle,
+    updateBoardConfig,
     addItem,
     addColumn,
     updateColumn,
@@ -782,16 +674,8 @@ export const useRetroBoard = (roomId: string) => {
     upvoteItem,
     updateItem,
     deleteItem,
-    updateBoardTitle,
-    updateBoardConfig,
-    updatePresence,
     addComment,
     deleteComment,
     getCommentsForItem,
-    sessionId,
-    presenceChannel,
-    audioSummaryState,
-    updateAudioSummaryState,
-    userVotes,
   };
 };
