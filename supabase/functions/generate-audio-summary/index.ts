@@ -84,9 +84,14 @@ async function uploadAudioToStorage(stream: ReadableStream, requestHash: string)
     const { data, error } = await supabase.storage.from('tts-audio-cache').upload(`${requestHash}.mp3`, stream, {
         contentType: 'audio/mpeg'
     });
+
+    if (error) {
+        console.error('Storage upload error', error);
+        throw error;
+    }
+    
     console.log('Storage upload result', {
-        data,
-        error
+        data
     });
 }
 
@@ -96,21 +101,33 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { items, columnTitle, style = 'default', voice = 'alloy' } = await req.json();
+        const { items, columnTitle, style = 'default', voice = 'alloy', boardId } = await req.json();
+        if (!boardId) {
+            throw new Error("boardId is required.");
+        }
+        
         const requestPayload = { items, columnTitle, style, voice };
         const requestHash = hash.MD5(requestPayload);
+        const audioPath = `${requestHash}.mp3`;
 
         // Check storage for existing audio file first
-        const { data: signedUrlData } = await supabase.storage.from('tts-audio-cache').createSignedUrl(`${requestHash}.mp3`, 60 * 60); // 1 hour expiry
-        if (signedUrlData) {
-            const storageRes = await fetch(signedUrlData.signedUrl);
-            if (storageRes.ok) {
-                console.log('Audio file found in cache, returning from storage.');
-                const headers = new Headers(storageRes.headers);
-                for (const [key, value] of Object.entries(corsHeaders)) {
-                    headers.set(key, value);
-                }
-                return new Response(storageRes.body, { status: storageRes.status, headers });
+        const { data: cachedFile } = await supabase.storage.from('tts-audio-cache').getPublicUrl(audioPath);
+        
+        if (cachedFile && cachedFile.publicUrl) {
+            // Check if the URL is accessible
+            const headResponse = await fetch(cachedFile.publicUrl);
+            if (headResponse.ok) {
+                console.log('Audio file found in cache, broadcasting URL.');
+                const channel = supabase.channel(`retro-board-${boardId}`);
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'play-summary-audio',
+                    payload: { url: cachedFile.publicUrl },
+                });
+                return new Response(JSON.stringify({ success: true, message: 'Audio URL broadcasted from cache.' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200,
+                });
             }
         }
 
@@ -167,16 +184,31 @@ Deno.serve(async (req: Request) => {
             throw new Error('TTS server response did not contain a body.');
         }
 
-        const [browserStream, storageStream] = ttsResponse.body.tee();
+        const [storageStream, responseStream] = ttsResponse.body.tee();
     
-        // Upload to Supabase Storage in the background, don't await it
-        EdgeRuntime.waitUntil(uploadAudioToStorage(storageStream, requestHash));
+        // Upload to Supabase Storage, and wait for it to finish
+        await uploadAudioToStorage(storageStream, requestHash);
 
-        return new Response(browserStream, {
+        const { data: { publicUrl } } = supabase.storage.from('tts-audio-cache').getPublicUrl(audioPath);
+
+        if (!publicUrl) {
+            throw new Error('Failed to get public URL for the new audio file.');
+        }
+        
+        // Broadcast the URL to all clients on the board
+        const channel = supabase.channel(`retro-board-${boardId}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'play-summary-audio',
+            payload: { url: publicUrl },
+        });
+
+        return new Response(JSON.stringify({ success: true, message: 'Audio generated and URL broadcasted.' }), {
             headers: {
                 ...corsHeaders,
-                'Content-Type': 'audio/mpeg',
+                'Content-Type': 'application/json',
             },
+            status: 200,
         });
 
     } catch (error) {
