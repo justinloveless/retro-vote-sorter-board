@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
@@ -54,7 +54,7 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleAddComment();
     }
@@ -112,7 +112,7 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                         </Button>
                       )}
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">{comment.text}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{comment.text}</p>
                   </div>
                 </div>
               </CardContent>
@@ -120,12 +120,13 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
           ))}
 
           <div className="flex gap-2">
-            <Input
+            <Textarea
               placeholder="Add a comment..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               className="text-sm"
+              rows={1}
             />
             <Button
               size="sm"
