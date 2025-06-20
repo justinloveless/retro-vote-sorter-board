@@ -8,6 +8,7 @@ import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
+import { TimerState } from '@/hooks/useRetroBoard';
 
 interface BoardHeaderProps {
   board: any;
@@ -21,6 +22,8 @@ interface BoardHeaderProps {
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardConfig: (config: any) => void;
   onSignOut: () => void;
+  timerState: TimerState;
+  updateTimerState: (state: Partial<TimerState>) => void;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -34,7 +37,9 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   items,
   onUpdateBoardTitle,
   onUpdateBoardConfig,
-  onSignOut
+  onSignOut,
+  timerState,
+  updateTimerState
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -85,7 +90,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-4">
-          <RetroTimer />
+          <RetroTimer timerState={timerState} updateTimerState={updateTimerState} />
 
           <SentimentDisplay items={items} />
 

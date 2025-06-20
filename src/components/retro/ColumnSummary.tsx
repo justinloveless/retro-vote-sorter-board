@@ -52,26 +52,29 @@ export const ColumnSummary: React.FC<ColumnSummaryProps> = ({
     // This effect synchronizes remote actions to the local player
     useEffect(() => {
         if (!isThisColumnActive) {
-            // This logic is now handled by the explicit stop() call in handleStyleSelect
+            if(audioState !== 'idle') stop();
             return;
         }
 
         const globalStatus = audioSummaryState?.status;
+        const script = audioSummaryState?.script;
 
-        if (globalStatus === 'playing' && audioState === 'paused') {
-            resume();
-        } else if (globalStatus === 'paused' && audioState === 'playing') {
-            pause();
-        } else if (globalStatus === 'generating' && audioState !== 'idle') {
-            stop();
+        if (globalStatus === 'playing') {
+            if (audioState === 'paused') {
+                resume();
+            } else if (audioState === 'idle' && script instanceof Blob) {
+                const audioUrl = URL.createObjectURL(script);
+                playAudioUrl(audioUrl);
+            }
+        } else if (globalStatus === 'paused') {
+            if (audioState === 'playing') {
+                pause();
+            }
+        } else if (globalStatus === 'generating' || globalStatus === 'ready' || !globalStatus) {
+            if(audioState !== 'idle') stop();
         }
 
-    }, [audioSummaryState, isThisColumnActive, audioState, resume, pause, stop]);
-
-    // This effect handles the initial loading of the audio when a script is ready
-    useEffect(() => {
-        // No auto-play when status is 'ready'. Only play on user action.
-    }, [audioSummaryState, isThisColumnActive, audioState, playAudioUrl]);
+    }, [audioSummaryState, isThisColumnActive, audioState, resume, pause, stop, playAudioUrl]);
 
     // This effect cleans up the global state when audio ends or errors out
     useEffect(() => {

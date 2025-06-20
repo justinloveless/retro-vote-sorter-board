@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,15 +7,22 @@ import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2 } from 'l
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { TimerState } from '@/hooks/useRetroBoard';
 
-export const RetroTimer: React.FC = () => {
+interface RetroTimerProps {
+  timerState: TimerState;
+  updateTimerState: (state: Partial<TimerState>) => void;
+}
+
+export const RetroTimer: React.FC<RetroTimerProps> = ({ timerState, updateTimerState }) => {
   const { user } = useAuth();
   const isAnonymousUser = !user;
   
-  const [minutes, setMinutes] = useState(15);
-  const [seconds, setSeconds] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  const { isRunning, duration, startTime } = timerState;
+
+  const [minutes, setMinutes] = useState(Math.floor(duration / 60));
+  const [seconds, setSeconds] = useState(duration % 60);
+  const [timeLeft, setTimeLeft] = useState(duration);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [volume, setVolume] = useState(0.3);
@@ -29,7 +35,6 @@ export const RetroTimer: React.FC = () => {
   const [usingDefaultAudio, setUsingDefaultAudio] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Default audio file configuration
@@ -45,40 +50,19 @@ export const RetroTimer: React.FC = () => {
     }
   }, [defaultAudioUrl, uploadedAudioUrl, isAnonymousUser]);
 
-  // Initialize audio playback - only control volume, not play/pause based on mute
+  // Audio playback logic
   useEffect(() => {
-    if (musicEnabled && isRunning && uploadedAudioUrl) {
-      if (audioRef.current) {
-        // Set volume based on mute state
-        audioRef.current.volume = isMuted ? 0 : volume;
-        audioRef.current.loop = true;
-        
-        // Only start playing if not already playing
-        if (audioRef.current.paused) {
-          audioRef.current.play().catch(error => {
-            console.log('Audio playback failed:', error);
-            toast({
-              title: "Audio playback failed",
-              description: "Could not play background music.",
-              variant: "destructive",
-            });
-          });
-        }
+    if (musicEnabled && isRunning && uploadedAudioUrl && audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.loop = true;
+      if (audioRef.current.paused) {
+        audioRef.current.play().catch(error => console.log('Audio playback failed:', error));
       }
-    } else if (audioRef.current && !isRunning) {
+    } else if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
     }
-
-    return () => {
-      if (audioRef.current && !isRunning) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    };
   }, [musicEnabled, isRunning, uploadedAudioUrl, volume, isMuted]);
 
-  // Update audio volume when volume or mute state changes
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume;
@@ -87,33 +71,35 @@ export const RetroTimer: React.FC = () => {
 
   // Timer logic
   useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
+    let interval: NodeJS.Timeout | null = null;
+    if (isRunning) {
+      interval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const newTimeLeft = Math.round(duration - elapsed);
+        
+        if (newTimeLeft <= 0) {
+          setTimeLeft(0);
+          // Only one client should send the update
+          if(isRunning) {
+            updateTimerState({ isRunning: false });
             toast({
-              title: "Time's up!",
-              description: "Your retro timer has finished.",
+                title: "Time's up!",
+                description: "Your retro timer has finished.",
             });
-            return 0;
           }
-          return prev - 1;
-        });
+        } else {
+            setTimeLeft(newTimeLeft);
+        }
       }, 1000);
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+        setTimeLeft(duration);
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (interval) clearInterval(interval);
     };
-  }, [isRunning, timeLeft, toast]);
-
+  }, [isRunning, startTime, duration, updateTimerState, toast]);
+  
   const handleAudioUpload = async () => {
     if (!audioFile || !user) return;
 
@@ -156,7 +142,6 @@ export const RetroTimer: React.FC = () => {
   const handleDeleteAudio = async () => {
     if (!uploadedAudioUrl || !user) return;
 
-    // Don't allow deleting the default audio
     if (usingDefaultAudio) {
       toast({
         title: "Cannot delete default audio",
@@ -167,7 +152,6 @@ export const RetroTimer: React.FC = () => {
     }
 
     try {
-      // Extract file path from URL
       const urlParts = uploadedAudioUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
       
@@ -177,7 +161,6 @@ export const RetroTimer: React.FC = () => {
 
       if (error) throw error;
 
-      // Reset to default audio
       setUploadedAudioUrl(defaultAudioUrl);
       setUploadedFileName("Default Background Music");
       setUsingDefaultAudio(true);
@@ -198,20 +181,33 @@ export const RetroTimer: React.FC = () => {
   };
 
   const startTimer = () => {
-    if (timeLeft === 0) {
-      setTimeLeft(minutes * 60 + seconds);
-    }
-    setIsRunning(true);
+    const newDuration = minutes * 60 + seconds;
+    updateTimerState({
+      isRunning: true,
+      startTime: Date.now(),
+      duration: newDuration,
+    });
     setIsDialogOpen(false);
   };
 
   const pauseTimer = () => {
-    setIsRunning(false);
+    const elapsed = (Date.now() - startTime) / 1000;
+    const remainingDuration = duration - elapsed;
+    updateTimerState({
+      isRunning: false,
+      duration: remainingDuration > 0 ? remainingDuration : 0,
+      startTime: 0
+    });
   };
 
   const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(0);
+    const newDuration = minutes * 60 + seconds;
+    updateTimerState({
+      isRunning: false,
+      duration: newDuration,
+      startTime: 0,
+    });
+    setTimeLeft(newDuration);
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -222,11 +218,9 @@ export const RetroTimer: React.FC = () => {
 
   const toggleMusic = () => {
     if (isMuted) {
-      // Unmute: restore previous volume
       setIsMuted(false);
       setVolume(previousVolume);
     } else {
-      // Mute: save current volume and set to 0
       setPreviousVolume(volume);
       setIsMuted(true);
     }
@@ -247,7 +241,7 @@ export const RetroTimer: React.FC = () => {
         <div className="flex items-center gap-3">
           <Timer className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
           
-          {timeLeft > 0 ? (
+          {isRunning || (timeLeft > 0 && timeLeft < duration) ? (
             <div className="flex items-center gap-2">
               <span className="text-lg font-mono font-bold">
                 {formatTime(timeLeft)}
@@ -346,7 +340,6 @@ export const RetroTimer: React.FC = () => {
                           </Button>
                         </div>
                         
-                        {/* Upload new audio option */}
                         <div className="border-t pt-2">
                           <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                             Upload your own audio file:
@@ -364,14 +357,7 @@ export const RetroTimer: React.FC = () => {
                               onClick={handleAudioUpload}
                               disabled={!audioFile || isUploading}
                             >
-                              {isUploading ? (
-                                "Uploading..."
-                              ) : (
-                                <>
-                                  <Upload className="h-4 w-4 mr-1" />
-                                  Upload
-                                </>
-                              )}
+                              {isUploading ? "Uploading..." : (<><Upload className="h-4 w-4 mr-1" />Upload</>)}
                             </Button>
                           </div>
                         </div>
@@ -390,14 +376,7 @@ export const RetroTimer: React.FC = () => {
                           onClick={handleAudioUpload}
                           disabled={!audioFile || isUploading}
                         >
-                          {isUploading ? (
-                            "Uploading..."
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-1" />
-                              Upload
-                            </>
-                          )}
+                          {isUploading ? "Uploading..." : (<><Upload className="h-4 w-4 mr-1" />Upload</>)}
                         </Button>
                       </div>
                     )}
@@ -459,7 +438,6 @@ export const RetroTimer: React.FC = () => {
           )}
         </div>
         
-        {/* Hidden audio element for playback */}
         {uploadedAudioUrl && (
           <audio
             ref={audioRef}
