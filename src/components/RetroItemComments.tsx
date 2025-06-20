@@ -100,10 +100,7 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                     />
                   )}
                   <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(comment.created_at).toLocaleString()}
-                      </span>
+                    <div className="flex items-center justify-end">
                       {canDeleteComment(comment) && (
                         <Button
                           variant="ghost"
