@@ -54,8 +54,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     userVotes,
     audioSummaryState,
     updateAudioSummaryState,
-    timerState,
-    updateTimerState,
   } = useRetroBoard(boardId);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -226,8 +224,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
           onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
           onSignOut={signOut}
-          timerState={timerState}
-          updateTimerState={updateTimerState}
         />
 
         {/* User Name Display */}
