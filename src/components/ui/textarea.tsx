@@ -3,10 +3,12 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  preventDrag?: boolean
+}
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, preventDrag, ...props }, ref) => {
     return (
       <textarea
         className={cn(
@@ -15,6 +17,15 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
         ref={ref}
         {...props}
+        draggable={preventDrag}
+        onDragStart={
+          preventDrag
+            ? (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            : undefined
+        }
       />
     )
   }

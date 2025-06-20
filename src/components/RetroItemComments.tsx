@@ -127,6 +127,7 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
               onKeyDown={handleKeyPress}
               className="text-sm"
               rows={1}
+              preventDrag={true}
             />
             <Button
               size="sm"
