@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { JiraIssueDrawer } from "./JiraIssueDrawer";
+import { supabase } from "@/integrations/supabase/client";
+import { ExternalLink } from "lucide-react";
 
 // Data for point details
 const detailsData = [
@@ -51,6 +53,34 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
   onTicketNumberBlur,
   teamId,
 }) => {
+  const [jiraDomain, setJiraDomain] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!teamId) return;
+
+    const fetchJiraDomain = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('jira_integration_settings')
+          .select('url')
+          .eq('team_id', teamId)
+          .single();
+
+        if (error) {
+          console.log('Could not fetch Jira domain for team', teamId);
+        }
+
+        if (data) {
+          setJiraDomain(data.url);
+        }
+      } catch (e) {
+        console.error('Error in fetchJiraDomain:', e);
+      }
+    };
+
+    fetchJiraDomain();
+  }, [teamId]);
+
   // Find the details for the currently selected point
   const pointData = detailsData.find((detail) => detail.id === selectedPoint);
 
@@ -69,16 +99,28 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
     <div className="font-custom bg-[#2d2d2d] p-2 space-y-2 rounded-xl">
       {/* Title Section */}
       <div className="text-3xl text-center text-white text-shadow-[3px_3px_rgba(0,0,0,255)] bg-[#0068adff] rounded-lg p-2">
-        <input
-          type="text"
-          value={ticketNumber || ''}
-          onChange={(e) => onTicketNumberChange(e.target.value)}
-          onFocus={onTicketNumberFocus}
-          onBlur={onTicketNumberBlur}
-          disabled={isHandPlayed}
-          placeholder="RNMT-0000"
-          className="bg-transparent text-center w-full focus:outline-none"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={ticketNumber || ''}
+            onChange={(e) => onTicketNumberChange(e.target.value)}
+            onFocus={onTicketNumberFocus}
+            onBlur={onTicketNumberBlur}
+            disabled={isHandPlayed}
+            placeholder="RNMT-0000"
+            className="bg-transparent text-center w-full focus:outline-none pr-8"
+          />
+          {jiraDomain && ticketNumber && (
+            <a
+              href={`${jiraDomain}/browse/${ticketNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
+            >
+              <ExternalLink className="w-5 h-5" />
+            </a>
+          )}
+        </div>
       </div>
       {teamId && <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />}
       {/* Team Points Section */}
