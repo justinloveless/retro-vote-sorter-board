@@ -69,6 +69,12 @@ export interface AudioSummaryState {
   script?: string | Blob;
 }
 
+export interface TimerState {
+  isRunning: boolean;
+  duration: number; // in seconds
+  startTime: number; // timestamp
+}
+
 export const useRetroBoard = (roomId: string) => {
   const [board, setBoard] = useState<RetroBoard | null>(null);
   const [columns, setColumns] = useState<RetroColumn[]>([]);
@@ -89,6 +95,11 @@ export const useRetroBoard = (roomId: string) => {
   });
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
+  const [timerState, setTimerState] = useState<TimerState>({
+    isRunning: false,
+    duration: 15 * 60,
+    startTime: 0,
+  });
   const { toast } = useToast();
 
   // Update user presence using Supabase realtime presence
@@ -278,12 +289,31 @@ export const useRetroBoard = (roomId: string) => {
 
         setActiveUsers(users);
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        setActiveUsers(prevUsers => {
+          const newUsers: ActiveUser[] = newPresences.map((presence: any) => ({
+            id: presence.user_id,
+            user_name: presence.user_name,
+            last_seen: presence.last_seen,
+            avatar_url: presence.avatar_url,
+          }));
+          // Filter out users that are already present
+          const trulyNew = newUsers.filter(newUser => !prevUsers.some(prevUser => prevUser.id === newUser.id));
+          return [...prevUsers, ...trulyNew];
+        });
       })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        setActiveUsers(prevUsers =>
+          prevUsers.filter(user =>
+            !leftPresences.some((presence: any) => presence.user_id === user.id)
+          )
+        );
       })
       .on('broadcast', { event: 'audio-summary-state' }, ({ payload }) => {
         setAudioSummaryState(payload);
+      })
+      .on('broadcast', { event: 'timer-state' }, ({ payload }) => {
+        setTimerState(payload);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -766,6 +796,18 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
+  const updateTimerState = (state: Partial<TimerState>) => {
+    if (presenceChannel) {
+      const newState = { ...timerState, ...state };
+      setTimerState(newState); // Local update
+      presenceChannel.send({
+        type: 'broadcast',
+        event: 'timer-state',
+        payload: newState,
+      });
+    }
+  };
+
   return {
     board,
     columns,
@@ -793,5 +835,7 @@ export const useRetroBoard = (roomId: string) => {
     audioSummaryState,
     updateAudioSummaryState,
     userVotes,
+    timerState,
+    updateTimerState,
   };
 };
