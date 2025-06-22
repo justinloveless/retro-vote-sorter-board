@@ -5,7 +5,7 @@ import { ExternalLink } from "lucide-react";
 
 // Data for point details
 const detailsData = [
-  { id: -1, Min: "-1", Max: "-1", Comment: "Abstained\nfrom voting" },
+  { id: -1, Min: "NA", Max: "NA", Comment: "Abstained\nfrom voting" },
   { id: 1, Min: 0, Max: 0.5, Comment: "Ok" },
   { id: 2, Min: 0.5, Max: 1, Comment: "Ok" },
   { id: 3, Min: 1, Max: 2, Comment: "Ok" },
