@@ -631,7 +631,12 @@ export function generateJiraUrl(team: Team, ticketNumber: string | null): string
     return null;
   }
   
-  return `https://${team.jira_domain}/browse/${ticketNumber}`;
+  // Check if the domain already includes a protocol
+  const domain = team.jira_domain.startsWith('http://') || team.jira_domain.startsWith('https://') 
+    ? team.jira_domain 
+    : `https://${team.jira_domain}`;
+  
+  return `${domain}/browse/${ticketNumber}`;
 }
 
 // Main handler
