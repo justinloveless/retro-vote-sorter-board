@@ -8,6 +8,7 @@ export function generateVoteProgressText(
   if (gameState === 'Playing') {
     // Playing phase: Show actual votes
     const sortedVotes = Object.values(currentVotes)
+      .filter(vote => vote && typeof vote.display_name === 'string')
       .sort((a, b) => a.display_name.localeCompare(b.display_name));
     
     const resultLines = sortedVotes.map(vote => 
@@ -23,6 +24,7 @@ export function generateVoteProgressText(
   }
   
   const sortedVotes = Object.values(currentVotes)
+    .filter(vote => vote && typeof vote.display_name === 'string')
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
   
   const progressLines = sortedVotes.map(vote => 
@@ -41,9 +43,11 @@ export function generateVoteSummary(
   
   // Group votes by point value
   const voteGroups: Record<number, number> = {};
-  Object.values(votes).forEach(vote => {
-    voteGroups[vote.points] = (voteGroups[vote.points] || 0) + 1;
-  });
+  Object.values(votes)
+    .filter(vote => vote && typeof vote.points === 'number')
+    .forEach(vote => {
+      voteGroups[vote.points] = (voteGroups[vote.points] || 0) + 1;
+    });
   
   // Sort by point value, with abstentions (-1) at the end
   const sortedEntries = Object.entries(voteGroups)
@@ -65,7 +69,9 @@ export function generateVotingMessage(
   ticketNumber: string | null,
   ticketTitle: string | null,
   currentVotes: Record<string, { points: number; display_name: string }>,
-  gameState: 'Voting' | 'Playing'
+  gameState: 'Voting' | 'Playing',
+  teamId?: string,
+  roundNumber?: number
 ): any {
   const ticketInfo = ticketNumber ? `${ticketNumber}${ticketTitle ? `: ${ticketTitle}` : ''}` : 'Planning Poker Session';
   
@@ -85,6 +91,22 @@ export function generateVotingMessage(
       }
     }
   ];
+
+  // Add link to poker session if team ID is available
+  if (teamId) {
+    const baseUrl = 'https://retro-scope.lovable.app';
+    const sessionUrl = roundNumber 
+      ? `${baseUrl}/teams/${teamId}/neotro?round=${roundNumber}`
+      : `${baseUrl}/teams/${teamId}/neotro`;
+    
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `🔗 <${sessionUrl}|View in RetroScope>`
+      }
+    });
+  }
 
   if (gameState === 'Voting') {
     blocks.push({
