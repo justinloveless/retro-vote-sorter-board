@@ -56,12 +56,12 @@ interface PokerSession {
 
 interface PokerSessionRound {
   id: string;
-  poker_session_id: string;
+  session_id: string;
   round_number: number;
   ticket_number: string | null;
   ticket_title: string | null;
   selections: Record<string, { points: number; display_name: string }>;
-  is_revealed: boolean;
+  game_state: string;
   created_at: string;
 }
 
