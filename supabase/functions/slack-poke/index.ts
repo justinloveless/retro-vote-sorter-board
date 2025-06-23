@@ -349,12 +349,9 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
         .update({ slack_message_ts: messageTs })
         .eq('id', round.id);
 
-      // Return ephemeral confirmation to the user who ran the command
-      return new Response(JSON.stringify({
-        text: "Poker Round Started! 🎴",
-        response_type: "ephemeral"
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Return empty response to avoid showing any message to the user
+      return new Response("", {
+        headers: { ...corsHeaders },
         status: 200
       });
     } else {
@@ -614,6 +611,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('req', req);
     const contentType = req.headers.get('content-type') || '';
     let payload: SlackCommandPayload | SlackInteractivePayload;
 
