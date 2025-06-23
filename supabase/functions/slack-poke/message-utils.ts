@@ -88,6 +88,7 @@ export function generateVotingMessage(
 
   // Add Jira link section if available
   if (ticketNumber && jiraUrl) {
+    // console.log('jiraUrl', jiraUrl);
     blocks.push({
       type: 'section',
       text: {
