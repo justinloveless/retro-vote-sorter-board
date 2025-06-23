@@ -17,6 +17,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { TiptapEditor } from './TiptapEditor';
 import { QuickReactionPicker } from './QuickReactionPicker';
@@ -51,6 +57,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   const [reactingToId, setReactingToId] = useState<string | null>(null);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -121,6 +128,25 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     });
   };
 
+  const handleImageClick = (imageSrc: string) => {
+    setSelectedImage(imageSrc);
+  };
+
+  const processMessageContent = (content: string) => {
+    // Replace img tags with clickable images
+    return content.replace(/<img([^>]*?)src="([^"]*?)"([^>]*?)>/g, (match, beforeSrc, src, afterSrc) => {
+      return `<img${beforeSrc}src="${src}"${afterSrc} style="cursor: pointer; max-width: 200px; max-height: 150px; border-radius: 8px;" onclick="window.handleChatImageClick('${src}')" />`;
+    });
+  };
+
+  // Make handleImageClick available globally for the onclick handler
+  useEffect(() => {
+    (window as any).handleChatImageClick = handleImageClick;
+    return () => {
+      delete (window as any).handleChatImageClick;
+    };
+  }, []);
+
   const renderMessage = (message: ChatMessage) => {
     const isCurrentUser = message.user_id === currentUserId;
     
@@ -156,7 +182,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
           </div>
           <div 
             className="text-sm prose dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: message.message }} 
+            dangerouslySetInnerHTML={{ __html: processMessageContent(message.message) }} 
           />
           <div className="mt-2 pt-1 border-t border-primary-foreground/20 flex items-center justify-between">
             <TooltipProvider>
@@ -329,116 +355,154 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   if (!isCollapsible) {
     return (
-      <Card className="h-full flex flex-col">
-        <ChatHeader isCollapsible={false} />
-        {renderChatContent()}
-      </Card>
+      <>
+        <Card className="h-full flex flex-col">
+          <ChatHeader isCollapsible={false} />
+          {renderChatContent()}
+        </Card>
+        
+        <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-0">
+              <DialogTitle>Image Preview</DialogTitle>
+            </DialogHeader>
+            <div className="p-6 pt-0">
+              {selectedImage && (
+                <img
+                  src={selectedImage}
+                  alt="Full size preview"
+                  className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
   return (
-    <Collapsible
-      open={isChatOpen}
-      onOpenChange={setIsChatOpen}
-      asChild
-    >
-      <Card className={`h-full flex flex-col ${!isChatOpen ? 'h-auto' : ''}`}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="flex-shrink-0 pb-3 cursor-pointer">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MessageCircle className="h-5 w-5" />
-              <span>
-                Round {currentRoundNumber} Chat
-              </span>
-              {messages.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {messages.length}
-                </Badge>
-              )}
-              <ChevronDown className={`h-5 w-5 ml-auto transform transition-transform ${isChatOpen ? 'rotate-0' : '-rotate-90'}`} />
-            </CardTitle>
-          </CardHeader>
-        </CollapsibleTrigger>
-        
-        <CollapsibleContent asChild>
-          <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
-            <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
-              {loading && messages.length === 0 ? (
-                <div className="flex items-center justify-center h-20 text-muted-foreground">
-                  Loading chat...
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center h-20 text-muted-foreground">
-                  No messages yet. Start the conversation!
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {messages.map(renderMessage)}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </ScrollArea>
-
-            {!isViewingHistory && (
-              <div className="mt-3">
-                {replyingTo && (
-                  <div className="flex items-center justify-between p-2 mb-2 text-sm bg-muted rounded-md">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <CornerUpLeft className="h-4 w-4 flex-shrink-0" />
-                      <div className="flex-1 overflow-hidden">
-                        <p className="font-semibold">Replying to {replyingTo.user_name}</p>
-                        <p className="truncate text-muted-foreground">{replyingTo.message.replace(/<[^>]+>/g, '')}</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}>
-                      <X className="h-4 w-4" />
-                    </Button>
+    <>
+      <Collapsible
+        open={isChatOpen}
+        onOpenChange={setIsChatOpen}
+        asChild
+      >
+        <Card className={`h-full flex flex-col ${!isChatOpen ? 'h-auto' : ''}`}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="flex-shrink-0 pb-3 cursor-pointer">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <MessageCircle className="h-5 w-5" />
+                <span>
+                  Round {currentRoundNumber} Chat
+                </span>
+                {messages.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {messages.length}
+                  </Badge>
+                )}
+                <ChevronDown className={`h-5 w-5 ml-auto transform transition-transform ${isChatOpen ? 'rotate-0' : '-rotate-90'}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent asChild>
+            <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
+              <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
+                {loading && messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-20 text-muted-foreground">
+                    Loading chat...
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-20 text-muted-foreground">
+                    No messages yet. Start the conversation!
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {messages.map(renderMessage)}
+                    <div ref={messagesEndRef} />
                   </div>
                 )}
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative flex items-center gap-2 pt-3 border-t">
-                  <div className="flex-1 min-w-0">
-                    <TiptapEditor
-                      content={newMessage}
-                      onChange={setNewMessage}
-                      onSubmit={handleSendMessage}
-                      placeholder="Type a message..."
-                      uploadImage={uploadImage}
-                    />
-                  </div>
-                  <div className="flex items-center self-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowEmojiPicker(prev => prev ? false : 'main')}
-                    >
-                      <Smile className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={!newMessage.trim() || newMessage === '<p></p>'}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {showEmojiPicker === 'main' && (
-                    <div className="absolute bottom-full right-0 mb-2 z-10">
-                      <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </ScrollArea>
+
+              {!isViewingHistory && (
+                <div className="mt-3">
+                  {replyingTo && (
+                    <div className="flex items-center justify-between p-2 mb-2 text-sm bg-muted rounded-md">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <CornerUpLeft className="h-4 w-4 flex-shrink-0" />
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-semibold">Replying to {replyingTo.user_name}</p>
+                          <p className="truncate text-muted-foreground">{replyingTo.message.replace(/<[^>]+>/g, '')}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
-                </form>
-              </div>
-            )}
+                  <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative flex items-center gap-2 pt-3 border-t">
+                    <div className="flex-1 min-w-0">
+                      <TiptapEditor
+                        content={newMessage}
+                        onChange={setNewMessage}
+                        onSubmit={handleSendMessage}
+                        placeholder="Type a message..."
+                        uploadImage={uploadImage}
+                      />
+                    </div>
+                    <div className="flex items-center self-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowEmojiPicker(prev => prev ? false : 'main')}
+                      >
+                        <Smile className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!newMessage.trim() || newMessage === '<p></p>'}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {showEmojiPicker === 'main' && (
+                      <div className="absolute bottom-full right-0 mb-2 z-10">
+                        <EmojiPicker onEmojiClick={handleEmojiClick} />
+                      </div>
+                    )}
+                  </form>
+                </div>
+              )}
 
-            {isViewingHistory && (
-              <div className="mt-3 pt-3 border-t text-center text-sm text-muted-foreground">
-                Chat is read-only when viewing history
-              </div>
+              {isViewingHistory && (
+                <div className="mt-3 pt-3 border-t text-center text-sm text-muted-foreground">
+                  Chat is read-only when viewing history
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Image Preview</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-0">
+            {selectedImage && (
+              <img
+                src={selectedImage}
+                alt="Full size preview"
+                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+              />
             )}
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

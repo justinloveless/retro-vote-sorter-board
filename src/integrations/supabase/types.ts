@@ -126,6 +126,7 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          reply_to_message_id: string | null
           round_number: number
           session_id: string
           user_id: string | null
@@ -135,6 +136,7 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
+          reply_to_message_id?: string | null
           round_number: number
           session_id: string
           user_id?: string | null
@@ -144,6 +146,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
+          reply_to_message_id?: string | null
           round_number?: number
           session_id?: string
           user_id?: string | null
@@ -151,7 +154,80 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "poker_session_chat_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat_with_details"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "poker_session_chat_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "poker_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poker_session_chat_message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          session_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          session_id: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          session_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "poker_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_message_reactions_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "poker_sessions"
@@ -164,6 +240,7 @@ export type Database = {
           average_points: number
           completed_at: string
           created_at: string
+          game_state: string
           id: string
           round_number: number
           selections: Json
@@ -175,6 +252,7 @@ export type Database = {
           average_points?: number
           completed_at?: string
           created_at?: string
+          game_state?: string
           id?: string
           round_number: number
           selections?: Json
@@ -186,6 +264,7 @@ export type Database = {
           average_points?: number
           completed_at?: string
           created_at?: string
+          game_state?: string
           id?: string
           round_number?: number
           selections?: Json
@@ -205,45 +284,36 @@ export type Database = {
       }
       poker_sessions: {
         Row: {
-          average_points: number
           created_at: string
           current_round_number: number
-          game_state: string
           id: string
           last_activity_at: string
+          presence_enabled: boolean | null
           room_id: string | null
-          selections: Json
+          send_to_slack: boolean | null
           team_id: string | null
-          ticket_number: string | null
-          ticket_title: string | null
           updated_at: string
         }
         Insert: {
-          average_points?: number
           created_at?: string
           current_round_number?: number
-          game_state?: string
           id?: string
           last_activity_at?: string
+          presence_enabled?: boolean | null
           room_id?: string | null
-          selections?: Json
+          send_to_slack?: boolean | null
           team_id?: string | null
-          ticket_number?: string | null
-          ticket_title?: string | null
           updated_at?: string
         }
         Update: {
-          average_points?: number
           created_at?: string
           current_round_number?: number
-          game_state?: string
           id?: string
           last_activity_at?: string
+          presence_enabled?: boolean | null
           room_id?: string | null
-          selections?: Json
+          send_to_slack?: boolean | null
           team_id?: string | null
-          ticket_number?: string | null
-          ticket_title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -755,6 +825,8 @@ export type Database = {
           jira_email: string | null
           jira_ticket_prefix: string | null
           name: string
+          slack_bot_token: string | null
+          slack_channel_id: string | null
           slack_webhook_url: string | null
           updated_at: string
         }
@@ -768,6 +840,8 @@ export type Database = {
           jira_email?: string | null
           jira_ticket_prefix?: string | null
           name: string
+          slack_bot_token?: string | null
+          slack_channel_id?: string | null
           slack_webhook_url?: string | null
           updated_at?: string
         }
@@ -781,6 +855,8 @@ export type Database = {
           jira_email?: string | null
           jira_ticket_prefix?: string | null
           name?: string
+          slack_bot_token?: string | null
+          slack_channel_id?: string | null
           slack_webhook_url?: string | null
           updated_at?: string
         }
@@ -823,7 +899,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      poker_session_chat_with_details: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          message: string | null
+          reactions: Json | null
+          reply_to_message_content: string | null
+          reply_to_message_id: string | null
+          reply_to_message_user: string | null
+          round_number: number | null
+          session_id: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poker_session_chat_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "poker_session_chat_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poker_session_chat_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "poker_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_team_invitation: {
