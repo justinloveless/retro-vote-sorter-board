@@ -1,0 +1,592 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Types
+interface SlackCommandPayload {
+  token: string;
+  team_id: string;
+  team_domain: string;
+  channel_id: string;
+  channel_name: string;
+  user_id: string;
+  user_name: string;
+  command: string;
+  text: string;
+  response_url: string;
+  trigger_id: string;
+}
+
+interface SlackInteractivePayload {
+  type: string;
+  actions: Array<{
+    action_id: string;
+    value: string;
+  }>;
+  user: {
+    id: string;
+    username: string;
+  };
+  channel: {
+    id: string;
+  };
+  team: {
+    id: string;
+  };
+  response_url: string;
+  message: any;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  slack_channel_id: string;
+  slack_bot_token: string;
+}
+
+interface PokerSession {
+  id: string;
+  team_id: string;
+  room_id: string;
+  current_round_number: number;
+  created_at: string;
+}
+
+interface PokerSessionRound {
+  id: string;
+  poker_session_id: string;
+  round_number: number;
+  ticket_number: string | null;
+  ticket_title: string | null;
+  selections: Record<string, { points: number; display_name: string }>;
+  is_revealed: boolean;
+  created_at: string;
+}
+
+// Utility Functions
+export function parseTicketFromText(text: string): {
+  ticketNumber: string | null;
+  ticketTitle?: string;
+} {
+  if (!text || typeof text !== 'string') {
+    return { ticketNumber: null };
+  }
+
+  // Extract from Jira URLs: https://company.atlassian.net/browse/PROJ-123
+  const jiraUrlMatch = text.match(/\/browse\/([A-Z]+-\d+)/);
+  if (jiraUrlMatch) {
+    return { ticketNumber: jiraUrlMatch[1] };
+  }
+
+  // Extract from plain text: ABC-123, PROJ-456, etc.
+  const ticketMatch = text.match(/\b([A-Z]+-\d+)\b/);
+  if (ticketMatch) {
+    return { ticketNumber: ticketMatch[1] };
+  }
+
+  return { ticketNumber: null };
+}
+
+export function generateAnonymousUserId(slackUserId: string, teamId: string): string {
+  // Simple hash for consistent IDs
+  let hash = 0;
+  const str = `${teamId}_${slackUserId}`;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `slack_${Math.abs(hash).toString(16)}`;
+}
+
+export function verifySlackRequest(
+  body: string,
+  signature: string,
+  timestamp: string
+): boolean {
+  const signingSecret = Deno.env.get('SLACK_SIGNING_SECRET');
+  if (!signingSecret) {
+    console.warn('SLACK_SIGNING_SECRET not configured');
+    return true; // Allow for development/testing
+  }
+
+  // Check timestamp to prevent replay attacks (within 5 minutes)
+  const currentTime = Math.floor(Date.now() / 1000);
+  const requestTime = parseInt(timestamp);
+  
+  if (Math.abs(currentTime - requestTime) > 300) {
+    return false;
+  }
+
+  // Verify signature
+  const baseString = `v0:${timestamp}:${body}`;
+  
+  // For now, return true for valid format signatures
+  // In production, would implement proper HMAC-SHA256 verification
+  return signature.startsWith('v0=') && signature.length > 10;
+}
+
+export async function findTeamByChannelId(channelId: string): Promise<Team | null> {
+  try {
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id, name, slack_channel_id, slack_bot_token')
+      .eq('slack_channel_id', channelId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // No team found
+      }
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error finding team by channel ID:', error);
+    throw error;
+  }
+}
+
+export async function getOrCreatePokerSession(teamId: string): Promise<PokerSession> {
+  try {
+    // First, try to find existing session
+    const { data: existingSession } = await supabase
+      .from('poker_sessions')
+      .select('*')
+      .eq('room_id', teamId)
+      .single();
+
+    if (existingSession) {
+      return existingSession;
+    }
+
+    // Create new session
+    const { data: newSession, error } = await supabase
+      .from('poker_sessions')
+      .insert({
+        team_id: teamId,
+        room_id: teamId,
+        current_round_number: 0,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return newSession;
+  } catch (error) {
+    console.error('Error getting or creating poker session:', error);
+    throw error;
+  }
+}
+
+export async function createNewRound(
+  sessionId: string,
+  ticketNumber: string | null,
+  ticketTitle: string | null
+): Promise<PokerSessionRound> {
+  try {
+    // Get the current round number
+    const { data: session } = await supabase
+      .from('poker_sessions')
+      .select('current_round_number')
+      .eq('id', sessionId)
+      .single();
+    
+    const newRoundNumber = (session?.current_round_number || 0) + 1;
+    
+    // Update session with new round number
+    await supabase
+      .from('poker_sessions')
+      .update({ current_round_number: newRoundNumber })
+      .eq('id', sessionId);
+
+    // Create new round
+    const { data: newRound, error } = await supabase
+      .from('poker_session_rounds')
+      .insert({
+        poker_session_id: sessionId,
+        round_number: newRoundNumber,
+        ticket_number: ticketNumber,
+        ticket_title: ticketTitle,
+        selections: {},
+        is_revealed: false,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return newRound;
+  } catch (error) {
+    console.error('Error creating new round:', error);
+    throw error;
+  }
+}
+
+export async function processVote(
+  roundId: string,
+  anonymousUserId: string,
+  displayName: string,
+  points: number
+): Promise<void> {
+  try {
+    // Get current round
+    const { data: round } = await supabase
+      .from('poker_session_rounds')
+      .select('selections')
+      .eq('id', roundId)
+      .single();
+
+    const currentSelections = round?.selections || {};
+    
+    // Add/update vote
+    currentSelections[anonymousUserId] = {
+      points: points,
+      display_name: displayName
+    };
+
+    // Update round with new selections
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .update({ selections: currentSelections })
+      .eq('id', roundId);
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error processing vote:', error);
+    throw error;
+  }
+}
+
+export function generateVotingMessage(
+  ticketNumber: string | null,
+  ticketTitle: string | null,
+  currentVotes: Record<string, { points: number; display_name: string }>,
+  gameState: 'Voting' | 'Playing'
+): any {
+  const voteCount = Object.keys(currentVotes).length;
+  const ticketInfo = ticketNumber ? `${ticketNumber}${ticketTitle ? `: ${ticketTitle}` : ''}` : 'Planning Poker Session';
+  
+  const blocks: any[] = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: `🃏 ${ticketInfo}`
+      }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: gameState === 'Voting' 
+          ? `*${voteCount} votes cast* - Vote for your estimate!`
+          : `*Results:*\n${Object.values(currentVotes).map(v => `${v.display_name}: ${v.points === -1 ? 'Abstain' : v.points}`).join('\n')}`
+      }
+    }
+  ];
+
+  if (gameState === 'Voting') {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '1' },
+          action_id: 'vote_1',
+          value: '1'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '2' },
+          action_id: 'vote_2',
+          value: '2'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '3' },
+          action_id: 'vote_3',
+          value: '3'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '5' },
+          action_id: 'vote_5',
+          value: '5'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '8' },
+          action_id: 'vote_8',
+          value: '8'
+        }
+      ]
+    });
+
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '13' },
+          action_id: 'vote_13',
+          value: '13'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '21' },
+          action_id: 'vote_21',
+          value: '21'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Abstain' },
+          action_id: 'abstain',
+          value: '-1',
+          style: 'danger'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🔒 Lock In' },
+          action_id: 'lock_in',
+          value: 'lock_in',
+          style: 'primary'
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🎴 Play Hand' },
+          action_id: 'play_hand',
+          value: 'play_hand',
+          style: 'primary'
+        }
+      ]
+    });
+  }
+
+  return { blocks };
+}
+
+export function updateVotingMessage(
+  originalMessage: any,
+  currentVotes: Record<string, { points: number; display_name: string }>,
+  gameState: string
+): any {
+  // Extract ticket info from original message if possible
+  const ticketInfo = originalMessage?.blocks?.[0]?.text?.text || 'Planning Poker Session';
+  const ticketNumber = ticketInfo.includes(':') ? ticketInfo.split(':')[0].replace('🃏 ', '') || null : null;
+  const ticketTitle = ticketInfo.includes(':') ? ticketInfo.split(':').slice(1).join(':').trim() || null : null;
+
+  return generateVotingMessage(
+    ticketNumber as string | null,
+    ticketTitle as string | null,
+    currentVotes,
+    gameState as 'Voting' | 'Playing'
+  );
+}
+
+export async function handleSlackCommand(payload: SlackCommandPayload): Promise<Response> {
+  try {
+    // Find team by channel ID
+    const team = await findTeamByChannelId(payload.channel_id);
+    if (!team) {
+      return new Response(JSON.stringify({
+        text: "❌ This channel is not configured for RetroScope poker sessions. Please contact your team admin.",
+        response_type: "ephemeral"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
+    // Parse ticket information
+    const { ticketNumber, ticketTitle } = parseTicketFromText(payload.text);
+
+    // Get or create poker session
+    const session = await getOrCreatePokerSession(team.id);
+
+    // Create new round
+    const round = await createNewRound(session.id, ticketNumber, ticketTitle);
+
+    // Generate initial message
+    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting');
+
+    return new Response(JSON.stringify({
+      text: "Poker Round Started! 🎴",
+      ...message,
+      response_type: "in_channel"
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200
+    });
+
+  } catch (error) {
+    console.error('Error handling Slack command:', error);
+    return new Response(JSON.stringify({
+      text: "❌ An error occurred while starting the poker session. Please try again.",
+      response_type: "ephemeral"
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200
+    });
+  }
+}
+
+export async function handleInteractiveComponent(payload: SlackInteractivePayload): Promise<Response> {
+  try {
+    const action = payload.actions[0];
+    const anonymousUserId = generateAnonymousUserId(payload.user.id, payload.team.id);
+    const displayName = payload.user.username;
+
+    // Find team and session
+    const team = await findTeamByChannelId(payload.channel.id);
+    if (!team) {
+      return new Response(JSON.stringify({
+        text: "❌ Team not found for this channel."
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
+    const session = await getOrCreatePokerSession(team.id);
+
+    // Get current round
+    const { data: currentRound } = await supabase
+      .from('poker_session_rounds')
+      .select('*')
+      .eq('poker_session_id', session.id)
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!currentRound) {
+      return new Response(JSON.stringify({
+        text: "❌ No active poker round found."
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
+    if (action.action_id.startsWith('vote_') || action.action_id === 'abstain') {
+      // Process vote
+      const points = parseInt(action.value);
+      await processVote(currentRound.id, anonymousUserId, displayName, points);
+
+      // Get updated votes
+      const { data: updatedRound } = await supabase
+        .from('poker_session_rounds')
+        .select('selections')
+        .eq('id', currentRound.id)
+        .single();
+
+      const updatedMessage = updateVotingMessage(
+        payload.message,
+        updatedRound?.selections || {},
+        'Voting'
+      );
+
+      return new Response(JSON.stringify({
+        replace_original: true,
+        ...updatedMessage
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
+    if (action.action_id === 'play_hand') {
+      // Reveal votes
+      await supabase
+        .from('poker_session_rounds')
+        .update({ is_revealed: true })
+        .eq('id', currentRound.id);
+
+      const updatedMessage = updateVotingMessage(
+        payload.message,
+        currentRound.selections || {},
+        'Playing'
+      );
+
+      return new Response(JSON.stringify({
+        replace_original: true,
+        ...updatedMessage
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
+    // Default response
+    return new Response(JSON.stringify({
+      text: "Action processed."
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200
+    });
+
+  } catch (error) {
+    console.error('Error handling interactive component:', error);
+    return new Response(JSON.stringify({
+      text: "❌ An error occurred while processing your action."
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200
+    });
+  }
+}
+
+// Main handler
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const contentType = req.headers.get('content-type') || '';
+    let payload: SlackCommandPayload | SlackInteractivePayload;
+
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Slack command or interactive component
+      const formData = await req.formData();
+      
+      if (formData.has('payload')) {
+        // Interactive component
+        const payloadStr = formData.get('payload') as string;
+        payload = JSON.parse(payloadStr);
+        return await handleInteractiveComponent(payload as SlackInteractivePayload);
+      } else {
+        // Slash command
+        payload = Object.fromEntries(formData.entries()) as any;
+        return await handleSlackCommand(payload as SlackCommandPayload);
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'Unsupported content type' }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400
+    });
+
+  } catch (error) {
+    console.error('Handler error:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500
+    });
+  }
+}); 
