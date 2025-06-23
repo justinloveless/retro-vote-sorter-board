@@ -65,12 +65,12 @@ interface PokerSession {
 
 interface PokerSessionRound {
   id: string;
-  poker_session_id: string;
+  session_id: string;
   round_number: number;
   ticket_number: string | null;
   ticket_title: string | null;
   selections: Record<string, { points: number; display_name: string }>;
-  is_revealed: boolean;
+  game_state: string;
   created_at: string;
 }
 
@@ -243,12 +243,12 @@ Deno.test("getOrCreatePokerSession - returns existing active session", async () 
 Deno.test("createNewRound - creates new round and increments session counter", async () => {
   const mockRound: PokerSessionRound = {
     id: 'round-123',
-    poker_session_id: 'session-123',
+    session_id: 'session-123',
     round_number: 2,
     ticket_number: 'PROJ-123',
     ticket_title: 'Test ticket',
     selections: {},
-    is_revealed: false,
+    game_state: 'Selection',
     created_at: new Date().toISOString()
   };
 
@@ -264,12 +264,12 @@ Deno.test("createNewRound - creates new round and increments session counter", a
 Deno.test("createNewRound - handles null ticket information", async () => {
   const mockRound: PokerSessionRound = {
     id: 'round-123',
-    poker_session_id: 'session-123',
+    session_id: 'session-123',
     round_number: 1,
     ticket_number: null,
     ticket_title: null,
     selections: {},
-    is_revealed: false,
+    game_state: 'Selection',
     created_at: new Date().toISOString()
   };
 

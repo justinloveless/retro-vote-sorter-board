@@ -58,37 +58,37 @@ interface PokerSession {
 
 interface PokerSessionRound {
   id: string;
-  poker_session_id: string;
+  session_id: string;
   round_number: number;
   ticket_number: string | null;
   ticket_title: string | null;
   selections: Record<string, { points: number; display_name: string }>;
-  is_revealed: boolean;
+  game_state: string;
   created_at: string;
 }
 
 // Utility Functions
 export function parseTicketFromText(text: string): {
   ticketNumber: string | null;
-  ticketTitle?: string;
+  ticketTitle: string | null;
 } {
   if (!text || typeof text !== 'string') {
-    return { ticketNumber: null };
+    return { ticketNumber: null, ticketTitle: null };
   }
 
   // Extract from Jira URLs: https://company.atlassian.net/browse/PROJ-123
   const jiraUrlMatch = text.match(/\/browse\/([A-Z]+-\d+)/);
   if (jiraUrlMatch) {
-    return { ticketNumber: jiraUrlMatch[1] };
+    return { ticketNumber: jiraUrlMatch[1], ticketTitle: null };
   }
 
   // Extract from plain text: ABC-123, PROJ-456, etc.
   const ticketMatch = text.match(/\b([A-Z]+-\d+)\b/);
   if (ticketMatch) {
-    return { ticketNumber: ticketMatch[1] };
+    return { ticketNumber: ticketMatch[1], ticketTitle: null };
   }
 
-  return { ticketNumber: null };
+  return { ticketNumber: null, ticketTitle: null };
 }
 
 export function generateAnonymousUserId(slackUserId: string, teamId: string): string {
@@ -213,12 +213,12 @@ export async function createNewRound(
     const { data: newRound, error } = await supabase
       .from('poker_session_rounds')
       .insert({
-        poker_session_id: sessionId,
+        session_id: sessionId,
         round_number: newRoundNumber,
         ticket_number: ticketNumber,
         ticket_title: ticketTitle,
         selections: {},
-        is_revealed: false,
+        game_state: 'Selection',
         created_at: new Date().toISOString()
       })
       .select()
@@ -468,7 +468,7 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
     const { data: currentRound } = await supabase
       .from('poker_session_rounds')
       .select('*')
-      .eq('poker_session_id', session.id)
+      .eq('session_id', session.id)
       .order('round_number', { ascending: false })
       .limit(1)
       .single();
@@ -510,10 +510,10 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
     }
 
     if (action.action_id === 'play_hand') {
-      // Reveal votes
+      // Reveal votes - change game state to Playing
       await supabase
         .from('poker_session_rounds')
-        .update({ is_revealed: true })
+        .update({ game_state: 'Playing' })
         .eq('id', currentRound.id);
 
       const updatedMessage = updateVotingMessage(

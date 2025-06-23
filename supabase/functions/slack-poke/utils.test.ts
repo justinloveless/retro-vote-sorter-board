@@ -3,25 +3,25 @@ import { assertEquals, assertExists, assertMatch } from "https://deno.land/std@0
 // Utility Functions (copied from index.ts for testing)
 function parseTicketFromText(text: string): {
   ticketNumber: string | null;
-  ticketTitle?: string;
+  ticketTitle: string | null;
 } {
   if (!text || typeof text !== 'string') {
-    return { ticketNumber: null };
+    return { ticketNumber: null, ticketTitle: null };
   }
 
   // Extract from Jira URLs: https://company.atlassian.net/browse/PROJ-123
   const jiraUrlMatch = text.match(/\/browse\/([A-Z]+-\d+)/);
   if (jiraUrlMatch) {
-    return { ticketNumber: jiraUrlMatch[1] };
+    return { ticketNumber: jiraUrlMatch[1], ticketTitle: null };
   }
 
   // Extract from plain text: ABC-123, PROJ-456, etc.
   const ticketMatch = text.match(/\b([A-Z]+-\d+)\b/);
   if (ticketMatch) {
-    return { ticketNumber: ticketMatch[1] };
+    return { ticketNumber: ticketMatch[1], ticketTitle: null };
   }
 
-  return { ticketNumber: null };
+  return { ticketNumber: null, ticketTitle: null };
 }
 
 function generateAnonymousUserId(slackUserId: string, teamId: string): string {
