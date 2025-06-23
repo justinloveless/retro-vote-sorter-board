@@ -3,8 +3,9 @@ import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
+import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
-import { useIsMobile } from '@/hooks/use-mobile';
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,7 +16,7 @@ const NeotroPage = () => {
   const { user, profile, loading: loadingAuth } = useAuth();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
-  const isMobile = useIsMobile();
+
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -59,9 +60,30 @@ const NeotroPage = () => {
     true
   );
 
-  // If a specific round is requested via query parameter, show a notice
-  const requestedRound = roundParam ? parseInt(roundParam, 10) : null;
-  const showRoundNotice = requestedRound && session && session.round_number !== requestedRound;
+  // Use history hook to load specific rounds when requested
+  const { 
+    rounds
+  } = usePokerSessionHistory(session?.session_id || null);
+
+  // Check if a specific round is requested via query parameter
+  const requestedRoundNumber = roundParam ? parseInt(roundParam, 10) : null;
+
+  // Find the requested round when rounds are loaded
+  const requestedRound = requestedRoundNumber && rounds.length > 0 
+    ? rounds.find(round => round.round_number === requestedRoundNumber)
+    : null;
+
+  // Determine which session data to use
+  const displaySession = requestedRound ? {
+    ...session,
+    ...requestedRound,
+    // Keep the session-level properties from the live session
+    session_id: session?.session_id,
+    room_id: session?.room_id,
+    current_round_number: session?.current_round_number,
+    presence_enabled: session?.presence_enabled,
+    send_to_slack: session?.send_to_slack
+  } : session;
 
   if (loadingAuth || loadingSession || loadingRole) {
     return (
@@ -74,21 +96,9 @@ const NeotroPage = () => {
   return (
     <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
        <AppHeader variant='back' />
-      {showRoundNotice && (
-        <div className="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 p-4 mb-4">
-          <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                You were linked to round {requestedRound}, but the current active round is {session.round_number}.
-                The poker session shows the most recent active round.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <div className="flex-1 min-h-0">
         <PokerTable
-          session={session}
+          session={displaySession}
           activeUserId={user?.id}
           teamId={teamId}
           userRole={currentRole}
