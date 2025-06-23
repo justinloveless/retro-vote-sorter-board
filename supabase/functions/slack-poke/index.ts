@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { 
+  generateVoteProgressText, 
+  generateVoteSummary, 
+  generateVotingMessage 
+} from "./message-utils.ts";
 
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -272,113 +277,7 @@ export async function processVote(
   }
 }
 
-export function generateVotingMessage(
-  ticketNumber: string | null,
-  ticketTitle: string | null,
-  currentVotes: Record<string, { points: number; display_name: string }>,
-  gameState: 'Voting' | 'Playing'
-): any {
-  const voteCount = Object.keys(currentVotes).length;
-  const ticketInfo = ticketNumber ? `${ticketNumber}${ticketTitle ? `: ${ticketTitle}` : ''}` : 'Planning Poker Session';
-  
-  const blocks: any[] = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: `🃏 ${ticketInfo}`
-      }
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: gameState === 'Voting' 
-          ? `*${voteCount} votes cast* - Vote for your estimate!`
-          : `*Results:*\n${Object.values(currentVotes).map(v => `${v.display_name}: ${v.points === -1 ? 'Abstain' : v.points}`).join('\n')}`
-      }
-    }
-  ];
-
-  if (gameState === 'Voting') {
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '1' },
-          action_id: 'vote_1',
-          value: '1'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '2' },
-          action_id: 'vote_2',
-          value: '2'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '3' },
-          action_id: 'vote_3',
-          value: '3'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '5' },
-          action_id: 'vote_5',
-          value: '5'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '8' },
-          action_id: 'vote_8',
-          value: '8'
-        }
-      ]
-    });
-
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '13' },
-          action_id: 'vote_13',
-          value: '13'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '21' },
-          action_id: 'vote_21',
-          value: '21'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Abstain' },
-          action_id: 'abstain',
-          value: '-1',
-          style: 'danger'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '🔒 Lock In' },
-          action_id: 'lock_in',
-          value: 'lock_in',
-          style: 'primary'
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '🎴 Play Hand' },
-          action_id: 'play_hand',
-          value: 'play_hand',
-          style: 'primary'
-        }
-      ]
-    });
-  }
-
-  return { blocks };
-}
+// Functions now imported from message-utils.ts
 
 export function updateVotingMessage(
   originalMessage: any,
@@ -530,6 +429,8 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         status: 200
       });
     }
+
+    // Note: lock_in action removed - no longer needed for Slack workflow
 
     // Default response
     return new Response(JSON.stringify({
