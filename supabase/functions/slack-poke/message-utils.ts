@@ -71,7 +71,8 @@ export function generateVotingMessage(
   currentVotes: Record<string, { points: number; display_name: string }>,
   gameState: 'Voting' | 'Playing',
   teamId?: string,
-  roundNumber?: number
+  roundNumber?: number,
+  jiraUrl?: string | null
 ): any {
   const ticketInfo = ticketNumber ? `${ticketNumber}${ticketTitle ? `: ${ticketTitle}` : ''}` : 'Planning Poker Session';
   
@@ -83,14 +84,26 @@ export function generateVotingMessage(
         text: `🃏 ${ticketInfo}`
       }
     },
-    {
+  ];
+
+  // Add Jira link section if available
+  if (ticketNumber && jiraUrl) {
+    blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: generateVoteProgressText(currentVotes, gameState)
+        text: `*<${jiraUrl}|${ticketNumber}>*${ticketTitle ? `: ${ticketTitle}` : ''}`
       }
+    });
+  }
+
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: generateVoteProgressText(currentVotes, gameState)
     }
-  ];
+  });
 
   // Add link to poker session if team ID is available
   if (teamId) {
@@ -98,12 +111,14 @@ export function generateVotingMessage(
     const sessionUrl = roundNumber 
       ? `${baseUrl}/teams/${teamId}/neotro?round=${roundNumber}`
       : `${baseUrl}/teams/${teamId}/neotro`;
+
+    console.log('sessionUrl', sessionUrl);
     
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `🔗 <${sessionUrl}|View in RetroScope>`
+        text: `<${sessionUrl}|View in RetroScope>`
       }
     });
   }

@@ -51,6 +51,10 @@ interface Team {
   name: string;
   slack_channel_id: string;
   slack_bot_token: string;
+  jira_domain?: string;
+  jira_email?: string;
+  jira_api_key?: string;
+  jira_ticket_prefix?: string;
 }
 
 interface PokerSession {
@@ -140,7 +144,7 @@ export async function findTeamByChannelId(channelId: string): Promise<Team | nul
   try {
     const { data, error } = await supabase
       .from('teams')
-      .select('id, name, slack_channel_id, slack_bot_token')
+      .select('id, name, slack_channel_id, slack_bot_token, jira_domain, jira_email, jira_api_key, jira_ticket_prefix')
       .eq('slack_channel_id', channelId)
       .single();
 
@@ -284,21 +288,20 @@ export function updateVotingMessage(
   originalMessage: any,
   currentVotes: Record<string, { points: number; display_name: string }>,
   gameState: string,
+  ticketNumber: string | null,
+  ticketTitle: string | null,
   teamId?: string,
-  roundNumber?: number
+  roundNumber?: number,
+  jiraUrl?: string | null
 ): any {
-  // Extract ticket info from original message if possible
-  const ticketInfo = originalMessage?.blocks?.[0]?.text?.text || 'Planning Poker Session';
-  const ticketNumber = ticketInfo.includes(':') ? ticketInfo.split(':')[0].replace('🃏 ', '') || null : null;
-  const ticketTitle = ticketInfo.includes(':') ? ticketInfo.split(':').slice(1).join(':').trim() || null : null;
-
   return generateVotingMessage(
-    ticketNumber as string | null,
-    ticketTitle as string | null,
+    ticketNumber,
+    ticketTitle,
     currentVotes,
     gameState as 'Voting' | 'Playing',
     teamId,
-    roundNumber
+    roundNumber,
+    jiraUrl
   );
 }
 
@@ -337,7 +340,8 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
     const round = await createNewRound(session.id, ticketNumber, ticketTitle);
 
     // Generate initial message
-    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number);
+    const jiraUrl = generateJiraUrl(team, ticketNumber);
+    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number, jiraUrl);
 
     // Post message via Slack API instead of HTTP response
     const messageTs = await postSlackMessage(
@@ -443,12 +447,16 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         }
       }
 
+      const jiraUrl = generateJiraUrl(team, currentRound.ticket_number);
       const updatedMessage = updateVotingMessage(
         payload.message,
         selections,
         'Voting',
+        currentRound.ticket_number,
+        currentRound.ticket_title,
         team.id,
-        currentRound.round_number
+        currentRound.round_number,
+        jiraUrl
       );
 
       // Update the Slack message using chat.update API
@@ -489,12 +497,16 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         }
       }
 
+      const jiraUrl = generateJiraUrl(team, currentRound.ticket_number);
       const updatedMessage = updateVotingMessage(
         payload.message,
         selections,
         'Playing',
+        currentRound.ticket_number,
+        currentRound.ticket_title,
         team.id,
-        currentRound.round_number
+        currentRound.round_number,
+        jiraUrl
       );
 
       // Update the Slack message using chat.update API
@@ -612,6 +624,14 @@ export async function updateSlackMessage(
     console.error('Error updating Slack message:', error);
     return false;
   }
+}
+
+export function generateJiraUrl(team: Team, ticketNumber: string | null): string | null {
+  if (!ticketNumber || !team.jira_domain) {
+    return null;
+  }
+  
+  return `https://${team.jira_domain}/browse/${ticketNumber}`;
 }
 
 // Main handler
