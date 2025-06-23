@@ -70,6 +70,7 @@ interface PokerSessionRound {
   selections: Record<string, { points: number; display_name: string }>;
   game_state: string;
   created_at: string;
+  slack_message_ts?: string;
 }
 
 // Utility Functions
@@ -311,6 +312,17 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
       });
     }
 
+    // Check if bot token is available
+    if (!team.slack_bot_token) {
+      return new Response(JSON.stringify({
+        text: "❌ Bot token not configured for this team. Please contact your admin.",
+        response_type: "ephemeral"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
+
     // Parse ticket information
     const { ticketNumber, ticketTitle } = parseTicketFromText(payload.text);
 
@@ -323,14 +335,37 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
     // Generate initial message
     const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting');
 
-    return new Response(JSON.stringify({
-      text: "Poker Round Started! 🎴",
-      ...message,
-      response_type: "in_channel"
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200
-    });
+    // Post message via Slack API instead of HTTP response
+    const messageTs = await postSlackMessage(
+      team.slack_bot_token,
+      payload.channel_id,
+      message
+    );
+
+    if (messageTs) {
+      // Store the message timestamp in the round for future updates
+      await supabase
+        .from('poker_session_rounds')
+        .update({ slack_message_ts: messageTs })
+        .eq('id', round.id);
+
+      // Return ephemeral confirmation to the user who ran the command
+      return new Response(JSON.stringify({
+        text: "Poker Round Started! 🎴",
+        response_type: "ephemeral"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    } else {
+      return new Response(JSON.stringify({
+        text: "❌ Failed to post poker session message. Please try again.",
+        response_type: "ephemeral"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200
+      });
+    }
 
   } catch (error) {
     console.error('Error handling Slack command:', error);
@@ -393,15 +428,37 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         .eq('id', currentRound.id)
         .single();
 
+      // Parse selections if they come as JSON string
+      let selections = updatedRound?.selections || {};
+      if (typeof selections === 'string') {
+        try {
+          selections = JSON.parse(selections);
+        } catch (e) {
+          console.error('Failed to parse selections JSON:', e);
+          selections = {};
+        }
+      }
+
       const updatedMessage = updateVotingMessage(
         payload.message,
-        updatedRound?.selections || {},
+        selections,
         'Voting'
       );
 
+      // Update the Slack message using chat.update API
+      const messageTs = currentRound.slack_message_ts || payload.message.ts;
+      if (messageTs && team.slack_bot_token) {
+        await updateSlackMessage(
+          team.slack_bot_token,
+          payload.channel.id,
+          messageTs,
+          updatedMessage
+        );
+      }
+
+      // Return simple acknowledgment response
       return new Response(JSON.stringify({
-        replace_original: true,
-        ...updatedMessage
+        text: "Vote recorded! ✅"
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200
@@ -415,15 +472,37 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         .update({ game_state: 'Playing' })
         .eq('id', currentRound.id);
 
+      // Parse selections if they come as JSON string
+      let selections = currentRound.selections || {};
+      if (typeof selections === 'string') {
+        try {
+          selections = JSON.parse(selections);
+        } catch (e) {
+          console.error('Failed to parse selections JSON:', e);
+          selections = {};
+        }
+      }
+
       const updatedMessage = updateVotingMessage(
         payload.message,
-        currentRound.selections || {},
+        selections,
         'Playing'
       );
 
+      // Update the Slack message using chat.update API
+      const messageTs = currentRound.slack_message_ts || payload.message.ts;
+      if (messageTs && team.slack_bot_token) {
+        await updateSlackMessage(
+          team.slack_bot_token,
+          payload.channel.id,
+          messageTs,
+          updatedMessage
+        );
+      }
+
+      // Return simple acknowledgment response
       return new Response(JSON.stringify({
-        replace_original: true,
-        ...updatedMessage
+        text: "Hand played! Cards revealed! 🃏"
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200
@@ -448,6 +527,82 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200
     });
+  }
+}
+
+/**
+ * Posts a message to Slack using the chat.postMessage API
+ */
+export async function postSlackMessage(
+  botToken: string,
+  channelId: string,
+  messageContent: any
+): Promise<string | null> {
+  try {
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        blocks: messageContent.blocks,
+        text: messageContent.text || 'Poker session started'
+      })
+    });
+
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('Slack chat.postMessage failed:', result.error);
+      return null;
+    }
+
+    console.log('Successfully posted Slack message');
+    return result.ts; // Return message timestamp
+  } catch (error) {
+    console.error('Error posting Slack message:', error);
+    return null;
+  }
+}
+
+/**
+ * Updates a Slack message using the chat.update API
+ */
+export async function updateSlackMessage(
+  botToken: string,
+  channelId: string,
+  messageTs: string,
+  messageContent: any
+): Promise<boolean> {
+  try {
+    const response = await fetch('https://slack.com/api/chat.update', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        ts: messageTs,
+        blocks: messageContent.blocks,
+        text: messageContent.text || 'Poker session update'
+      })
+    });
+
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('Slack chat.update failed:', result.error);
+      return false;
+    }
+
+    console.log('Successfully updated Slack message');
+    return true;
+  } catch (error) {
+    console.error('Error updating Slack message:', error);
+    return false;
   }
 }
 
