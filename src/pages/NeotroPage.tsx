@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
+  const [searchParams] = useSearchParams();
+  const roundParam = searchParams.get('round');
   const { user, profile, loading: loadingAuth } = useAuth();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
@@ -57,6 +59,10 @@ const NeotroPage = () => {
     true
   );
 
+  // If a specific round is requested via query parameter, show a notice
+  const requestedRound = roundParam ? parseInt(roundParam, 10) : null;
+  const showRoundNotice = requestedRound && session && session.round_number !== requestedRound;
+
   if (loadingAuth || loadingSession || loadingRole) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -68,6 +74,18 @@ const NeotroPage = () => {
   return (
     <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
        <AppHeader variant='back' />
+      {showRoundNotice && (
+        <div className="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 p-4 mb-4">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                You were linked to round {requestedRound}, but the current active round is {session.round_number}.
+                The poker session shows the most recent active round.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex-1 min-h-0">
         <PokerTable
           session={session}

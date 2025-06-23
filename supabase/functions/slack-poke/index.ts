@@ -283,7 +283,9 @@ export async function processVote(
 export function updateVotingMessage(
   originalMessage: any,
   currentVotes: Record<string, { points: number; display_name: string }>,
-  gameState: string
+  gameState: string,
+  teamId?: string,
+  roundNumber?: number
 ): any {
   // Extract ticket info from original message if possible
   const ticketInfo = originalMessage?.blocks?.[0]?.text?.text || 'Planning Poker Session';
@@ -294,7 +296,9 @@ export function updateVotingMessage(
     ticketNumber as string | null,
     ticketTitle as string | null,
     currentVotes,
-    gameState as 'Voting' | 'Playing'
+    gameState as 'Voting' | 'Playing',
+    teamId,
+    roundNumber
   );
 }
 
@@ -333,7 +337,7 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
     const round = await createNewRound(session.id, ticketNumber, ticketTitle);
 
     // Generate initial message
-    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting');
+    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number);
 
     // Post message via Slack API instead of HTTP response
     const messageTs = await postSlackMessage(
@@ -349,9 +353,12 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
         .update({ slack_message_ts: messageTs })
         .eq('id', round.id);
 
-      // Return empty response to avoid showing any message to the user
-      return new Response("", {
-        headers: { ...corsHeaders },
+      // Return ephemeral confirmation to the user who ran the command
+      return new Response(JSON.stringify({
+        text: "Poker Round Started! 🎴",
+        response_type: "ephemeral"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200
       });
     } else {
@@ -439,7 +446,9 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
       const updatedMessage = updateVotingMessage(
         payload.message,
         selections,
-        'Voting'
+        'Voting',
+        team.id,
+        currentRound.round_number
       );
 
       // Update the Slack message using chat.update API
@@ -483,7 +492,9 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
       const updatedMessage = updateVotingMessage(
         payload.message,
         selections,
-        'Playing'
+        'Playing',
+        team.id,
+        currentRound.round_number
       );
 
       // Update the Slack message using chat.update API
