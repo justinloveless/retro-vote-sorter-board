@@ -82,7 +82,9 @@ const NeotroPage = () => {
     room_id: session?.room_id,
     current_round_number: session?.current_round_number,
     presence_enabled: session?.presence_enabled,
-    send_to_slack: session?.send_to_slack
+    send_to_slack: session?.send_to_slack,
+    // Override the round_number to match the requested round for chat and history
+    round_number: requestedRound.round_number
   } : session;
 
   if (loadingAuth || loadingSession || loadingRole) {
@@ -102,6 +104,7 @@ const NeotroPage = () => {
           activeUserId={user?.id}
           teamId={teamId}
           userRole={currentRole}
+          requestedRoundNumber={requestedRoundNumber}
           {...pokerActions}
         />
       </div>
