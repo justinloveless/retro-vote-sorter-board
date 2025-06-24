@@ -75,6 +75,7 @@ interface PokerSessionRound {
   game_state: string;
   created_at: string;
   slack_message_ts?: string;
+  average_points?: number;
 }
 
 // Utility Functions
@@ -470,6 +471,16 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         );
       }
 
+      // Publish realtime update to sync browser clients
+      await publishRealtimeUpdate(
+        currentRound.session_id,
+        { 
+          selections,
+          game_state: 'Selection' // Voting phase
+        },
+        anonymousUserId
+      );
+
       // Return simple acknowledgment response
       return new Response(JSON.stringify({
         text: "Vote recorded! ✅"
@@ -519,6 +530,24 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
           updatedMessage
         );
       }
+
+      // Calculate average points for playing state
+      const participating = Object.values(selections as Record<string, { points: number; display_name: string }>)
+        .filter(s => s.points !== -1);
+      const average_points = participating.length > 0 
+        ? participating.reduce((a, b) => a + b.points, 0) / participating.length 
+        : 0;
+
+      // Publish realtime update to sync browser clients
+      await publishRealtimeUpdate(
+        currentRound.session_id,
+        { 
+          selections,
+          game_state: 'Playing',
+          average_points
+        },
+        anonymousUserId
+      );
 
       // Return simple acknowledgment response
       return new Response(JSON.stringify({
@@ -637,6 +666,32 @@ export function generateJiraUrl(team: Team, ticketNumber: string | null): string
     : `https://${team.jira_domain}`;
   
   return `${domain}/browse/${ticketNumber}`;
+}
+
+/**
+ * Publishes a realtime update to the poker session channel
+ */
+export async function publishRealtimeUpdate(
+  sessionId: string,
+  roundData: Partial<PokerSessionRound>,
+  senderUserId: string = 'slack_user'
+): Promise<void> {
+  try {
+    const channel = supabase.channel(`poker_session:${sessionId}`);
+    
+    await channel.send({
+      type: 'broadcast',
+      event: 'round_updated',
+      payload: { 
+        ...roundData, 
+        senderUserId 
+      }
+    });
+    
+    console.log('Published realtime update for session:', sessionId);
+  } catch (error) {
+    console.error('Error publishing realtime update:', error);
+  }
 }
 
 // Main handler
