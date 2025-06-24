@@ -88,6 +88,7 @@ export interface PokerTableProviderProps {
   isMobile: boolean;
   teamId?: string;
   userRole?: string;
+  requestedRoundNumber?: number | null;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
 }
@@ -98,7 +99,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     toggleLockUserSelection, toggleAbstainUserSelection, playHand,
     deleteAllRounds, updateSessionConfig,
     nextRound,
-    updateTicketNumber, userRole, presentUserIds,
+    updateTicketNumber, userRole, presentUserIds, requestedRoundNumber,
     isNextRoundDialogOpen, setNextRoundDialogOpen
   } = props;
 
@@ -121,7 +122,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
-  } = usePokerSessionHistory(session?.session_id || null);
+  } = usePokerSessionHistory(session?.session_id || null, requestedRoundNumber || undefined);
 
   const {
     messages: chatMessagesForRound,

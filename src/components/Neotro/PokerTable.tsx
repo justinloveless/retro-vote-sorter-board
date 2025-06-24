@@ -19,6 +19,7 @@ interface PokerTableProps {
     presentUserIds: string[];
     teamId?: string;
     userRole?: string;
+    requestedRoundNumber?: number | null;
 }
 
 const PokerTable: React.FC<PokerTableProps> = (props) => {

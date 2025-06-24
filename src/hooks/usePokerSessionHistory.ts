@@ -17,7 +17,7 @@ export interface PokerSessionRound {
   game_state: GameState;
 }
 
-export const usePokerSessionHistory = (sessionId: string | null) => {
+export const usePokerSessionHistory = (sessionId: string | null, initialRoundNumber?: number) => {
   const [rounds, setRounds] = useState<PokerSessionRound[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -41,9 +41,21 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
       }
 
       setRounds(data || []);
-      // Set to the latest round by default
+      
       if (data && data.length > 0) {
-        setCurrentRoundIndex(data.length - 1);
+        // If initialRoundNumber is provided, try to find and set that round
+        if (initialRoundNumber !== undefined) {
+          const targetIndex = data.findIndex(round => round.round_number === initialRoundNumber);
+          if (targetIndex !== -1) {
+            setCurrentRoundIndex(targetIndex);
+          } else {
+            // If specified round not found, default to latest
+            setCurrentRoundIndex(data.length - 1);
+          }
+        } else {
+          // Set to the latest round by default
+          setCurrentRoundIndex(data.length - 1);
+        }
       } else {
         // If no rounds, reset index
         setCurrentRoundIndex(0);
@@ -54,7 +66,7 @@ export const usePokerSessionHistory = (sessionId: string | null) => {
     } finally {
       setLoading(false);
     }
-  }, [sessionId, toast]);
+  }, [sessionId, initialRoundNumber, toast]);
 
   useEffect(() => {
     if (sessionId) {
