@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { usePokerTable } from './context';
 import PointSelector from "@/components/Neotro/PointSelector";
@@ -22,6 +23,8 @@ const getGridColumns = (playerCount: number) => {
 };
 
 export const DesktopView: React.FC = () => {
+    const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+
     const {
         shake,
         currentRound,
@@ -140,19 +143,45 @@ export const DesktopView: React.FC = () => {
                             <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-8">
                                 {cardGroups.map(({ points, selections }) => (
                                     <div key={points} className="flex flex-col items-center space-y-2">
-                                        <div className="flex justify-center -space-x-14">
-                                            {selections.map((selection, index) => (
-                                                <div key={selection.userId} className="transition-transform transform hover:-translate-y-4"
-                                                    style={{ zIndex: selections.length - index }}>
-                                                    <PlayingCard
-                                                        cardState={CardState.Played}
-                                                        playerName={selection.name}
-                                                        pointsSelected={selection.points}
-                                                        isPresent={presentUserIds.includes(selection.userId)}
-                                                        totalPlayers={totalPlayers}
-                                                    />
-                                                </div>
-                                            ))}
+                                        <div className="flex justify-center -space-x-14 relative">
+                                            {selections.map((selection, index) => {
+                                                const cardId = `${points}-${selection.userId}`;
+                                                const isHovered = hoveredCardId === cardId;
+                                                const baseZIndex = selections.length - index;
+                                                
+                                                return (
+                                                    <div 
+                                                        key={selection.userId} 
+                                                        className="relative transition-transform transform hover:-translate-y-4"
+                                                        style={{ zIndex: baseZIndex }}
+                                                        onMouseEnter={() => setHoveredCardId(cardId)}
+                                                        onMouseLeave={() => setHoveredCardId(null)}
+                                                    >
+                                                        <div className="relative">
+                                                            <PlayingCard
+                                                                cardState={CardState.Played}
+                                                                playerName={selection.name}
+                                                                pointsSelected={selection.points}
+                                                                isPresent={presentUserIds.includes(selection.userId)}
+                                                                totalPlayers={totalPlayers}
+                                                            />
+                                                            {/* Elevated player name overlay when hovered */}
+                                                            {isHovered && (
+                                                                <div 
+                                                                    className="absolute top-full w-full pt-1 pointer-events-none"
+                                                                    style={{ zIndex: 1000 }}
+                                                                >
+                                                                    <div className="flex items-center justify-center">
+                                                                        <div className="text-center bg-card/90 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full shadow-lg border" style={{ backdropFilter: 'blur(4px)' }}>
+                                                                            {selection.name}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                         <div className="text-center font-bold text-lg text-foreground bg-card/75 rounded-full px-4 py-1">
                                             {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
@@ -202,4 +231,4 @@ export const DesktopView: React.FC = () => {
             </div>
         </div>
     );
-} 
+}
