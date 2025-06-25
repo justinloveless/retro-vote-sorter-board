@@ -245,8 +245,6 @@ export type Database = {
           round_number: number
           selections: Json
           session_id: string
-          slack_channel_id: string | null
-          slack_message_ts: string | null
           ticket_number: string | null
           ticket_title: string | null
         }
@@ -259,8 +257,6 @@ export type Database = {
           round_number: number
           selections?: Json
           session_id: string
-          slack_channel_id?: string | null
-          slack_message_ts?: string | null
           ticket_number?: string | null
           ticket_title?: string | null
         }
@@ -273,8 +269,6 @@ export type Database = {
           round_number?: number
           selections?: Json
           session_id?: string
-          slack_channel_id?: string | null
-          slack_message_ts?: string | null
           ticket_number?: string | null
           ticket_title?: string | null
         }
