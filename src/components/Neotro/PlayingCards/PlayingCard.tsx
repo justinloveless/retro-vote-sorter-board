@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import { getCardImage } from "./cardImage";
@@ -43,8 +44,12 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [translateY, setTranslateY] = useState("translate-y-0");
+  const [showPortalName, setShowPortalName] = useState(false);
+  const [portalPosition, setPortalPosition] = useState({ x: 0, y: 0 });
   const isMobile = useIsMobile();
   const cardRef = useRef<HTMLDivElement>(null);
+  const playerNameRef = useRef<HTMLDivElement>(null);
+
 
   const scale = getCardScale(totalPlayers, isMobile);
 
@@ -79,22 +84,64 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
     };
   }, [cardState, isMobile, totalPlayers]);
 
+
+
   return (
-    <div
+        <div
       ref={cardRef}
       className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''} z-0 hover:z-10 mb-8 md:mb-0`}
       style={{
         height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
       }}
+      onMouseEnter={() => {
+        if (playerNameRef.current) {
+          const rect = playerNameRef.current.getBoundingClientRect();
+          setPortalPosition({ 
+            x: rect.left + rect.width / 2, 
+            y: rect.top + rect.height / 2 
+          });
+          setShowPortalName(true);
+        }
+      }}
+      onMouseLeave={() => {
+        setShowPortalName(false);
+      }}
     >
       <div className="absolute top-full w-full pt-1">
         <div className="flex items-center justify-center">
-          <div className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full" style={{ backdropFilter: 'blur(2px)' }}>
+          <div 
+            ref={playerNameRef}
+            className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full relative ${showPortalName ? 'opacity-0' : ''}`}
+            style={{ backdropFilter: 'blur(2px)' }}
+          >
             {playerName}
           </div>
         </div>
       </div>
+            {showPortalName && createPortal(
+        <div 
+          className="fixed pointer-events-none"
+          style={{ 
+            left: portalPosition.x,
+            top: portalPosition.y,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 9999
+          }}
+        >
+          <div
+            className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
+            style={{ 
+              backdropFilter: 'blur(2px)',
+              transform: 'translateY(-16px)',
+              transition: 'transform 0.2s ease-in-out'
+            }}
+          >
+            {playerName}
+          </div>
+        </div>,
+        document.body
+      )}
       <ReactCardFlip
         isFlipped={isFlipped}
         flipDirection="horizontal"
