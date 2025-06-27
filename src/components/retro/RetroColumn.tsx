@@ -1,7 +1,7 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
@@ -13,6 +13,8 @@ import { PlayAudioButton } from './PlayAudioButton';
 import { ColumnSummary } from './ColumnSummary';
 import { AudioSummaryState } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
+import { TiptapEditor } from '../shared/TiptapEditor';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface RetroItem {
   id: string;
@@ -111,6 +113,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   updateAudioSummaryState,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const sortedItems = [...items].sort((a, b) => {
     if (b.votes !== a.votes) {
@@ -118,6 +121,17 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
     }
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    // For now, convert to base64 for inline display
+    // In a real implementation, you'd upload to Supabase storage
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
 
   // Function to check if a column is an "Action Items" column
   const isActionItemsColumn = (columnTitle: string) => {
@@ -146,6 +160,25 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
     };
 
     return colorMap[color] || `${color} dark:bg-gray-800 dark:border-gray-600`;
+  };
+
+  // Function to make images clickable in HTML content
+  const makeImagesClickable = (htmlContent: string) => {
+    return htmlContent.replace(
+      /<img([^>]*?)src="([^"]*?)"([^>]*?)>/g,
+      '<img$1src="$2"$3 style="cursor: pointer;" data-clickable-image="$2">'
+    );
+  };
+
+  // Function to handle image clicks
+  const handleImageClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'IMG' && target.hasAttribute('data-clickable-image')) {
+      const imageSrc = target.getAttribute('data-clickable-image');
+      if (imageSrc) {
+        setSelectedImage(imageSrc);
+      }
+    }
   };
 
   return (
@@ -187,11 +220,12 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
               <CardContent className="p-4">
                 {editingItem === item.id ? (
                   <div className="space-y-2">
-                    <Textarea
-                      value={editText}
-                      onChange={(e) => onSetEditText(e.target.value)}
-                      className="resize-none"
-                      rows={2}
+                    <TiptapEditor
+                      content={editText}
+                      onChange={onSetEditText}
+                      onSubmit={onSaveEdit}
+                      placeholder="Edit your retro item..."
+                      uploadImage={uploadImage}
                     />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={onSaveEdit}>Save</Button>
@@ -200,7 +234,11 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                   </div>
                 ) : (
                   <>
-                    <p className="text-gray-800 dark:text-gray-200 mb-3">{item.text}</p>
+                    <div 
+                      className="text-gray-800 dark:text-gray-200 mb-3 prose dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: makeImagesClickable(item.text) }}
+                      onClick={handleImageClick}
+                    />
 
                     <div className="flex items-end justify-between">
                       <div className="flex items-center gap-2">
@@ -288,6 +326,19 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           />
         </div>
       </div>
+
+      {/* Image Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-2">
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Full size view"
+              className="w-full h-full object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
