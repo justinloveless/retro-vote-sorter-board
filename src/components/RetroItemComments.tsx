@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { TiptapEditor } from '@/components/shared/TiptapEditor';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface RetroComment {
   id: string;
@@ -46,18 +48,23 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
 }) => {
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    // For now, convert to base64 for inline display
+    // In a real implementation, you'd upload to Supabase storage
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
 
   const handleAddComment = () => {
     if (!newComment.trim()) return;
     onAddComment(itemId, newComment, userName);
     setNewComment('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleAddComment();
-    }
   };
 
   const canDeleteComment = (comment: RetroComment) => {
@@ -71,6 +78,25 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
       return true;
     }
     return false;
+  };
+
+  // Function to make images clickable in HTML content
+  const makeImagesClickable = (htmlContent: string) => {
+    return htmlContent.replace(
+      /<img([^>]*?)src="([^"]*?)"([^>]*?)>/g,
+      '<img$1src="$2"$3 style="cursor: pointer;" data-clickable-image="$2">'
+    );
+  };
+
+  // Function to handle image clicks
+  const handleImageClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'IMG' && target.hasAttribute('data-clickable-image')) {
+      const imageSrc = target.getAttribute('data-clickable-image');
+      if (imageSrc) {
+        setSelectedImage(imageSrc);
+      }
+    }
   };
 
   return (
@@ -112,33 +138,50 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                         </Button>
                       )}
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{comment.text}</p>
+                    <div 
+                      className="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: makeImagesClickable(comment.text) }}
+                      onClick={handleImageClick}
+                    />
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
 
-          <div className="flex gap-2">
-            <Textarea
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={handleKeyPress}
-              className="text-sm"
-              rows={1}
-              preventDrag={true}
+          <div className="space-y-2">
+            <TiptapEditor
+              content={newComment}
+              onChange={setNewComment}
+              onSubmit={handleAddComment}
+              placeholder="Add a comment... (you can paste images)"
+              uploadImage={uploadImage}
             />
             <Button
               size="sm"
               onClick={handleAddComment}
               disabled={!newComment.trim()}
+              className="w-full"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4 mr-2" />
+              Add Comment
             </Button>
           </div>
         </div>
       )}
+
+      {/* Image Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-2">
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Full size view"
+              className="w-full h-full object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

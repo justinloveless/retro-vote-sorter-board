@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { TiptapEditor } from '@/components/shared/TiptapEditor';
 
 interface AddItemCardProps {
   onAddItem: (text: string, isAnonymous: boolean) => void;
@@ -14,6 +15,17 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
   const [isExpanded, setIsExpanded] = useState(false);
   const [text, setText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    // For now, convert to base64 for inline display
+    // In a real implementation, you'd upload to Supabase storage
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
 
   const handleSubmit = () => {
     if (!text.trim()) return;
@@ -48,20 +60,12 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
   return (
     <Card className="bg-white/60 dark:bg-gray-700/60">
       <CardContent className="p-4 space-y-3">
-        <Textarea
-          placeholder="Enter your retro item..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-          className="resize-none bg-white/90 dark:bg-gray-800/60"
-          rows={3}
-          autoFocus
-          preventDrag={true}
+        <TiptapEditor
+          content={text}
+          onChange={setText}
+          onSubmit={handleSubmit}
+          placeholder="Enter your retro item... (you can paste images)"
+          uploadImage={uploadImage}
         />
         {allowAnonymous && (
           <div className="flex items-center space-x-2">
