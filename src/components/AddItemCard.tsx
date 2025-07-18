@@ -4,14 +4,23 @@ import { Plus, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TiptapEditor } from '@/components/shared/TiptapEditor';
+import { TiptapEditorWithMentions } from '@/components/shared/TiptapEditorWithMentions';
+
+interface TeamMember {
+  id: string;
+  user_id: string;
+  profiles?: {
+    full_name: string | null;
+  } | null;
+}
 
 interface AddItemCardProps {
   onAddItem: (text: string, isAnonymous: boolean) => void;
   allowAnonymous?: boolean;
+  teamMembers?: TeamMember[];
 }
 
-export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonymous }) => {
+export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonymous, teamMembers }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [text, setText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -60,12 +69,13 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
   return (
     <Card className="bg-white/60 dark:bg-gray-700/60">
       <CardContent className="p-4 space-y-3">
-        <TiptapEditor
+        <TiptapEditorWithMentions
           content={text}
           onChange={setText}
           onSubmit={handleSubmit}
           placeholder="Enter your retro item... (you can paste images)"
           uploadImage={uploadImage}
+          teamMembers={teamMembers}
         />
         {allowAnonymous && (
           <div className="flex items-center space-x-2">
