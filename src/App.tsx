@@ -14,6 +14,7 @@ import Team from "./pages/Team";
 import TeamSettingsPage from "./pages/TeamSettings";
 import Account from "./pages/Account";
 import InviteAccept from "./pages/InviteAccept";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
@@ -44,6 +45,7 @@ const App = () => (
                   <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/invite/:token" element={<InviteAccept />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>

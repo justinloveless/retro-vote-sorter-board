@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X } from 'lucide-react';
+import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X, Lock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeams } from '@/hooks/useTeams';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,6 +13,7 @@ import { BackgroundSettings } from '@/components/account/BackgroundSettings';
 import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Account = () => {
   const navigate = useNavigate();
@@ -21,6 +22,13 @@ const Account = () => {
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -55,6 +63,67 @@ const Account = () => {
         description: error.message,
         variant: 'destructive',
       });
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please ensure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      // First verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user!.email!,
+        password: passwordData.currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Current password is incorrect');
+      }
+
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated successfully!",
+        description: "Your password has been changed.",
+      });
+
+      setIsChangingPassword(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      toast({
+        title: "Password change failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -126,6 +195,71 @@ const Account = () => {
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  Password
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!isChangingPassword ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Change your password to keep your account secure.
+                    </p>
+                    <Button onClick={() => setIsChangingPassword(true)} variant="outline">
+                      Change Password
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Input
+                      type="password"
+                      placeholder="Current password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    />
+                    <Input
+                      type="password"
+                      placeholder="New password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    />
+                    <Input
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handlePasswordChange}
+                        disabled={passwordLoading}
+                        size="sm"
+                      >
+                        {passwordLoading ? 'Updating...' : 'Update Password'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordData({
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: ''
+                          });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
