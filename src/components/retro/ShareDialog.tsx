@@ -24,7 +24,6 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  console.log('password', password);
 
   const shareRoom = () => {
     const url = `${window.location.origin}/retro/${roomId}`;
