@@ -1,3 +1,4 @@
+import sanitizeHtml from 'sanitize-html';
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -300,7 +301,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                 <CornerUpLeft className="h-4 w-4 flex-shrink-0" />
                 <div className="flex-1 overflow-hidden">
                   <p className="font-semibold">Replying to {replyingTo.user_name}</p>
-                  <p className="truncate text-muted-foreground">{replyingTo.message.replace(/<[^>]+>/g, '')}</p>
+                  <p className="truncate text-muted-foreground">{sanitizeHtml(replyingTo.message, { allowedTags: [], allowedAttributes: {} })}</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}>
