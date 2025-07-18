@@ -38,9 +38,9 @@ export const ActiveUsers: React.FC<ActiveUsersProps> = ({ users }) => {
         </div>
 
         <div className="flex -space-x-2">
-          {activeUsers.slice(0, 8).map((user) => (
+          {activeUsers.slice(0, 8).map((user, index) => (
             <UserAvatar
-              key={user.id}
+              key={`${user.id}-${user.user_name}-${index}`}
               userId={user.id}
               name={user.user_name}
               avatarUrl={user.avatar_url}
@@ -56,8 +56,8 @@ export const ActiveUsers: React.FC<ActiveUsersProps> = ({ users }) => {
               </TooltipTrigger>
               <TooltipContent>
                 <div className="space-y-1">
-                  {activeUsers.slice(8).map((user) => (
-                    <p key={user.id}>{user.user_name}</p>
+                  {activeUsers.slice(8).map((user, index) => (
+                    <p key={`${user.id}-${user.user_name}-${index}`}>{user.user_name}</p>
                   ))}
                 </div>
               </TooltipContent>
