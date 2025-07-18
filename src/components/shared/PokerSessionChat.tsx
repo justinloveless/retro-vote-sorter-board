@@ -6,6 +6,7 @@ import { Send, MessageCircle, Smile, CornerUpLeft, X, ChevronDown } from 'lucide
 import type { ChatMessage } from '@/hooks/usePokerSessionChat';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 import { Badge } from '@/components/ui/badge';
+import { processMentionsForDisplay } from './TiptapEditorWithMentions';
 import {
   Collapsible,
   CollapsibleContent,
@@ -122,9 +123,9 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -149,7 +150,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   const renderMessage = (message: ChatMessage) => {
     const isCurrentUser = message.user_id === currentUserId;
-    
+
     const aggregatedReactions = (message.reactions || []).reduce((acc, reaction) => {
       if (!acc[reaction.emoji]) {
         acc[reaction.emoji] = [];
@@ -157,18 +158,17 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
       acc[reaction.emoji].push(reaction.user_name);
       return acc;
     }, {} as Record<string, string[]>);
-    
+
     return (
       <div
         key={message.id}
         className={`group relative flex items-start ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-1`}
       >
         <div
-          className={`max-w-[70%] rounded-lg px-3 py-2 ${
-            isCurrentUser
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground'
-          }`}
+          className={`max-w-[70%] rounded-lg px-3 py-2 ${isCurrentUser
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted text-muted-foreground'
+            }`}
         >
           {message.reply_to_message_id && (
             <div className="text-xs opacity-80 border-l-2 border-primary/50 pl-2 mb-1">
@@ -180,9 +180,9 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             <span className="text-xs font-medium">{message.user_name}</span>
             <span className="text-xs opacity-70">{formatTime(message.created_at)}</span>
           </div>
-          <div 
+          <div
             className="text-sm prose dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: processMessageContent(message.message) }} 
+            dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(processMessageContent(message.message)) }}
           />
           <div className="mt-2 pt-1 border-t border-primary-foreground/20 flex items-center justify-between">
             <TooltipProvider>
@@ -194,9 +194,8 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => handleReactionClick(message, emoji)}
-                          className={`px-1.5 py-0.5 rounded-full text-xs ${
-                            hasReacted ? 'bg-blue-500/30' : 'bg-gray-500/20'
-                          }`}
+                          className={`px-1.5 py-0.5 rounded-full text-xs ${hasReacted ? 'bg-blue-500/30' : 'bg-gray-500/20'
+                            }`}
                         >
                           {emoji} {userNames.length}
                         </button>
@@ -240,8 +239,8 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
           )}
         </div>
         {showEmojiPicker === message.id && !isViewingHistory && (
-           <div className="emoji-picker-container absolute z-10" style={{ bottom: '40px', [isCurrentUser ? 'right' : 'left']: '0px' }}>
-            <EmojiPicker 
+          <div className="emoji-picker-container absolute z-10" style={{ bottom: '40px', [isCurrentUser ? 'right' : 'left']: '0px' }}>
+            <EmojiPicker
               onEmojiClick={(emojiData) => {
                 handleReactionClick(message, emojiData.emoji);
                 setShowEmojiPicker(false);
@@ -275,82 +274,82 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   );
 
   const ChatContent = () => (
-      <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
-        <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
-          {loading && messages.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-muted-foreground">
-              Loading chat...
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-muted-foreground">
-              No messages yet. Start the conversation!
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {messages.map(renderMessage)}
-              <div ref={messagesEndRef} />
+    <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
+        {loading && messages.length === 0 ? (
+          <div className="flex items-center justify-center h-20 text-muted-foreground">
+            Loading chat...
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center h-20 text-muted-foreground">
+            No messages yet. Start the conversation!
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {messages.map(renderMessage)}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </ScrollArea>
+
+      {!isViewingHistory && (
+        <div className="mt-3">
+          {replyingTo && (
+            <div className="flex items-center justify-between p-2 mb-2 text-sm bg-muted rounded-md">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <CornerUpLeft className="h-4 w-4 flex-shrink-0" />
+                <div className="flex-1 overflow-hidden">
+                  <p className="font-semibold">Replying to {replyingTo.user_name}</p>
+                  <p className="truncate text-muted-foreground">{replyingTo.message.replace(/<[^>]+>/g, '')}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           )}
-        </ScrollArea>
-
-        {!isViewingHistory && (
-          <div className="mt-3">
-            {replyingTo && (
-              <div className="flex items-center justify-between p-2 mb-2 text-sm bg-muted rounded-md">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <CornerUpLeft className="h-4 w-4 flex-shrink-0" />
-                  <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold">Replying to {replyingTo.user_name}</p>
-                    <p className="truncate text-muted-foreground">{replyingTo.message.replace(/<[^>]+>/g, '')}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
+          <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative flex items-center gap-2 pt-3 border-t">
+            <div className="flex-1 min-w-0">
+              <TiptapEditor
+                content={newMessage}
+                onChange={setNewMessage}
+                onSubmit={handleSendMessage}
+                placeholder="Type a message..."
+                uploadImage={uploadImage}
+              />
+            </div>
+            <div className="flex items-center self-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowEmojiPicker(prev => prev ? false : 'main')}
+              >
+                <Smile className="h-5 w-5" />
+              </Button>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!newMessage.trim() || newMessage === '<p></p>'}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            {showEmojiPicker === 'main' && (
+              <div className="absolute bottom-full right-0 mb-2 z-10">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
               </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative flex items-center gap-2 pt-3 border-t">
-              <div className="flex-1 min-w-0">
-                <TiptapEditor
-                  content={newMessage}
-                  onChange={setNewMessage}
-                  onSubmit={handleSendMessage}
-                  placeholder="Type a message..."
-                  uploadImage={uploadImage}
-                />
-              </div>
-              <div className="flex items-center self-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowEmojiPicker(prev => prev ? false : 'main')}
-                >
-                  <Smile className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={!newMessage.trim() || newMessage === '<p></p>'}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-              {showEmojiPicker === 'main' && (
-                <div className="absolute bottom-full right-0 mb-2 z-10">
-                  <EmojiPicker onEmojiClick={handleEmojiClick} />
-                </div>
-              )}
-            </form>
-          </div>
-        )}
+          </form>
+        </div>
+      )}
 
-        {isViewingHistory && (
-          <div className="mt-3 pt-3 border-t text-center text-sm text-muted-foreground">
-            Chat is read-only when viewing history
-          </div>
-        )}
-      </CardContent>
+      {isViewingHistory && (
+        <div className="mt-3 pt-3 border-t text-center text-sm text-muted-foreground">
+          Chat is read-only when viewing history
+        </div>
+      )}
+    </CardContent>
   );
 
   if (!isCollapsible) {
@@ -360,7 +359,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
           <ChatHeader isCollapsible={false} />
           {renderChatContent()}
         </Card>
-        
+
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] p-0">
             <DialogHeader className="p-6 pb-0">
@@ -405,7 +404,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
-          
+
           <CollapsibleContent asChild>
             <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
               <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">

@@ -13,7 +13,7 @@ import { PlayAudioButton } from './PlayAudioButton';
 import { ColumnSummary } from './ColumnSummary';
 import { AudioSummaryState } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
-import { TiptapEditor } from '../shared/TiptapEditor';
+import { TiptapEditorWithMentions, processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface RetroItem {
@@ -35,6 +35,14 @@ interface RetroBoard {
   [key: string]: any;
 }
 
+interface TeamMember {
+  id: string;
+  user_id: string;
+  profiles?: {
+    full_name: string | null;
+  } | null;
+}
+
 interface RetroColumnProps {
   board: RetroBoard | null;
   column: any;
@@ -51,6 +59,7 @@ interface RetroColumnProps {
   isArchived: boolean;
   sessionId?: string | null;
   userVotes: string[];
+  teamMembers?: TeamMember[];
   onAddItem: (text: string, isAnonymous: boolean) => void;
   onUpdateColumn: (columnId: string, updates: any) => void;
   onDeleteColumn: (columnId: string) => void;
@@ -90,6 +99,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   isArchived,
   sessionId,
   userVotes,
+  teamMembers,
   onAddItem,
   onUpdateColumn,
   onDeleteColumn,
@@ -198,7 +208,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
-            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board &&(
+            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
             {!isAnonymousUser && (
@@ -220,12 +230,13 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
               <CardContent className="p-4">
                 {editingItem === item.id ? (
                   <div className="space-y-2">
-                    <TiptapEditor
+                    <TiptapEditorWithMentions
                       content={editText}
                       onChange={onSetEditText}
                       onSubmit={onSaveEdit}
                       placeholder="Edit your retro item..."
                       uploadImage={uploadImage}
+                      teamMembers={teamMembers}
                     />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={onSaveEdit}>Save</Button>
@@ -234,9 +245,9 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div 
+                    <div
                       className="text-gray-800 dark:text-gray-200 mb-3 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: makeImagesClickable(item.text) }}
+                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(makeImagesClickable(item.text)) }}
                       onClick={handleImageClick}
                     />
 
@@ -313,6 +324,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       sessionId={sessionId}
                       isAnonymousUser={isAnonymousUser}
                       isArchived={isArchived}
+                      teamMembers={teamMembers}
                     />
                   </>
                 )}
@@ -323,6 +335,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           <AddItemCard
             onAddItem={onAddItem}
             allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
+            teamMembers={teamMembers}
           />
         </div>
       </div>

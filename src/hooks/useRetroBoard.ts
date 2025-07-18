@@ -10,6 +10,7 @@ interface RetroBoard {
   password_hash: string | null;
   created_at: string;
   archived: boolean;
+  team_id: string | null;
 }
 
 interface RetroColumn {
@@ -280,23 +281,23 @@ export const useRetroBoard = (roomId: string) => {
 
     // Database changes
     channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, handleNewItem)
-           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'retro_items' }, (payload) => {
-              const updatedItem = payload.new as RetroItem;
-              setItems(currentItems =>
-                currentItems.map(item =>
-                  item.id === updatedItem.id ? { ...item, ...updatedItem } : item
-                )
-              );
-            })
-           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_items' }, (payload) => {
-              const deletedItem = payload.old as RetroItem;
-              setItems(currentItems => currentItems.filter(item => item.id !== deletedItem.id));
-            })
-           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, handleNewComment)
-           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
-            const deletedComment = payload.old as RetroComment;
-            setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
-           });
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'retro_items' }, (payload) => {
+        const updatedItem = payload.new as RetroItem;
+        setItems(currentItems =>
+          currentItems.map(item =>
+            item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+          )
+        );
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_items' }, (payload) => {
+        const deletedItem = payload.old as RetroItem;
+        setItems(currentItems => currentItems.filter(item => item.id !== deletedItem.id));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, handleNewComment)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
+        const deletedComment = payload.old as RetroComment;
+        setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
+      });
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {

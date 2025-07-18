@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
-import { TiptapEditor } from '@/components/shared/TiptapEditor';
+import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface RetroComment {
@@ -21,6 +21,14 @@ interface RetroComment {
   } | null;
 }
 
+interface TeamMember {
+  id: string;
+  user_id: string;
+  profiles?: {
+    full_name: string | null;
+  } | null;
+}
+
 interface RetroItemCommentsProps {
   itemId: string;
   comments: RetroComment[];
@@ -32,6 +40,7 @@ interface RetroItemCommentsProps {
   sessionId?: string | null;
   isAnonymousUser?: boolean;
   isArchived?: boolean;
+  teamMembers?: TeamMember[];
 }
 
 export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
@@ -45,6 +54,7 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
   sessionId,
   isAnonymousUser,
   isArchived,
+  teamMembers,
 }) => {
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -138,9 +148,9 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                         </Button>
                       )}
                     </div>
-                    <div 
+                    <div
                       className="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: makeImagesClickable(comment.text) }}
+                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(makeImagesClickable(comment.text)) }}
                       onClick={handleImageClick}
                     />
                   </div>
@@ -150,12 +160,13 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
           ))}
 
           <div className="space-y-2">
-            <TiptapEditor
+            <TiptapEditorWithMentions
               content={newComment}
               onChange={setNewComment}
               onSubmit={handleAddComment}
               placeholder="Add a comment... (you can paste images)"
               uploadImage={uploadImage}
+              teamMembers={teamMembers}
             />
             <Button
               size="sm"
