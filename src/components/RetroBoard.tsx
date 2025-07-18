@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
@@ -59,6 +60,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     audioUrlToPlay,
     clearAudioUrlToPlay,
   } = useRetroBoard(boardId);
+
+  // Get team members for @ mentions
+  const { members: teamMembers } = useTeamMembers(board?.team_id || null);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [userName, setUserName] = useState(() => {
@@ -270,6 +274,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 userVotes={userVotes}
                 audioSummaryState={audioSummaryState}
                 updateAudioSummaryState={updateAudioSummaryState}
+                teamMembers={teamMembers}
                 onAddItem={handleAddItem(column.id)}
                 onUpdateColumn={isArchived ? undefined : updateColumn}
                 onDeleteColumn={isArchived ? undefined : deleteColumn}
