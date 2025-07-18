@@ -19,27 +19,62 @@ const ResetPassword = () => {
     const [checkingToken, setCheckingToken] = useState(true);
 
     useEffect(() => {
+        let authSubscription: any;
+
         const checkTokenValidity = async () => {
+            // Debug: log all URL parameters
+            console.log('All URL parameters:', Object.fromEntries(searchParams.entries()));
+
+            // Also check URL hash parameters (Supabase might use fragments)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            console.log('Hash parameters:', Object.fromEntries(hashParams.entries()));
+
             // Check if we have the necessary URL parameters for password reset
-            const accessToken = searchParams.get('access_token');
-            const refreshToken = searchParams.get('refresh_token');
-            const type = searchParams.get('type');
+            let accessToken = searchParams.get('access_token') || hashParams.get('access_token');
+            let refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
+            let type = searchParams.get('type') || hashParams.get('type');
+
+            console.log('Password reset parameters:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
+
+            // Set up auth state change listener
+            authSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+                console.log('Auth state change:', event, !!session);
+
+                if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session && type === 'recovery')) {
+                    console.log('Password recovery session detected');
+                    setIsValidToken(true);
+                    setCheckingToken(false);
+                    toast({
+                        title: "Ready to reset password",
+                        description: "Please enter your new password below.",
+                    });
+                } else if (event === 'SIGNED_OUT' && type === 'recovery') {
+                    console.log('Password recovery session expired');
+                    setIsValidToken(false);
+                    setCheckingToken(false);
+                    toast({
+                        title: "Invalid reset link",
+                        description: "This password reset link is invalid or has expired.",
+                        variant: "destructive",
+                    });
+                    setTimeout(() => navigate('/'), 3000);
+                }
+            });
 
             if (type === 'recovery' && accessToken && refreshToken) {
                 try {
+                    console.log('Attempting to set session...');
                     // Set the session with the tokens from the URL
                     const { data, error } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken,
                     });
 
+                    console.log('Session set result:', { data: !!data, error });
+
                     if (error) throw error;
 
-                    setIsValidToken(true);
-                    toast({
-                        title: "Ready to reset password",
-                        description: "Please enter your new password below.",
-                    });
+                    // Don't set isValidToken here, let the auth state change handle it
                 } catch (error: any) {
                     console.error('Error setting session:', error);
                     toast({
@@ -48,19 +83,28 @@ const ResetPassword = () => {
                         variant: "destructive",
                     });
                     setTimeout(() => navigate('/'), 3000);
+                    setCheckingToken(false);
                 }
             } else {
+                console.log('Missing required parameters or wrong type');
                 toast({
                     title: "Invalid reset link",
                     description: "This password reset link is invalid or has expired.",
                     variant: "destructive",
                 });
                 setTimeout(() => navigate('/'), 3000);
+                setCheckingToken(false);
             }
-            setCheckingToken(false);
         };
 
         checkTokenValidity();
+
+        // Cleanup subscription on component unmount
+        return () => {
+            if (authSubscription) {
+                authSubscription.data.subscription.unsubscribe();
+            }
+        };
     }, [searchParams, navigate, toast]);
 
     const handlePasswordReset = async (e: React.FormEvent) => {
