@@ -9,7 +9,7 @@ import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
 import useFeatureFlags from '@/hooks/useFeatureFlags';
-import { PlayAudioButton } from './PlayAudioButton';
+
 
 import { AudioSummaryState } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
@@ -276,7 +276,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 
                       {/* Row 2: Buttons */}
                       <div className="flex justify-end gap-1">
-                        {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && <PlayAudioButton itemText={item.text} />}
                         {!isArchived &&
                           ((user?.id && item.author_id === user.id) ||
                             (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (
