@@ -10,7 +10,7 @@ import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
 import useFeatureFlags from '@/hooks/useFeatureFlags';
 import { PlayAudioButton } from './PlayAudioButton';
-import { ColumnSummary } from './ColumnSummary';
+
 import { AudioSummaryState } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
 import { TiptapEditorWithMentions, processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
