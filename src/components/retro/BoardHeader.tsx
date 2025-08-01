@@ -8,6 +8,7 @@ import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
+import { StageControls } from './StageControls';
 
 interface BoardHeaderProps {
   board: any;
@@ -21,6 +22,7 @@ interface BoardHeaderProps {
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardConfig: (config: any) => void;
   onSignOut: () => void;
+  updateRetroStage?: (stage: 'thinking' | 'voting' | 'discussing' | 'closed') => void;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -34,7 +36,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   items,
   onUpdateBoardTitle,
   onUpdateBoardConfig,
-  onSignOut
+  onSignOut,
+  updateRetroStage
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -96,6 +99,19 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           )}
         </div>
       </div>
+
+      {/* Stage Controls - dedicated row */}
+      {boardConfig?.retro_stages_enabled && board && updateRetroStage && (
+        <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700 flex justify-center">
+          <div className="max-w-4xl">
+            <StageControls
+            currentStage={board.retro_stage || 'thinking'}
+            onStageChange={updateRetroStage}
+              isAdmin={!isAnonymousUser}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

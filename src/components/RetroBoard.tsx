@@ -48,6 +48,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     deleteItem,
     updateBoardTitle,
     updateBoardConfig,
+    updateRetroStage,
     updatePresence,
     addComment,
     deleteComment,
@@ -240,6 +241,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
           onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
           onSignOut={signOut}
+          updateRetroStage={isArchived ? undefined : updateRetroStage}
         />
 
         {/* User Name Display */}

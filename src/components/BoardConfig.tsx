@@ -15,6 +15,7 @@ interface RetroBoardConfig {
   voting_enabled: boolean;
   max_votes_per_user: number | null;
   show_author_names: boolean;
+  retro_stages_enabled: boolean | null;
 }
 
 interface BoardConfigProps {
@@ -98,6 +99,27 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
                   placeholder="Unlimited"
                   value={localConfig.max_votes_per_user || ''}
                   onChange={(e) => handleConfigChange('max_votes_per_user', e.target.value ? parseInt(e.target.value) : null)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Retro Stages</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="retro-stages-enabled">Enable Structured Retro Stages</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Guide the retrospective through thinking, voting, discussing, and closing stages
+                  </p>
+                </div>
+                <Switch
+                  id="retro-stages-enabled"
+                  checked={localConfig.retro_stages_enabled ?? false}
+                  onCheckedChange={(checked) => handleConfigChange('retro_stages_enabled', checked)}
                 />
               </div>
             </CardContent>
