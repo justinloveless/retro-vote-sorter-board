@@ -1,9 +1,10 @@
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { currentEnvironment } from '@/config/environment';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 
 const NARRATION_STYLES = [
@@ -20,39 +21,71 @@ interface SummaryButtonProps {
 }
 
 export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle, boardId }) => {
+    const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(false);
 
-    const { playAudioUrl, pause, resume, audioState, stop, error } = useAudioPlayer();
     const styleSelected = async (style: string) => {
-
-        // Use fetch directly instead of supabase.functions.invoke
-        const response = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/generate-audio-summary`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            },
-            body: JSON.stringify({ items, columnTitle, style, boardId }),
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            console.error('Function error:', error);
+        if (items.length === 0) {
+            toast({
+                title: "Column is empty",
+                description: "Add some items to the column to generate a summary.",
+            });
             return;
         }
 
-        // Get the audio data as a blob
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        await playAudioUrl(audioUrl);
+        setIsLoading(true);
+        
+        try {
+            // The function will broadcast the audio URL via realtime channels
+            const response = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/generate-audio-summary`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                },
+                body: JSON.stringify({ items, columnTitle, style, boardId }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+
+            const result = await response.json();
+            
+            toast({
+                title: "Summary generated!",
+                description: "Audio will play automatically for all users.",
+            });
+
+        } catch (error: any) {
+            console.error('Function error:', error);
+            toast({
+                title: `Failed to generate ${style} summary`,
+                description: error.message,
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     return (
         <div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8">
-                        <Sparkles className="w-4 h-4" />
-                        <span>Summarize</span>
+                    <Button variant="ghost" size="sm" className="h-8" disabled={isLoading}>
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span className="ml-1">Working...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-4 h-4" />
+                                <span className="ml-1">Summarize</span>
+                            </>
+                        )}
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -60,6 +93,7 @@ export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle
                         <DropdownMenuItem
                             key={style.value}
                             onClick={() => styleSelected(style.value)}
+                            disabled={isLoading}
                         >
                             {style.label}
                         </DropdownMenuItem>
