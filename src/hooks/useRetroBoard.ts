@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
+
 interface RetroBoard {
   id: string;
   room_id: string;
@@ -11,6 +13,7 @@ interface RetroBoard {
   created_at: string;
   archived: boolean;
   team_id: string | null;
+  retro_stage: RetroStage | null;
 }
 
 interface RetroColumn {
@@ -20,6 +23,7 @@ interface RetroColumn {
   color: string;
   position: number;
   sort_order?: number;
+  is_action_items: boolean | null;
 }
 
 interface RetroItem {
@@ -53,6 +57,7 @@ interface RetroBoardConfig {
   voting_enabled: boolean;
   max_votes_per_user: number | null;
   show_author_names: boolean;
+  retro_stages_enabled: boolean | null;
 }
 
 interface ActiveUser {
@@ -649,6 +654,35 @@ export const useRetroBoard = (roomId: string) => {
     setAudioSummaryState(state);
   };
 
+  const updateRetroStage = async (newStage: RetroStage) => {
+    if (!board) return;
+
+    // Optimistically update the local state
+    const oldBoard = { ...board };
+    setBoard(prev => prev ? { ...prev, retro_stage: newStage } : null);
+
+    const { error } = await supabase
+      .from('retro_boards')
+      .update({ retro_stage: newStage })
+      .eq('id', board.id);
+
+    if (error) {
+      console.error('Error updating retro stage:', error);
+      // Revert on error
+      setBoard(oldBoard);
+      toast({
+        title: "Error updating retro stage",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: `Retro stage updated`,
+        description: `Board is now in ${newStage} stage`,
+      });
+    }
+  };
+
   return {
     board,
     columns,
@@ -667,6 +701,7 @@ export const useRetroBoard = (roomId: string) => {
     updatePresence,
     updateBoardTitle,
     updateBoardConfig,
+    updateRetroStage,
     addItem,
     addColumn,
     updateColumn,

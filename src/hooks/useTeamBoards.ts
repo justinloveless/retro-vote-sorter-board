@@ -98,7 +98,8 @@ export const useTeamBoards = (teamId: string | null) => {
             allow_anonymous: defaultTemplate.allow_anonymous,
             voting_enabled: defaultTemplate.voting_enabled,
             max_votes_per_user: defaultTemplate.max_votes_per_user,
-            show_author_names: defaultTemplate.show_author_names
+            show_author_names: defaultTemplate.show_author_names,
+            retro_stages_enabled: defaultTemplate.retro_stages_enabled
           }]);
       } else {
         // Fall back to team default settings if no template is set
@@ -116,7 +117,8 @@ export const useTeamBoards = (teamId: string | null) => {
               allow_anonymous: defaultSettings.allow_anonymous,
               voting_enabled: defaultSettings.voting_enabled,
               max_votes_per_user: defaultSettings.max_votes_per_user,
-              show_author_names: defaultSettings.show_author_names
+              show_author_names: defaultSettings.show_author_names,
+              retro_stages_enabled: defaultSettings.retro_stages_enabled || false
             }]);
         }
       }

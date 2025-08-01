@@ -12,6 +12,7 @@ interface BoardTemplate {
   voting_enabled: boolean;
   max_votes_per_user: number | null;
   show_author_names: boolean;
+  retro_stages_enabled: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +23,7 @@ interface TemplateColumn {
   title: string;
   color: string;
   position: number;
+  is_action_items: boolean | null;
   created_at: string;
 }
 
@@ -119,12 +121,13 @@ export const useBoardTemplates = (teamId: string | null) => {
 
   const createTemplate = async (
     name: string, 
-    columns: {title: string, color: string, position: number}[],
+    columns: {title: string, color: string, position: number, is_action_items: boolean}[],
     boardConfig: {
       allow_anonymous: boolean;
       voting_enabled: boolean;
       max_votes_per_user: number | null;
       show_author_names: boolean;
+      retro_stages_enabled: boolean;
     }
   ) => {
     if (!teamId) return null;
@@ -139,7 +142,8 @@ export const useBoardTemplates = (teamId: string | null) => {
           allow_anonymous: boardConfig.allow_anonymous,
           voting_enabled: boardConfig.voting_enabled,
           max_votes_per_user: boardConfig.max_votes_per_user,
-          show_author_names: boardConfig.show_author_names
+          show_author_names: boardConfig.show_author_names,
+          retro_stages_enabled: boardConfig.retro_stages_enabled
         }])
         .select()
         .single();
@@ -154,7 +158,8 @@ export const useBoardTemplates = (teamId: string | null) => {
             template_id: template.id,
             title: col.title,
             color: col.color,
-            position: col.position
+            position: col.position,
+            is_action_items: col.is_action_items
           }))
         );
 
@@ -175,6 +180,77 @@ export const useBoardTemplates = (teamId: string | null) => {
         variant: "destructive",
       });
       return null;
+    }
+  };
+
+  const updateTemplate = async (
+    templateId: string,
+    name: string, 
+    columns: {title: string, color: string, position: number, is_action_items: boolean}[],
+    boardConfig: {
+      allow_anonymous: boolean;
+      voting_enabled: boolean;
+      max_votes_per_user: number | null;
+      show_author_names: boolean;
+      retro_stages_enabled: boolean;
+    }
+  ) => {
+    if (!teamId) return null;
+
+    try {
+      // Update template
+      const { error: templateError } = await supabase
+        .from('board_templates')
+        .update({
+          name: name.trim(),
+          allow_anonymous: boardConfig.allow_anonymous,
+          voting_enabled: boardConfig.voting_enabled,
+          max_votes_per_user: boardConfig.max_votes_per_user,
+          show_author_names: boardConfig.show_author_names,
+          retro_stages_enabled: boardConfig.retro_stages_enabled
+        })
+        .eq('id', templateId);
+
+      if (templateError) throw templateError;
+
+      // Delete existing columns
+      const { error: deleteError } = await supabase
+        .from('template_columns')
+        .delete()
+        .eq('template_id', templateId);
+
+      if (deleteError) throw deleteError;
+
+      // Create new columns
+      const { error: columnsError } = await supabase
+        .from('template_columns')
+        .insert(
+          columns.map(col => ({
+            template_id: templateId,
+            title: col.title,
+            color: col.color,
+            position: col.position,
+            is_action_items: col.is_action_items
+          }))
+        );
+
+      if (columnsError) throw columnsError;
+
+      toast({
+        title: "Template updated",
+        description: "Board template has been updated successfully.",
+      });
+
+      loadTemplates();
+      return true;
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast({
+        title: "Error updating template",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
@@ -213,6 +289,7 @@ export const useBoardTemplates = (teamId: string | null) => {
     loading,
     setDefaultTemplate,
     createTemplate,
+    updateTemplate,
     deleteTemplate,
     refetch: loadTemplates
   };

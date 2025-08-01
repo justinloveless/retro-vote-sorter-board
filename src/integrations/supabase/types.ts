@@ -372,6 +372,7 @@ export type Database = {
           created_at: string
           id: string
           max_votes_per_user: number | null
+          retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           updated_at: string
           voting_enabled: boolean | null
@@ -382,6 +383,7 @@ export type Database = {
           created_at?: string
           id?: string
           max_votes_per_user?: number | null
+          retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           updated_at?: string
           voting_enabled?: boolean | null
@@ -392,6 +394,7 @@ export type Database = {
           created_at?: string
           id?: string
           max_votes_per_user?: number | null
+          retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           updated_at?: string
           voting_enabled?: boolean | null
@@ -459,6 +462,7 @@ export type Database = {
           id: string
           is_private: boolean | null
           password_hash: string | null
+          retro_stage: string | null
           room_id: string
           team_id: string | null
           title: string
@@ -474,6 +478,7 @@ export type Database = {
           id?: string
           is_private?: boolean | null
           password_hash?: string | null
+          retro_stage?: string | null
           room_id: string
           team_id?: string | null
           title?: string
@@ -489,6 +494,7 @@ export type Database = {
           id?: string
           is_private?: boolean | null
           password_hash?: string | null
+          retro_stage?: string | null
           room_id?: string
           team_id?: string | null
           title?: string
@@ -510,6 +516,7 @@ export type Database = {
           color: string
           created_at: string | null
           id: string
+          is_action_items: boolean | null
           position: number
           sort_order: number | null
           title: string
@@ -519,6 +526,7 @@ export type Database = {
           color: string
           created_at?: string | null
           id?: string
+          is_action_items?: boolean | null
           position: number
           sort_order?: number | null
           title: string
@@ -528,6 +536,7 @@ export type Database = {
           color?: string
           created_at?: string | null
           id?: string
+          is_action_items?: boolean | null
           position?: number
           sort_order?: number | null
           title?: string

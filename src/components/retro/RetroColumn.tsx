@@ -11,7 +11,7 @@ import { UserAvatar } from '../ui/UserAvatar';
 import useFeatureFlags from '@/hooks/useFeatureFlags';
 
 
-import { AudioSummaryState } from '@/hooks/useRetroBoard';
+import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
 import { TiptapEditorWithMentions, processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -83,6 +83,105 @@ interface RetroColumnProps {
   updateAudioSummaryState: (state: AudioSummaryState | null) => void;
 }
 
+// Helper functions for retro stages
+const isRetroStagesEnabled = (boardConfig: any): boolean => {
+  return boardConfig?.retro_stages_enabled === true;
+};
+
+const isActionItemsColumn = (column: any): boolean => {
+  return column?.is_action_items === true;
+};
+
+const canAddItems = (stage: RetroStage | null, boardConfig: any, column: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true; // No restrictions if stages not enabled
+  if (!stage) return true; // No restrictions if no stage set
+  
+  switch (stage) {
+    case 'thinking':
+      return true; // Can add items during thinking stage
+    case 'voting':
+      return false; // Cannot add items during voting
+    case 'discussing':
+      return isActionItemsColumn(column); // Only action items column during discussion
+    case 'closed':
+      return false; // No new items when closed
+    default:
+      return true;
+  }
+};
+
+const canVote = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return boardConfig?.voting_enabled !== false;
+  if (!stage) return boardConfig?.voting_enabled !== false;
+  
+  switch (stage) {
+    case 'thinking':
+      return false; // No voting during thinking stage
+    case 'voting':
+      return boardConfig?.voting_enabled !== false; // Can vote during voting stage
+    case 'discussing':
+      return false; // No voting during discussion
+    case 'closed':
+      return false; // No voting when closed
+    default:
+      return boardConfig?.voting_enabled !== false;
+  }
+};
+
+const canComment = (stage: RetroStage | null, boardConfig: any, column: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  
+  switch (stage) {
+    case 'thinking':
+      return true; // Can comment during thinking stage
+    case 'voting':
+      return false; // No commenting during voting
+    case 'discussing':
+      return isActionItemsColumn(column); // Only action items column during discussion
+    case 'closed':
+      return false; // No commenting when closed
+    default:
+      return true;
+  }
+};
+
+const canEditItems = (stage: RetroStage | null, boardConfig: any, column: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  
+  switch (stage) {
+    case 'thinking':
+      return true; // Can edit during thinking stage
+    case 'voting':
+      return false; // No editing during voting
+    case 'discussing':
+      return isActionItemsColumn(column); // Only action items column during discussion
+    case 'closed':
+      return false; // No editing when closed
+    default:
+      return true;
+  }
+};
+
+const canShowSummary = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  
+  switch (stage) {
+    case 'thinking':
+      return false; // No summary during thinking
+    case 'voting':
+      return false; // No summary during voting
+    case 'discussing':
+      return true; // Summary available during discussion
+    case 'closed':
+      return true; // Summary available when closed
+    default:
+      return true;
+  }
+};
+
 export const RetroColumn: React.FC<RetroColumnProps> = ({
   board,
   column,
@@ -143,10 +242,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
     });
   };
 
-  // Function to check if a column is an "Action Items" column
-  const isActionItemsColumn = (columnTitle: string) => {
-    return columnTitle.toLowerCase().includes('action') && columnTitle.toLowerCase().includes('item');
-  };
+
 
   // Function to generate JIRA ticket creation URL
   const generateJiraUrl = (ticketTitle: string) => {
@@ -208,7 +304,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
           <div className="flex items-center gap-1">
-            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && (
+            {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && canShowSummary(board?.retro_stage, boardConfig) && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
             {!isAnonymousUser && (
@@ -261,7 +357,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             className="h-6 w-6"
                           />
                         )}
-                        {boardConfig?.voting_enabled && (
+                        {canVote(board?.retro_stage, boardConfig) && (
                           <Button
                             variant={userVotes.includes(item.id) ? 'default' : 'outline'}
                             size="sm"
@@ -277,6 +373,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       {/* Row 2: Buttons */}
                       <div className="flex justify-end gap-1">
                         {!isArchived &&
+                          canEditItems(board?.retro_stage, boardConfig, column) &&
                           ((user?.id && item.author_id === user.id) ||
                             (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (
                             <>
@@ -298,7 +395,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                               </Button>
                             </>
                           )}
-                        {isActionItemsColumn(column.title) && (
+                        {isActionItemsColumn(column) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -315,14 +412,14 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                     <RetroItemComments
                       itemId={item.id}
                       comments={onGetCommentsForItem(item.id)}
-                      onAddComment={onAddComment}
-                      onDeleteComment={onDeleteComment}
+                      onAddComment={canComment(board?.retro_stage, boardConfig, column) ? onAddComment : () => {}}
+                      onDeleteComment={canComment(board?.retro_stage, boardConfig, column) ? onDeleteComment : () => {}}
                       userName={userName}
                       currentUserId={user?.id}
                       showAuthor={boardConfig.show_author_names}
                       sessionId={sessionId}
                       isAnonymousUser={isAnonymousUser}
-                      isArchived={isArchived}
+                      isArchived={isArchived || !canComment(board?.retro_stage, boardConfig, column)}
                       teamMembers={teamMembers}
                     />
                   </>
@@ -331,11 +428,13 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
             </Card>
           ))}
 
-          <AddItemCard
-            onAddItem={onAddItem}
-            allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
-            teamMembers={teamMembers}
-          />
+          {canAddItems(board?.retro_stage, boardConfig, column) && (
+            <AddItemCard
+              onAddItem={onAddItem}
+              allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
+              teamMembers={teamMembers}
+            />
+          )}
         </div>
       </div>
 
