@@ -42,7 +42,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
     voting_enabled: true,
     max_votes_per_user: null as number | null,
     show_author_names: true,
-    retro_stages_enabled: false
+    retro_stages_enabled: false,
+    enforce_stage_readiness: false
   });
 
   const handleCreateTemplate = async () => {
@@ -303,6 +304,22 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                           onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, retro_stages_enabled: checked }))}
                         />
                       </div>
+
+                      {boardConfig.retro_stages_enabled && (
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="enforce-stage-readiness" className="text-sm">Enforce Stage Readiness</Label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Require all users to be ready before allowing admins to advance stages
+                            </p>
+                          </div>
+                          <Switch
+                            id="enforce-stage-readiness"
+                            checked={boardConfig.enforce_stage_readiness}
+                            onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, enforce_stage_readiness: checked }))}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -475,6 +492,22 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                             onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, retro_stages_enabled: checked }))}
                           />
                         </div>
+
+                        {boardConfig.retro_stages_enabled && (
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="edit-enforce-stage-readiness" className="text-sm">Enforce Stage Readiness</Label>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Require all users to be ready before allowing admins to advance stages
+                              </p>
+                            </div>
+                            <Switch
+                              id="edit-enforce-stage-readiness"
+                              checked={boardConfig.enforce_stage_readiness}
+                              onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, enforce_stage_readiness: checked }))}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -516,6 +549,9 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                     <span>Voting: {template.voting_enabled ? 'Yes' : 'No'}</span>
                     <span>Authors: {template.show_author_names ? 'Visible' : 'Hidden'}</span>
                     <span>Retro Stages: {template.retro_stages_enabled ? 'Yes' : 'No'}</span>
+                    {template.retro_stages_enabled && (
+                      <span>Enforce Readiness: {template.enforce_stage_readiness ? 'Yes' : 'No'}</span>
+                    )}
                     {template.max_votes_per_user && <span>Max votes: {template.max_votes_per_user}</span>}
                   </div>
                 </div>

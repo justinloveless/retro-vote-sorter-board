@@ -50,6 +50,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     updateBoardConfig,
     updateRetroStage,
     updatePresence,
+    broadcastReadinessChange,
     addComment,
     deleteComment,
     getCommentsForItem,
@@ -242,6 +243,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
           onSignOut={signOut}
           updateRetroStage={isArchived ? undefined : updateRetroStage}
+          broadcastReadinessChange={isArchived ? undefined : broadcastReadinessChange}
         />
 
         {/* User Name Display */}

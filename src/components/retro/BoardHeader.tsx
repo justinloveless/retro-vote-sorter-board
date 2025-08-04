@@ -8,7 +8,7 @@ import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
-import { StageControls } from './StageControls';
+import { CompactStageControls } from './CompactStageControls';
 
 interface BoardHeaderProps {
   board: any;
@@ -23,6 +23,14 @@ interface BoardHeaderProps {
   onUpdateBoardConfig: (config: any) => void;
   onSignOut: () => void;
   updateRetroStage?: (stage: 'thinking' | 'voting' | 'discussing' | 'closed') => void;
+  broadcastReadinessChange?: (readinessData: {
+    boardId: string;
+    stage: string;
+    userId: string;  // Now always present (auth user ID or session ID)
+    sessionId?: string;  // Kept for backward compatibility but not used
+    isReady: boolean;
+    userName?: string;
+  }) => Promise<void>;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -37,7 +45,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   onUpdateBoardTitle,
   onUpdateBoardConfig,
   onSignOut,
-  updateRetroStage
+  updateRetroStage,
+  broadcastReadinessChange
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -100,16 +109,18 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
       </div>
 
-      {/* Stage Controls - dedicated row */}
+      {/* Stage Controls - compact row */}
       {boardConfig?.retro_stages_enabled && board && updateRetroStage && (
-        <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700 flex justify-center">
-          <div className="max-w-4xl">
-            <StageControls
+        <div className="mb-4">
+          <CompactStageControls
             currentStage={board.retro_stage || 'thinking'}
             onStageChange={updateRetroStage}
-              isAdmin={!isAnonymousUser}
-            />
-          </div>
+            boardId={board.id}
+            activeUsers={activeUsers}
+            boardConfig={boardConfig}
+            isAdmin={!isAnonymousUser}
+            broadcastReadinessChange={broadcastReadinessChange}
+          />
         </div>
       )}
     </div>
