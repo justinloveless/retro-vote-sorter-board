@@ -12,10 +12,13 @@ import {
 } from 'lucide-react';
 import { RetroStage } from '@/hooks/useRetroBoard';
 import { cn } from '@/lib/utils';
+import { RetroStageStepper } from './RetroStageStepper';
+import { UserReadinessPanel } from './UserReadinessPanel';
 
 interface StageControlsProps {
   currentStage: RetroStage;
   onStageChange: (stage: RetroStage) => void;
+  boardId: string;
   isAdmin?: boolean;
 }
 
@@ -57,10 +60,10 @@ const STAGE_INFO = {
 export const StageControls: React.FC<StageControlsProps> = ({
   currentStage,
   onStageChange,
+  boardId,
   isAdmin = false
 }) => {
   const stageInfo = STAGE_INFO[currentStage];
-  const Icon = stageInfo.icon;
 
   const handleStageAdvance = () => {
     if (stageInfo.nextStage) {
@@ -72,64 +75,65 @@ export const StageControls: React.FC<StageControlsProps> = ({
     onStageChange('thinking');
   };
 
-  if (!isAdmin) {
-    // Non-admin view: just show current stage
-    return (
-      <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
-        <Icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-        <div>
-          <Badge variant="secondary" className={stageInfo.color}>
-            {stageInfo.label}
-          </Badge>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {stageInfo.description}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Admin view: show stage controls
   return (
-    <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border gap-6">
-      <div className="flex items-center gap-3">
-        <Icon className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className={stageInfo.color}>
-              {stageInfo.label}
-            </Badge>
-            {currentStage === 'closed' && (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            )}
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {stageInfo.description}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* Stage Progress Stepper */}
+      <RetroStageStepper currentStage={currentStage} className="mb-6" />
 
-      <div className="flex items-center gap-2">
-        {currentStage !== 'thinking' && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetToThinking}
-            className="flex items-center gap-1"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset to Thinking
-          </Button>
-        )}
-        
-        {stageInfo.nextStage && (
-          <Button
-            onClick={handleStageAdvance}
-            className="flex items-center gap-1"
-          >
-            {stageInfo.nextLabel}
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {/* Main Controls Layout */}
+      <div className={cn(
+        "grid gap-4",
+        isAdmin ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+      )}>
+        {/* User Readiness Panel - Show for all users */}
+        <UserReadinessPanel 
+          boardId={boardId}
+          currentStage={currentStage}
+          compact={!isAdmin}
+          showUserList={isAdmin}
+        />
+
+        {/* Admin Controls */}
+        {isAdmin && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="secondary" className={stageInfo.color}>
+                Current: {stageInfo.label}
+              </Badge>
+              {currentStage === 'closed' && (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              {currentStage !== 'thinking' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetToThinking}
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset to Thinking
+                </Button>
+              )}
+              
+              {stageInfo.nextStage && (
+                <Button
+                  onClick={handleStageAdvance}
+                  className="w-full flex items-center justify-center gap-2"
+                  size="sm"
+                >
+                  {stageInfo.nextLabel}
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {stageInfo.description}
+            </p>
+          </div>
         )}
       </div>
     </div>

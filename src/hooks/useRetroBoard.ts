@@ -58,6 +58,7 @@ interface RetroBoardConfig {
   max_votes_per_user: number | null;
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
+  enforce_stage_readiness: boolean | null;
 }
 
 interface ActiveUser {
@@ -115,6 +116,26 @@ export const useRetroBoard = (roomId: string) => {
   const clearAudioUrlToPlay = useCallback(() => {
     setAudioUrlToPlay(null);
   }, []);
+
+  // Broadcast readiness changes to all connected users
+  const broadcastReadinessChange = useCallback(async (readinessData: {
+    boardId: string;
+    stage: string;
+    userId: string;  // Now always present (auth user ID or session ID)
+    sessionId?: string;  // Kept for backward compatibility but not used
+    isReady: boolean;
+    userName?: string;
+  }) => {
+    if (!presenceChannel) return;
+
+    console.log('📤 [Broadcast] Sending readiness change:', readinessData);
+
+    await presenceChannel.send({
+      type: 'broadcast',
+      event: 'readiness-change',
+      payload: readinessData
+    });
+  }, [presenceChannel]);
 
   // Load board data with better error handling and loading state management
   useEffect(() => {
@@ -282,6 +303,15 @@ export const useRetroBoard = (roomId: string) => {
       if (payload.url) {
         setAudioUrlToPlay(payload.url);
       }
+    })
+    .on('broadcast', { event: 'readiness-change' }, ({ payload }) => {
+      console.log('📡 [Broadcast] Readiness change received:', payload);
+      
+      // Dispatch window event for useUserReadiness hooks to pick up
+      const readinessChangeEvent = new CustomEvent('readiness-change', {
+        detail: payload
+      });
+      window.dispatchEvent(readinessChangeEvent);
     });
 
     // Database changes
@@ -302,7 +332,38 @@ export const useRetroBoard = (roomId: string) => {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
-      });
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'retro_boards',
+        filter: `id=eq.${board.id}`
+      }, (payload) => {
+        const updatedBoard = payload.new as RetroBoard;
+        // Update board state with new stage and other properties
+        setBoard(currentBoard => 
+          currentBoard ? { ...currentBoard, ...updatedBoard } : null
+        );
+        
+        // Show toast notification for stage changes if retro_stage changed
+        if (payload.old.retro_stage !== updatedBoard.retro_stage) {
+          const stageLabels: Record<string, string> = {
+            'thinking': 'Thinking',
+            'voting': 'Voting', 
+            'discussing': 'Discussing',
+            'closed': 'Closed'
+          };
+          
+          const newStageLabel = stageLabels[updatedBoard.retro_stage || 'thinking'] || updatedBoard.retro_stage;
+          
+          toast({
+            title: "Stage Changed",
+            description: `Retrospective moved to ${newStageLabel} stage`,
+            duration: 4000,
+          });
+        }
+      })
+
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -699,6 +760,7 @@ export const useRetroBoard = (roomId: string) => {
     audioUrlToPlay,
     clearAudioUrlToPlay,
     updatePresence,
+    broadcastReadinessChange,
     updateBoardTitle,
     updateBoardConfig,
     updateRetroStage,

@@ -13,6 +13,7 @@ interface BoardTemplate {
   max_votes_per_user: number | null;
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
+  enforce_stage_readiness: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,6 +129,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       max_votes_per_user: number | null;
       show_author_names: boolean;
       retro_stages_enabled: boolean;
+      enforce_stage_readiness: boolean;
     }
   ) => {
     if (!teamId) return null;
@@ -143,7 +145,8 @@ export const useBoardTemplates = (teamId: string | null) => {
           voting_enabled: boardConfig.voting_enabled,
           max_votes_per_user: boardConfig.max_votes_per_user,
           show_author_names: boardConfig.show_author_names,
-          retro_stages_enabled: boardConfig.retro_stages_enabled
+          retro_stages_enabled: boardConfig.retro_stages_enabled,
+          enforce_stage_readiness: boardConfig.enforce_stage_readiness
         }])
         .select()
         .single();
@@ -193,6 +196,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       max_votes_per_user: number | null;
       show_author_names: boolean;
       retro_stages_enabled: boolean;
+      enforce_stage_readiness: boolean;
     }
   ) => {
     if (!teamId) return null;
@@ -207,7 +211,8 @@ export const useBoardTemplates = (teamId: string | null) => {
           voting_enabled: boardConfig.voting_enabled,
           max_votes_per_user: boardConfig.max_votes_per_user,
           show_author_names: boardConfig.show_author_names,
-          retro_stages_enabled: boardConfig.retro_stages_enabled
+          retro_stages_enabled: boardConfig.retro_stages_enabled,
+          enforce_stage_readiness: boardConfig.enforce_stage_readiness
         })
         .eq('id', templateId);
 

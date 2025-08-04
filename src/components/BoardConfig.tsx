@@ -16,6 +16,7 @@ interface RetroBoardConfig {
   max_votes_per_user: number | null;
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
+  enforce_stage_readiness: boolean | null;
 }
 
 interface BoardConfigProps {
@@ -122,6 +123,23 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
                   onCheckedChange={(checked) => handleConfigChange('retro_stages_enabled', checked)}
                 />
               </div>
+
+              {/* Show readiness enforcement setting only when stages are enabled */}
+              {localConfig.retro_stages_enabled && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="enforce-stage-readiness">Enforce Stage Readiness</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Require all users to be ready before allowing admins to advance stages
+                    </p>
+                  </div>
+                  <Switch
+                    id="enforce-stage-readiness"
+                    checked={localConfig.enforce_stage_readiness ?? false}
+                    onCheckedChange={(checked) => handleConfigChange('enforce_stage_readiness', checked)}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
