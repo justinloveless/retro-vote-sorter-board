@@ -357,7 +357,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             className="h-6 w-6"
                           />
                         )}
-                        {canVote(board?.retro_stage, boardConfig) && (
+                        {/* Always show vote count, but only make clickable when voting is allowed */}
+                        {canVote(board?.retro_stage, boardConfig) ? (
                           <Button
                             variant={userVotes.includes(item.id) ? 'default' : 'outline'}
                             size="sm"
@@ -367,6 +368,11 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             <ThumbsUp className="h-3 w-3" />
                             {item.votes}
                           </Button>
+                        ) : (
+                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            <ThumbsUp className="h-3 w-3" />
+                            {item.votes}
+                          </div>
                         )}
                       </div>
 

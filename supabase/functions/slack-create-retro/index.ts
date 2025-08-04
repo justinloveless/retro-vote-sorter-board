@@ -67,9 +67,9 @@ serve(async (req: Request) => {
 
     // Create default columns for the board
     const defaultColumns = [
-      { title: 'What went well?', color: '#10B981', position: 0 },
-      { title: 'What could be improved?', color: '#F59E0B', position: 1 },
-      { title: 'Action items', color: '#EF4444', position: 2 }
+      { title: 'What went well?', color: '#10B981', position: 0, is_action_items: false },
+      { title: 'What could be improved?', color: '#F59E0B', position: 1, is_action_items: false },
+      { title: 'Action items', color: '#EF4444', position: 2, is_action_items: true }
     ]
 
     const { error: columnsError } = await supabase

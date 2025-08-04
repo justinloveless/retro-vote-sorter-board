@@ -109,6 +109,11 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
     }
   };
 
+  // Don't show comment button if there are no comments and commenting is disabled
+  if (comments.length === 0 && isArchived) {
+    return null;
+  }
+
   return (
     <div className="mt-2">
       <Button
@@ -159,25 +164,28 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
             </Card>
           ))}
 
-          <div className="space-y-2">
-            <TiptapEditorWithMentions
-              content={newComment}
-              onChange={setNewComment}
-              onSubmit={handleAddComment}
-              placeholder="Add a comment... (you can paste images)"
-              uploadImage={uploadImage}
-              teamMembers={teamMembers}
-            />
-            <Button
-              size="sm"
-              onClick={handleAddComment}
-              disabled={!newComment.trim()}
-              className="w-full"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Add Comment
-            </Button>
-          </div>
+          {/* Only show Add comment section when not archived */}
+          {!isArchived && (
+            <div className="space-y-2">
+              <TiptapEditorWithMentions
+                content={newComment}
+                onChange={setNewComment}
+                onSubmit={handleAddComment}
+                placeholder="Add a comment... (you can paste images)"
+                uploadImage={uploadImage}
+                teamMembers={teamMembers}
+              />
+              <Button
+                size="sm"
+                onClick={handleAddComment}
+                disabled={!newComment.trim()}
+                className="w-full"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Add Comment
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
