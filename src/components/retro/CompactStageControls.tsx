@@ -45,10 +45,10 @@ interface CompactStageControlsProps {
 }
 
 const STAGE_INFO = {
-  thinking: { icon: Brain, label: 'Thinking', nextStage: 'voting' as RetroStage, nextLabel: 'Start Voting' },
-  voting: { icon: Vote, label: 'Voting', nextStage: 'discussing' as RetroStage, nextLabel: 'Start Discussion' },
-  discussing: { icon: MessageSquare, label: 'Discussing', nextStage: 'closed' as RetroStage, nextLabel: 'Close Retro' },
-  closed: { icon: Lock, label: 'Closed', nextStage: null, nextLabel: null }
+  thinking: { icon: Brain, label: 'Thinking', nextStage: 'voting' as RetroStage, nextLabel: 'Start Voting', description: 'This is the first stage of the retrospective. It is used to gather ideas and thoughts from the team.' },
+  voting: { icon: Vote, label: 'Voting', nextStage: 'discussing' as RetroStage, nextLabel: 'Start Discussion', description: 'This is the second stage of the retrospective. It is used to vote on the best ideas and thoughts from the team.' },
+  discussing: { icon: MessageSquare, label: 'Discussing', nextStage: 'closed' as RetroStage, nextLabel: 'Close Retro', description: 'This is the third stage of the retrospective. It is used to discuss the best ideas and thoughts from the team. You can also add action items here.' },
+  closed: { icon: Lock, label: 'Closed', nextStage: null, nextLabel: null, description: null }
 };
 
 export const CompactStageControls: React.FC<CompactStageControlsProps> = ({
@@ -322,6 +322,10 @@ export const CompactStageControls: React.FC<CompactStageControlsProps> = ({
               </Button>
             )}
           </div>
+
+          <p className="text-xs text-muted-foreground">
+              {STAGE_INFO[currentStage].description}
+          </p>
           
           <div className="space-y-1">
             {currentStage === 'closed' ? (

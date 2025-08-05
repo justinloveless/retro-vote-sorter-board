@@ -101,6 +101,8 @@ export const useTeamBoards = (teamId: string | null) => {
             show_author_names: defaultTemplate.show_author_names,
             retro_stages_enabled: defaultTemplate.retro_stages_enabled
           }]);
+
+        // Note: Columns are automatically created by the database trigger 'on_board_created'
       } else {
         // Fall back to team default settings if no template is set
         const { data: defaultSettings } = await supabase
@@ -119,6 +121,18 @@ export const useTeamBoards = (teamId: string | null) => {
               max_votes_per_user: defaultSettings.max_votes_per_user,
               show_author_names: defaultSettings.show_author_names,
               retro_stages_enabled: defaultSettings.retro_stages_enabled || false
+            }]);
+        } else if (board) {
+          // Final fallback: create minimal default config
+          await supabase
+            .from('retro_board_config')
+            .insert([{
+              board_id: board.id,
+              allow_anonymous: true,
+              voting_enabled: true,
+              max_votes_per_user: null,
+              show_author_names: true,
+              retro_stages_enabled: false
             }]);
         }
       }

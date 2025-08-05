@@ -63,9 +63,8 @@ export const ReadinessTooltip: React.FC<ReadinessTooltipProps> = ({
             className="flex items-center gap-2 text-xs"
           >
             <UserAvatar
-              src={userInfo.avatarUrl}
-              fallback={userInfo.displayName.charAt(0).toUpperCase()}
-              size="sm"
+              avatarUrl={userInfo.avatarUrl}
+              name={userInfo.displayName.charAt(0).toUpperCase()}
               className="h-5 w-5"
             />
             

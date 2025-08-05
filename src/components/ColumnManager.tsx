@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, Edit2, Trash2, ClipboardList } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface RetroColumn {
   id: string;
@@ -12,11 +12,12 @@ interface RetroColumn {
   color: string;
   position: number;
   sort_order?: number;
+  is_action_items?: boolean;
 }
 
 interface ColumnManagerProps {
   column: RetroColumn;
-  onUpdateColumn: (columnId: string, updates: { title: string }) => void;
+  onUpdateColumn: (columnId: string, updates: { title?: string; is_action_items?: boolean }) => void;
   onDeleteColumn: (columnId: string) => void;
 }
 
@@ -41,6 +42,10 @@ export const ColumnManager: React.FC<ColumnManagerProps> = ({
     }
   };
 
+  const handleToggleActionItems = () => {
+    onUpdateColumn(column.id, { is_action_items: !column.is_action_items });
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -54,6 +59,11 @@ export const ColumnManager: React.FC<ColumnManagerProps> = ({
             <Edit2 className="h-4 w-4 mr-2" />
             Rename Column
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggleActionItems}>
+            <ClipboardList className="h-4 w-4 mr-2" />
+            {column.is_action_items ? 'Remove as Action Items' : 'Set as Action Items'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} className="text-red-600">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete Column
