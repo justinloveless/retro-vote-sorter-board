@@ -467,7 +467,8 @@ export const useRetroBoard = (roomId: string) => {
         board_id: board.id,
         title,
         color: colors[columns.length % colors.length],
-        position: columns.length + 1
+        position: columns.length + 1,
+        is_action_items: false
       }])
       .select()
       .single();
@@ -484,13 +485,38 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
-  const updateColumn = async (columnId: string, updates: { title: string }) => {
+  const updateColumn = async (columnId: string, updates: { title?: string; is_action_items?: boolean }) => {
     const oldColumns = [...columns];
-    setColumns(prevColumns =>
-      prevColumns.map(column =>
-        column.id === columnId ? { ...column, ...updates } : column
-      )
-    );
+    
+    // If setting this column as action items, ensure other columns are not action items
+    if (updates.is_action_items === true) {
+      setColumns(prevColumns =>
+        prevColumns.map(column =>
+          column.id === columnId 
+            ? { ...column, ...updates }
+            : { ...column, is_action_items: false }
+        )
+      );
+      
+      // Update all columns in the database - set others to false
+      if (board) {
+        const { error: resetError } = await supabase
+          .from('retro_columns')
+          .update({ is_action_items: false })
+          .eq('board_id', board.id)
+          .neq('id', columnId);
+          
+        if (resetError) {
+          console.error('Error resetting other columns:', resetError);
+        }
+      }
+    } else {
+      setColumns(prevColumns =>
+        prevColumns.map(column =>
+          column.id === columnId ? { ...column, ...updates } : column
+        )
+      );
+    }
 
     const { error } = await supabase
       .from('retro_columns')
@@ -504,6 +530,13 @@ export const useRetroBoard = (roomId: string) => {
         title: "Error updating column",
         description: "Please try again.",
         variant: "destructive",
+      });
+    } else if (updates.is_action_items !== undefined) {
+      toast({
+        title: updates.is_action_items ? "Action items column set" : "Action items column removed",
+        description: updates.is_action_items 
+          ? "This column is now designated for action items." 
+          : "This column is no longer the action items column.",
       });
     }
   };

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -302,7 +302,14 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
       <div className={`p-4 rounded-lg border-2 ${getColorClasses(column.color)} space-y-4 ${dragOverColumn === column.id ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900' : ''
         }`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{column.title}</h2>
+            {isActionItemsColumn(column) && (
+              <div title="Action Items Column">
+                <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && canShowSummary(board?.retro_stage, boardConfig) && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />

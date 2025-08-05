@@ -76,7 +76,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       voting_enabled: true,
       max_votes_per_user: null,
       show_author_names: true,
-      retro_stages_enabled: false
+      retro_stages_enabled: false,
+      enforce_stage_readiness: false
     });
   };
 
@@ -96,7 +97,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       voting_enabled: template.voting_enabled,
       max_votes_per_user: template.max_votes_per_user,
       show_author_names: template.show_author_names,
-      retro_stages_enabled: template.retro_stages_enabled || false
+      retro_stages_enabled: template.retro_stages_enabled || false,
+      enforce_stage_readiness: template.enforce_stage_readiness || false
     });
     setShowEditDialog(true);
   };
