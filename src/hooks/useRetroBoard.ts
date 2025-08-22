@@ -59,6 +59,7 @@ interface RetroBoardConfig {
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
   enforce_stage_readiness: boolean | null;
+  allow_self_votes?: boolean | null;
 }
 
 interface ActiveUser {
@@ -587,6 +588,19 @@ export const useRetroBoard = (roomId: string) => {
     const voteSessionId = !currentUser ? sessionId : undefined;
 
     const hasVoted = userVotes.includes(itemId);
+
+    // Prevent self-votes when disallowed
+    if (!hasVoted && boardConfig.allow_self_votes === false) {
+      const targetItem = items.find(i => i.id === itemId);
+      const isSelfItem = !!targetItem && (
+        (userId && targetItem.author_id === userId) ||
+        (!userId && targetItem.session_id && targetItem.session_id === sessionId)
+      );
+      if (isSelfItem) {
+        toast({ title: 'Self-voting disabled', description: 'You cannot vote on your own item.', variant: 'destructive' });
+        return;
+      }
+    }
 
     // Prevent adding a new vote if the limit is reached
     if (!hasVoted && boardConfig.max_votes_per_user && userVotes.length >= boardConfig.max_votes_per_user) {

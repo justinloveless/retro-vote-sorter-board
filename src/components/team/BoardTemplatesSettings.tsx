@@ -43,7 +43,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
     max_votes_per_user: null as number | null,
     show_author_names: true,
     retro_stages_enabled: false,
-    enforce_stage_readiness: false
+    enforce_stage_readiness: false,
+    allow_self_votes: true
   });
 
   const handleCreateTemplate = async () => {
@@ -77,7 +78,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       max_votes_per_user: null,
       show_author_names: true,
       retro_stages_enabled: false,
-      enforce_stage_readiness: false
+      enforce_stage_readiness: false,
+      allow_self_votes: true
     });
   };
 
@@ -98,7 +100,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       max_votes_per_user: template.max_votes_per_user,
       show_author_names: template.show_author_names,
       retro_stages_enabled: template.retro_stages_enabled || false,
-      enforce_stage_readiness: template.enforce_stage_readiness || false
+      enforce_stage_readiness: template.enforce_stage_readiness || false,
+      allow_self_votes: template.allow_self_votes !== false
     });
     setShowEditDialog(true);
   };
@@ -276,6 +279,15 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                           id="voting-enabled"
                           checked={boardConfig.voting_enabled}
                           onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, voting_enabled: checked }))}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="allow-self-votes" className="text-sm">Allow Self Votes</Label>
+                        <Switch
+                          id="allow-self-votes"
+                          checked={boardConfig.allow_self_votes}
+                          onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, allow_self_votes: checked }))}
                         />
                       </div>
 
@@ -464,6 +476,15 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                             id="edit-voting-enabled"
                             checked={boardConfig.voting_enabled}
                             onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, voting_enabled: checked }))}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="edit-allow-self-votes" className="text-sm">Allow Self Votes</Label>
+                          <Switch
+                            id="edit-allow-self-votes"
+                            checked={boardConfig.allow_self_votes}
+                            onCheckedChange={(checked) => setBoardConfig(prev => ({ ...prev, allow_self_votes: checked }))}
                           />
                         </div>
 

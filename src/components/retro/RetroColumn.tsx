@@ -128,6 +128,22 @@ const canVote = (stage: RetroStage | null, boardConfig: any): boolean => {
   }
 };
 
+const canVoteOnItem = (
+  stage: RetroStage | null,
+  boardConfig: any,
+  item: RetroItem,
+  user: any,
+  isAnonymousUser: boolean,
+  sessionId?: string | null
+): boolean => {
+  if (!canVote(stage, boardConfig)) return false;
+  if (boardConfig?.allow_self_votes === false) {
+    const isSelf = (user?.id && item.author_id === user.id) || (isAnonymousUser && item.session_id && item.session_id === sessionId);
+    if (isSelf) return false;
+  }
+  return true;
+};
+
 const canComment = (stage: RetroStage | null, boardConfig: any, column: any): boolean => {
   if (!isRetroStagesEnabled(boardConfig)) return true;
   if (!stage) return true;
@@ -365,7 +381,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                           />
                         )}
                         {/* Always show vote count, but only make clickable when voting is allowed */}
-                        {canVote(board?.retro_stage, boardConfig) ? (
+                        {canVoteOnItem(board?.retro_stage, boardConfig, item, user, isAnonymousUser, sessionId) ? (
                           <Button
                             variant={userVotes.includes(item.id) ? 'default' : 'outline'}
                             size="sm"
