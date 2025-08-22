@@ -976,6 +976,44 @@ export type Database = {
           },
         ]
       }
+      team_action_item_comments: {
+        Row: {
+          id: string
+          action_item_id: string
+          author: string | null
+          author_id: string | null
+          text: string
+          created_at: string
+          session_id: string | null
+        }
+        Insert: {
+          id?: string
+          action_item_id: string
+          author?: string | null
+          author_id?: string | null
+          text: string
+          created_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          id?: string
+          action_item_id?: string
+          author?: string | null
+          author_id?: string | null
+          text?: string
+          created_at?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_action_item_comments_action_item_id_fkey"
+            columns: ["action_item_id"]
+            isOneToOne: false
+            referencedRelation: "team_action_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       poker_session_chat_with_details: {

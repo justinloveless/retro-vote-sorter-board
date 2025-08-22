@@ -39,6 +39,17 @@ interface RetroItem {
   profiles?: { avatar_url: string; full_name: string } | null;
 }
 
+interface TeamActionItem {
+  id: string;
+  team_id: string;
+  text: string;
+  source_board_id?: string | null;
+  source_item_id?: string | null;
+  created_at: string;
+  created_by?: string | null;
+  assigned_to?: string | null;
+}
+
 interface RetroComment {
   id: string;
   item_id: string;
@@ -86,6 +97,8 @@ export const useRetroBoard = (roomId: string) => {
   const [boardConfig, setBoardConfig] = useState<RetroBoardConfig | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [userVotes, setUserVotes] = useState<string[]>([]);
+  const [teamActionItems, setTeamActionItems] = useState<TeamActionItem[]>([]);
+  const [boardActionStatus, setBoardActionStatus] = useState<Record<string, { id: string; done: boolean; assigned_to?: string | null }>>({});
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(() => {
     const existingSessionId = localStorage.getItem('retroSessionId');
@@ -226,6 +239,34 @@ export const useRetroBoard = (roomId: string) => {
         if (commentsError) throw commentsError;
         setComments(commentsData || []);
 
+        // Load open team action items for this board's team, excluding items from the current board
+        if (boardData.team_id) {
+          const { data: openActions, error: actionsError } = await supabase
+            .from('team_action_items')
+            .select('*')
+            .eq('team_id', boardData.team_id)
+            .eq('done', false)
+            .or(`source_board_id.is.null,source_board_id.neq.${boardData.id}`)
+            .order('created_at', { ascending: true });
+
+          if (actionsError) throw actionsError;
+          setTeamActionItems(openActions || []);
+          // Also load status mapping for items on this board (done may be true)
+          const { data: boardActions } = await supabase
+            .from('team_action_items')
+            .select('id, source_item_id, done, assigned_to')
+            .eq('team_id', boardData.team_id)
+            .eq('source_board_id', boardData.id);
+          const statusMap: Record<string, { id: string; done: boolean; assigned_to?: string | null }> = {};
+          (boardActions || []).forEach(a => {
+            if (a.source_item_id) statusMap[a.source_item_id] = { id: a.id, done: !!a.done, assigned_to: a.assigned_to };
+          });
+          setBoardActionStatus(statusMap);
+        } else {
+          setTeamActionItems([]);
+          setBoardActionStatus({});
+        }
+
         // Load user's votes
         const currentUser = (await supabase.auth.getUser()).data.user;
         const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
@@ -334,6 +375,53 @@ export const useRetroBoard = (roomId: string) => {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
+      })
+      // Team action items realtime for this team
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'team_action_items',
+        filter: board?.team_id ? `team_id=eq.${board.team_id}` : undefined as any
+      }, (payload) => {
+        const newAction = payload.new as any;
+        const oldAction = payload.old as any;
+        if (payload.eventType === 'INSERT') {
+          if (newAction && newAction.done === false) {
+            // Skip showing items sourced from the current board in the Open Action Items column
+            if (!board?.id || newAction.source_board_id == null || newAction.source_board_id !== board.id) {
+              setTeamActionItems(prev => [...prev, newAction]);
+            }
+          }
+          // Update board status map for items on this board
+          if (newAction?.source_board_id === board?.id && newAction?.source_item_id) {
+            setBoardActionStatus(prev => ({ ...prev, [newAction.source_item_id]: { id: newAction.id, done: !!newAction.done, assigned_to: newAction.assigned_to } }));
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          if (newAction.done === true) {
+            setTeamActionItems(prev => prev.filter(a => a.id !== newAction.id));
+          } else {
+            // If this action item belongs to the current board, ensure it's not listed
+            if (board?.id && newAction.source_board_id === board.id) {
+              setTeamActionItems(prev => prev.filter(a => a.id !== newAction.id));
+            } else {
+              setTeamActionItems(prev => prev.map(a => a.id === newAction.id ? newAction : a));
+            }
+          }
+          if (newAction?.source_board_id === board?.id && newAction?.source_item_id) {
+            setBoardActionStatus(prev => ({ ...prev, [newAction.source_item_id]: { id: newAction.id, done: !!newAction.done, assigned_to: newAction.assigned_to } }));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          if (oldAction) {
+            setTeamActionItems(prev => prev.filter(a => a.id !== oldAction.id));
+          }
+          if (oldAction?.source_board_id === board?.id && oldAction?.source_item_id) {
+            setBoardActionStatus(prev => {
+              const clone = { ...prev };
+              delete clone[oldAction.source_item_id];
+              return clone;
+            });
+          }
+        }
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -465,6 +553,115 @@ export const useRetroBoard = (roomId: string) => {
 
     // Update presence when adding item
     updatePresence(author === 'Anonymous' ? (currentUser?.email || 'Anonymous User') : author);
+
+    // If this item is in the designated action items column, create a team action item
+    try {
+      const targetColumn = columns.find(c => c.id === columnId);
+      if (newItem && targetColumn?.is_action_items && board.team_id) {
+        await supabase
+          .from('team_action_items')
+          .insert([{
+            team_id: board.team_id,
+            text: newItem.text,
+            source_board_id: board.id,
+            source_item_id: newItem.id,
+            created_by: currentUser?.id || null
+          }]);
+      }
+    } catch (e) {
+      console.error('Error creating team action item:', e);
+    }
+  };
+
+  const markTeamActionItemDone = async (actionItemId: string) => {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    // Optimistic remove from Open Action Items list
+    const prevOpen = teamActionItems;
+    setTeamActionItems(prev => prev.filter(a => a.id !== actionItemId));
+
+    const { error } = await supabase
+      .from('team_action_items')
+      .update({ done: true, done_at: new Date().toISOString(), done_by: currentUser?.id || null })
+      .eq('id', actionItemId);
+    if (error) {
+      console.error('Error marking action item done:', error);
+      toast({ title: 'Error completing action item', variant: 'destructive' });
+      // Revert optimistic update on error
+      setTeamActionItems(prevOpen);
+    }
+  };
+
+  const toggleBoardActionItemDone = async (sourceItemId: string, nextDone: boolean) => {
+    // Find linked action item id
+    const link = boardActionStatus[sourceItemId];
+    const actionId = link?.id;
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!actionId && nextDone) {
+      // If no action record exists but toggling to done from board, create one linked to this item
+      const targetItem = items.find(i => i.id === sourceItemId);
+      if (board?.team_id && targetItem) {
+        const { data, error } = await supabase
+          .from('team_action_items')
+          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: currentUser?.id || null, done: true, done_at: new Date().toISOString(), done_by: currentUser?.id || null }])
+          .select('id')
+          .single();
+        if (!error && data) {
+          setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: data.id, done: true } }));
+        }
+        return;
+      }
+      return;
+    }
+
+    if (!actionId) return;
+
+    // Optimistic update
+    setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: nextDone } }));
+    const { error } = await supabase
+      .from('team_action_items')
+      .update({ done: nextDone, done_at: nextDone ? new Date().toISOString() : null, done_by: nextDone ? (currentUser?.id || null) : null })
+      .eq('id', actionId);
+    if (error) {
+      // Revert
+      setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: !nextDone } }));
+      toast({ title: 'Error updating action item', variant: 'destructive' });
+    }
+  };
+
+  const assignTeamActionItem = async (actionItemId: string, userId: string | null) => {
+    // Optimistic update for Open Action Items list
+    setTeamActionItems(prev => prev.map(a => a.id === actionItemId ? { ...a, assigned_to: userId } : a));
+    const { error } = await supabase
+      .from('team_action_items')
+      .update({ assigned_to: userId })
+      .eq('id', actionItemId);
+    if (error) {
+      toast({ title: 'Error assigning action item', variant: 'destructive' });
+    }
+  };
+
+  const assignBoardActionItem = async (sourceItemId: string, userId: string | null) => {
+    const link = boardActionStatus[sourceItemId];
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!link) {
+      const targetItem = items.find(i => i.id === sourceItemId);
+      if (board?.team_id && targetItem) {
+        const { data, error } = await supabase
+          .from('team_action_items')
+          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: currentUser?.id || null, assigned_to: userId ?? null }])
+          .select('id')
+          .single();
+        if (!error && data) {
+          setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: data.id, done: false, assigned_to: userId ?? null } }));
+        }
+      }
+      return;
+    }
+    setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { ...prev[sourceItemId], assigned_to: userId ?? null } }));
+    await supabase
+      .from('team_action_items')
+      .update({ assigned_to: userId ?? null })
+      .eq('id', link.id);
   };
 
   const addColumn = async (title: string) => {
@@ -684,6 +881,12 @@ export const useRetroBoard = (roomId: string) => {
       )
     );
 
+    // Optimistically update team action item text if linked
+    const linkedAction = teamActionItems.find(a => a.source_item_id === itemId);
+    if (linkedAction) {
+      setTeamActionItems(prev => prev.map(a => a.id === linkedAction.id ? { ...a, text } as TeamActionItem : a));
+    }
+
     const { error } = await supabase
       .from('retro_items')
       .update({ text })
@@ -697,6 +900,28 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
+      // Revert team action item optimistic update
+      if (linkedAction) {
+        const original = oldItems.find(i => i.id === itemId)?.text;
+        if (original !== undefined) {
+          setTeamActionItems(prev => prev.map(a => a.id === linkedAction.id ? { ...a, text: original } as TeamActionItem : a));
+        }
+      }
+      return;
+    }
+
+    // Persist update to linked team action item if this item is in action items column
+    try {
+      const updatedItem = items.find(i => i.id === itemId);
+      const actionColumn = updatedItem ? columns.find(c => c.id === updatedItem.column_id)?.is_action_items : false;
+      if (board?.team_id && actionColumn) {
+        await supabase
+          .from('team_action_items')
+          .update({ text })
+          .eq('source_item_id', itemId);
+      }
+    } catch (e) {
+      console.error('Error updating linked team action item text:', e);
     }
   };
 
@@ -814,6 +1039,8 @@ export const useRetroBoard = (roomId: string) => {
     boardConfig,
     activeUsers,
     userVotes,
+    teamActionItems,
+    boardActionStatus,
     loading,
     sessionId,
     presenceChannel,
@@ -837,5 +1064,9 @@ export const useRetroBoard = (roomId: string) => {
     addComment,
     deleteComment,
     getCommentsForItem,
+    markTeamActionItemDone,
+    toggleBoardActionItemDone,
+    assignTeamActionItem,
+    assignBoardActionItem,
   };
 };

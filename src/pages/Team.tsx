@@ -17,6 +17,7 @@ import { Home, User, LogOut, Shield } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
+import { TeamActionItems } from '@/components/team/TeamActionItems';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -119,6 +120,7 @@ const Team = () => {
                 <TabsList >
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
+                  <TabsTrigger value="action-items">Action Items</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
@@ -137,6 +139,10 @@ const Team = () => {
                     teamName={team.name}
                     currentUserRole={currentUserRole}
                   />
+                </TabsContent>
+
+                <TabsContent value="action-items" className="space-y-4">
+                  <TeamActionItems teamId={teamId!} />
                 </TabsContent>
               </Tabs>
             </div>
