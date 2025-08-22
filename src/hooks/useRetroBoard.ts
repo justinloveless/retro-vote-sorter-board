@@ -60,6 +60,7 @@ interface RetroBoardConfig {
   retro_stages_enabled: boolean | null;
   enforce_stage_readiness: boolean | null;
   allow_self_votes?: boolean | null;
+  vote_emoji?: string | null;
 }
 
 interface ActiveUser {

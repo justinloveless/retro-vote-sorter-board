@@ -14,6 +14,8 @@ interface BoardTemplate {
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
   enforce_stage_readiness: boolean | null;
+  allow_self_votes?: boolean | null;
+  vote_emoji?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +132,8 @@ export const useBoardTemplates = (teamId: string | null) => {
       show_author_names: boolean;
       retro_stages_enabled: boolean;
       enforce_stage_readiness: boolean;
+      allow_self_votes?: boolean;
+      vote_emoji?: string;
     }
   ) => {
     if (!teamId) return null;
@@ -146,7 +150,9 @@ export const useBoardTemplates = (teamId: string | null) => {
           max_votes_per_user: boardConfig.max_votes_per_user,
           show_author_names: boardConfig.show_author_names,
           retro_stages_enabled: boardConfig.retro_stages_enabled,
-          enforce_stage_readiness: boardConfig.enforce_stage_readiness
+          enforce_stage_readiness: boardConfig.enforce_stage_readiness,
+          allow_self_votes: boardConfig.allow_self_votes ?? true,
+          vote_emoji: boardConfig.vote_emoji ?? '👍'
         }])
         .select()
         .single();
@@ -197,6 +203,8 @@ export const useBoardTemplates = (teamId: string | null) => {
       show_author_names: boolean;
       retro_stages_enabled: boolean;
       enforce_stage_readiness: boolean;
+      allow_self_votes?: boolean;
+      vote_emoji?: string;
     }
   ) => {
     if (!teamId) return null;
@@ -212,7 +220,9 @@ export const useBoardTemplates = (teamId: string | null) => {
           max_votes_per_user: boardConfig.max_votes_per_user,
           show_author_names: boardConfig.show_author_names,
           retro_stages_enabled: boardConfig.retro_stages_enabled,
-          enforce_stage_readiness: boardConfig.enforce_stage_readiness
+          enforce_stage_readiness: boardConfig.enforce_stage_readiness,
+          allow_self_votes: boardConfig.allow_self_votes ?? true,
+          vote_emoji: boardConfig.vote_emoji ?? '👍'
         })
         .eq('id', templateId);
 

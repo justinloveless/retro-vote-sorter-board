@@ -388,12 +388,20 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             onClick={() => onUpvoteItem(item.id)}
                             className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
                           >
-                            <ThumbsUp className="h-3 w-3" />
+                            {boardConfig?.vote_emoji ? (
+                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                            ) : (
+                              <ThumbsUp className="h-3 w-3" />
+                            )}
                             {item.votes}
                           </Button>
                         ) : (
                           <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                            <ThumbsUp className="h-3 w-3" />
+                            {boardConfig?.vote_emoji ? (
+                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                            ) : (
+                              <ThumbsUp className="h-3 w-3" />
+                            )}
                             {item.votes}
                           </div>
                         )}
