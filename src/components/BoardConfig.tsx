@@ -18,6 +18,7 @@ interface RetroBoardConfig {
   retro_stages_enabled: boolean | null;
   enforce_stage_readiness: boolean | null;
   allow_self_votes?: boolean | null;
+  vote_emoji?: string | null;
 }
 
 interface BoardConfigProps {
@@ -110,6 +111,17 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
                   placeholder="Unlimited"
                   value={localConfig.max_votes_per_user || ''}
                   onChange={(e) => handleConfigChange('max_votes_per_user', e.target.value ? parseInt(e.target.value) : null)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vote-emoji">Vote Emoji</Label>
+                <Input
+                  id="vote-emoji"
+                  type="text"
+                  placeholder="👍"
+                  value={localConfig.vote_emoji ?? ''}
+                  onChange={(e) => handleConfigChange('vote_emoji', e.target.value)}
                 />
               </div>
             </CardContent>

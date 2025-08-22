@@ -44,7 +44,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
     show_author_names: true,
     retro_stages_enabled: false,
     enforce_stage_readiness: false,
-    allow_self_votes: true
+    allow_self_votes: true,
+    vote_emoji: '👍'
   });
 
   const handleCreateTemplate = async () => {
@@ -79,7 +80,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       show_author_names: true,
       retro_stages_enabled: false,
       enforce_stage_readiness: false,
-      allow_self_votes: true
+      allow_self_votes: true,
+      vote_emoji: '👍'
     });
   };
 
@@ -101,7 +103,8 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
       show_author_names: template.show_author_names,
       retro_stages_enabled: template.retro_stages_enabled || false,
       enforce_stage_readiness: template.enforce_stage_readiness || false,
-      allow_self_votes: template.allow_self_votes !== false
+      allow_self_votes: template.allow_self_votes !== false,
+      vote_emoji: template.vote_emoji || '👍'
     });
     setShowEditDialog(true);
   };
@@ -305,6 +308,17 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                         />
                       </div>
 
+                      <div className="space-y-2">
+                        <Label htmlFor="vote-emoji" className="text-sm">Vote Emoji</Label>
+                        <Input
+                          id="vote-emoji"
+                          type="text"
+                          placeholder="👍"
+                          value={boardConfig.vote_emoji || ''}
+                          onChange={(e) => setBoardConfig(prev => ({ ...prev, vote_emoji: e.target.value }))}
+                        />
+                      </div>
+
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
                           <Label htmlFor="retro-stages-enabled" className="text-sm">Enable Structured Retro Stages</Label>
@@ -502,6 +516,17 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                           />
                         </div>
 
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-vote-emoji" className="text-sm">Vote Emoji</Label>
+                          <Input
+                            id="edit-vote-emoji"
+                            type="text"
+                            placeholder="👍"
+                            value={boardConfig.vote_emoji || ''}
+                            onChange={(e) => setBoardConfig(prev => ({ ...prev, vote_emoji: e.target.value }))}
+                          />
+                        </div>
+
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="edit-retro-stages-enabled" className="text-sm">Enable Structured Retro Stages</Label>
@@ -576,6 +601,7 @@ export const BoardTemplatesSettings: React.FC<BoardTemplatesSettingsProps> = ({ 
                       <span>Enforce Readiness: {template.enforce_stage_readiness ? 'Yes' : 'No'}</span>
                     )}
                     {template.max_votes_per_user && <span>Max votes: {template.max_votes_per_user}</span>}
+                    {template.vote_emoji && <span>Vote Emoji: {template.vote_emoji}</span>}
                   </div>
                 </div>
               </div>

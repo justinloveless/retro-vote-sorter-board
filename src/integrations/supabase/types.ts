@@ -69,11 +69,14 @@ export type Database = {
           is_default: boolean | null
           max_votes_per_user: number | null
           name: string
+          enforce_stage_readiness: boolean | null
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           team_id: string | null
           updated_at: string
           voting_enabled: boolean | null
+          allow_self_votes: boolean | null
+          vote_emoji: string | null
         }
         Insert: {
           allow_anonymous?: boolean | null
@@ -82,11 +85,14 @@ export type Database = {
           is_default?: boolean | null
           max_votes_per_user?: number | null
           name: string
+          enforce_stage_readiness?: boolean | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           team_id?: string | null
           updated_at?: string
           voting_enabled?: boolean | null
+          allow_self_votes?: boolean | null
+          vote_emoji?: string | null
         }
         Update: {
           allow_anonymous?: boolean | null
@@ -95,11 +101,14 @@ export type Database = {
           is_default?: boolean | null
           max_votes_per_user?: number | null
           name?: string
+          enforce_stage_readiness?: boolean | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           team_id?: string | null
           updated_at?: string
           voting_enabled?: boolean | null
+          allow_self_votes?: boolean | null
+          vote_emoji?: string | null
         }
         Relationships: [
           {
