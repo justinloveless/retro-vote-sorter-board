@@ -58,7 +58,7 @@ export const FeedbackButton: React.FC<Props> = () => {
               body: JSON.stringify({
                 title: `[${type}] ${title}`,
                 body: `${description}\n\nSubmitted by: ${user?.email || 'anonymous'}\nPage: ${pageUrl}`,
-                labels: [type],
+                labels: [type, 'in-app-feedback'],
               })
             });
             if (issueRes.ok) {
