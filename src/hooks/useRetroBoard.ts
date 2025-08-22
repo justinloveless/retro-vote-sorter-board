@@ -334,6 +334,20 @@ export const useRetroBoard = (roomId: string) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'retro_board_config',
+        filter: `board_id=eq.${board.id}`
+      }, (payload) => {
+        const updatedConfig = payload.new as RetroBoardConfig;
+        setBoardConfig(current => current ? { ...current, ...updatedConfig } : updatedConfig);
+        toast({
+          title: 'Board settings updated',
+          description: 'Configuration changes have been applied.',
+          duration: 2500,
+        });
+      })
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
