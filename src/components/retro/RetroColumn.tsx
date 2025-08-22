@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -60,6 +60,8 @@ interface RetroColumnProps {
   sessionId?: string | null;
   userVotes: string[];
   teamMembers?: TeamMember[];
+  previousActionItems?: { id: string; text: string }[];
+  onMarkActionItemDone?: (id: string) => void;
   onAddItem: (text: string, isAnonymous: boolean) => void;
   onUpdateColumn: (columnId: string, updates: any) => void;
   onDeleteColumn: (columnId: string) => void;
@@ -81,6 +83,9 @@ interface RetroColumnProps {
   presenceChannel?: any;
   audioSummaryState: AudioSummaryState | null;
   updateAudioSummaryState: (state: AudioSummaryState | null) => void;
+  actionStatusMap?: Record<string, { id: string; done: boolean; assigned_to?: string | null }>;
+  onToggleActionItemDone?: (sourceItemId: string, nextDone: boolean) => void;
+  onAssignActionItem?: (sourceItemId: string, userId: string | null) => void;
 }
 
 // Helper functions for retro stages
@@ -236,6 +241,9 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   presenceChannel,
   audioSummaryState,
   updateAudioSummaryState,
+  actionStatusMap,
+  onToggleActionItemDone,
+  onAssignActionItem,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -346,7 +354,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         <div className="space-y-3 min-h-[200px]">
           {sortedItems.map(item => (
             <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
+              <CardContent className={`p-4 ${isActionItemsColumn(column) && (actionStatusMap?.[item.id]?.done ?? false) ? 'opacity-60' : ''}`}>
                 {editingItem === item.id ? (
                   <div className="space-y-2">
                     <TiptapEditorWithMentions
@@ -370,7 +378,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       onClick={handleImageClick}
                     />
 
-                    <div className="flex items-end justify-between">
+                    <div className="flex flex-wrap items-end justify-between">
                       <div className="flex items-center gap-2">
                         {boardConfig?.show_author_names && (
                           <UserAvatar
@@ -408,7 +416,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       </div>
 
                       {/* Row 2: Buttons */}
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
                         {!isArchived &&
                           canEditItems(board?.retro_stage, boardConfig, column) &&
                           ((user?.id && item.author_id === user.id) ||
@@ -444,6 +452,44 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                           </Button>
                         )}
                       </div>
+                      {/* Row 3: Assignment + Done */}
+                      {isActionItemsColumn(column) && (
+                        <div className="flex flex-grow flex-wrap items-center justify-end gap-2 mt-2">
+                          {onAssignActionItem && (
+                            <>
+                              <span className="text-xs text-gray-600 dark:text-gray-300">Assigned:</span>
+                              <select
+                              className="bg-transparent border rounded px-2 py-1 text-xs"
+                              value={actionStatusMap?.[item.id]?.assigned_to || ''}
+                              onChange={(e) => onAssignActionItem(item.id, e.target.value || null)}
+                              disabled={isArchived}
+                              title="Assign to"
+                              aria-label="Assign action item"
+                            >
+                              <option value="">Nobody</option>
+                              {(teamMembers || []).map(m => (
+                                <option key={m.user_id} value={m.user_id}>{m.profiles?.full_name || m.user_id}</option>
+                              ))}
+                            </select>
+                            </>
+                          )}
+                          {onToggleActionItemDone && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onToggleActionItemDone(item.id, !(actionStatusMap?.[item.id]?.done ?? false))}
+                              className="h-8 w-8 p-0"
+                              title={(actionStatusMap?.[item.id]?.done ?? false) ? 'Mark as not done' : 'Mark done'}
+                            >
+                              {(actionStatusMap?.[item.id]?.done ?? false) ? (
+                                <span className="text-xs">↩︎</span>
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <RetroItemComments

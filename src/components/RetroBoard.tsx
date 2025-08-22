@@ -11,6 +11,7 @@ import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
+import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
 import { AppHeader } from './AppHeader';
 
 interface RetroBoardProps {
@@ -57,10 +58,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     sessionId,
     presenceChannel,
     userVotes,
+    teamActionItems,
+    boardActionStatus,
     audioSummaryState,
     updateAudioSummaryState,
     audioUrlToPlay,
     clearAudioUrlToPlay,
+    markTeamActionItemDone,
+    toggleBoardActionItemDone,
+    assignTeamActionItem,
+    assignBoardActionItem,
   } = useRetroBoard(boardId);
 
   // Get team members for @ mentions
@@ -258,6 +265,15 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         {/* Columns */}
         <div className="overflow-x-auto pb-6">
           <div className="flex gap-6 min-w-max">
+            {teamActionItems.length > 0 && (
+              <PreviousActionItemsColumn
+                items={teamActionItems.map(a => ({ id: a.id, text: a.text, assigned_to: a.assigned_to, source_item_id: a.source_item_id || null }))}
+                onMarkDone={isArchived ? undefined : markTeamActionItemDone}
+                onAssign={isArchived ? undefined : assignTeamActionItem}
+                teamMembers={teamMembers}
+                isArchived={isArchived}
+              />
+            )}
             {columns.map(column => (
               <RetroColumn
                 key={column.id}
@@ -279,6 +295,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 audioSummaryState={audioSummaryState}
                 updateAudioSummaryState={updateAudioSummaryState}
                 teamMembers={teamMembers}
+                onAssignActionItem={isArchived ? undefined : assignBoardActionItem}
                 onAddItem={handleAddItem(column.id)}
                 onUpdateColumn={isArchived ? undefined : updateColumn}
                 onDeleteColumn={isArchived ? undefined : deleteColumn}
@@ -298,6 +315,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 onDrop={handleDrop}
                 onDragEnd={handleDragEnd}
                 presenceChannel={presenceChannel}
+                actionStatusMap={boardActionStatus}
+                onToggleActionItemDone={isArchived ? undefined : toggleBoardActionItemDone}
               />
             ))}
 

@@ -5,6 +5,7 @@ import { TtsUrlManager } from '@/components/admin/TtsUrlManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -21,6 +22,14 @@ const AdminPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
                     <TtsUrlManager />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Data Backfill</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <BackfillActionItems />
+                        </CardContent>
+                    </Card>
                     <Card>
                         <CardHeader>
                             <CardTitle>Feature Flags</CardTitle>
