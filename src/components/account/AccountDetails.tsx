@@ -4,6 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { Profile } from '@/hooks/useAuth';
+import { AvatarUploader } from '@/components/account/AvatarUploader';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AccountDetailsProps {
     user: any;
@@ -47,8 +49,21 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                         <Input id="fullName" name="fullName" defaultValue={profile?.full_name || ''} />
                     </div>
                     <div>
-                        <Label htmlFor="avatarUrl">Avatar URL</Label>
-                        <Input id="avatarUrl" name="avatarUrl" defaultValue={profile?.avatar_url || ''} />
+                        <Label>Profile Picture</Label>
+                        <AvatarUploader
+                            initialUrl={profile?.avatar_url}
+                            onCropped={async (blob) => {
+                                const fileName = `${user.id}.png`;
+                                // Upload to supabase storage bucket 'avatars'
+                                await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                                const publicUrl = data.publicUrl;
+                                // Set hidden input so existing form submit keeps working
+                                const hidden = document.getElementById('avatarUrl') as HTMLInputElement | null;
+                                if (hidden) hidden.value = publicUrl;
+                            }}
+                        />
+                        <Input id="avatarUrl" name="avatarUrl" defaultValue={profile?.avatar_url || ''} type="hidden" />
                     </div>
                     <div className="flex gap-2">
                         <Button type="submit">Save</Button>

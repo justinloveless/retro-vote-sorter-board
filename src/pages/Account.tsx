@@ -14,6 +14,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AvatarUploader } from '@/components/account/AvatarUploader';
 
 const Account = () => {
   const navigate = useNavigate();
@@ -156,6 +158,31 @@ const Account = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || 'User Avatar'} />
+                      <AvatarFallback>
+                        <User className="h-8 w-8" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <span className="font-medium text-sm text-gray-600 dark:text-gray-400 block mb-1">Profile Picture</span>
+                      <AvatarUploader
+                        initialUrl={profile?.avatar_url}
+                        onCropped={async (blob) => {
+                          try {
+                            const fileName = `${user.id}.png`;
+                            await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                            const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                            await updateProfile({ avatar_url: data.publicUrl });
+                            toast({ title: 'Profile picture updated' });
+                          } catch (e: any) {
+                            toast({ title: 'Failed to update avatar', description: e.message || String(e), variant: 'destructive' });
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Full Name</span>
                     {!isEditingName ? (
