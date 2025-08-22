@@ -33,7 +33,6 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [showNotifyTeamDialog, setShowNotifyTeamDialog] = useState(false);
-  const [hasBeenNotified, setHasBeenNotified] = useState(false);
   const [anonymousName] = useState(() => generateSillyName());
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -56,41 +55,15 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
     }
   }, [initialRoomId]);
 
-  // Send Slack notification when board is accessed for the first time
+  // Notification dialog is now only opened via the bell in the header
   useEffect(() => {
-
-    const checkAndAskForNotification = async () => {
-      if (!boardData || !user || hasBeenNotified) return;
-
-      // Only send notification for team boards
-      if (!boardData.team_id) return;
-
-      try {
-        // Check if a session already exists for this board today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const { data: existingSessions } = await supabase
-          .from('retro_board_sessions')
-          .select('id', { count: 'exact' })
-          .eq('board_id', boardData.id)
-          .gte('created_at', today.toISOString());
-
-        // If no session exists today, ask user for confirmation
-        if (!existingSessions || existingSessions.length === 0) {
-          setShowNotifyTeamDialog(true);
-          setHasBeenNotified(true);
-        }
-      } catch (error) {
-        console.error('Error checking for retro session:', error);
-      }
-    };
-
     setPassword(boardData?.password_hash || '');
     setIsPrivate(boardData?.is_private || false);
 
-    checkAndAskForNotification();
-  }, [boardData, user, hasBeenNotified]);
+    const openHandler = () => setShowNotifyTeamDialog(true);
+    window.addEventListener('open-notify-team', openHandler as any);
+    return () => window.removeEventListener('open-notify-team', openHandler as any);
+  }, [boardData]);
 
   const handleNotifyTeam = async () => {
     if (!boardData || !user) return;
@@ -224,9 +197,9 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       <AlertDialog open={showNotifyTeamDialog} onOpenChange={setShowNotifyTeamDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Start retro and notify team?</AlertDialogTitle>
+            <AlertDialogTitle>Notify team?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will send a notification to your team's Slack channel that you've started the retro session.
+              This will send a notification to your team's Slack channel to join the retro session.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Edit, LogOut, Moon, Sun, Home } from 'lucide-react';
+import { Edit, LogOut, Moon, Sun, Home, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ActiveUsers } from '../ActiveUsers';
@@ -104,7 +104,13 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           <ActiveUsers users={activeUsers} />
 
           {!isAnonymousUser && (
-            <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
+            <div className="flex items-center gap-2">
+              <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
+              {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
+              <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">
+                <Bell className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
       </div>
