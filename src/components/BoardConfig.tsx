@@ -17,6 +17,7 @@ interface RetroBoardConfig {
   show_author_names: boolean;
   retro_stages_enabled: boolean | null;
   enforce_stage_readiness: boolean | null;
+  allow_self_votes?: boolean | null;
 }
 
 interface BoardConfigProps {
@@ -89,6 +90,15 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
                   id="voting-enabled"
                   checked={localConfig.voting_enabled ?? true}
                   onCheckedChange={(checked) => handleConfigChange('voting_enabled', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="allow-self-votes">Allow Self Votes</Label>
+                <Switch
+                  id="allow-self-votes"
+                  checked={localConfig.allow_self_votes ?? true}
+                  onCheckedChange={(checked) => handleConfigChange('allow_self_votes', checked)}
                 />
               </div>
 
