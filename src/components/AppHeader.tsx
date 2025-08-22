@@ -22,6 +22,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
 import { AuthForm } from './AuthForm';
+import { FeedbackButton } from './FeedbackButton';
 
 type HeaderVariant = 'default' | 'home' | 'back';
 
@@ -129,6 +130,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             </Button>
             {user ? (
                 <>
+                    <FeedbackButton />
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
