@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
 
@@ -113,6 +114,7 @@ export const useRetroBoard = (roomId: string) => {
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
   const [audioUrlToPlay, setAudioUrlToPlay] = useState<string | null>(null);
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   // Update user presence using Supabase realtime presence
   const updatePresence = useCallback(async (userName: string, avatarUrl?: string) => {
@@ -121,12 +123,12 @@ export const useRetroBoard = (roomId: string) => {
     const currentUser = (await supabase.auth.getUser()).data.user;
 
     await presenceChannel.track({
-      user_id: currentUser?.id || sessionId,
+      user_id: (profile?.id || currentUser?.id) || sessionId,
       user_name: userName,
       last_seen: new Date().toISOString(),
       avatar_url: avatarUrl
     });
-  }, [presenceChannel, sessionId]);
+  }, [presenceChannel, sessionId, profile?.id]);
 
   const clearAudioUrlToPlay = useCallback(() => {
     setAudioUrlToPlay(null);
@@ -269,9 +271,10 @@ export const useRetroBoard = (roomId: string) => {
 
         // Load user's votes
         const currentUser = (await supabase.auth.getUser()).data.user;
+        const currentUserId = profile?.id || currentUser?.id || null;
         const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
-        if (currentUser) {
-          voteQuery.eq('user_id', currentUser.id);
+        if (currentUserId) {
+          voteQuery.eq('user_id', currentUserId);
         } else {
           voteQuery.eq('session_id', sessionId);
         }
@@ -529,6 +532,8 @@ export const useRetroBoard = (roomId: string) => {
 
     const currentUser = (await supabase.auth.getUser()).data.user;
 
+    const effectiveAuthorId = profile?.id || currentUser?.id || null;
+
     const { data: newItem, error } = await supabase
       .from('retro_items')
       .insert([{
@@ -536,7 +541,7 @@ export const useRetroBoard = (roomId: string) => {
         column_id: columnId,
         text,
         author,
-        author_id: currentUser?.id || null,
+        author_id: effectiveAuthorId,
         session_id: isAnonymous ? sessionId : null
       }])
       .select()
@@ -565,7 +570,7 @@ export const useRetroBoard = (roomId: string) => {
             text: newItem.text,
             source_board_id: board.id,
             source_item_id: newItem.id,
-            created_by: currentUser?.id || null
+            created_by: effectiveAuthorId
           }]);
       }
     } catch (e) {
@@ -949,6 +954,7 @@ export const useRetroBoard = (roomId: string) => {
 
   const addComment = async (itemId: string, text: string, author: string, isAnonymous: boolean) => {
     const currentUser = (await supabase.auth.getUser()).data.user;
+    const authorId = profile?.id || currentUser?.id || null;
 
     const { data: newComment, error } = await supabase
       .from('retro_comments')
@@ -956,7 +962,7 @@ export const useRetroBoard = (roomId: string) => {
         item_id: itemId,
         text,
         author,
-        author_id: currentUser?.id || null,
+        author_id: authorId,
         session_id: isAnonymous ? sessionId : null
       }])
       .select()

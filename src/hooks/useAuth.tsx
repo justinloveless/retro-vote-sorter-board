@@ -33,6 +33,16 @@ export const useAuth = () => {
     }
   });
 
+  const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cached = localStorage.getItem('impersonated_profile');
+    try {
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [user, setUser] = useState<User | null>(session?.user ?? null);
   const [loading, setLoading] = useState(!session);
 
@@ -65,13 +75,14 @@ export const useAuth = () => {
 
       if (newSession) {
         localStorage.setItem('session', JSON.stringify(newSession));
-        if (!profile || profile.id !== newSession.user.id || profile.role === undefined) {
-          fetchProfile(newSession.user.id);
-        }
+        // Always refresh the real profile for the authenticated user once per auth change
+        fetchProfile(newSession.user.id);
       } else {
         localStorage.removeItem('session');
         localStorage.removeItem('profile');
+        localStorage.removeItem('impersonated_profile');
         setProfile(null);
+        setImpersonatedProfile(null);
       }
 
       setLoading(false);
@@ -80,7 +91,7 @@ export const useAuth = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [profile, fetchProfile]);
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -109,12 +120,38 @@ export const useAuth = () => {
     }
   };
 
+  const startImpersonating = useCallback(async (userId: string) => {
+    // Only allow if current profile is admin
+    if (profile?.role !== 'admin') throw new Error('Only admins can impersonate');
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role')
+        .eq('id', userId)
+        .single();
+      if (error) throw error;
+      localStorage.setItem('impersonated_profile', JSON.stringify(data));
+      setImpersonatedProfile(data);
+    } catch (e) {
+      throw e;
+    }
+  }, [profile]);
+
+  const stopImpersonating = useCallback(() => {
+    localStorage.removeItem('impersonated_profile');
+    setImpersonatedProfile(null);
+  }, []);
+
   return {
     user,
     session,
-    profile,
+    profile: impersonatedProfile || profile,
+    authProfile: profile,
+    isImpersonating: !!impersonatedProfile,
     loading,
     signOut,
-    updateProfile
+    updateProfile,
+    startImpersonating,
+    stopImpersonating
   };
 };

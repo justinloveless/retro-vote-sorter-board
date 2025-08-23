@@ -20,7 +20,7 @@ const NeotroPage = () => {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      if (!teamId || !user) {
+      if (!teamId || !profile) {
         setLoadingRole(false);
         return;
       }
@@ -30,7 +30,7 @@ const NeotroPage = () => {
           .from('team_members')
           .select('role')
           .eq('team_id', teamId)
-          .eq('user_id', user.id)
+          .eq('user_id', profile.id)
           .single();
 
         if (error) {
@@ -51,12 +51,12 @@ const NeotroPage = () => {
     };
 
     fetchUserRole();
-  }, [teamId, user]);
+  }, [teamId, profile]);
 
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
     !loadingAuth ? teamId : null, // Use teamId as the session identifier
-    user?.id,
-    profile?.full_name || user?.email,
+    profile?.id,
+    profile?.full_name || (user?.email || 'Player'),
     true
   );
 
@@ -101,7 +101,7 @@ const NeotroPage = () => {
       <div className="flex-1 min-h-0">
         <PokerTable
           session={displaySession}
-          activeUserId={user?.id}
+          activeUserId={profile?.id}
           teamId={teamId}
           userRole={currentRole}
           requestedRoundNumber={requestedRoundNumber}

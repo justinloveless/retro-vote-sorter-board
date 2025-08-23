@@ -41,7 +41,6 @@ export const ActiveUsers: React.FC<ActiveUsersProps> = ({ users }) => {
           {activeUsers.slice(0, 8).map((user) => (
             <UserAvatar
               key={user.id}
-              userId={user.id}
               name={user.user_name}
               avatarUrl={user.avatar_url}
               className="h-8 w-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:z-10 transition-transform hover:scale-110"

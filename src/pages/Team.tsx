@@ -34,7 +34,7 @@ const Team = () => {
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (!teamId || !user) return;
+      if (!teamId || !profile) return;
 
       try {
         const { data, error } = await supabase
@@ -44,7 +44,7 @@ const Team = () => {
             team_members!inner(role)
           `)
           .eq('id', teamId)
-          .eq('team_members.user_id', user.id)
+          .eq('team_members.user_id', profile.id)
           .single();
 
         if (error) throw error;
@@ -66,7 +66,7 @@ const Team = () => {
     };
 
     loadTeam();
-  }, [teamId, user, navigate, toast]);
+  }, [teamId, profile, navigate, toast]);
 
   const handleSignOut = async () => {
     await signOut();

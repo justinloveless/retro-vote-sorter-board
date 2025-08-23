@@ -382,7 +382,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                       <div className="flex items-center gap-2">
                         {boardConfig?.show_author_names && (
                           <UserAvatar
-                            userId={item.author_id}
                             name={item.profiles?.full_name ?? item.author}
                             avatarUrl={item.profiles?.avatar_url}
                             className="h-6 w-6"

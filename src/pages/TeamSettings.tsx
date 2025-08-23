@@ -15,7 +15,7 @@ import { AppHeader } from '@/components/AppHeader';
 const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [team, setTeam] = useState<any>(null);
   const [teamSettings, setTeamSettings] = useState<TeamSettings | null>(null);
   const [jiraSettings, setJiraSettings] = useState<JiraSettings | null>(null);
@@ -25,7 +25,7 @@ const TeamSettingsPage = () => {
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (!teamId || !user) {
+      if (!teamId || !profile) {
         setLoading(false);
         return;
       };
@@ -40,7 +40,7 @@ const TeamSettingsPage = () => {
             team_members!inner(role, user_id)
           `)
           .eq('id', teamId)
-          .eq('team_members.user_id', user.id)
+          .eq('team_members.user_id', profile.id)
           .single();
 
         if (error) throw error;
@@ -83,7 +83,7 @@ const TeamSettingsPage = () => {
     };
 
     loadTeam();
-  }, [teamId, user, navigate, toast]);
+  }, [teamId, profile, navigate, toast]);
 
   const handleSave = async () => {
     if (!teamId || !teamSettings) return;
@@ -159,7 +159,7 @@ const TeamSettingsPage = () => {
     );
   }
 
-  if (!user) {
+  if (!profile) {
     return <AuthForm redirectTo={`/teams/${teamId}/settings`} onAuthSuccess={() => { }} />;
   }
 

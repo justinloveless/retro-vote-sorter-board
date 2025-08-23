@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
+import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -24,6 +25,7 @@ const AdminPage: React.FC = () => {
                 <div className="lg:col-span-2 space-y-8">
                     <TtsUrlManager />
                     <GithubIssueSettings />
+                    <ImpersonateUser />
                     <Card>
                         <CardHeader>
                             <CardTitle>Data Backfill</CardTitle>

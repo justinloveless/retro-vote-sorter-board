@@ -88,7 +88,6 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId }) => {
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-3">
                   <UserAvatar
-                    userId={c.author_id}
                     name={c.profiles?.full_name ?? c.author}
                     avatarUrl={c.profiles?.avatar_url}
                     className="h-6 w-6"

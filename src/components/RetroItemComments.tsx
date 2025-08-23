@@ -134,7 +134,6 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   {showAuthor && (
                     <UserAvatar
-                      userId={comment.author_id}
                       name={comment.profiles?.full_name ?? comment.author}
                       avatarUrl={comment.profiles?.avatar_url}
                       className="h-6 w-6"

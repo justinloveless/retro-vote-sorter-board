@@ -84,7 +84,6 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
                             onClick={() => onSelect(member)}
                         >
                             <UserAvatar
-                                userId={member.user_id}
                                 name={member.profiles?.full_name || 'Unknown User'}
                                 className="w-6 h-6"
                             />

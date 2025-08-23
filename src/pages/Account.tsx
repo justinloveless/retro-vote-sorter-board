@@ -19,7 +19,8 @@ import { AvatarUploader } from '@/components/account/AvatarUploader';
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth();
+  const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating } = useAuth();
+  const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
@@ -38,6 +39,23 @@ const Account = () => {
       setFullName(profile.full_name);
     }
   }, [profile?.full_name]);
+
+  useEffect(() => {
+    const loadEmail = async () => {
+      if (!isImpersonating || !profile?.id) {
+        setImpersonatedEmail(null);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
+        if (error) throw error as any;
+        setImpersonatedEmail((data as any) || null);
+      } catch (e) {
+        setImpersonatedEmail(null);
+      }
+    };
+    loadEmail();
+  }, [isImpersonating, profile?.id]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -213,7 +231,7 @@ const Account = () => {
                   </div>
                   <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Email</span>
-                    <p className="text-gray-900 dark:text-gray-100">{user.email}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{impersonatedEmail || user.email}</p>
                   </div>
                   <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Member since</span>
