@@ -271,6 +271,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 onMarkDone={isArchived ? undefined : markTeamActionItemDone}
                 onAssign={isArchived ? undefined : assignTeamActionItem}
                 teamMembers={teamMembers}
+                teamId={board?.team_id || null}
                 isArchived={isArchived}
               />
             )}

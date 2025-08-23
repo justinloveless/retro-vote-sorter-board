@@ -1,55 +1,45 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useTeamData } from '@/contexts/TeamDataContext';
 
 interface TeamActionItemsProps {
   teamId: string;
 }
 
 export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
-  const [items, setItems] = useState<{ id: string; text: string; assigned_to: string | null; done: boolean; created_at: string; source_board_id: string | null; source_item_id: string | null; board_title?: string }[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filterDone, setFilterDone] = useState<'open' | 'done' | 'all'>('open');
   const [assignee, setAssignee] = useState<string | 'all'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
-  const { members: teamMembers } = useTeamMembers(teamId);
+  const teamData = useTeamData();
+  
+  // Use cached data
+  const { data: items, loading, refetch } = teamData.getActionItems(teamId);
+  const { data: teamMembers } = teamData.getMembers(teamId);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('team_action_items')
-      .select('id, text, assigned_to, done, created_at, source_board_id, source_item_id')
-      .eq('team_id', teamId)
-      .order('created_at', { ascending: false });
-
-    const base = (data || []) as { id: string; text: string; assigned_to: string | null; done: boolean; created_at: string; source_board_id: string | null; source_item_id: string | null }[];
-    const boardIds = Array.from(new Set(base.map(i => i.source_board_id).filter(Boolean))) as string[];
-    let titleMap: Record<string, string> = {};
-    if (boardIds.length > 0) {
-      const { data: boards } = await supabase
-        .from('retro_boards')
-        .select('id, title')
-        .in('id', boardIds);
-      (boards || []).forEach(b => { titleMap[b.id] = b.title; });
-    }
-
-    setItems(base.map(i => ({ ...i, board_title: i.source_board_id ? (titleMap[i.source_board_id] || 'Board') : 'Other' })));
-    setLoading(false);
-  };
-
-  useEffect(() => {
+  // Set up realtime updates to refetch when data changes
+  React.useEffect(() => {
     if (!teamId) return;
-    load();
+    
     const channel = supabase.channel(`team-action-items-tab-${teamId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_action_items', filter: `team_id=eq.${teamId}` }, () => load())
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'team_action_items', 
+        filter: `team_id=eq.${teamId}` 
+      }, () => {
+        refetch();
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [teamId]);
+    
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [teamId, refetch]);
 
   const visible = useMemo(() => {
     let out = items.slice();
@@ -78,13 +68,13 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   }, [visible]);
 
   const markDone = async (id: string, next: boolean) => {
-    setItems(curr => curr.map(i => i.id === id ? { ...i, done: next } : i));
     await supabase.from('team_action_items').update({ done: next, done_at: next ? new Date().toISOString() : null }).eq('id', id);
+    refetch();
   };
 
   const assign = async (id: string, userId: string | null) => {
-    setItems(curr => curr.map(i => i.id === id ? { ...i, assigned_to: userId } : i));
     await supabase.from('team_action_items').update({ assigned_to: userId }).eq('id', id);
+    refetch();
   };
 
   return (
@@ -158,7 +148,7 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
                 </CardContent>
                 {item.source_item_id && (
                   <div className="px-6 pb-3">
-                    <TeamActionItemsComments sourceItemId={item.source_item_id} />
+                    <TeamActionItemsComments sourceItemId={item.source_item_id} teamId={teamId} />
                   </div>
                 )}
               </Card>

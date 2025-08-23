@@ -25,34 +25,18 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [theme, rawSetTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
     return savedTheme || 'light';
   });
 
-  // Load theme from user profile when user is authenticated
+  // Load theme from user profile when profile is loaded
   useEffect(() => {
-    const loadUserTheme = async () => {
-      if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('theme_preference')
-            .eq('id', user.id)
-            .single();
-
-          if (!error && data?.theme_preference) {
-            rawSetTheme(data.theme_preference as Theme);
-          }
-        } catch (error) {
-          console.log('No theme preference found, using default');
-        }
-      }
-    };
-
-    loadUserTheme();
-  }, [user]);
+    if (profile?.theme_preference) {
+      rawSetTheme(profile.theme_preference as Theme);
+    }
+  }, [profile]);
 
   useEffect(() => {
     localStorage.setItem('theme', theme);

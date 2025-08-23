@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,9 +8,26 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   role: 'user' | 'admin' | null;
+  theme_preference: string | null;
+  background_preference: any | null;
 }
 
-export const useAuth = () => {
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  profile: Profile | null;
+  authProfile: Profile | null;
+  isImpersonating: boolean;
+  loading: boolean;
+  signOut: () => Promise<void>;
+  updateProfile: (updates: Partial<Profile>) => Promise<Profile>;
+  startImpersonating: (userId: string) => Promise<void>;
+  stopImpersonating: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(() => {
     if (typeof window === 'undefined') return null;
     const cachedSession = localStorage.getItem('session');
@@ -47,10 +64,16 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(!session);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    // Check if we already have this profile cached and it's the same user
+    if (profile && profile.id === userId) {
+      // We already have this user's profile loaded, no need to fetch again
+      return;
+    }
+
     try {
       const { data: profileData, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role')
+        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
         .eq('id', userId)
         .single();
 
@@ -64,7 +87,7 @@ export const useAuth = () => {
       localStorage.removeItem('profile');
       setProfile(null);
     }
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
     const {
@@ -76,6 +99,7 @@ export const useAuth = () => {
       if (newSession) {
         localStorage.setItem('session', JSON.stringify(newSession));
         // Always refresh the real profile for the authenticated user once per auth change
+
         fetchProfile(newSession.user.id);
       } else {
         localStorage.removeItem('session');
@@ -91,7 +115,7 @@ export const useAuth = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -126,7 +150,7 @@ export const useAuth = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role')
+        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
         .eq('id', userId)
         .single();
       if (error) throw error;
@@ -142,7 +166,7 @@ export const useAuth = () => {
     setImpersonatedProfile(null);
   }, []);
 
-  return {
+  const value = {
     user,
     session,
     profile: impersonatedProfile || profile,
@@ -154,4 +178,18 @@ export const useAuth = () => {
     startImpersonating,
     stopImpersonating
   };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTeamBoards } from '@/hooks/useTeamBoards';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
-import { supabase } from '@/integrations/supabase/client';
+import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { AuthForm } from '@/components/AuthForm';
 import { TeamHeader } from '@/components/team/TeamHeader';
 import { TeamBoardsList } from '@/components/team/TeamBoardsList';
@@ -23,54 +22,86 @@ const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut } = useAuth();
-  const { boards, loading: boardsLoading, createBoardForTeam, refetch: refetchBoards } = useTeamBoards(teamId || null);
-  const { members } = useTeamMembers(teamId || null);
-  const [team, setTeam] = useState<any>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string | undefined>();
-  const [loading, setLoading] = useState(true);
+  const teamData = useTeamData();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
+  // Use cached data
+  const { data: team, loading: teamLoading } = teamData.getTeamInfo(teamId || '');
+  const { data: boards, loading: boardsLoading, refetch: refetchBoards } = teamData.getBoards(teamId || '');
+  const { data: members } = teamData.getMembers(teamId || '');
+
+  const currentUserRole = useMemo(() => {
+    return team?.team_members[0]?.role;
+  }, [team]);
+
+  // Navigate away if team not found after loading
   useEffect(() => {
-    const loadTeam = async () => {
-      if (!teamId || !profile) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('teams')
-          .select(`
-            *,
-            team_members!inner(role)
-          `)
-          .eq('id', teamId)
-          .eq('team_members.user_id', profile.id)
-          .single();
-
-        if (error) throw error;
-
-        setTeam(data);
-        // Get current user's role
-        setCurrentUserRole(data.team_members[0]?.role);
-      } catch (error) {
-        console.error('Error loading team:', error);
-        toast({
-          title: "Error loading team",
-          description: "Please try again.",
-          variant: "destructive",
-        });
-        navigate('/teams');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTeam();
-  }, [teamId, profile, navigate, toast]);
+    if (!teamLoading && !team && teamId && profile) {
+      toast({
+        title: "Error loading team",
+        description: "Team not found or you don't have access.",
+        variant: "destructive",
+      });
+      navigate('/teams');
+    }
+  }, [teamLoading, team, teamId, profile, navigate, toast]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const createBoardForTeam = async (title: string, isPrivate: boolean = false, password: string | null = null) => {
+    if (!teamId) return null;
+
+    try {
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      let passwordHash = null;
+
+      if (isPrivate && password) {
+        // Hash the password using Web Crypto API
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      const { data, error } = await supabase
+        .from('retro_boards')
+        .insert([{
+          room_id: roomId,
+          title,
+          is_private: isPrivate,
+          password_hash: passwordHash,
+          team_id: teamId
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Board created",
+        description: `"${title}" has been created successfully.`,
+      });
+
+      // Invalidate boards cache to refetch
+      teamData.invalidateTeamCache(teamId);
+      refetchBoards();
+
+      return data;
+    } catch (error) {
+      console.error('Error creating board:', error);
+      toast({
+        title: "Error creating board",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
   };
 
   const handleCreateBoard = async (title: string, isPrivate: boolean, password: string | null) => {
@@ -81,7 +112,7 @@ const Team = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || teamLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>

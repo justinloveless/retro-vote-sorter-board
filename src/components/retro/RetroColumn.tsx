@@ -8,7 +8,7 @@ import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
-import useFeatureFlags from '@/hooks/useFeatureFlags';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 
 import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';

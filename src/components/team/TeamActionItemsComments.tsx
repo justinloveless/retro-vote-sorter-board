@@ -7,34 +7,37 @@ import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/component
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useTeamData } from '@/contexts/TeamDataContext';
 
 interface Props {
   sourceItemId: string; // retro_items.id
+  teamId: string;
 }
 
-export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId }) => {
+export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId, teamId }) => {
   const { user, profile } = useAuth();
-  const [comments, setComments] = useState<any[]>([]);
+  const teamData = useTeamData();
+  const { data: comments, loading, refetch } = teamData.getActionItemComments(teamId, sourceItemId);
   const [content, setContent] = useState('');
   const [show, setShow] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const load = async () => {
-    const { data } = await supabase
-      .from('retro_comments')
-      .select('*, profiles(avatar_url, full_name)')
-      .eq('item_id', sourceItemId)
-      .order('created_at');
-    setComments(data || []);
-  };
-
+  // Set up realtime updates
   useEffect(() => {
-    load();
     const channel = supabase.channel(`tai-comments-${sourceItemId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'retro_comments', filter: `item_id=eq.${sourceItemId}` }, () => { load(); })
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'retro_comments', 
+        filter: `item_id=eq.${sourceItemId}` 
+      }, () => { 
+        refetch(); 
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [sourceItemId]);
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [sourceItemId, refetch]);
 
   const uploadImage = async (file: File): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -51,11 +54,15 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId }) => {
     const { error } = await supabase
       .from('retro_comments')
       .insert([{ item_id: sourceItemId, text: content, author, author_id: user?.id || null }]);
-    if (!error) setContent('');
+    if (!error) {
+      setContent('');
+      refetch(); // Refetch comments after adding
+    }
   };
 
   const deleteComment = async (id: string) => {
     await supabase.from('retro_comments').delete().eq('id', id);
+    refetch(); // Refetch comments after deleting
   };
 
   const canDelete = (c: any) => (user?.id && c.author_id === user.id);
