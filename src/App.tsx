@@ -21,16 +21,20 @@ import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
+import { AuthProvider } from "./hooks/useAuth";
+import { TeamDataProvider } from "./contexts/TeamDataContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
       <BackgroundProvider>
         <FeatureFlagProvider>
-          <TooltipProvider>
-            <AudioPlayerProvider>
+          <TeamDataProvider>
+            <TooltipProvider>
+              <AudioPlayerProvider>
               <GlobalBackground />
               <Toaster />
               <Sonner />
@@ -55,11 +59,13 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
-            </AudioPlayerProvider>
-          </TooltipProvider>
+              </AudioPlayerProvider>
+            </TooltipProvider>
+          </TeamDataProvider>
         </FeatureFlagProvider>
       </BackgroundProvider>
     </ThemeProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

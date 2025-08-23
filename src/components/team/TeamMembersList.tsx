@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, UserMinus, Crown, Shield, User, Mail, X, Clock, Link, UserPlus } from 'lucide-react';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useTeamData } from '@/contexts/TeamDataContext';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface TeamMembersListProps {
   teamId: string;
@@ -18,10 +20,157 @@ interface TeamMembersListProps {
 }
 
 export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamName, currentUserRole }) => {
-  const { members, invitations, loading, inviteMember, removeMember, updateMemberRole, cancelInvitation } = useTeamMembers(teamId);
+  const teamData = useTeamData();
+  const { data: members, loading, refetch: refetchMembers } = teamData.getMembers(teamId);
+  const { data: invitations, refetch: refetchInvitations } = teamData.getInvitations(teamId);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
+
+  const inviteMember = async (email: string) => {
+    try {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (!currentUser) throw new Error('User not authenticated');
+
+      // Get current user's profile for the inviter name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', currentUser.id)
+        .single();
+
+      // Get team name
+      const { data: team } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', teamId)
+        .single();
+
+      // Create the invitation record
+      const { data: invitation, error } = await supabase
+        .from('team_invitations')
+        .insert([{
+          team_id: teamId,
+          email,
+          invited_by: currentUser.id,
+          invite_type: 'email'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send the email via edge function
+      const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+        body: {
+          invitationId: invitation.id,
+          email: email,
+          teamName: team?.name || 'Team',
+          inviterName: profile?.full_name || 'Someone',
+          token: invitation.token
+        }
+      });
+
+      if (emailError) {
+        console.error('Error sending email:', emailError);
+        toast({
+          title: "Invitation created",
+          description: `Invitation created for ${email}, but email may not have been sent. They can still use the invite link.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Invitation sent",
+          description: `Invitation email sent to ${email}`,
+        });
+      }
+
+      refetchInvitations();
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      toast({
+        title: "Error sending invitation",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Member removed",
+        description: "Team member has been removed.",
+      });
+
+      refetchMembers();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast({
+        title: "Error removing member",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateMemberRole = async (memberId: string, newRole: 'owner' | 'admin' | 'member') => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ role: newRole })
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Role updated",
+        description: "Member role has been updated.",
+      });
+
+      refetchMembers();
+    } catch (error) {
+      console.error('Error updating role:', error);
+      toast({
+        title: "Error updating role",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .delete()
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Invitation cancelled",
+        description: "The invitation has been cancelled.",
+      });
+
+      refetchInvitations();
+    } catch (error) {
+      console.error('Error cancelling invitation:', error);
+      toast({
+        title: "Error cancelling invitation",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getRoleIcon = (role: string) => {
     switch (role) {

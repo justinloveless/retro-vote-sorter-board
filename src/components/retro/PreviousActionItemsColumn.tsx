@@ -9,11 +9,12 @@ interface PreviousActionItemsColumnProps {
   onAssign?: (id: string, userId: string | null) => void;
   isArchived?: boolean;
   teamMembers?: { user_id: string; profiles?: { full_name: string | null } | null }[];
+  teamId?: string | null;
 }
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
 
-export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps> = ({ items, onMarkDone, onAssign, isArchived, teamMembers = [] }) => {
+export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps> = ({ items, onMarkDone, onAssign, isArchived, teamMembers = [], teamId }) => {
   return (
     <div className="w-80 flex-shrink-0">
       <div className="p-4 rounded-lg border-2 bg-yellow-50 border-yellow-300 dark:bg-yellow-900/20 dark:border-yellow-700 space-y-4">
@@ -60,8 +61,8 @@ export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps>
                     </Button>
                   )}
                 </div>
-                {item.source_item_id && (
-                  <TeamActionItemsComments sourceItemId={item.source_item_id} />
+                {item.source_item_id && teamId && (
+                  <TeamActionItemsComments sourceItemId={item.source_item_id} teamId={teamId} />
                 )}
               </CardContent>
             </Card>

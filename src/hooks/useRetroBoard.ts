@@ -113,17 +113,41 @@ export const useRetroBoard = (roomId: string) => {
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
   const [audioUrlToPlay, setAudioUrlToPlay] = useState<string | null>(null);
+  const [profileCache, setProfileCache] = useState<Record<string, { avatar_url: string; full_name: string }>>({});
   const { toast } = useToast();
   const { profile } = useAuth();
+
+  // Helper function to fetch and cache profiles
+  const fetchProfileData = useCallback(async (authorId: string) => {
+    if (profileCache[authorId]) {
+      return profileCache[authorId];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_url, full_name')
+        .eq('id', authorId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setProfileCache(prev => ({ ...prev, [authorId]: data }));
+        return data;
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+    return null;
+  }, [profileCache]);
 
   // Update user presence using Supabase realtime presence
   const updatePresence = useCallback(async (userName: string, avatarUrl?: string) => {
     if (!presenceChannel || !userName.trim()) return;
 
-    const currentUser = (await supabase.auth.getUser()).data.user;
-
     await presenceChannel.track({
-      user_id: (profile?.id || currentUser?.id) || sessionId,
+      user_id: profile?.id || sessionId,
       user_name: userName,
       last_seen: new Date().toISOString(),
       avatar_url: avatarUrl
@@ -231,6 +255,15 @@ export const useRetroBoard = (roomId: string) => {
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
 
+        // Cache profile data from items
+        const itemProfiles: Record<string, { avatar_url: string; full_name: string }> = {};
+        (itemsData || []).forEach(item => {
+          if (item.author_id && item.profiles) {
+            itemProfiles[item.author_id] = item.profiles;
+          }
+        });
+        setProfileCache(prev => ({ ...prev, ...itemProfiles }));
+
         // Load comments
         const { data: commentsData, error: commentsError } = await supabase
           .from('retro_comments')
@@ -240,6 +273,15 @@ export const useRetroBoard = (roomId: string) => {
 
         if (commentsError) throw commentsError;
         setComments(commentsData || []);
+
+        // Cache profile data from comments
+        const commentProfiles: Record<string, { avatar_url: string; full_name: string }> = {};
+        (commentsData || []).forEach(comment => {
+          if (comment.author_id && comment.profiles) {
+            commentProfiles[comment.author_id] = comment.profiles;
+          }
+        });
+        setProfileCache(prev => ({ ...prev, ...commentProfiles }));
 
         // Load open team action items for this board's team, excluding items from the current board
         if (boardData.team_id) {
@@ -270,8 +312,7 @@ export const useRetroBoard = (roomId: string) => {
         }
 
         // Load user's votes
-        const currentUser = (await supabase.auth.getUser()).data.user;
-        const currentUserId = profile?.id || currentUser?.id || null;
+        const currentUserId = profile?.id || null;
         const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
         if (currentUserId) {
           voteQuery.eq('user_id', currentUserId);
@@ -299,31 +340,37 @@ export const useRetroBoard = (roomId: string) => {
     loadBoardData();
   }, [roomId, toast]);
 
-  const handleNewItem = useCallback((payload: any) => {
+  const handleNewItem = useCallback(async (payload: any) => {
     const newItem = payload.new as RetroItem;
     // Check if item already exists to prevent duplicates from optimistic updates
     if (items.some(item => item.id === newItem.id)) {
       return;
     }
-    supabase.from('profiles').select('avatar_url, full_name').eq('id', newItem.author_id).single().then(({ data }) => {
-      newItem.profiles = data;
-      setItems(prevItems => [...prevItems, newItem]);
-    });
-  }, [items]);
+    
+    if (newItem.author_id) {
+      const profileData = await fetchProfileData(newItem.author_id);
+      newItem.profiles = profileData;
+    }
+    
+    setItems(prevItems => [...prevItems, newItem]);
+  }, [items, fetchProfileData]);
 
-  const handleNewComment = useCallback((payload: any) => {
+  const handleNewComment = useCallback(async (payload: any) => {
     const newComment = payload.new as RetroComment;
     if (items.some(item => item.id === newComment.item_id)) {
       // Check if comment already exists
       if (comments.some(comment => comment.id === newComment.id)) {
         return;
       }
-      supabase.from('profiles').select('avatar_url, full_name').eq('id', newComment.author_id).single().then(({ data }) => {
-        newComment.profiles = data;
-        setComments(prevComments => [...prevComments, newComment]);
-      });
+      
+      if (newComment.author_id) {
+        const profileData = await fetchProfileData(newComment.author_id);
+        newComment.profiles = profileData;
+      }
+      
+      setComments(prevComments => [...prevComments, newComment]);
     }
-  }, [items, comments]);
+  }, [items, comments, fetchProfileData]);
 
   // Set up realtime presence and data subscriptions
   useEffect(() => {
@@ -530,9 +577,7 @@ export const useRetroBoard = (roomId: string) => {
   const addItem = async (text: string, columnId: string, author: string, isAnonymous: boolean) => {
     if (!board) return;
 
-    const currentUser = (await supabase.auth.getUser()).data.user;
-
-    const effectiveAuthorId = profile?.id || currentUser?.id || null;
+    const effectiveAuthorId = profile?.id || null;
 
     const { data: newItem, error } = await supabase
       .from('retro_items')
@@ -557,7 +602,7 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     // Update presence when adding item
-    updatePresence(author === 'Anonymous' ? (currentUser?.email || 'Anonymous User') : author);
+    updatePresence(author === 'Anonymous' ? (profile?.full_name || 'Anonymous User') : author);
 
     // If this item is in the designated action items column, create a team action item
     try {
@@ -579,14 +624,13 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const markTeamActionItemDone = async (actionItemId: string) => {
-    const currentUser = (await supabase.auth.getUser()).data.user;
     // Optimistic remove from Open Action Items list
     const prevOpen = teamActionItems;
     setTeamActionItems(prev => prev.filter(a => a.id !== actionItemId));
 
     const { error } = await supabase
       .from('team_action_items')
-      .update({ done: true, done_at: new Date().toISOString(), done_by: currentUser?.id || null })
+      .update({ done: true, done_at: new Date().toISOString(), done_by: profile?.id || null })
       .eq('id', actionItemId);
     if (error) {
       console.error('Error marking action item done:', error);
@@ -600,14 +644,13 @@ export const useRetroBoard = (roomId: string) => {
     // Find linked action item id
     const link = boardActionStatus[sourceItemId];
     const actionId = link?.id;
-    const currentUser = (await supabase.auth.getUser()).data.user;
     if (!actionId && nextDone) {
       // If no action record exists but toggling to done from board, create one linked to this item
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
         const { data, error } = await supabase
           .from('team_action_items')
-          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: currentUser?.id || null, done: true, done_at: new Date().toISOString(), done_by: currentUser?.id || null }])
+          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, done: true, done_at: new Date().toISOString(), done_by: profile?.id || null }])
           .select('id')
           .single();
         if (!error && data) {
@@ -624,7 +667,7 @@ export const useRetroBoard = (roomId: string) => {
     setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: nextDone } }));
     const { error } = await supabase
       .from('team_action_items')
-      .update({ done: nextDone, done_at: nextDone ? new Date().toISOString() : null, done_by: nextDone ? (currentUser?.id || null) : null })
+      .update({ done: nextDone, done_at: nextDone ? new Date().toISOString() : null, done_by: nextDone ? (profile?.id || null) : null })
       .eq('id', actionId);
     if (error) {
       // Revert
@@ -647,13 +690,12 @@ export const useRetroBoard = (roomId: string) => {
 
   const assignBoardActionItem = async (sourceItemId: string, userId: string | null) => {
     const link = boardActionStatus[sourceItemId];
-    const currentUser = (await supabase.auth.getUser()).data.user;
     if (!link) {
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
         const { data, error } = await supabase
           .from('team_action_items')
-          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: currentUser?.id || null, assigned_to: userId ?? null }])
+          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, assigned_to: userId ?? null }])
           .select('id')
           .single();
         if (!error && data) {
@@ -800,9 +842,8 @@ export const useRetroBoard = (roomId: string) => {
   const upvoteItem = async (itemId: string) => {
     if (!board || !boardConfig) return;
 
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    const userId = currentUser?.id;
-    const voteSessionId = !currentUser ? sessionId : undefined;
+    const userId = profile?.id;
+    const voteSessionId = !userId ? sessionId : undefined;
 
     const hasVoted = userVotes.includes(itemId);
 
@@ -953,8 +994,7 @@ export const useRetroBoard = (roomId: string) => {
   };
 
   const addComment = async (itemId: string, text: string, author: string, isAnonymous: boolean) => {
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    const authorId = profile?.id || currentUser?.id || null;
+    const authorId = profile?.id || null;
 
     const { data: newComment, error } = await supabase
       .from('retro_comments')

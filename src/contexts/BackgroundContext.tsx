@@ -121,38 +121,22 @@ interface BackgroundContextType {
 const BackgroundContext = createContext<BackgroundContextType | undefined>(undefined);
 
 export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { theme } = useTheme();
   const [isOverlayVisible, setOverlayVisible] = useState(false);
   const [preference, setPreference] = useState<BackgroundPreference>(defaultPreference);
 
   useEffect(() => {
-    const loadUserPreference = async () => {
-      if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('background_preference')
-            .eq('id', user.id)
-            .single();
-
-          if (error) throw error;
-
-          if (data?.background_preference && (data.background_preference as any).preset) {
-            setPreference(data.background_preference as BackgroundPreference);
-          } else {
-            setPreference(defaultPreference);
-          }
-        } catch (error) {
-          setPreference(defaultPreference);
-        }
-      } else {
-        setPreference(defaultPreference);
-      }
-    };
-
-    loadUserPreference();
-  }, [user]);
+    if (profile?.background_preference && (profile.background_preference as any).preset) {
+      setPreference(profile.background_preference as BackgroundPreference);
+    } else if (user) {
+      // User is authenticated but no preference set
+      setPreference(defaultPreference);
+    } else {
+      // Anonymous user
+      setPreference(defaultPreference);
+    }
+  }, [profile, user]);
 
   const updatePreference = async (newPreference: BackgroundPreference) => {
     setPreference(newPreference);
