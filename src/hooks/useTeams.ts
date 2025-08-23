@@ -17,10 +17,10 @@ export const useTeams = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   const loadTeams = useCallback(async () => {
-    if (!user) {
+    if (!profile) {
       setLoading(false);
       return;
     }
@@ -32,13 +32,13 @@ export const useTeams = () => {
           *,
           team_members!inner( role, user_id )
         `)
-        .eq('team_members.user_id', user.id)
+        .eq('team_members.user_id', profile.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const teamsWithRoles = data.map(team => {
-        const currentUserMembership = team.team_members.find(m => m.user_id === user.id);
+        const currentUserMembership = team.team_members.find(m => m.user_id === profile.id);
         return {
           ...team,
           role: currentUserMembership?.role || null
@@ -56,7 +56,7 @@ export const useTeams = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [profile, toast]);
 
   useEffect(() => {
     loadTeams();

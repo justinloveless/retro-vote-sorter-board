@@ -18,11 +18,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
 import { AuthForm } from './AuthForm';
 import { FeedbackButton } from './FeedbackButton';
+import { supabase } from '@/integrations/supabase/client';
 
 type HeaderVariant = 'default' | 'home' | 'back';
 
@@ -36,7 +37,24 @@ interface AppHeaderProps {
 export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn }: AppHeaderProps) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, profile, signOut } = useAuth();
+    const { user, profile, signOut, isImpersonating, stopImpersonating } = useAuth();
+    const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
+    useEffect(() => {
+        const load = async () => {
+            if (!isImpersonating || !profile?.id) {
+                setImpersonatedEmail(null);
+                return;
+            }
+            try {
+                const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
+                if (error) throw error as any;
+                setImpersonatedEmail((data as any) || null);
+            } catch {
+                setImpersonatedEmail(null);
+            }
+        };
+        load();
+    }, [isImpersonating, profile?.id]);
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
 
@@ -130,6 +148,13 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             </Button>
             {user ? (
                 <>
+                    {isImpersonating && (
+                        <div className="hidden md:flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+                            <span>Impersonating</span>
+                            <span className="font-medium truncate max-w-[140px]">{profile?.full_name || profile?.id}</span>
+                            <Button variant="ghost" size="sm" onClick={stopImpersonating}>Stop</Button>
+                        </div>
+                    )}
                     <FeedbackButton />
                     <TooltipProvider>
                         <Tooltip>
@@ -141,7 +166,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                             </TooltipTrigger>
                             <TooltipContent>
                                 {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                                <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -206,7 +231,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                                        <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
