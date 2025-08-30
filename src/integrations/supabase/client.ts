@@ -2,11 +2,21 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { currentEnvironment } from '@/config/environment';
+import { getCurrentTenant } from '@/utils/tenantUtils';
 
 // Use environment-specific configuration
 const SUPABASE_URL = currentEnvironment.supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY = currentEnvironment.supabaseAnonKey;
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Create the default Supabase client with tenant headers
+const tenant = getCurrentTenant();
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: {
+        headers: {
+            'X-Tenant': tenant.tenantId,
+            'X-Tenant-Subdomain': tenant.subdomain
+        }
+    }
+});
 
 export const currentEnv = currentEnvironment.environment;

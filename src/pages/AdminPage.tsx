@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
+import { TenantSelector } from '@/components/TenantSelector';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -46,8 +47,8 @@ const AdminPage: React.FC = () => {
                         </CardContent>
                     </Card>
                 </div>
-                <div className="lg:col-span-1">
-                    {/* Additional admin panels can be placed here in the future. */}
+                <div className="lg:col-span-1 space-y-6">
+                    <TenantSelector />
                 </div>
             </div>
         </div>

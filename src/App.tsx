@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { GlobalBackground } from "@/components/ui/GlobalBackground";
 import { BackgroundProvider } from "@/contexts/BackgroundContext";
 import { FeatureFlagProvider } from "@/contexts/FeatureFlagContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import Index from "./pages/Index";
 import Retro from "./pages/Retro";
 import Teams from "./pages/Teams";
@@ -28,44 +29,46 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <ThemeProvider>
-      <BackgroundProvider>
-        <FeatureFlagProvider>
-          <TeamDataProvider>
-            <TooltipProvider>
-              <AudioPlayerProvider>
-              <GlobalBackground />
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/retro/:roomId" element={<Retro />} />
-                  <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
-                  <Route path="/teams" element={<Teams />} />
-                  <Route path="/teams/:teamId" element={<Team />} />
-                  <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
-                  <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
-                  <Route path="/account" element={<Account />} />
-                  <Route path="/invite/:token" element={<InviteAccept />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
+    <TenantProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <BackgroundProvider>
+            <FeatureFlagProvider>
+              <TeamDataProvider>
+                <TooltipProvider>
+                  <AudioPlayerProvider>
+                    <GlobalBackground />
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/retro/:roomId" element={<Retro />} />
+                        <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
+                        <Route path="/teams" element={<Teams />} />
+                        <Route path="/teams/:teamId" element={<Team />} />
+                        <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
+                        <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
+                        <Route path="/account" element={<Account />} />
+                        <Route path="/invite/:token" element={<InviteAccept />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
 
-                  {/* Admin Routes */}
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminPage />} />
-                  </Route>
+                        {/* Admin Routes */}
+                        <Route path="/admin" element={<AdminLayout />}>
+                          <Route index element={<AdminPage />} />
+                        </Route>
 
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-              </AudioPlayerProvider>
-            </TooltipProvider>
-          </TeamDataProvider>
-        </FeatureFlagProvider>
-      </BackgroundProvider>
-    </ThemeProvider>
-    </AuthProvider>
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </BrowserRouter>
+                  </AudioPlayerProvider>
+                </TooltipProvider>
+              </TeamDataProvider>
+            </FeatureFlagProvider>
+          </BackgroundProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </TenantProvider>
   </QueryClientProvider>
 );
 
