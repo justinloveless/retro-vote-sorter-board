@@ -2,7 +2,7 @@ import React from 'react';
 import { usePokerTable } from './context';
 import { MobileView } from './MobileView';
 import { DesktopView } from './DesktopView';
-import "..neotro.css";
+import "../neotro.css";
 
 export const PokerTableContent: React.FC = () => {
     const { isMobile, session } = usePokerTable();
