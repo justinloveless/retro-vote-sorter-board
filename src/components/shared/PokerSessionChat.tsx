@@ -6,7 +6,7 @@ import { Send, MessageCircle, Smile, CornerUpLeft, X, ChevronDown } from 'lucide
 import type { ChatMessage } from '../../hooks/usePokerSessionChat.ts';
 import { usePokerTable } from '../../components/Neotro/PokerTableComponent/context.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
-import { processMentionsForDisplay } from './TiptapEditorWithMentions';
+import { processMentionsForDisplay } from './TiptapEditorWithMentions.tsx';
 import {
   Collapsible,
   CollapsibleContent,
