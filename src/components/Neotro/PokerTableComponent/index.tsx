@@ -1,7 +1,7 @@
 import React from 'react';
-import { usePokerTable } from './context';
-import { MobileView } from './MobileView';
-import { DesktopView } from './DesktopView';
+import { usePokerTable } from './context.tsx';
+import { MobileView } from './MobileView.tsx';
+import { DesktopView } from './DesktopView.tsx';
 import "../neotro.css";
 
 export const PokerTableContent: React.FC = () => {
