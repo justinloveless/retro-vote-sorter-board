@@ -71,3 +71,17 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Environment Variables
+
+This app reads Supabase configuration from Vite env variables at build time:
+
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY
+
+For local development, create a `.env.local` file in the project root:
+
+```
+VITE_SUPABASE_URL=http://localhost:54321
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```

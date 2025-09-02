@@ -1,3 +1,4 @@
+// @ts-nocheck
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -9,10 +10,10 @@ interface PokerRoundPayload {
   ticketTitle?: string;
   selections: Record<string, { name: string; points: number }>;
   averagePoints: number;
-  chatMessages?: { 
-    user_name: string; 
-    message: string; 
-    created_at: string; 
+  chatMessages?: {
+    user_name: string;
+    message: string;
+    created_at: string;
     reactions: { user_name: string; emoji: string }[],
     reply_to_message_user?: string,
     reply_to_message_content?: string,
@@ -140,7 +141,7 @@ serve(async (req: Request) => {
   try {
     const payload: PokerRoundPayload = await req.json();
     const { teamId, chatMessages } = payload;
-    
+
     // Auth must be handled by the client calling the function
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error("Missing Authorization header");
@@ -152,7 +153,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
-    
+
     const { data: team, error: teamError } = await supabaseClient
       .from("teams")
       .select("slack_bot_token, slack_channel_id")
@@ -177,7 +178,7 @@ serve(async (req: Request) => {
     // Post chat messages as threaded replies
     if (chatMessages && chatMessages.length > 0) {
       const parentTs = mainMessageResponse.ts;
-      
+
       // Sort messages by timestamp before sending
       const sortedMessages = chatMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
@@ -201,7 +202,7 @@ serve(async (req: Request) => {
             if (part.trim()) {
               // Convert <pre> blocks to Slack's format
               const withCodeBlocks = part.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```');
-              
+
               // Convert inline <code> tags to Slack's format
               const withInlineCode = withCodeBlocks.replace(/<code>(.*?)<\/code>/g, '`$1`');
 
@@ -239,7 +240,7 @@ serve(async (req: Request) => {
             });
           }
         }
-        
+
         // 3. Prepend the reply quote block if it exists
         const finalBlocks: Block[] = [];
         if (chat.reply_to_message_user && chat.reply_to_message_content) {
@@ -267,8 +268,8 @@ serve(async (req: Request) => {
           const reactionText = Object.entries(reactionsByUser)
             .map(([emoji, users]) => `${emoji} ${users.join(', ')}`)
             .join('  |  ');
-          
-          if(reactionText) {
+
+          if (reactionText) {
             finalBlocks.push({
               type: 'context',
               elements: [{ type: 'mrkdwn', text: reactionText }],

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -139,7 +140,7 @@ serve(async (req: Request) => {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `*<${req.headers.get('origin') || 'https://retroscope.lovelesslabstx.com'}/retro/${roomId}|Join the retro>*`,
+            text: `*<${(Deno.env.get('SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '')}/retro/${roomId}|Join the retro>*`,
           },
         },
       ],
@@ -157,7 +158,7 @@ serve(async (req: Request) => {
         ...slackMessage,
       }),
     })
-    
+
     const slackResponseData = await slackResponse.json()
     if (!slackResponseData.ok) {
       throw new Error(`Slack API error: ${slackResponseData.error}`)

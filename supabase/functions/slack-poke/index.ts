@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { 
-  generateVoteProgressText, 
-  generateVoteSummary, 
-  generateVotingMessage 
+import {
+  generateVoteProgressText,
+  generateVoteSummary,
+  generateVotingMessage
 } from "./message-utils.ts";
 
 // Initialize Supabase client
@@ -128,14 +129,14 @@ export function verifySlackRequest(
   // Check timestamp to prevent replay attacks (within 5 minutes)
   const currentTime = Math.floor(Date.now() / 1000);
   const requestTime = parseInt(timestamp);
-  
+
   if (Math.abs(currentTime - requestTime) > 300) {
     return false;
   }
 
   // Verify signature
   const baseString = `v0:${timestamp}:${body}`;
-  
+
   // For now, return true for valid format signatures
   // In production, would implement proper HMAC-SHA256 verification
   return signature.startsWith('v0=') && signature.length > 10;
@@ -211,9 +212,9 @@ export async function createNewRound(
       .select('current_round_number')
       .eq('id', sessionId)
       .single();
-    
+
     const newRoundNumber = (session?.current_round_number || 0) + 1;
-    
+
     // Update session with new round number
     await supabase
       .from('poker_sessions')
@@ -261,7 +262,7 @@ export async function processVote(
       .single();
 
     const currentSelections = round?.selections || {};
-    
+
     // Add/update vote
     currentSelections[anonymousUserId] = {
       points: points,
@@ -474,7 +475,7 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
       // Publish realtime update to sync browser clients
       await publishRealtimeUpdate(
         currentRound.session_id,
-        { 
+        {
           selections,
           game_state: 'Selection' // Voting phase
         },
@@ -534,14 +535,14 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
       // Calculate average points for playing state
       const participating = Object.values(selections as Record<string, { points: number; display_name: string }>)
         .filter(s => s.points !== -1);
-      const average_points = participating.length > 0 
-        ? participating.reduce((a, b) => a + b.points, 0) / participating.length 
+      const average_points = participating.length > 0
+        ? participating.reduce((a, b) => a + b.points, 0) / participating.length
         : 0;
 
       // Publish realtime update to sync browser clients
       await publishRealtimeUpdate(
         currentRound.session_id,
-        { 
+        {
           selections,
           game_state: 'Playing',
           average_points
@@ -602,7 +603,7 @@ export async function postSlackMessage(
     });
 
     const result = await response.json();
-    
+
     if (!result.ok) {
       console.error('Slack chat.postMessage failed:', result.error);
       return null;
@@ -641,7 +642,7 @@ export async function updateSlackMessage(
     });
 
     const result = await response.json();
-    
+
     if (!result.ok) {
       console.error('Slack chat.update failed:', result.error);
       return false;
@@ -659,12 +660,12 @@ export function generateJiraUrl(team: Team, ticketNumber: string | null): string
   if (!ticketNumber || !team.jira_domain) {
     return null;
   }
-  
+
   // Check if the domain already includes a protocol
-  const domain = team.jira_domain.startsWith('http://') || team.jira_domain.startsWith('https://') 
-    ? team.jira_domain 
+  const domain = team.jira_domain.startsWith('http://') || team.jira_domain.startsWith('https://')
+    ? team.jira_domain
     : `https://${team.jira_domain}`;
-  
+
   return `${domain}/browse/${ticketNumber}`;
 }
 
@@ -678,16 +679,16 @@ export async function publishRealtimeUpdate(
 ): Promise<void> {
   try {
     const channel = supabase.channel(`poker_session:${sessionId}`);
-    
+
     await channel.send({
       type: 'broadcast',
       event: 'round_updated',
-      payload: { 
-        ...roundData, 
-        senderUserId 
+      payload: {
+        ...roundData,
+        senderUserId
       }
     });
-    
+
     console.log('Published realtime update for session:', sessionId);
   } catch (error) {
     console.error('Error publishing realtime update:', error);
@@ -709,7 +710,7 @@ Deno.serve(async (req) => {
     if (contentType.includes('application/x-www-form-urlencoded')) {
       // Slack command or interactive component
       const formData = await req.formData();
-      
+
       if (formData.has('payload')) {
         // Interactive component
         const payloadStr = formData.get('payload') as string;

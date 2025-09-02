@@ -251,3 +251,6 @@ verify_jwt = false
 
 [functions.cleanup-poker-sessions]
 verify_jwt = false
+
+[functions.slack-poke]
+verify_jwt = false

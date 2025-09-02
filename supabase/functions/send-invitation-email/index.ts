@@ -29,7 +29,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending invitation email to:", email, "for team:", teamName);
 
-    const inviteLink = `${req.headers.get('origin') || 'https://your-domain.com'}/invite/${token}`;
+    const siteUrl = (Deno.env.get('SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '');
+    const inviteLink = `${siteUrl}/invite/${token}`;
 
     const emailResponse = await resend.emails.send({
       from: "Team Invitations <onboarding@resend.dev>",
