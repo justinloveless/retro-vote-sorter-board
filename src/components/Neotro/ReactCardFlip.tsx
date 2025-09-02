@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useEffect, useState, useMemo } from "react";
 
-import { type ReactFlipCardProps } from "../../types/index.ts";
+import type { ReactFlipCardProps } from "../../types/index.d.ts";
 
 const ReactCardFlip: React.FC<ReactFlipCardProps> = (props) => {
   const {
