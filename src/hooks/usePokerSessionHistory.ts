@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client.ts';
 import { useToast } from '../hooks/use-toast.ts';
-import { Selections } from './usePokerSession';
-import { type GameState } from './usePokerSession';
+import { Selections } from './usePokerSession.ts';
+import { type GameState } from './usePokerSession.ts';
 
 export interface PokerSessionRound {
   id: string;
@@ -25,7 +25,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
 
   const fetchRounds = useCallback(async () => {
     if (!sessionId) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -41,7 +41,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
       }
 
       setRounds(data || []);
-      
+
       if (data && data.length > 0) {
         // If initialRoundNumber is provided, try to find and set that round
         if (initialRoundNumber !== undefined) {
@@ -91,7 +91,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
         }
       )
       .subscribe();
-    
+
     // Listen for the custom event to refetch rounds
     const handleRoundEnded = () => fetchRounds();
     window.addEventListener('round-ended', handleRoundEnded);

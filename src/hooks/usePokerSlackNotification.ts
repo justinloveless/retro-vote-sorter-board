@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client.ts';
 import { useToast } from '../hooks/use-toast.ts';
-import { type Selections } from './usePokerSession';
-import { type ChatMessageReaction } from './usePokerSessionChat';
+import { type Selections } from './usePokerSession.ts';
+import { type ChatMessageReaction } from './usePokerSessionChat.ts';
 
 export const usePokerSlackNotification = () => {
   const { toast } = useToast();
@@ -13,10 +13,10 @@ export const usePokerSlackNotification = () => {
     ticketTitle: string | null,
     selections: Selections,
     averagePoints: number,
-    chatMessages: { 
-      user_name: string; 
-      message: string; 
-      created_at: string; 
+    chatMessages: {
+      user_name: string;
+      message: string;
+      created_at: string;
       reactions: ChatMessageReaction[];
       reply_to_message_user?: string;
       reply_to_message_content?: string;
@@ -47,7 +47,7 @@ export const usePokerSlackNotification = () => {
           jiraUrl = `${domain}/browse/${ticketNumber}`;
         }
       }
-      
+
       const { error } = await supabase.functions.invoke('send-poker-round-to-slack', {
         body: {
           teamId,

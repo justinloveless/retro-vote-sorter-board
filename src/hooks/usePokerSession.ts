@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../integrations/supabase/client.ts';
 import { useToast } from '../hooks/use-toast.ts';
 import { type RealtimeChannel } from '@supabase/supabase-js';
-import { type PokerSessionRound } from './usePokerSessionHistory';
+import { type PokerSessionRound } from './usePokerSessionHistory.ts';
 
 // Define types for session state
 export interface PlayerSelection {
@@ -62,7 +62,7 @@ export const usePokerSession = (
         .insert({ room_id: roomId, current_round_number: 1 })
         .select()
         .single();
-      
+
       if (createError) throw createError;
       sessionData = newSession;
     } else if (error) {
@@ -106,22 +106,22 @@ export const usePokerSession = (
 
     // 5. Add user to selections if they aren't there
     if (roundData && !roundData.selections[currentUserId]) {
-        roundData.selections[currentUserId] = {
-            points: 1,
-            locked: false,
-            name: currentUserDisplayName,
-        };
-        const { data: updatedRound, error: updateRoundError } = await supabase
-            .from('poker_session_rounds')
-            .update({ selections: roundData.selections })
-            .eq('id', roundData.id)
-            .select()
-            .single();
+      roundData.selections[currentUserId] = {
+        points: 1,
+        locked: false,
+        name: currentUserDisplayName,
+      };
+      const { data: updatedRound, error: updateRoundError } = await supabase
+        .from('poker_session_rounds')
+        .update({ selections: roundData.selections })
+        .eq('id', roundData.id)
+        .select()
+        .single();
 
-        if (updateRoundError) throw updateRoundError;
-        roundData = updatedRound;
+      if (updateRoundError) throw updateRoundError;
+      roundData = updatedRound;
     }
-    
+
     // 6. Combine session and round data into a single state object
     setSession({ ...sessionData, ...roundData });
     setLoading(false);
@@ -177,26 +177,26 @@ export const usePokerSession = (
       (payload) => {
         // Ignore broadcast if it's from the current user
         if (payload.senderUserId === currentUserId) return;
-        
+
         setSession(prev => prev ? ({ ...prev, ...payload.payload }) : null);
       }
     );
-    
+
     const isPresenceEnabled = session.presence_enabled !== false;
     if (isPresenceEnabled) {
-        channel.on('presence', { event: 'sync' }, () => {
-            const presenceState = channel.presenceState();
-            const userIds = Object.keys(presenceState);
-            setPresentUserIds(userIds);
-        });
-    
-        channel.on('presence', { event: 'join' }, ({ key }) => {
-            setPresentUserIds((prev) => [...new Set([...prev, key])]);
-        });
-    
-        channel.on('presence', { event: 'leave' }, ({ key }) => {
-            setPresentUserIds((prev) => prev.filter(id => id !== key));
-        });
+      channel.on('presence', { event: 'sync' }, () => {
+        const presenceState = channel.presenceState();
+        const userIds = Object.keys(presenceState);
+        setPresentUserIds(userIds);
+      });
+
+      channel.on('presence', { event: 'join' }, ({ key }) => {
+        setPresentUserIds((prev) => [...new Set([...prev, key])]);
+      });
+
+      channel.on('presence', { event: 'leave' }, ({ key }) => {
+        setPresentUserIds((prev) => prev.filter(id => id !== key));
+      });
     }
 
     channel.subscribe(async (status) => {
@@ -247,7 +247,7 @@ export const usePokerSession = (
       toast({ title: 'Error updating round', description: error.message, variant: 'destructive' });
       return;
     }
-    
+
     // Broadcast the change
     if (sessionChannelRef.current) {
       await sessionChannelRef.current.send({
@@ -277,13 +277,13 @@ export const usePokerSession = (
       await updateRoundState({ selections: newSelections });
     }
   };
-  
+
   const toggleAbstainUserSelection = async () => {
     if (!session || !currentUserId) return;
     const userSelection = session.selections[currentUserId];
     if (userSelection) {
       const isCurrentlyAbstained = userSelection.points === -1;
-      const newSelection = { 
+      const newSelection = {
         ...userSelection,
         points: isCurrentlyAbstained ? 1 : -1,
         locked: !isCurrentlyAbstained,
@@ -308,14 +308,14 @@ export const usePokerSession = (
   const updateTicketNumber = async (ticketNumber: string) => {
     await updateRoundState({ ticket_number: ticketNumber });
   };
-  
+
   const playHand = async () => {
     if (!session) return;
     const newSelections: Selections = { ...session.selections };
     Object.values(newSelections).forEach((s: PlayerSelection) => { if (!s.locked) s.points = -1; });
     const participating = Object.values(newSelections).filter((s: PlayerSelection) => s.points !== -1);
     const average_points = participating.length > 0 ? participating.reduce((a, b) => a + b.points, 0) / participating.length : 0;
-    
+
     const newState = { game_state: 'Playing' as GameState, selections: newSelections, average_points };
 
     setSession(prev => prev ? { ...prev, ...newState } : null);
@@ -329,19 +329,19 @@ export const usePokerSession = (
     const newRoundNumber = session.round_number + 1;
     const resetSelections: Selections = {};
     Object.keys(session.selections).forEach(key => {
-        resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
+      resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
     });
 
     const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
-        session_id: session.session_id,
-        round_number: newRoundNumber,
-        selections: resetSelections,
-        ticket_number: newTicketNumber || ''
+      session_id: session.session_id,
+      round_number: newRoundNumber,
+      selections: resetSelections,
+      ticket_number: newTicketNumber || ''
     });
 
     if (newRoundError) {
-        console.error('Error creating new round', newRoundError);
-        return;
+      console.error('Error creating new round', newRoundError);
+      return;
     }
 
     // 2. Update the session to point to the new round
