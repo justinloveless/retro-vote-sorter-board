@@ -6,7 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import { MentionSuggestions, type MentionSuggestionsRef } from './MentionSuggestions';
+import { MentionSuggestions, type MentionSuggestionsRef } from './MentionSuggestions.tsx';
 import type { UploadImageFn } from '../../hooks/usePokerSessionChat.ts';
 
 interface TeamMember {
