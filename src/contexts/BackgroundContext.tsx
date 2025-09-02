@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useTheme } from '../contexts/ThemeContext.tsx';
+import { supabase } from '../integrations/supabase/client.ts';
 
 export type BackgroundAnimation = 'static' | 'slow' | 'normal' | 'fast' | 'animate-blob-1' | 'animate-blob-2' | 'animate-blob-3';
 

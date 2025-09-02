@@ -1,29 +1,29 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '../components/ui/button.tsx';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.tsx';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '../components/ui/tooltip.tsx';
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from '@/components/ui/sheet';
-import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useIsMobile } from '@/hooks/use-mobile';
+} from '../components/ui/sheet.tsx';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useTheme } from '../contexts/ThemeContext.tsx';
+import { useIsMobile } from '../hooks/use-mobile.tsx';
 import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
 import { AuthForm } from './AuthForm';
 import { FeedbackButton } from './FeedbackButton';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client.ts';
 
 type HeaderVariant = 'default' | 'home' | 'back';
 

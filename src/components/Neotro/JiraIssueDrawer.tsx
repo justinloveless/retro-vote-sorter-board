@@ -4,10 +4,10 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
+} from '../../components/ui/sheet.tsx';
+import { Button } from '../../components/ui/button.tsx';
 import { ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../../integrations/supabase/client.ts';
 
 interface JiraIssue {
   title: string;

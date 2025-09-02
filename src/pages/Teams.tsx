@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { Textarea } from '../components/ui/textarea.tsx';
 import { Plus, Users, Calendar, Settings, Home, User, LogOut, Shield } from 'lucide-react';
-import { useTeams } from '@/hooks/useTeams';
-import { useAuth } from '@/hooks/useAuth';
-import { AuthForm } from '@/components/AuthForm';
-import { AppHeader } from '@/components/AppHeader';
+import { useTeams } from '../hooks/useTeams.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { AuthForm } from '../components/AuthForm.tsx';
+import { AppHeader } from '../components/AppHeader.tsx';
 
 const Teams = () => {
   const navigate = useNavigate();

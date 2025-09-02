@@ -1,6 +1,6 @@
 import React from 'react';
-import { useBackground } from '@/contexts/BackgroundContext';
-import { cn } from '@/lib/utils';
+import { useBackground } from '../../contexts/BackgroundContext.tsx';
+import { cn } from '../../lib/utils.ts';
 
 const animationClasses = {
   static: 'animate-none',

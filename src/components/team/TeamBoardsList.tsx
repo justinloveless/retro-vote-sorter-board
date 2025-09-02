@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Calendar, Plus, Eye, EyeOff, Lock, Archive } from 'lucide-react';
 import { BoardActions } from './BoardActions';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
 
 interface TeamBoard {
   id: string;

@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import type { UploadImageFn } from '@/hooks/usePokerSessionChat';
+import type { UploadImageFn } from '../../hooks/usePokerSessionChat.ts';
 
 interface TiptapEditorProps {
   content: string;

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../integrations/supabase/client.ts';
+import { type RealtimeChannel } from '@supabase/supabase-js';
 
 type FeatureFlags = {
     [key: string]: boolean;

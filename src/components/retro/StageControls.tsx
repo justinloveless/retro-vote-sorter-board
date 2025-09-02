@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '../../components/ui/button.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
 import { 
   Brain, 
   Vote, 
@@ -10,8 +10,8 @@ import {
   RotateCcw,
   CheckCircle 
 } from 'lucide-react';
-import { RetroStage } from '@/hooks/useRetroBoard';
-import { cn } from '@/lib/utils';
+import { type RetroStage } from '../../hooks/useRetroBoard.ts';
+import { cn } from '../../lib/utils.ts';
 import { RetroStageStepper } from './RetroStageStepper';
 import { UserReadinessPanel } from './UserReadinessPanel';
 

@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import { Plus, Image } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { TiptapEditorWithMentions } from '@/components/shared/TiptapEditorWithMentions';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent } from '../components/ui/card.tsx';
+import { Checkbox } from '../components/ui/checkbox.tsx';
+import { TiptapEditorWithMentions } from '../components/shared/TiptapEditorWithMentions.tsx';
 
 interface TeamMember {
   id: string;

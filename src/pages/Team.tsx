@@ -1,22 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTeamData } from '@/contexts/TeamDataContext';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { AuthForm } from '@/components/AuthForm';
-import { TeamHeader } from '@/components/team/TeamHeader';
-import { TeamBoardsList } from '@/components/team/TeamBoardsList';
-import { TeamSidebar } from '@/components/team/TeamSidebar';
-import { TeamMembersList } from '@/components/team/TeamMembersList';
-import { CreateBoardDialog } from '@/components/team/CreateBoardDialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { useTeamData } from '../contexts/TeamDataContext.tsx';
+import { useToast } from '../hooks/use-toast.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { supabase } from '../integrations/supabase/client.ts';
+import { AuthForm } from '../components/AuthForm.tsx';
+import { TeamHeader } from '../components/team/TeamHeader.tsx';
+import { TeamBoardsList } from '../components/team/TeamBoardsList.tsx';
+import { TeamSidebar } from '../components/team/TeamSidebar.tsx';
+import { TeamMembersList } from '../components/team/TeamMembersList.tsx';
+import { CreateBoardDialog } from '../components/team/CreateBoardDialog.tsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.tsx';
+import { Button } from '../components/ui/button.tsx';
 import { Home, User, LogOut, Shield } from 'lucide-react';
-import { AppHeader } from '@/components/AppHeader';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
-import { TeamActionItems } from '@/components/team/TeamActionItems';
+import { AppHeader } from '../components/AppHeader.tsx';
+import { useIsMobile } from '../hooks/use-mobile.tsx';
+import { TeamFloatingActions } from '../components/team/TeamFloatingActions.tsx';
+import { TeamActionItems } from '../components/team/TeamActionItems.tsx';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();

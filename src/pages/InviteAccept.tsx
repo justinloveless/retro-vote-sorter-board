@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useInvitationAccept } from '@/hooks/useInvitationAccept';
-import { AuthForm } from '@/components/AuthForm';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useInvitationAccept } from '../hooks/useInvitationAccept.ts';
+import { AuthForm } from '../components/AuthForm.tsx';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
 import { Users, CheckCircle, Lock } from 'lucide-react';
 
 const InviteAccept = () => {

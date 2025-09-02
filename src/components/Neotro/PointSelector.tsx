@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import LockInButton from "@/components/Neotro/LockInButton";
-import AbstainButton from "@/components/Neotro/AbstainButton";
-import { useIsMobile } from "@/hooks/use-mobile";
+import LockInButton from '../../components/Neotro/LockInButton.tsx';
+import AbstainButton from '../../components/Neotro/AbstainButton.tsx';
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
 
 interface PointSelectorProps {
   pointsIndex: number;
@@ -50,11 +50,10 @@ const PointSelector: React.FC<PointSelectorProps> = ({
               setIsLeftPressed(false);
             }}
             disabled={isAbstained || isLockedIn}
-            className={`bg-[#ff4c40ff] text-white text-3xl font-neotro cursor-pointer select-none selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-xl mr-3 ${
-              isLeftPressed
+            className={`bg-[#ff4c40ff] text-white text-3xl font-neotro cursor-pointer select-none selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-xl mr-3 ${isLeftPressed
                 ? `translate-y-[8px]`
                 : `shadow-[0px_6px_rgba(200,50,50,255)]`
-            }
+              }
             }`}
           >
             <div className="p-3">&lt;</div>
@@ -67,9 +66,8 @@ const PointSelector: React.FC<PointSelectorProps> = ({
               {pointOptions.map((_, index) => (
                 <div
                   key={index}
-                  className={`w-2 h-2 rounded-full ${
-                    index === pointsIndex ? "bg-white" : "bg-white/50"
-                  }`}
+                  className={`w-2 h-2 rounded-full ${index === pointsIndex ? "bg-white" : "bg-white/50"
+                    }`}
                 ></div>
               ))}
             </div>
@@ -85,11 +83,10 @@ const PointSelector: React.FC<PointSelectorProps> = ({
               setIsRightPressed(false);
             }}
             disabled={isAbstained || isLockedIn}
-            className={`bg-[#ff4c40ff] text-white text-3xl font-neotro rounded-xl cursor-pointer select-none ml-3 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 ${
-              isRightPressed
+            className={`bg-[#ff4c40ff] text-white text-3xl font-neotro rounded-xl cursor-pointer select-none ml-3 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 ${isRightPressed
                 ? `translate-y-[8px]`
                 : `shadow-[0px_6px_rgba(200,50,50,255)]`
-            }`}
+              }`}
           >
             <div className="p-3">&gt;</div>
           </button>
@@ -136,11 +133,10 @@ const PointSelector: React.FC<PointSelectorProps> = ({
             setIsLeftPressed(false);
           }}
           disabled={isAbstained || isLockedIn}
-          className={`bg-[#ff4c40ff] text-white text-5xl font-neotro cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-2xl ${
-            isLeftPressed
+          className={`bg-[#ff4c40ff] text-white text-5xl font-neotro cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 rounded-2xl ${isLeftPressed
               ? `translate-y-[8px]`
               : `shadow-[0px_6px_rgba(200,50,50,255)]`
-          }
+            }
           }`}
         >
           <div className="p-6">&lt;</div>
@@ -155,11 +151,10 @@ const PointSelector: React.FC<PointSelectorProps> = ({
             {pointOptions.map((_, index) => (
               <div
                 key={index}
-                className={`w-3 h-3 rounded-full ${
-                  index === pointsIndex
+                className={`w-3 h-3 rounded-full ${index === pointsIndex
                     ? "bg-foreground"
                     : "bg-muted-foreground/50"
-                }`}
+                  }`}
               ></div>
             ))}
           </div>
@@ -174,11 +169,10 @@ const PointSelector: React.FC<PointSelectorProps> = ({
             setIsRightPressed(false);
           }}
           disabled={isAbstained || isLockedIn}
-          className={`bg-[#ff4c40ff] text-white text-5xl font-neotro rounded-2xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 ${
-            isRightPressed
+          className={`bg-[#ff4c40ff] text-white text-5xl font-neotro rounded-2xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none ml-4 mr-4 selector-buttons hover:bg-red-600 active:bg-red-700 transition-colors duration-200 ${isRightPressed
               ? `translate-y-[8px]`
               : `shadow-[0px_6px_rgba(200,50,50,255)]`
-          }
+            }
           }`}
         >
           <div className="p-6">&gt;</div>

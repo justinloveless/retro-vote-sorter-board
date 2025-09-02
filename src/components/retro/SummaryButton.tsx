@@ -1,9 +1,9 @@
 import { Sparkles, Loader2 } from "lucide-react";
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { currentEnvironment } from '@/config/environment';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { Button } from '../../components/ui/button.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { currentEnvironment } from '../../config/environment.ts';
+import { useToast } from '../../hooks/use-toast.ts';
 import { useState } from 'react';
 
 

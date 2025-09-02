@@ -1,17 +1,17 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { Users, UserMinus, Crown, Shield, User, Mail, X, Clock, Link, UserPlus } from 'lucide-react';
-import { useTeamData } from '@/contexts/TeamDataContext';
+import { useTeamData } from '../../contexts/TeamDataContext.tsx';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { useToast } from '../../hooks/use-toast.ts';
 
 interface TeamMembersListProps {
   teamId: string;

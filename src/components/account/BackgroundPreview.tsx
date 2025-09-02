@@ -1,7 +1,7 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
-import { PRESET_BACKGROUNDS, PresetKey, BackgroundAnimation } from '@/contexts/BackgroundContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '../../lib/utils.ts';
+import { PRESET_BACKGROUNDS, type PresetKey, BackgroundAnimation } from '../../contexts/BackgroundContext.tsx';
+import { useTheme } from '../../contexts/ThemeContext.tsx';
 
 interface BackgroundPreviewProps {
     presetKey: PresetKey;

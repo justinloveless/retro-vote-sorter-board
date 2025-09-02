@@ -1,8 +1,8 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useBackground, PRESET_BACKGROUNDS, PresetKey } from '@/contexts/BackgroundContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Label } from '../../components/ui/label.tsx';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group.tsx';
+import { useBackground, PRESET_BACKGROUNDS, type PresetKey } from '../../contexts/BackgroundContext.tsx';
 import { Palette } from 'lucide-react';
 import { BackgroundPreview } from './BackgroundPreview';
 

@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { usePokerTable } from './context';
-import PointSelector from "@/components/Neotro/PointSelector";
-import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
-import PlayHandButton from "@/components/Neotro/PlayHandButton";
-import CardState from "@/components/Neotro/PlayingCards/CardState";
-import PointsDetails from "@/components/Neotro/PointDetails";
-import NextRoundButton from "@/components/Neotro/NextRoundButton";
-import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
-import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
-import { PokerConfig } from '../PokerConfig';
-import { Button } from '@/components/ui/button';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { usePokerTable } from './context.tsx';
+import PointSelector from '../../../components/Neotro/PointSelector.tsx';
+import PlayingCard from '../../../components/Neotro/PlayingCards/PlayingCard.tsx';
+import PlayHandButton from '../../../components/Neotro/PlayHandButton.tsx';
+import CardState from '../../../components/Neotro/PlayingCards/CardState.tsx';
+import PointsDetails from '../../../components/Neotro/PointDetails.tsx';
+import NextRoundButton from '../../../components/Neotro/NextRoundButton.tsx';
+import HistoryNavigation from '../../../components/Neotro/HistoryNavigation.tsx';
+import { PokerSessionChat } from '../../../components/shared/PokerSessionChat.tsx';
+import { PokerConfig } from '../PokerConfig.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '../../../components/ui/drawer.tsx';
 import { Menu, MessageCircle, Send } from 'lucide-react';
-import { NextRoundDialog } from '../NextRoundDialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import useWindowSize from '@/hooks/use-window-size';
+import { NextRoundDialog } from '../NextRoundDialog.tsx';
+import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
+import useWindowSize from '../../../hooks/use-window-size.ts';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';

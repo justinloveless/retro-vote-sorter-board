@@ -1,5 +1,5 @@
-import { Database as GeneratedDatabase } from '@/integrations/supabase/types';
-import { Selections } from '@/hooks/usePokerSession';
+import { type Database as GeneratedDatabase } from '../integrations/supabase/types.ts';
+import { type Selections } from '../hooks/usePokerSession.ts';
 
 export type PokerSessionRow = GeneratedDatabase['public']['Tables']['poker_sessions']['Row'] & {
   selections: Selections;

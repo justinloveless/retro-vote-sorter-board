@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
 
 // Types
 interface TeamMember {
@@ -256,7 +256,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const base = (data || []) as TeamActionItem[];
       const boardIds = Array.from(new Set(base.map(i => i.source_board_id).filter(Boolean))) as string[];
-      let titleMap: Record<string, string> = {};
+      const titleMap: Record<string, string> = {};
       
       if (boardIds.length > 0) {
         const { data: boards } = await supabase

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
 

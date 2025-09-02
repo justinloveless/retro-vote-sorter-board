@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Send, Trash2, MessageSquare } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
-import { UserAvatar } from '@/components/ui/UserAvatar';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { useAuth } from '@/hooks/useAuth';
-import { useTeamData } from '@/contexts/TeamDataContext';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { TiptapEditorWithMentions, processMentionsForDisplay } from '../../components/shared/TiptapEditorWithMentions.tsx';
+import { UserAvatar } from '../../components/ui/UserAvatar.tsx';
+import { Dialog, DialogContent } from '../../components/ui/dialog.tsx';
+import { useAuth } from '../../hooks/useAuth.tsx';
+import { useTeamData } from '../../contexts/TeamDataContext.tsx';
 
 interface Props {
   sourceItemId: string; // retro_items.id

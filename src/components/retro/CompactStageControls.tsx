@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '../../components/ui/button.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
+import { Progress } from '../../components/ui/progress.tsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip.tsx';
 import { 
   Brain, 
   Vote, 
@@ -16,9 +16,9 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { RetroStage } from '@/hooks/useRetroBoard';
-import { useUserReadiness } from '@/hooks/useUserReadiness';
+import { cn } from '../../lib/utils.ts';
+import { type RetroStage } from '../../hooks/useRetroBoard.ts';
+import { useUserReadiness } from '../../hooks/useUserReadiness.ts';
 import { ReadinessTooltip } from './ReadinessTooltip';
 
 interface CompactStageControlsProps {
@@ -112,7 +112,7 @@ export const CompactStageControls: React.FC<CompactStageControlsProps> = ({
           const isUpcoming = index > currentIndex;
           
           // Determine if stage is clickable based on admin status and readiness enforcement
-          let isClickable = isAdmin && !enforceStageReadiness; // Never clickable when enforcement is on
+          const isClickable = isAdmin && !enforceStageReadiness; // Never clickable when enforcement is on
           let clickDisabledReason = '';
           
           if (isAdmin && enforceStageReadiness) {

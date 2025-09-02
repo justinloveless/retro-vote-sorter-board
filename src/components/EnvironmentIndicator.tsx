@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { currentEnvironment } from '@/config/environment';
+import { Badge } from '../components/ui/badge.tsx';
+import { currentEnvironment } from '../config/environment.ts';
 
 export const EnvironmentIndicator: React.FC = () => {
   // Only show in development environment

@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent } from '../components/ui/card.tsx';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
-import { UserAvatar } from '@/components/ui/UserAvatar';
-import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { UserAvatar } from '../components/ui/UserAvatar.tsx';
+import { TiptapEditorWithMentions, processMentionsForDisplay } from '../components/shared/TiptapEditorWithMentions.tsx';
+import { Dialog, DialogContent } from '../components/ui/dialog.tsx';
 
 interface RetroComment {
   id: string;

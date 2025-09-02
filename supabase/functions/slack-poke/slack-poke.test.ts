@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest } from 'jest/globals.ts';
 import { createClient } from '@supabase/supabase-js';
 
 // Mock Supabase client
@@ -118,14 +118,14 @@ describe('parseTicketFromText', () => {
   test('extracts ticket number from Jira URL', () => {
     const jiraUrl = 'https://company.atlassian.net/browse/PROJ-123';
     const result = parseTicketFromText(jiraUrl);
-    
+
     expect(result.ticketNumber).toBe('PROJ-123');
   });
 
   test('extracts ticket number from plain text', () => {
     const plainText = 'PROJ-123';
     const result = parseTicketFromText(plainText);
-    
+
     expect(result.ticketNumber).toBe('PROJ-123');
   });
 
@@ -161,7 +161,7 @@ describe('parseTicketFromText', () => {
   test('extracts from complex Jira URLs with parameters', () => {
     const complexUrl = 'https://company.atlassian.net/browse/PROJ-123?activeTab=some-tab&extra=params';
     const result = parseTicketFromText(complexUrl);
-    
+
     expect(result.ticketNumber).toBe('PROJ-123');
   });
 });
@@ -170,34 +170,34 @@ describe('generateAnonymousUserId', () => {
   test('generates consistent IDs for the same inputs', () => {
     const slackUserId = 'U123456';
     const teamId = 'team-abc-123';
-    
+
     const id1 = generateAnonymousUserId(slackUserId, teamId);
     const id2 = generateAnonymousUserId(slackUserId, teamId);
-    
+
     expect(id1).toBe(id2);
   });
 
   test('generates different IDs for different inputs', () => {
     const teamId = 'team-abc-123';
-    
+
     const id1 = generateAnonymousUserId('U123456', teamId);
     const id2 = generateAnonymousUserId('U789012', teamId);
-    
+
     expect(id1).not.toBe(id2);
   });
 
   test('generates different IDs for different teams', () => {
     const slackUserId = 'U123456';
-    
+
     const id1 = generateAnonymousUserId(slackUserId, 'team-1');
     const id2 = generateAnonymousUserId(slackUserId, 'team-2');
-    
+
     expect(id1).not.toBe(id2);
   });
 
   test('generates IDs with expected format', () => {
     const id = generateAnonymousUserId('U123456', 'team-123');
-    
+
     expect(id).toMatch(/^slack_[a-f0-9]+$/);
   });
 });
@@ -207,10 +207,10 @@ describe('verifySlackRequest', () => {
     const body = 'token=test&user_id=U123';
     const timestamp = '1609459200'; // Known timestamp
     const signature = 'v0=expected_valid_signature';
-    
+
     // Mock the verification to return true for this test
     const result = verifySlackRequest(body, signature, timestamp);
-    
+
     expect(typeof result).toBe('boolean');
   });
 
@@ -218,10 +218,10 @@ describe('verifySlackRequest', () => {
     const body = 'token=test&user_id=U123';
     const timestamp = '1609459200';
     const signature = 'v0=invalid_signature';
-    
+
     // This should return false when implemented
     const result = verifySlackRequest(body, signature, timestamp);
-    
+
     expect(typeof result).toBe('boolean');
   });
 
@@ -229,9 +229,9 @@ describe('verifySlackRequest', () => {
     const body = 'token=test&user_id=U123';
     const oldTimestamp = '1000000000'; // Very old timestamp
     const signature = 'v0=some_signature';
-    
+
     const result = verifySlackRequest(body, signature, oldTimestamp);
-    
+
     expect(result).toBe(false);
   });
 });
@@ -260,7 +260,7 @@ describe('findTeamByChannelId', () => {
     mockSupabase.single.mockResolvedValue({ data: mockTeam, error: null });
 
     const result = await findTeamByChannelId('C1234567890');
-    
+
     expect(result).toEqual(mockTeam);
     expect(mockSupabase.from).toHaveBeenCalledWith('teams');
     expect(mockSupabase.eq).toHaveBeenCalledWith('slack_channel_id', 'C1234567890');
@@ -270,14 +270,14 @@ describe('findTeamByChannelId', () => {
     mockSupabase.single.mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
 
     const result = await findTeamByChannelId('INVALID_CHANNEL');
-    
+
     expect(result).toBeNull();
   });
 
   test('throws error on database error', async () => {
-    mockSupabase.single.mockResolvedValue({ 
-      data: null, 
-      error: { message: 'Database connection failed' } 
+    mockSupabase.single.mockResolvedValue({
+      data: null,
+      error: { message: 'Database connection failed' }
     });
 
     await expect(findTeamByChannelId('C1234567890')).rejects.toThrow();
@@ -309,7 +309,7 @@ describe('getOrCreatePokerSession', () => {
     mockSupabase.single.mockResolvedValue({ data: mockSession, error: null });
 
     const result = await getOrCreatePokerSession('team-123');
-    
+
     expect(result).toEqual(mockSession);
     expect(mockSupabase.eq).toHaveBeenCalledWith('room_id', 'team-123');
   });
@@ -317,7 +317,7 @@ describe('getOrCreatePokerSession', () => {
   test('creates new session when none exists', async () => {
     // First call returns no session
     mockSupabase.single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
-    
+
     // Second call returns the created session
     const newSession: PokerSession = {
       id: 'session-new',
@@ -326,11 +326,11 @@ describe('getOrCreatePokerSession', () => {
       current_round_number: 0,
       created_at: new Date().toISOString()
     };
-    
+
     mockSupabase.single.mockResolvedValueOnce({ data: newSession, error: null });
 
     const result = await getOrCreatePokerSession('team-123');
-    
+
     expect(result).toEqual(newSession);
     expect(mockSupabase.insert).toHaveBeenCalled();
   });
@@ -365,7 +365,7 @@ describe('createNewRound', () => {
     mockSupabase.single.mockResolvedValue({ data: mockRound, error: null });
 
     const result = await createNewRound('session-123', 'PROJ-123', 'Test ticket');
-    
+
     expect(result).toEqual(mockRound);
     expect(mockSupabase.from).toHaveBeenCalledWith('poker_sessions');
     expect(mockSupabase.from).toHaveBeenCalledWith('poker_session_rounds');
@@ -388,7 +388,7 @@ describe('createNewRound', () => {
     mockSupabase.single.mockResolvedValue({ data: mockRound, error: null });
 
     const result = await createNewRound('session-123', null, null);
-    
+
     expect(result.ticket_number).toBeNull();
     expect(result.ticket_title).toBeNull();
   });
@@ -417,7 +417,7 @@ describe('processVote', () => {
     mockSupabase.single.mockResolvedValue({ data: mockUpdatedRound, error: null });
 
     await processVote('round-123', 'slack_abc123', 'John Doe', 5);
-    
+
     expect(mockSupabase.from).toHaveBeenCalledWith('poker_session_rounds');
     expect(mockSupabase.update).toHaveBeenCalled();
     expect(mockSupabase.eq).toHaveBeenCalledWith('id', 'round-123');
@@ -433,14 +433,14 @@ describe('processVote', () => {
     mockSupabase.single.mockResolvedValue({ data: mockUpdatedRound, error: null });
 
     await processVote('round-123', 'slack_abc123', 'John Doe', -1);
-    
+
     expect(mockSupabase.update).toHaveBeenCalled();
   });
 
   test('overwrites existing vote from same user', async () => {
     // First vote
     await processVote('round-123', 'slack_abc123', 'John Doe', 3);
-    
+
     // Second vote should overwrite
     const mockUpdatedRound = {
       selections: {
@@ -451,7 +451,7 @@ describe('processVote', () => {
     mockSupabase.single.mockResolvedValue({ data: mockUpdatedRound, error: null });
 
     await processVote('round-123', 'slack_abc123', 'John Doe', 8);
-    
+
     expect(mockSupabase.update).toHaveBeenCalled();
   });
 });
@@ -465,7 +465,7 @@ describe('generateVotingMessage', () => {
       {},
       'Voting'
     );
-    
+
     expect(message).toBeDefined();
     expect(message.blocks).toBeDefined();
     expect(JSON.stringify(message)).toContain('PROJ-123');
@@ -479,7 +479,7 @@ describe('generateVotingMessage', () => {
       {},
       'Voting'
     );
-    
+
     expect(message).toBeDefined();
     expect(message.blocks).toBeDefined();
   });
@@ -491,7 +491,7 @@ describe('generateVotingMessage', () => {
       {},
       'Voting'
     );
-    
+
     const messageStr = JSON.stringify(message);
     expect(messageStr).toContain('vote_1');
     expect(messageStr).toContain('vote_2');
@@ -515,7 +515,7 @@ describe('generateVotingMessage', () => {
       votes,
       'Voting'
     );
-    
+
     const messageStr = JSON.stringify(message);
     expect(messageStr).toContain('2 votes cast');
   });
@@ -532,7 +532,7 @@ describe('generateVotingMessage', () => {
       votes,
       'Playing'
     );
-    
+
     const messageStr = JSON.stringify(message);
     expect(messageStr).toContain('John: 5');
     expect(messageStr).toContain('Jane: 8');
@@ -552,7 +552,7 @@ describe('updateVotingMessage', () => {
     };
 
     const updatedMessage = updateVotingMessage(originalMessage, votes, 'Voting');
-    
+
     expect(updatedMessage).toBeDefined();
     expect(updatedMessage.blocks).toBeDefined();
   });
@@ -566,7 +566,7 @@ describe('updateVotingMessage', () => {
     };
 
     const updatedMessage = updateVotingMessage(originalMessage, {}, 'Playing');
-    
+
     expect(updatedMessage.blocks).toBeDefined();
     expect(Array.isArray(updatedMessage.blocks)).toBe(true);
   });
@@ -590,9 +590,9 @@ describe('Slack Command Integration', () => {
     };
 
     const response = await handleSlackCommand(mockSlackPayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseBody = await response.text();
     expect(responseBody).toContain('Poker Round Started');
   });
@@ -613,9 +613,9 @@ describe('Slack Command Integration', () => {
     };
 
     const response = await handleSlackCommand(mockSlackPayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseBody = await response.text();
     expect(responseBody).toContain('Poker Round Started');
   });
@@ -646,9 +646,9 @@ describe('Interactive Component Integration', () => {
     };
 
     const response = await handleInteractiveComponent(mockInteractivePayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseData = await response.json();
     expect(responseData.replace_original).toBe(true);
   });
@@ -677,7 +677,7 @@ describe('Interactive Component Integration', () => {
     };
 
     const response = await handleInteractiveComponent(mockInteractivePayload);
-    
+
     expect(response.status).toBe(200);
   });
 
@@ -705,9 +705,9 @@ describe('Interactive Component Integration', () => {
     };
 
     const response = await handleInteractiveComponent(mockInteractivePayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseData = await response.json();
     expect(responseData.replace_original).toBe(true);
   });
@@ -731,9 +731,9 @@ describe('Error Handling', () => {
     };
 
     const response = await handleSlackCommand(mockPayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseBody = await response.text();
     expect(responseBody).toMatch(/team not found|not configured/i);
   });
@@ -755,7 +755,7 @@ describe('Error Handling', () => {
 
     // This should fail signature verification
     const response = await handleSlackCommand(mockPayload);
-    
+
     expect(response.status).toBe(401);
   });
 
@@ -779,9 +779,9 @@ describe('Error Handling', () => {
     jest.spyOn(global, 'fetch').mockRejectedValue(new Error('Database connection failed'));
 
     const response = await handleSlackCommand(mockPayload);
-    
+
     expect(response.status).toBe(200);
-    
+
     const responseBody = await response.text();
     expect(responseBody).toMatch(/error occurred|something went wrong/i);
   });
@@ -820,7 +820,7 @@ describe('Error Handling', () => {
     // Both should succeed
     const response1 = await handleInteractiveComponent(user1Payload);
     const response2 = await handleInteractiveComponent(user2Payload);
-    
+
     expect(response1.status).toBe(200);
     expect(response2.status).toBe(200);
   });
@@ -846,16 +846,16 @@ describe('Edge Cases', () => {
   test('handles very long team and user IDs', () => {
     const longSlackUserId = 'U' + 'x'.repeat(50);
     const longTeamId = 'team-' + 'y'.repeat(100);
-    
+
     const id = generateAnonymousUserId(longSlackUserId, longTeamId);
-    
+
     expect(id).toMatch(/^slack_[a-f0-9]+$/);
     expect(id.length).toBeLessThan(255); // Database varchar limit
   });
 
   test('handles empty vote selections object', () => {
     const message = generateVotingMessage('PROJ-123', 'Test', {}, 'Voting');
-    
+
     expect(message).toBeDefined();
     const messageStr = JSON.stringify(message);
     expect(messageStr).toContain('0 votes cast');
@@ -864,7 +864,7 @@ describe('Edge Cases', () => {
   test('handles special characters in ticket titles', () => {
     const specialTitle = 'Fix bug with "quotes" & ampersands < > and unicode 🚀';
     const message = generateVotingMessage('PROJ-123', specialTitle, {}, 'Voting');
-    
+
     expect(message).toBeDefined();
     expect(JSON.stringify(message)).toContain('🚀');
   });

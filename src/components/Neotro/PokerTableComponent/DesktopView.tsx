@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { usePokerTable } from './context';
-import PointSelector from "@/components/Neotro/PointSelector";
-import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
-import PlayHandButton from "@/components/Neotro/PlayHandButton";
-import CardState from "@/components/Neotro/PlayingCards/CardState";
-import PointsDetails from "@/components/Neotro/PointDetails";
-import NextRoundButton from "@/components/Neotro/NextRoundButton";
-import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
-import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
-import { PokerConfig } from '../PokerConfig';
-import { Button } from '@/components/ui/button';
+import { usePokerTable } from './context.tsx';
+import PointSelector from '../../../components/Neotro/PointSelector.tsx';
+import PlayingCard from '../../../components/Neotro/PlayingCards/PlayingCard.tsx';
+import PlayHandButton from '../../../components/Neotro/PlayHandButton.tsx';
+import CardState from '../../../components/Neotro/PlayingCards/CardState.tsx';
+import PointsDetails from '../../../components/Neotro/PointDetails.tsx';
+import NextRoundButton from '../../../components/Neotro/NextRoundButton.tsx';
+import HistoryNavigation from '../../../components/Neotro/HistoryNavigation.tsx';
+import { PokerSessionChat } from '../../../components/shared/PokerSessionChat.tsx';
+import { PokerConfig } from '../PokerConfig.tsx';
+import { Button } from '../../../components/ui/button.tsx';
 import { Send } from 'lucide-react';
-import { PlayerSelection } from '@/hooks/usePokerSession';
+import { type PlayerSelection } from '../../../hooks/usePokerSession.ts';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 4) return 'grid-cols-4';
@@ -96,7 +96,7 @@ export const DesktopView: React.FC = () => {
                             />
                             <div className='flex justify-end pt-2'>
                                 <PokerConfig
-                                    config={{ 
+                                    config={{
                                         presence_enabled: 'presence_enabled' in session && session.presence_enabled,
                                         send_to_slack: 'send_to_slack' in session && session.send_to_slack
                                     }}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client.ts';
 
 export const useSlackIntegration = (teamId: string | null | undefined) => {
   const [isSlackInstalled, setIsSlackInstalled] = useState(false);

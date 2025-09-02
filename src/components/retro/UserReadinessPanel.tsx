@@ -1,12 +1,12 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
+import { Progress } from '../../components/ui/progress.tsx';
 import { CheckCircle, Clock, Users, UserCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { RetroStage } from '@/hooks/useRetroBoard';
-import { useUserReadiness } from '@/hooks/useUserReadiness';
+import { cn } from '../../lib/utils.ts';
+import { type RetroStage } from '../../hooks/useRetroBoard.ts';
+import { useUserReadiness } from '../../hooks/useUserReadiness.ts';
 
 interface UserReadinessPanelProps {
   boardId: string;

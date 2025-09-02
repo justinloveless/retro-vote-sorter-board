@@ -1,13 +1,13 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { Label } from '../components/ui/label.tsx';
 import { useNavigate } from "react-router-dom";
 import { Users, User, LogIn, ClipboardList, Spade } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useTheme } from '../contexts/ThemeContext.tsx';
 import { useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { AppHeader } from '../components/AppHeader.tsx';
 
 const Index = () => {
   const navigate = useNavigate();

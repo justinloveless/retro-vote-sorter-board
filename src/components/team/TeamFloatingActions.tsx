@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../components/ui/button.tsx';
 import { Plus, Spade, Settings } from 'lucide-react';
 
 interface TeamFloatingActionsProps {

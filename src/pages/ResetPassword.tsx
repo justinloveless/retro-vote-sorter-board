@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { GlobalBackground } from '@/components/ui/GlobalBackground';
-import { AppHeader } from '@/components/AppHeader';
+import { Button } from '../components/ui/button.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
+import { GlobalBackground } from '../components/ui/GlobalBackground.tsx';
+import { AppHeader } from '../components/AppHeader.tsx';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -30,9 +30,9 @@ const ResetPassword = () => {
             console.log('Hash parameters:', Object.fromEntries(hashParams.entries()));
 
             // Check if we have the necessary URL parameters for password reset
-            let accessToken = searchParams.get('access_token') || hashParams.get('access_token');
-            let refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
-            let type = searchParams.get('type') || hashParams.get('type');
+            const accessToken = searchParams.get('access_token') || hashParams.get('access_token');
+            const refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
+            const type = searchParams.get('type') || hashParams.get('type');
 
             console.log('Password reset parameters:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { Button } from '../../components/ui/button.tsx';
+import { useAuth } from '../../hooks/useAuth.tsx';
 import { ArrowLeft, User, LogOut, Shield } from 'lucide-react';
 
 export const NeotroHeader: React.FC = () => {

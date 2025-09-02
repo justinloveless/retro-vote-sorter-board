@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { usePokerSession } from '@/hooks/usePokerSession';
-import PokerTable from '@/components/Neotro/PokerTable';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePokerSession } from '../hooks/usePokerSession.ts';
+import PokerTable from '../components/Neotro/PokerTable.tsx';
+import { Button } from '../components/ui/button.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
 import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '../hooks/use-toast.ts';
 import { Copy, ArrowLeft, Home, LogIn, Menu } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { AppHeader } from '@/components/AppHeader';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { AppHeader } from '../components/AppHeader.tsx';
+import { useIsMobile } from '../hooks/use-mobile.tsx';
 
 // Helper function to get or create anonymous user identity
 const getAnonymousUser = () => {

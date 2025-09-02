@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button.tsx';
 import { Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
-import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
-import { useTeamData } from '@/contexts/TeamDataContext';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { processMentionsForDisplay } from '../../components/shared/TiptapEditorWithMentions.tsx';
+import { TeamActionItemsComments } from '../../components/team/TeamActionItemsComments.tsx';
+import { useTeamData } from '../../contexts/TeamDataContext.tsx';
 
 interface TeamActionItemsProps {
   teamId: string;

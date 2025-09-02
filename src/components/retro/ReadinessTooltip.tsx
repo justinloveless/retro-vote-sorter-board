@@ -1,6 +1,6 @@
 import React from 'react';
-import { UserAvatar } from '@/components/ui/UserAvatar';
-import { Badge } from '@/components/ui/badge';
+import { UserAvatar } from '../../components/ui/UserAvatar.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
 import { CheckCircle, Clock } from 'lucide-react';
 
 interface ReadinessTooltipProps {

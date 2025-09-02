@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
 
 export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { JiraIssueDrawer } from "./JiraIssueDrawer";
-import { supabase } from "@/integrations/supabase/client";
+import { JiraIssueDrawer } from "./JiraIssueDrawer.tsx";
+import { supabase } from '../../integrations/supabase/client.ts';
 import { ExternalLink } from "lucide-react";
 
 // Data for point details

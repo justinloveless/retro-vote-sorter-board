@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '../../components/ui/button.tsx';
+import { Input } from '../../components/ui/input.tsx';
 import { Edit, LogOut, Moon, Sun, Home, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext.tsx';
 import { ActiveUsers } from '../ActiveUsers';
 import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';

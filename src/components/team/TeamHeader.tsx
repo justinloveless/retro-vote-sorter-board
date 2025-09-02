@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../components/ui/button.tsx';
 import { ArrowLeft, Settings, Plus, Users, Spade } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
 
 interface TeamHeaderProps {
   team: {

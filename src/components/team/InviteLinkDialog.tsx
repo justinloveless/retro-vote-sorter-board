@@ -1,13 +1,13 @@
 
 import React, { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Button } from '../../components/ui/button.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { Label } from '../../components/ui/label.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog.tsx';
 import { Link, Copy, Check, Plus, Power, PowerOff, Trash2, Clock } from 'lucide-react';
-import { useInviteLinks } from '@/hooks/useInviteLinks';
+import { useInviteLinks } from '../../hooks/useInviteLinks.ts';
 
 interface InviteLinkDialogProps {
   open: boolean;

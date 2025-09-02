@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
+import { Label } from '../../components/ui/label.tsx';
+import { Switch } from '../../components/ui/switch.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { Plus, Trash2, Settings2, Star, Edit2 } from 'lucide-react';
-import { useBoardTemplates } from '@/hooks/useBoardTemplates';
+import { useBoardTemplates } from '../../hooks/useBoardTemplates.ts';
 
 interface BoardTemplatesSettingsProps {
   teamId: string;

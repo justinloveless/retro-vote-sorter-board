@@ -1,9 +1,9 @@
-import { PokerSessionState } from "@/hooks/usePokerSession";
+import { type PokerSessionState } from '../../hooks/usePokerSession.ts';
 import React, { useState } from "react";
 import { PokerTableProvider } from "./PokerTableComponent/context";
 import { PokerTableContent } from "./PokerTableComponent";
 import { NextRoundDialog } from "./NextRoundDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
 
 interface PokerTableProps {
     session: PokerSessionState | null;

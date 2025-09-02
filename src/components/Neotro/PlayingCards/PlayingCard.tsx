@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import ReactCardFlip from "../ReactCardFlip";
-import CardState from "./CardState";
-import { getCardImage } from "./cardImage";
-import backCardImage from "@/assets/Card_Back.png";
-import { useIsMobile } from "@/hooks/use-mobile";
+import ReactCardFlip from "../ReactCardFlip.tsx";
+import CardState from "./CardState.tsx";
+import { getCardImage } from "./cardImage.ts";
+import backCardImage from '../../../assets/Card_Back.png';
+import { useIsMobile } from '../../../hooks/use-mobile.tsx';
 
 // Define the possible states of the card
 
@@ -66,12 +66,12 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       }, 300); // Small delay to allow flip animation to start before translation
     } else if (cardState === CardState.Locked) {
       setIsFlipped(false); // Ensure it's not flipped in Locked state
-      setTranslateY(`-translate-y-1/4`); 
+      setTranslateY(`-translate-y-1/4`);
     } else if (cardState === CardState.Played) {
       // When entering Played state, translate and then flip
       // Reduce translation distance for many players to keep cards visible
       const translateDistance = totalPlayers > 8 ? "-translate-y-1/4" : (isMobile ? "-translate-y-1/4" : `-translate-y-3/4`);
-      setTranslateY(translateDistance); 
+      setTranslateY(translateDistance);
       flipDelay = setTimeout(() => {
         setIsFlipped(true);
       }, 300); // Small delay to allow translation animation to start before flip
@@ -87,7 +87,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 
 
   return (
-        <div
+    <div
       ref={cardRef}
       className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''} z-0 hover:z-10 mb-8 md:mb-0`}
       style={{
@@ -97,9 +97,9 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       onMouseEnter={() => {
         if (playerNameRef.current) {
           const rect = playerNameRef.current.getBoundingClientRect();
-          setPortalPosition({ 
-            x: rect.left + rect.width / 2, 
-            y: rect.top + rect.height / 2 
+          setPortalPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
           });
           setShowPortalName(true);
         }
@@ -110,7 +110,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
     >
       <div className="absolute top-full w-full pt-1">
         <div className="flex items-center justify-center">
-          <div 
+          <div
             ref={playerNameRef}
             className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full relative ${showPortalName ? 'opacity-0' : ''}`}
             style={{ backdropFilter: 'blur(2px)' }}
@@ -119,10 +119,10 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
           </div>
         </div>
       </div>
-            {showPortalName && createPortal(
-        <div 
+      {showPortalName && createPortal(
+        <div
           className="fixed pointer-events-none"
-          style={{ 
+          style={{
             left: portalPosition.x,
             top: portalPosition.y,
             transform: 'translate(-50%, -50%)',
@@ -131,7 +131,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         >
           <div
             className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
-            style={{ 
+            style={{
               backdropFilter: 'blur(2px)',
               transform: 'translateY(-16px)',
               transition: 'transform 0.2s ease-in-out'

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
-import { TtsUrlManager } from '@/components/admin/TtsUrlManager';
-import { GithubIssueSettings } from '@/components/admin/GithubIssueSettings';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { FeatureFlagManager } from '../components/admin/FeatureFlagManager.tsx';
+import { TtsUrlManager } from '../components/admin/TtsUrlManager.tsx';
+import { GithubIssueSettings } from '../components/admin/GithubIssueSettings.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Button } from '../components/ui/button.tsx';
 import { ArrowLeft } from 'lucide-react';
-import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
-import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
+import { BackfillActionItems } from '../components/admin/BackfillActionItems.tsx';
+import { ImpersonateUser } from '../components/admin/ImpersonateUser.tsx';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();

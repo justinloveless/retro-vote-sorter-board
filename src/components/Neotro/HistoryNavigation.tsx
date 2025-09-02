@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../components/ui/button.tsx';
 import { ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '../../hooks/use-mobile.tsx';
 
 interface HistoryNavigationProps {
   currentRoundNumber: number;

@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { Button } from '../../components/ui/button.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group.tsx';
+import { Label } from '../../components/ui/label.tsx';
 import { Lock } from 'lucide-react';
 
 interface CreateBoardDialogProps {

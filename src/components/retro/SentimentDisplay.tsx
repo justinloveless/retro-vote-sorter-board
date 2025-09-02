@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { useToast } from '../../hooks/use-toast.ts';
+import { useFeatureFlags } from '../../contexts/FeatureFlagContext.tsx';
 
 interface SentimentDisplayProps {
   items: any[];

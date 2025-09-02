@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle, Circle, Users, Vote, MessageSquare, Archive } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { RetroStage } from '@/hooks/useRetroBoard';
+import { cn } from '../../lib/utils.ts';
+import { type RetroStage } from '../../hooks/useRetroBoard.ts';
 
 interface StageInfo {
   key: RetroStage;

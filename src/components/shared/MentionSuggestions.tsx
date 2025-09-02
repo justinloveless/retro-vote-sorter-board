@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { UserAvatar } from '@/components/ui/UserAvatar';
+import { Card, CardContent } from '../../components/ui/card.tsx';
+import { UserAvatar } from '../../components/ui/UserAvatar.tsx';
 
 interface TeamMember {
     id: string;

@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '../components/ui/button.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { Textarea } from '../components/ui/textarea.tsx';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
 import { Github } from 'lucide-react';
 
 interface Props { }

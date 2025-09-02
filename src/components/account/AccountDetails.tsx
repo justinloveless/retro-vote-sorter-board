@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '../../components/ui/button.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { Label } from '../../components/ui/label.tsx';
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar.tsx';
 import { User } from 'lucide-react';
-import { Profile } from '@/hooks/useAuth';
-import { AvatarUploader } from '@/components/account/AvatarUploader';
-import { supabase } from '@/integrations/supabase/client';
+import { type Profile } from '../../hooks/useAuth.tsx';
+import { AvatarUploader } from '../../components/account/AvatarUploader.tsx';
+import { supabase } from '../../integrations/supabase/client.ts';
 
 interface AccountDetailsProps {
     user: any;

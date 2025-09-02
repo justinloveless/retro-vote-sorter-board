@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button } from '../components/ui/button.tsx';
 import { ArrowLeft, Save } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { AuthForm } from '@/components/AuthForm';
-import { TeamSettingsForm, TeamSettings } from '@/components/team/TeamSettingsForm';
-import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings';
-import { DangerZone } from '@/components/team/DangerZone';
-import { supabase } from '@/integrations/supabase/client';
-import { JiraSettingsForm, JiraSettings } from '@/components/team/JiraSettingsForm';
-import { AppHeader } from '@/components/AppHeader';
+import { useToast } from '../hooks/use-toast.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { AuthForm } from '../components/AuthForm.tsx';
+import { TeamSettingsForm, type TeamSettings } from '../components/team/TeamSettingsForm.tsx';
+import { BoardTemplatesSettings } from '../components/team/BoardTemplatesSettings.tsx';
+import { DangerZone } from '../components/team/DangerZone.tsx';
+import { supabase } from '../integrations/supabase/client.ts';
+import { JiraSettingsForm, type JiraSettings } from '../components/team/JiraSettingsForm.tsx';
+import { AppHeader } from '../components/AppHeader.tsx';
 
 const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();

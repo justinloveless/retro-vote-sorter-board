@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { PlayerSelection, PokerSessionState } from '@/hooks/usePokerSession';
-import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
-import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
-import { useSlackIntegration } from '@/hooks/useSlackIntegration';
-import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
-import { PokerSessionConfig } from '../PokerConfig';
-import { ReactNode, Dispatch, SetStateAction } from 'react';
+import { type PlayerSelection, type PokerSessionState } from '../../../hooks/usePokerSession.ts';
+import { usePokerSessionHistory, type PokerSessionRound } from '../../../hooks/usePokerSessionHistory.ts';
+import { usePokerSessionChat } from '../../../hooks/usePokerSessionChat.ts';
+import { useSlackIntegration } from '../../../hooks/useSlackIntegration.ts';
+import { usePokerSlackNotification } from '../../../hooks/usePokerSlackNotification.ts';
+import { type ReactNode, type Dispatch, type SetStateAction } from 'react';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;

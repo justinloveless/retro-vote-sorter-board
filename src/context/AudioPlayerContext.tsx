@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { currentEnvironment } from '@/config/environment';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client.ts';
+import { currentEnvironment } from '../config/environment.ts';
+import { useToast } from '../hooks/use-toast.ts';
 
 export type AudioPlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 

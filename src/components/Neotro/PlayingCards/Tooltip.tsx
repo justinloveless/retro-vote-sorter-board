@@ -1,5 +1,5 @@
 import React from "react";
-import CardState from "./CardState";
+import CardState from "./CardState.tsx";
 
 // Define the props for the Tooltip component
 interface TooltipProps {

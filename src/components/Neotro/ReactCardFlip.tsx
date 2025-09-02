@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useEffect, useState, useMemo } from "react";
 
-import { ReactFlipCardProps } from "@/types/index";
+import { type ReactFlipCardProps } from "../../types/index.ts";
 
 const ReactCardFlip: React.FC<ReactFlipCardProps> = (props) => {
   const {
@@ -56,18 +56,14 @@ const ReactCardFlip: React.FC<ReactFlipCardProps> = (props) => {
     return props.children[key];
   };
 
-  const frontRotateY = `rotateY(${
-    infinite ? rotation : isFlipped ? 180 : 0
-  }deg)`;
-  const backRotateY = `rotateY(${
-    infinite ? rotation + 180 : isFlipped ? 0 : -180
-  }deg)`;
-  const frontRotateX = `rotateX(${
-    infinite ? rotation : isFlipped ? 180 : 0
-  }deg)`;
-  const backRotateX = `rotateX(${
-    infinite ? rotation + 180 : isFlipped ? 0 : -180
-  }deg)`;
+  const frontRotateY = `rotateY(${infinite ? rotation : isFlipped ? 180 : 0
+    }deg)`;
+  const backRotateY = `rotateY(${infinite ? rotation + 180 : isFlipped ? 0 : -180
+    }deg)`;
+  const frontRotateX = `rotateX(${infinite ? rotation : isFlipped ? 180 : 0
+    }deg)`;
+  const backRotateX = `rotateX(${infinite ? rotation + 180 : isFlipped ? 0 : -180
+    }deg)`;
 
   const styles: any = {
     back: {

@@ -24,6 +24,27 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      // Enforce relative imports with file extensions
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*"],
+              message: "Use relative imports with file extensions instead of @/ aliases"
+            }
+          ]
+        }
+      ],
+      // Enforce file extensions in imports
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          disallowTypeAnnotations: false,
+          fixStyle: "inline-type-imports"
+        }
+      ]
     },
   }
 );

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
 import { Selections } from './usePokerSession';
-import { GameState } from './usePokerSession';
+import { type GameState } from './usePokerSession';
 
 export interface PokerSessionRound {
   id: string;

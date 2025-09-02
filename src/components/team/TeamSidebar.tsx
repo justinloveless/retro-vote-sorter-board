@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Users, Calendar, FolderOpen, Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { Button } from '../../components/ui/button.tsx';
+import { processMentionsForDisplay } from '../../components/shared/TiptapEditorWithMentions.tsx';
+import { useTeamMembers } from '../../hooks/useTeamMembers.ts';
 
 interface TeamSidebarProps {
   team: {

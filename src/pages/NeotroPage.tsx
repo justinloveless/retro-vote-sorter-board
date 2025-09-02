@@ -1,13 +1,13 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import PokerTable from "@/components/Neotro/PokerTable";
-import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
-import { useAuth } from '@/hooks/useAuth';
-import { usePokerSession } from '@/hooks/usePokerSession';
-import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
-import { AppHeader } from '@/components/AppHeader';
+import PokerTable from '../components/Neotro/PokerTable.tsx';
+import { NeotroHeader } from '../components/Neotro/NeotroHeader.tsx';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { usePokerSession } from '../hooks/usePokerSession.ts';
+import { usePokerSessionHistory } from '../hooks/usePokerSessionHistory.ts';
+import { AppHeader } from '../components/AppHeader.tsx';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client.ts';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();

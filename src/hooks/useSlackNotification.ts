@@ -1,7 +1,7 @@
 
 import { useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client.ts';
+import { useToast } from '../hooks/use-toast.ts';
 
 export const useSlackNotification = () => {
   const { toast } = useToast();

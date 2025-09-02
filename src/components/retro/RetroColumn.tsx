@@ -1,20 +1,20 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
 import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
 import { UserAvatar } from '../ui/UserAvatar';
-import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { useFeatureFlags } from '../../contexts/FeatureFlagContext.tsx';
 
 
-import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';
+import { type AudioSummaryState, type RetroStage } from '../../hooks/useRetroBoard.ts';
 import { SummaryButton } from './SummaryButton';
 import { TiptapEditorWithMentions, processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '../../components/ui/dialog.tsx';
 
 interface RetroItem {
   id: string;

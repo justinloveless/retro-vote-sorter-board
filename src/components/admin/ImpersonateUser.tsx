@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { useAuth } from '../../hooks/useAuth.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar.tsx';
+import { useToast } from '../../hooks/use-toast.ts';
 import { Loader2, X } from 'lucide-react';
 
 type ProfileRow = {

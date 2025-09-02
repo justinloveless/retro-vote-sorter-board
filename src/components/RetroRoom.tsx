@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RetroBoard } from './RetroBoard';
 import { AuthForm } from './AuthForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useSlackNotification } from '@/hooks/useSlackNotification';
-import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog.tsx';
+import { useToast } from '../hooks/use-toast.ts';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useSlackNotification } from '../hooks/useSlackNotification.ts';
+import { supabase } from '../integrations/supabase/client.ts';
 import { PasswordDialog } from './retro/PasswordDialog';
 import { ShareDialog } from './retro/ShareDialog';
 import { FloatingButtons } from './retro/FloatingButtons';
-import { useRoomAccess } from '@/hooks/useRoomAccess';
+import { useRoomAccess } from '../hooks/useRoomAccess.ts';
 import { BoardNotFound } from './retro/BoardNotFound';
 import { AppHeader } from './AppHeader';
 

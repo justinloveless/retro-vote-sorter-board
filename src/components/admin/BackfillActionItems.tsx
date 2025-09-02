@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { supabase } from '../../integrations/supabase/client.ts';
 
 export const BackfillActionItems: React.FC = () => {
   const [running, setRunning] = useState(false);

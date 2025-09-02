@@ -6,9 +6,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+} from '../../components/ui/dialog.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { Button } from '../../components/ui/button.tsx';
 
 interface NextRoundDialogProps {
   isOpen: boolean;

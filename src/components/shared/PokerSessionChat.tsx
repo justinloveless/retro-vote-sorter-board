@@ -1,30 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '../../components/ui/button.tsx';
+import { ScrollArea } from '../../components/ui/scroll-area.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Send, MessageCircle, Smile, CornerUpLeft, X, ChevronDown } from 'lucide-react';
-import type { ChatMessage } from '@/hooks/usePokerSessionChat';
-import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
-import { Badge } from '@/components/ui/badge';
+import type { ChatMessage } from '../../hooks/usePokerSessionChat.ts';
+import { usePokerTable } from '../../components/Neotro/PokerTableComponent/context.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
 import { processMentionsForDisplay } from './TiptapEditorWithMentions';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+} from '../../components/ui/collapsible.tsx';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '../../components/ui/tooltip.tsx';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+} from '../../components/ui/dialog.tsx';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { TiptapEditor } from './TiptapEditor';
 import { QuickReactionPicker } from './QuickReactionPicker';
 

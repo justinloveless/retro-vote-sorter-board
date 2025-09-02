@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
 import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X, Lock } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useTeams } from '@/hooks/useTeams';
-import { useTheme } from '@/contexts/ThemeContext';
-import { AuthForm } from '@/components/AuthForm';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { BackgroundSettings } from '@/components/account/BackgroundSettings';
-import { AppHeader } from '@/components/AppHeader';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AvatarUploader } from '@/components/account/AvatarUploader';
+import { useAuth } from '../hooks/useAuth.tsx';
+import { useTeams } from '../hooks/useTeams.ts';
+import { useTheme } from '../contexts/ThemeContext.tsx';
+import { AuthForm } from '../components/AuthForm.tsx';
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group.tsx'
+import { Label } from '../components/ui/label.tsx'
+import { BackgroundSettings } from '../components/account/BackgroundSettings.tsx';
+import { AppHeader } from '../components/AppHeader.tsx';
+import { Input } from '../components/ui/input.tsx';
+import { useToast } from '../hooks/use-toast.ts';
+import { supabase } from '../integrations/supabase/client.ts';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.tsx';
+import { AvatarUploader } from '../components/account/AvatarUploader.tsx';
 
 const Account = () => {
   const navigate = useNavigate();

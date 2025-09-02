@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button.tsx';
 import { ClipboardList, Check } from 'lucide-react';
 
 interface PreviousActionItemsColumnProps {
@@ -11,8 +11,8 @@ interface PreviousActionItemsColumnProps {
   teamMembers?: { user_id: string; profiles?: { full_name: string | null } | null }[];
   teamId?: string | null;
 }
-import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
-import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
+import { processMentionsForDisplay } from '../../components/shared/TiptapEditorWithMentions.tsx';
+import { TeamActionItemsComments } from '../../components/team/TeamActionItemsComments.tsx';
 
 export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps> = ({ items, onMarkDone, onAssign, isArchived, teamMembers = [], teamId }) => {
   return (

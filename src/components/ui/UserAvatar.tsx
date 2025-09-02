@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar.tsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip.tsx';
+import { useAuth } from '../../hooks/useAuth.tsx';
+import { supabase } from '../../integrations/supabase/client.ts';
 
 interface UserAvatarProps {
     userId?: string | null;
