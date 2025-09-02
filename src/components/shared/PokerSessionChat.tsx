@@ -25,8 +25,8 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog.tsx';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
-import { TiptapEditor } from './TiptapEditor';
-import { QuickReactionPicker } from './QuickReactionPicker';
+import { TiptapEditor } from './TiptapEditor.tsx';
+import { QuickReactionPicker } from './QuickReactionPicker.tsx';
 
 interface PokerSessionChatProps {
   isCollapsible?: boolean;
