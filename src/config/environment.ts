@@ -7,8 +7,8 @@ interface EnvironmentConfig {
 }
 
 // Read from Vite env at build time
-const ENV_SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
-const ENV_SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+const ENV_SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL as string | undefined;
+const ENV_SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 // Default to production configuration (expects env to be provided in CI/deploy)
 const productionConfig: EnvironmentConfig = {
@@ -26,6 +26,12 @@ const developmentConfig: EnvironmentConfig = {
 
 // Detect environment based on hostname or explicit environment variable
 const getEnvironment = (): 'development' | 'production' => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || !window.location) {
+    // Server-side or during build time, default to production
+    return 'production';
+  }
+
   const hostname = window.location.hostname;
 
   // Check if we're on localhost or a development domain
