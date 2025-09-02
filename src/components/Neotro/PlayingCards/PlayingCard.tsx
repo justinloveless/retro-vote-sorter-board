@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import ReactCardFlip from "../ReactCardFlip.tsx";
 import CardState from "./CardState.tsx";
 import { getCardImage } from "./cardImage.ts";
-import backCardImage from '../../../assets/Card_Back.png';
+const backCardImage = new URL('../../../assets/Card_Back.png', import.meta.url).href;
 import { useIsMobile } from '../../../hooks/use-mobile.tsx';
 
 // Define the possible states of the card

@@ -1,23 +1,14 @@
-import card1pt from '../../../assets/Card_1pts.png';
-import card2pt from '../../../assets/Card_2pts.png';
-import card3pt from '../../../assets/Card_3pts.png';
-import card5pt from '../../../assets/Card_5pts.png';
-import card8pt from '../../../assets/Card_8pts.png';
-import card13pt from '../../../assets/Card_13pts.png';
-import card21pt from '../../../assets/Card_21pts.png';
-import cardAbstained from '../../../assets/Card_Abstained.png';
-
 const cardImages: { [key: number]: string } = {
-  1: card1pt,
-  2: card2pt,
-  3: card3pt,
-  5: card5pt,
-  8: card8pt,
-  13: card13pt,
-  21: card21pt,
-  "-1": cardAbstained,
+  1: new URL('../../../assets/Card_1pts.png', import.meta.url).href,
+  2: new URL('../../../assets/Card_2pts.png', import.meta.url).href,
+  3: new URL('../../../assets/Card_3pts.png', import.meta.url).href,
+  5: new URL('../../../assets/Card_5pts.png', import.meta.url).href,
+  8: new URL('../../../assets/Card_8pts.png', import.meta.url).href,
+  13: new URL('../../../assets/Card_13pts.png', import.meta.url).href,
+  21: new URL('../../../assets/Card_21pts.png', import.meta.url).href,
+  "-1": new URL('../../../assets/Card_Abstained.png', import.meta.url).href,
 };
 
 export function getCardImage(points: number): string {
-  return cardImages[points] || cardAbstained;
+  return cardImages[points] || cardImages["-1"];
 } 
