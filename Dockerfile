@@ -13,6 +13,7 @@ ENV VITE_SITE_URL=$SITE_URL
 RUN npm run build
 # Ensure dist directory exists and has proper permissions
 RUN ls -la dist/
+# dummy change to trigger build
 
 FROM nginx:stable-alpine
 WORKDIR /usr/share/nginx/html
