@@ -140,7 +140,7 @@ serve(async (req: Request) => {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `*<${(Deno.env.get('SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '')}/retro/${roomId}|Join the retro>*`,
+            text: `*<${(Deno.env.get('VITE_SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '')}/retro/${roomId}|Join the retro>*`,
           },
         },
       ],

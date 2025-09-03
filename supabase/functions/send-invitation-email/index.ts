@@ -29,7 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending invitation email to:", email, "for team:", teamName);
 
-    const siteUrl = (Deno.env.get('SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '');
+    const siteUrl = (Deno.env.get('VITE_SITE_URL') || req.headers.get('origin') || 'http://localhost:3000').replace(/\/$/, '');
     const inviteLink = `${siteUrl}/invite/${token}`;
 
     const emailResponse = await resend.emails.send({

@@ -12,8 +12,8 @@ const ENV_SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY as string 
 
 // Default to production configuration (expects env to be provided in CI/deploy)
 const productionConfig: EnvironmentConfig = {
-  supabaseUrl: ENV_SUPABASE_URL || '',
-  supabaseAnonKey: ENV_SUPABASE_ANON_KEY || '',
+  supabaseUrl: ENV_SUPABASE_URL || 'http://test-app-supabase-5f3402-178-156-151-60.traefik.me',
+  supabaseAnonKey: ENV_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTY4Mjc5MzcsImV4cCI6MTg5MzQ1NjAwMCwiaXNzIjoiZG9rcGxveSJ9.603AiFduLpZH30E6b4UYIOmF-Bw4FZG323rSWfzEwZA',
   environment: 'production'
 };
 
