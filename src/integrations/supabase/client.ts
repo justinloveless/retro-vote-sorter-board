@@ -7,6 +7,15 @@ import { currentEnvironment } from '../../config/environment.ts';
 const SUPABASE_URL = currentEnvironment.supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY = currentEnvironment.supabaseAnonKey;
 
+// Validate required environment variables
+if (!SUPABASE_URL) {
+    throw new Error('VITE_SUPABASE_URL environment variable is required but not set');
+}
+
+if (!SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error('VITE_SUPABASE_ANON_KEY environment variable is required but not set');
+}
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 export const currentEnv = currentEnvironment.environment;
