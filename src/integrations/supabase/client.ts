@@ -7,6 +7,8 @@ import { currentEnvironment } from '../../config/environment.ts';
 const SUPABASE_URL = currentEnvironment.supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY = currentEnvironment.supabaseAnonKey;
 
+console.log('currentEnvironment', currentEnvironment);
+
 // Validate required environment variables
 if (!SUPABASE_URL) {
     throw new Error('VITE_SUPABASE_URL environment variable is required but not set');
