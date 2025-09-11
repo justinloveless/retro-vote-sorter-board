@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -64,51 +64,54 @@ export type Database = {
       board_templates: {
         Row: {
           allow_anonymous: boolean | null
+          allow_self_votes: boolean | null
           created_at: string
+          enforce_stage_readiness: boolean | null
           id: string
           is_default: boolean | null
           max_votes_per_user: number | null
           name: string
-          enforce_stage_readiness: boolean | null
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           team_id: string | null
+          tenant_id: string | null
           updated_at: string
-          voting_enabled: boolean | null
-          allow_self_votes: boolean | null
           vote_emoji: string | null
+          voting_enabled: boolean | null
         }
         Insert: {
           allow_anonymous?: boolean | null
+          allow_self_votes?: boolean | null
           created_at?: string
+          enforce_stage_readiness?: boolean | null
           id?: string
           is_default?: boolean | null
           max_votes_per_user?: number | null
           name: string
-          enforce_stage_readiness?: boolean | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           team_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
-          voting_enabled?: boolean | null
-          allow_self_votes?: boolean | null
           vote_emoji?: string | null
+          voting_enabled?: boolean | null
         }
         Update: {
           allow_anonymous?: boolean | null
+          allow_self_votes?: boolean | null
           created_at?: string
+          enforce_stage_readiness?: boolean | null
           id?: string
           is_default?: boolean | null
           max_votes_per_user?: number | null
           name?: string
-          enforce_stage_readiness?: boolean | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           team_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
-          voting_enabled?: boolean | null
-          allow_self_votes?: boolean | null
           vote_emoji?: string | null
+          voting_enabled?: boolean | null
         }
         Relationships: [
           {
@@ -116,6 +119,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -135,6 +145,45 @@ export type Database = {
           description?: string | null
           flag_name?: string
           is_enabled?: boolean
+        }
+        Relationships: []
+      }
+      feedback_reports: {
+        Row: {
+          created_at: string
+          description: string
+          email: string | null
+          github_issue_url: string | null
+          id: string
+          page_url: string | null
+          status: string
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          email?: string | null
+          github_issue_url?: string | null
+          id?: string
+          page_url?: string | null
+          status?: string
+          title: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          email?: string | null
+          github_issue_url?: string | null
+          id?: string
+          page_url?: string | null
+          status?: string
+          title?: string
+          type?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -357,6 +406,7 @@ export type Database = {
           full_name: string | null
           id: string
           role: string
+          tenant_id: string | null
           theme_preference: string | null
           updated_at: string | null
         }
@@ -367,6 +417,7 @@ export type Database = {
           full_name?: string | null
           id: string
           role?: string
+          tenant_id?: string | null
           theme_preference?: string | null
           updated_at?: string | null
         }
@@ -377,14 +428,42 @@ export type Database = {
           full_name?: string | null
           id?: string
           role?: string
+          tenant_id?: string | null
           theme_preference?: string | null
           updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      realtime_demo: {
+        Row: {
+          created_at: string
+          id: string
+          payload: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: string
         }
         Relationships: []
       }
       retro_board_config: {
         Row: {
           allow_anonymous: boolean | null
+          allow_self_votes: boolean | null
           board_id: string
           created_at: string
           enforce_stage_readiness: boolean | null
@@ -393,10 +472,12 @@ export type Database = {
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           updated_at: string
+          vote_emoji: string | null
           voting_enabled: boolean | null
         }
         Insert: {
           allow_anonymous?: boolean | null
+          allow_self_votes?: boolean | null
           board_id: string
           created_at?: string
           enforce_stage_readiness?: boolean | null
@@ -405,10 +486,12 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           updated_at?: string
+          vote_emoji?: string | null
           voting_enabled?: boolean | null
         }
         Update: {
           allow_anonymous?: boolean | null
+          allow_self_votes?: boolean | null
           board_id?: string
           created_at?: string
           enforce_stage_readiness?: boolean | null
@@ -417,6 +500,7 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           updated_at?: string
+          vote_emoji?: string | null
           voting_enabled?: boolean | null
         }
         Relationships: [
@@ -485,6 +569,7 @@ export type Database = {
           retro_stage: string | null
           room_id: string
           team_id: string | null
+          tenant_id: string | null
           title: string
           updated_at: string | null
         }
@@ -501,6 +586,7 @@ export type Database = {
           retro_stage?: string | null
           room_id: string
           team_id?: string | null
+          tenant_id?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -517,6 +603,7 @@ export type Database = {
           retro_stage?: string | null
           room_id?: string
           team_id?: string | null
+          tenant_id?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -526,6 +613,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retro_boards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -763,6 +857,77 @@ export type Database = {
           },
         ]
       }
+      team_action_items: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          done: boolean
+          done_at: string | null
+          done_by: string | null
+          id: string
+          source_board_id: string | null
+          source_item_id: string | null
+          team_id: string
+          text: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          source_board_id?: string | null
+          source_item_id?: string | null
+          team_id: string
+          text: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          source_board_id?: string | null
+          source_item_id?: string | null
+          team_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_action_items_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_action_items_source_board_id_fkey"
+            columns: ["source_board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_action_items_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "retro_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_action_items_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_default_settings: {
         Row: {
           allow_anonymous: boolean | null
@@ -904,6 +1069,7 @@ export type Database = {
           slack_bot_token: string | null
           slack_channel_id: string | null
           slack_webhook_url: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -919,6 +1085,7 @@ export type Database = {
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -934,9 +1101,18 @@ export type Database = {
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       template_columns: {
         Row: {
@@ -976,40 +1152,49 @@ export type Database = {
           },
         ]
       }
-      team_action_item_comments: {
+      tenants: {
         Row: {
-          id: string
-          action_item_id: string
-          author: string | null
-          author_id: string | null
-          text: string
           created_at: string
-          session_id: string | null
+          created_by: string | null
+          database_config: Json | null
+          database_type: string
+          features: Json
+          id: string
+          name: string
+          settings: Json
+          subdomain: string
+          updated_at: string
         }
         Insert: {
-          id?: string
-          action_item_id: string
-          author?: string | null
-          author_id?: string | null
-          text: string
           created_at?: string
-          session_id?: string | null
+          created_by?: string | null
+          database_config?: Json | null
+          database_type?: string
+          features?: Json
+          id?: string
+          name: string
+          settings?: Json
+          subdomain: string
+          updated_at?: string
         }
         Update: {
-          id?: string
-          action_item_id?: string
-          author?: string | null
-          author_id?: string | null
-          text?: string
           created_at?: string
-          session_id?: string | null
+          created_by?: string | null
+          database_config?: Json | null
+          database_type?: string
+          features?: Json
+          id?: string
+          name?: string
+          settings?: Json
+          subdomain?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "team_action_item_comments_action_item_id_fkey"
-            columns: ["action_item_id"]
+            foreignKeyName: "tenants_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "team_action_items"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1065,16 +1250,24 @@ export type Database = {
         Returns: undefined
       }
       create_columns_from_template: {
-        Args: { board_id: string; template_id?: string }
+        Args: { board_id: string; template_id: string }
         Returns: undefined
       }
       create_default_columns: {
         Args: { board_id: string }
         Returns: undefined
       }
+      get_current_tenant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_readiness_summary: {
         Args: { board_id_param: string; stage_param: string }
         Returns: Json
+      }
+      get_user_email_if_admin: {
+        Args: { target_user: string }
+        Returns: string
       }
       is_team_admin: {
         Args: { team_id: string; user_id: string }
