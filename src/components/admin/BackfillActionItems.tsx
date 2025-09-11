@@ -42,7 +42,10 @@ export const BackfillActionItems: React.FC = () => {
           // Upsert into team_action_items if not exists (protected by unique index)
           const { error: insError } = await supabase
             .from('team_action_items')
-            .insert([{ team_id: board.team_id, text: item.text, source_board_id: board.id, source_item_id: item.id }], { onConflict: 'source_item_id' });
+            .upsert([{ team_id: board.team_id, text: item.text, source_board_id: board.id, source_item_id: item.id }], { 
+              onConflict: 'source_item_id',
+              ignoreDuplicates: false
+            });
           if (!insError) {
             createdCount += 1;
           }

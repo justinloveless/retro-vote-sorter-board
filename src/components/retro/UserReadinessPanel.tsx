@@ -119,10 +119,10 @@ export const UserReadinessPanel: React.FC<UserReadinessPanelProps> = ({
           </div>
           <Progress 
             value={ready_percentage} 
-            className="h-2"
-            indicatorClassName={cn(
-              "transition-all duration-300",
-              all_ready ? "bg-green-500" : "bg-blue-500"
+            className={cn(
+              "h-2",
+              "[&>div]:transition-all [&>div]:duration-300",
+              all_ready ? "[&>div]:bg-green-500" : "[&>div]:bg-blue-500"
             )}
           />
         </div>
