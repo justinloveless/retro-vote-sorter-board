@@ -53,7 +53,8 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                         <AvatarUploader
                             initialUrl={profile?.avatar_url}
                             onCropped={async (blob) => {
-                                const fileName = `${user.id}.png`;
+                                // Use profile.id (impersonated user) instead of user.id (admin)
+                                const fileName = `${profile?.id || user.id}.png`;
                                 // Upload to supabase storage bucket 'avatars'
                                 await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
                                 const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
