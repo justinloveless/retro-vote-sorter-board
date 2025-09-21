@@ -29,15 +29,9 @@ supabase/functions/.env
 supabase/functions/dist
 
 # API
-api/src/Retroscope.Api/obj/*
-api/src/Retroscope.Api/bin/*
-api/src/Retroscope.Api/Properties/*
-api/src/Retroscope.Api/Retroscope.Api.csproj.user
-api/src/Retroscope.Api/Retroscope.Api.csproj.vspscc
-api/src/Retroscope.Api/Retroscope.Api.csproj.vssscc
-api/tests/Retroscope.Api.UnitTests/obj/*
-api/tests/Retroscope.Api.UnitTests/bin/*
-api/tests/Retroscope.Api.UnitTests/Properties/*
-api/tests/Retroscope.Api.UnitTests/Retroscope.Api.UnitTests.csproj.user
-api/tests/Retroscope.Api.UnitTests/Retroscope.Api.UnitTests.csproj.vspscc
-api/tests/Retroscope.Api.UnitTests/Retroscope.Api.UnitTests.csproj.vssscc
+api/**/obj/*
+api/**/bin/*
+api/**/Properties/*
+api/**/*.csproj.user
+api/**/*.csproj.vspscc
+api/**/*.csproj.vssscc

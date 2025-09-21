@@ -1,0 +1,43 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Retroscope.Application.DTOs;
+using Retroscope.Application.Interfaces;
+
+namespace Retroscope.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class NotificationsController : ControllerBase
+{
+    private readonly ISupabaseGateway _supabaseGateway;
+
+    public NotificationsController(ISupabaseGateway supabaseGateway)
+    {
+        _supabaseGateway = supabaseGateway;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<NotificationsResponse>> GetNotifications([FromQuery] int limit = 50)
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader))
+            {
+                return Unauthorized();
+            }
+
+            var response = await _supabaseGateway.GetNotificationsAsync(authHeader, limit);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (Exception)
+        {
+            return StatusCode(502, new { error = "Downstream service error" });
+        }
+    }
+}
