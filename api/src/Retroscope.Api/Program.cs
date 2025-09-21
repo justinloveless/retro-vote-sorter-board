@@ -62,7 +62,16 @@ else
 builder.Services.AddAuthorization();
 
 // Register services
-builder.Services.AddScoped<Retroscope.Application.Interfaces.ISupabaseGateway, MockSupabaseGateway>();
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    // Use mock for testing
+    builder.Services.AddScoped<Retroscope.Application.Interfaces.ISupabaseGateway, MockSupabaseGateway>();
+}
+else
+{
+    // Use real Supabase gateway for production
+    Retroscope.Infrastructure.ServiceCollectionExtensions.AddSupabaseGateway(builder.Services, builder.Configuration);
+}
 
 var app = builder.Build();
 
