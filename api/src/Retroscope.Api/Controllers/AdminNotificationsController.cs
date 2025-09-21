@@ -6,7 +6,7 @@ using Retroscope.Application.Interfaces;
 namespace Retroscope.Api.Controllers;
 
 [ApiController]
-[Route("api/admin/[controller]")]
+[Route("api/admin/notifications")]
 [Authorize]
 public class AdminNotificationsController : ControllerBase
 {

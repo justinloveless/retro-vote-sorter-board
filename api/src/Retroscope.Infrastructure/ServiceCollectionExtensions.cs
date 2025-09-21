@@ -19,7 +19,6 @@ public static class ServiceCollectionExtensions
             }
             
             client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.DefaultRequestHeaders.Add("Content-Type", "application/json");
         })
         .AddPolicyHandler(GetRetryPolicy());
 
@@ -32,7 +31,6 @@ public static class ServiceCollectionExtensions
             }
             
             client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.DefaultRequestHeaders.Add("Content-Type", "application/json");
         })
         .AddPolicyHandler(GetRetryPolicy());
 

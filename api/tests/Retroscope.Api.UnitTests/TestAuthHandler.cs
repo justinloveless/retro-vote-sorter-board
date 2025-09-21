@@ -4,11 +4,11 @@ using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
-namespace Retroscope.Api.Authentication;
+namespace Retroscope.Api.UnitTests;
 
-public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
-    public TestAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options,
+    public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock)
         : base(options, logger, encoder, clock)
     {
@@ -20,6 +20,12 @@ public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSch
         if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
         {
             return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var token = authHeader.Substring("Bearer ".Length);
+        if (token == "invalid-token")
+        {
+            return Task.FromResult(AuthenticateResult.Fail("Invalid token"));
         }
 
         var claims = new[]
