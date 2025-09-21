@@ -47,7 +47,6 @@ public class SupabaseGateway : ISupabaseGateway
             var request = new HttpRequestMessage(HttpMethod.Get, $"/notifications?select=*&order=created_at.desc&limit={limit}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             
-            // Propagate correlation ID to downstream call
             if (!string.IsNullOrEmpty(correlationId))
             {
                 request.Headers.Add("X-Correlation-Id", correlationId);
@@ -85,7 +84,6 @@ public class SupabaseGateway : ISupabaseGateway
             var request = new HttpRequestMessage(HttpMethod.Get, $"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             
-            // Propagate correlation ID to downstream call
             if (!string.IsNullOrEmpty(correlationId))
             {
                 request.Headers.Add("X-Correlation-Id", correlationId);
@@ -148,7 +146,6 @@ public class SupabaseGateway : ISupabaseGateway
             };
             httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(authHeader);
             
-            // Propagate correlation ID to downstream call
             if (!string.IsNullOrEmpty(correlationId))
             {
                 httpRequest.Headers.Add("X-Correlation-Id", correlationId);
