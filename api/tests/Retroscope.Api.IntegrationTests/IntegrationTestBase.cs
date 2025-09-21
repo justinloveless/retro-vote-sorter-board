@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -25,14 +26,25 @@ public abstract class IntegrationTestBase : IDisposable
         WireMockServer = WireMockServer.Start();
         
         // Configure URLs for the stubbed services
-        PostgrestUrl = WireMockServer.Urls[0] + "/postgrest";
-        FunctionsUrl = WireMockServer.Urls[0] + "/functions";
+        var baseUrl = WireMockServer.Urls[0].TrimEnd('/') + "/";
+        PostgrestUrl = baseUrl + "postgrest/";
+        FunctionsUrl = baseUrl + "functions/";
 
         // Create factory with custom configuration
         Factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
                 builder.UseEnvironment("Testing");
+                builder.ConfigureAppConfiguration((context, config) =>
+                {
+                    var overrides = new Dictionary<string, string?>
+                    {
+                        ["SUPABASE_POSTGREST_URL"] = PostgrestUrl,
+                        ["SUPABASE_FUNCTIONS_URL"] = FunctionsUrl,
+                        // Keep JWKS as-is for app auth; not used in these tests
+                    };
+                    config.AddInMemoryCollection(overrides);
+                });
                 
                 // Override configuration to point to WireMock
                 builder.ConfigureServices(services =>
@@ -80,7 +92,14 @@ public abstract class IntegrationTestBase : IDisposable
         var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
         if (!string.IsNullOrEmpty(authToken))
         {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            if (authToken.StartsWith("Bearer "))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authToken);
+            }
+            else
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
         }
         return await Client.SendAsync(request);
     }
@@ -90,7 +109,14 @@ public abstract class IntegrationTestBase : IDisposable
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
         if (!string.IsNullOrEmpty(authToken))
         {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            if (authToken.StartsWith("Bearer "))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authToken);
+            }
+            else
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
         }
         
         if (content != null)
@@ -104,9 +130,10 @@ public abstract class IntegrationTestBase : IDisposable
 
     protected void SetupPostgrestStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null)
     {
+        var purePath = path.Split('?')[0];
         var requestBuilder = WireMockServer
             .Given(WireMock.RequestBuilders.Request.Create()
-                .WithPath($"/postgrest{path}")
+                .WithPath($"/postgrest/{purePath.TrimStart('/')}")
                 .UsingGet());
 
         // Note: WireMock header matching can be added later if needed
@@ -126,9 +153,10 @@ public abstract class IntegrationTestBase : IDisposable
 
     protected void SetupFunctionsStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null)
     {
+        var pureFnPath = path.Split('?')[0];
         var requestBuilder = WireMockServer
             .Given(WireMock.RequestBuilders.Request.Create()
-                .WithPath($"/functions{path}")
+                .WithPath($"/functions/{pureFnPath.TrimStart('/')}")
                 .UsingPost());
 
         // Note: WireMock header matching can be added later if needed
@@ -148,8 +176,9 @@ public abstract class IntegrationTestBase : IDisposable
 
     protected void VerifyPostgrestRequest(string path, string? authHeader = null)
     {
+        var verifyPurePath = path.Split('?')[0];
         var requests = WireMockServer.LogEntries
-            .Where(log => log.RequestMessage.Path == $"/postgrest{path}")
+            .Where(log => log.RequestMessage.Path == $"/postgrest/{verifyPurePath.TrimStart('/')}")
             .ToList();
 
         requests.Should().HaveCount(1, "Expected exactly one request to PostgREST");
@@ -164,8 +193,9 @@ public abstract class IntegrationTestBase : IDisposable
 
     protected void VerifyFunctionsRequest(string path, string? authHeader = null)
     {
+        var verifyFnPath = path.Split('?')[0];
         var requests = WireMockServer.LogEntries
-            .Where(log => log.RequestMessage.Path == $"/functions{path}")
+            .Where(log => log.RequestMessage.Path == $"/functions/{verifyFnPath.TrimStart('/')}")
             .ToList();
 
         requests.Should().HaveCount(1, "Expected exactly one request to Functions");

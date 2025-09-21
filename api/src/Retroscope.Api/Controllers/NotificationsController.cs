@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
+using System.Net;
+using System.Net.Http;
 
 namespace Retroscope.Api.Controllers;
 
@@ -36,6 +38,10 @@ public class NotificationsController : ControllerBase
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }

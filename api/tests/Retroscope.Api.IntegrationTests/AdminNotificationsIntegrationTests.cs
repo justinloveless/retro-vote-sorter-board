@@ -95,21 +95,21 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("Invalid request payload");
+        error.GetProperty("error").GetString().Should().Be("Title and Body are required");
     }
 
     [Fact]
     public async Task SendNotification_WithNullPayload_ReturnsBadRequest()
     {
         // Act
-        var response = await PostAsync("/api/admin/notifications", null, ValidToken);
+        var response = await PostAsync("/api/admin/notifications", new { }, ValidToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("Invalid request payload");
+        error.GetProperty("error").GetString().Should().Be("Title and Body are required");
     }
 
     [Fact]
@@ -226,6 +226,6 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("Invalid request payload");
+        error.GetProperty("error").GetString().Should().Be("At least one target user ID is required");
     }
 }

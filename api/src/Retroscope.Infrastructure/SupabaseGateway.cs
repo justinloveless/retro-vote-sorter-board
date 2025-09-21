@@ -44,7 +44,7 @@ public class SupabaseGateway : ISupabaseGateway
         {
             _logger.LogInformation("Fetching notifications with limit {Limit}", limit);
 
-            var request = new HttpRequestMessage(HttpMethod.Get, $"/notifications?select=*&order=created_at.desc&limit={limit}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"notifications?select=*&order=created_at.desc&limit={limit}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             
             if (!string.IsNullOrEmpty(correlationId))
@@ -57,7 +57,7 @@ public class SupabaseGateway : ISupabaseGateway
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to fetch notifications. Status: {StatusCode}", response.StatusCode);
-                throw new HttpRequestException($"Supabase request failed with status {response.StatusCode}");
+                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -81,7 +81,7 @@ public class SupabaseGateway : ISupabaseGateway
         {
             _logger.LogInformation("Fetching team members for team {TeamId}", teamId);
 
-            var request = new HttpRequestMessage(HttpMethod.Get, $"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             
             if (!string.IsNullOrEmpty(correlationId))
@@ -94,7 +94,7 @@ public class SupabaseGateway : ISupabaseGateway
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to fetch team members. Status: {StatusCode}", response.StatusCode);
-                throw new HttpRequestException($"Supabase request failed with status {response.StatusCode}");
+                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -140,7 +140,7 @@ public class SupabaseGateway : ISupabaseGateway
             var json = JsonSerializer.Serialize(request);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/admin-send-notification")
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, "admin-send-notification")
             {
                 Content = content
             };
@@ -156,7 +156,7 @@ public class SupabaseGateway : ISupabaseGateway
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to send admin notification. Status: {StatusCode}", response.StatusCode);
-                throw new HttpRequestException($"Supabase function request failed with status {response.StatusCode}");
+                throw new HttpException(response.StatusCode, $"Supabase function request failed with status {response.StatusCode}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);

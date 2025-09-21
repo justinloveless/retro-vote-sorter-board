@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
+using System.Net;
+using System.Net.Http;
 
 namespace Retroscope.Api.Controllers;
 
@@ -28,9 +30,19 @@ public class AdminNotificationsController : ControllerBase
                 return Unauthorized();
             }
 
-            if (request == null || string.IsNullOrEmpty(request.Title) || string.IsNullOrEmpty(request.Body))
+            if (request == null)
             {
-                return BadRequest(new { error = "Invalid request payload" });
+                return BadRequest(new { error = "Request body is required" });
+            }
+
+            if (string.IsNullOrEmpty(request.Title) || string.IsNullOrEmpty(request.Body))
+            {
+                return BadRequest(new { error = "Title and Body are required" });
+            }
+
+            if (request.TargetUserIds == null || request.TargetUserIds.Count == 0)
+            {
+                return BadRequest(new { error = "At least one target user ID is required" });
             }
 
             // Extract correlation ID from request headers
@@ -43,6 +55,14 @@ public class AdminNotificationsController : ControllerBase
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
+        }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return Unauthorized();
+        }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return Forbid();
         }
         catch (ForbiddenAccessException)
         {

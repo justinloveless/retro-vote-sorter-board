@@ -23,7 +23,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         }
 
         var token = authHeader.Substring("Bearer ".Length);
-        if (token == "invalid-token")
+        if (token == "invalid-token" || token == "invalid-user-token")
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid token"));
         }
