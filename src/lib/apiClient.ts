@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getApiBaseUrl } from '@/config/environment';
 
 /**
  * Gets the current Supabase access token from the session
@@ -24,7 +25,7 @@ async function getSupabaseAccessToken(): Promise<string> {
  */
 
 export async function apiGetNotifications(limit = 50): Promise<{ items: Array<any> }> {
-  const base = import.meta.env.VITE_API_BASE_URL;
+  const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/notifications?limit=${limit}`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -34,7 +35,7 @@ export async function apiGetNotifications(limit = 50): Promise<{ items: Array<an
 }
 
 export async function apiGetTeamMembers(teamId: string): Promise<{ items: Array<any> }> {
-  const base = import.meta.env.VITE_API_BASE_URL;
+  const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}/members`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -44,7 +45,7 @@ export async function apiGetTeamMembers(teamId: string): Promise<{ items: Array<
 }
 
 export async function apiAdminSendNotification(payload: { title: string; body: string; targetUserIds: string[] }): Promise<{ status: string }> {
-  const base = import.meta.env.VITE_API_BASE_URL;
+  const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/admin/notifications`, {
     method: 'POST',
