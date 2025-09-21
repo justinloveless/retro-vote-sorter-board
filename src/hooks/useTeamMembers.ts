@@ -160,6 +160,11 @@ export const useTeamMembers = (teamId: string | null) => {
         }
       });
 
+      // Emit in-app notification if recipient already has an account
+      await supabase.functions.invoke('notify-team-invite', {
+        body: { invitationId: invitation.id }
+      });
+
       if (emailError) {
         console.error('Error sending email:', emailError);
         // Still show success message even if email fails, as invitation was created

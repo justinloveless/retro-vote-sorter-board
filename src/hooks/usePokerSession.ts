@@ -320,6 +320,27 @@ export const usePokerSession = (
 
     setSession(prev => prev ? { ...prev, ...newState } : null);
     await updateRoundState(newState);
+
+    // Emit notification to known participants when the hand starts
+    try {
+      const participantIds = Object.keys(newSelections);
+      if (participantIds.length > 0) {
+        const title = `Poker session started`;
+        const roomId = session.room_id;
+        // Use admin-send-notification for consistency and future flexibility
+        await supabase.functions.invoke('admin-send-notification', {
+          body: {
+            recipients: participantIds.map(id => ({ userId: id })),
+            type: 'poker_session',
+            title,
+            message: 'Click to join the session.',
+            url: `/poker/${roomId}`
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to emit poker notifications', e);
+    }
   };
 
   const nextRound = async (newTicketNumber?: string) => {

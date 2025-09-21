@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
+import { NotificationBell } from '@/components/NotificationBell';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
@@ -148,6 +149,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             </Button>
             {user ? (
                 <>
+                    <NotificationBell />
                     {isImpersonating && (
                         <div className="hidden md:flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
                             <span>Impersonating</span>

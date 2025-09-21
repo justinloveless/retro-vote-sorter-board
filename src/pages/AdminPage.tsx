@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
+import { AdminSendNotification } from '@/components/admin/AdminSendNotification';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -47,7 +48,7 @@ const AdminPage: React.FC = () => {
                     </Card>
                 </div>
                 <div className="lg:col-span-1">
-                    {/* Additional admin panels can be placed here in the future. */}
+                    <AdminSendNotification />
                 </div>
             </div>
         </div>

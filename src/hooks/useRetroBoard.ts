@@ -1074,6 +1074,26 @@ export const useRetroBoard = (roomId: string) => {
         title: `Retro stage updated`,
         description: `Board is now in ${newStage} stage`,
       });
+      // Emit notifications when a session effectively starts (first transition from thinking to voting/discussing)
+      try {
+        if (newStage === 'voting' || newStage === 'discussing') {
+          // Find relevant user ids: team members or presence cache user ids
+          const userIds: string[] = activeUsers
+            .map(u => u.id)
+            .filter(Boolean);
+          if (userIds.length > 0) {
+            await supabase.functions.invoke('notify-retro-start', {
+              body: {
+                roomId: board.room_id,
+                title: board.title || 'Retrospective',
+                userIds
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to emit retro start notifications', e);
+      }
     }
   };
 
