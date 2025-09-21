@@ -2,6 +2,8 @@ using Microsoft.IdentityModel.Tokens;
 using Retroscope.Api.Controllers;
 using Serilog;
 using System.Diagnostics;
+using System.Text.Json;
+using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,11 +51,50 @@ builder.Services.AddAuthentication("Bearer")
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            ValidIssuer = supabaseUrl,
+            ValidAudience = "authenticated",
             IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
             {
-                // For now, we'll implement a simple resolver
-                // In a real implementation, you'd fetch the JWKS from supabaseJwksUrl
-                return new List<Microsoft.IdentityModel.Tokens.SecurityKey>();
+                try
+                {
+                    using var httpClient = new HttpClient();
+                    var jwksResponse = httpClient.GetStringAsync(supabaseJwksUrl).GetAwaiter().GetResult();
+                    var jwks = JsonSerializer.Deserialize<JsonElement>(jwksResponse);
+                    
+                    if (jwks.TryGetProperty("keys", out var keys))
+                    {
+                        var securityKeys = new List<SecurityKey>();
+                        
+                        foreach (var key in keys.EnumerateArray())
+                        {
+                            if (key.TryGetProperty("kid", out var keyId) && 
+                                key.TryGetProperty("n", out var modulus) && 
+                                key.TryGetProperty("e", out var exponent))
+                            {
+                                var nBytes = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.DecodeBytes(modulus.GetString()!);
+                                var eBytes = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.DecodeBytes(exponent.GetString()!);
+                                
+                                var rsa = System.Security.Cryptography.RSA.Create();
+                                var rsaParams = new System.Security.Cryptography.RSAParameters
+                                {
+                                    Modulus = nBytes,
+                                    Exponent = eBytes
+                                };
+                                rsa.ImportParameters(rsaParams);
+                                
+                                securityKeys.Add(new RsaSecurityKey(rsa));
+                            }
+                        }
+                        
+                        return securityKeys;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Failed to fetch JWKS from {JwksUrl}: {Error}", supabaseJwksUrl, ex.Message);
+                }
+                
+                return new List<SecurityKey>();
             }
         };
     });
