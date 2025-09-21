@@ -31,10 +31,12 @@ export const useNotifications = () => {
 
     try {
       if (shouldUseCSharpApi()) {
+        console.log('Using C# API');
         // Use C# API passthrough
         const response = await apiGetNotifications(50);
         setNotifications(response.items as AppNotification[]);
       } else {
+        console.log('Using direct Supabase');
         // Use direct Supabase
         const { data, error } = await supabase
           .from('notifications')

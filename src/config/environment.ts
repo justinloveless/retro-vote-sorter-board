@@ -13,8 +13,8 @@ const productionConfig: EnvironmentConfig = {
   supabaseUrl: "https://nwfwbjmzbwuyxehindpv.supabase.co",
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53Zndiam16Ynd1eXhlaGluZHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MjkyMzksImV4cCI6MjA2NDEwNTIzOX0.s_vI6z46NAYlpB8K0wznCWEr_cFcnsHh7Qn4LmsUZU0",
   environment: 'production',
-  useCSharpApi: false, // Disabled in production by default
-  apiBaseUrl: '' // Will be set when needed
+  useCSharpApi: true, // Disabled in production by default
+  apiBaseUrl: 'http://localhost:5099' // Will be set when needed
 };
 
 // Development configuration - update these with your dev Supabase project details
@@ -25,7 +25,7 @@ const developmentConfig: EnvironmentConfig = {
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53Zndiam16Ynd1eXhlaGluZHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MjkyMzksImV4cCI6MjA2NDEwNTIzOX0.s_vI6z46NAYlpB8K0wznCWEr_cFcnsHh7Qn4LmsUZU0",
   environment: 'development',
   useCSharpApi: true, // Enabled in development
-  apiBaseUrl: 'http://localhost:5099' // Local C# API URL
+  apiBaseUrl: 'http://localhost:5227' // Local C# API URL
 };
 
 // Detect environment based on hostname or explicit environment variable
