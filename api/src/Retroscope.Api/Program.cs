@@ -65,6 +65,9 @@ builder.Services.AddAuthorization();
 // Use real Supabase gateway by default; tests can override with a mock via WebApplicationFactory
 Retroscope.Infrastructure.ServiceCollectionExtensions.AddSupabaseGateway(builder.Services, builder.Configuration);
 
+// Register HttpClient for health checks
+builder.Services.AddHttpClient<Retroscope.Api.Controllers.HealthController>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
