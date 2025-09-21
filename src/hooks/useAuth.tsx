@@ -23,6 +23,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<Profile>) => Promise<Profile>;
   startImpersonating: (userId: string) => Promise<void>;
   stopImpersonating: () => void;
+  refreshImpersonatedProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -144,6 +145,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshImpersonatedProfile = useCallback(async () => {
+    if (!impersonatedProfile?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+        .eq('id', impersonatedProfile.id)
+        .single();
+      if (error) throw error;
+      localStorage.setItem('impersonated_profile', JSON.stringify(data));
+      setImpersonatedProfile(data);
+    } catch (e) {
+      // no-op
+    }
+  }, [impersonatedProfile?.id]);
+
   const startImpersonating = useCallback(async (userId: string) => {
     // Only allow if current profile is admin
     if (profile?.role !== 'admin') throw new Error('Only admins can impersonate');
@@ -176,7 +193,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     updateProfile,
     startImpersonating,
-    stopImpersonating
+    stopImpersonating,
+    // Expose helper for components that want to refresh the impersonated profile
+    refreshImpersonatedProfile
   };
 
   return (

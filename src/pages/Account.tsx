@@ -14,12 +14,13 @@ import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { currentEnvironment } from '@/config/environment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating } = useAuth();
+  const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating, refreshImpersonatedProfile } = useAuth();
   const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
@@ -189,11 +190,33 @@ const Account = () => {
                         initialUrl={profile?.avatar_url}
                         onCropped={async (blob) => {
                           try {
-                            const fileName = `${user.id}.png`;
-                            await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
-                            const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-                            await updateProfile({ avatar_url: data.publicUrl });
-                            toast({ title: 'Profile picture updated' });
+                            if (isImpersonating && profile?.id) {
+                              // When impersonating, call admin Edge Function to set avatar for target user
+                              const arrayBuffer = await blob.arrayBuffer();
+                              const { data: { session } } = await supabase.auth.getSession();
+                              const resp = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/admin-set-avatar?user_id=${profile.id}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'image/png',
+                                  'Authorization': `Bearer ${session?.access_token ?? ''}`
+                                },
+                                body: arrayBuffer
+                              });
+                              if (!resp.ok) {
+                                const err = await resp.text();
+                                throw new Error(err || 'Failed to set avatar as admin');
+                              }
+                              const json = await resp.json();
+                              await refreshImpersonatedProfile();
+                              toast({ title: 'Profile picture updated for impersonated user' });
+                            } else {
+                              // Normal case: update own avatar
+                              const fileName = `${user.id}.png`;
+                              await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                              await updateProfile({ avatar_url: data.publicUrl });
+                              toast({ title: 'Profile picture updated' });
+                            }
                           } catch (e: any) {
                             toast({ title: 'Failed to update avatar', description: e.message || String(e), variant: 'destructive' });
                           }
