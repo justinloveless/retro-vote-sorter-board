@@ -13,6 +13,8 @@ type ProfileRow = {
   full_name: string | null;
   avatar_url: string | null;
   role: string | null;
+  email: string | null;
+  teams: Array<{ id: string; name: string }>;
 };
 
 export const ImpersonateUser: React.FC = () => {
@@ -29,15 +31,11 @@ export const ImpersonateUser: React.FC = () => {
         return;
       }
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role')
-        .ilike('full_name', `%${query}%`)
-        .limit(20);
+      const { data, error } = await supabase.functions.invoke('admin-search-users', { body: { q: query } });
       if (error) {
         toast({ title: 'Search failed', description: error.message, variant: 'destructive' });
       } else {
-        setResults(data || []);
+        setResults((data as any)?.results || []);
       }
       setLoading(false);
     };
@@ -81,8 +79,8 @@ export const ImpersonateUser: React.FC = () => {
           )}
 
           <div>
-            <label className="text-sm text-gray-600 dark:text-gray-300">Search by name</label>
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Jane Doe" />
+            <label className="text-sm text-gray-600 dark:text-gray-300">Search by name, email, or user id</label>
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Jane Doe, jane@company.com, or UUID" />
           </div>
 
           {loading ? (
@@ -92,18 +90,29 @@ export const ImpersonateUser: React.FC = () => {
           ) : (
             <div className="space-y-2 max-h-64 overflow-auto">
               {results.map((r) => (
-                <div key={r.id} className="flex items-center justify-between rounded border p-2">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={r.avatar_url || ''} />
-                      <AvatarFallback>{(r.full_name || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                <div key={r.id} className="rounded border p-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={r.avatar_url || ''} />
+                        <AvatarFallback>{(r.full_name || r.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="text-sm font-medium">{r.full_name || '(no name)'} {r.role ? <span className="text-xs text-muted-foreground">({r.role})</span> : null}</div>
+                        <div className="text-xs text-muted-foreground">{r.email || 'no email'}</div>
+                        <div className="text-[10px] text-muted-foreground">{r.id}</div>
+                        {r.teams?.length ? (
+                          <div className="mt-1 text-xs">
+                            <span className="text-muted-foreground">Teams: </span>
+                            {r.teams.map(t => t.name).join(', ')}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                     <div>
-                      <div className="text-sm font-medium">{r.full_name || '(no name)'}</div>
-                      <div className="text-xs text-muted-foreground">{r.id}</div>
+                      <Button size="sm" onClick={() => handleImpersonate(r.id)}>Impersonate</Button>
                     </div>
                   </div>
-                  <Button size="sm" onClick={() => handleImpersonate(r.id)}>Impersonate</Button>
                 </div>
               ))}
               {!results.length && query && (

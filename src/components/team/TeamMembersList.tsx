@@ -72,6 +72,11 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
         }
       });
 
+      // Emit in-app notification if the email belongs to an existing account
+      const { error: notifError } = await supabase.functions.invoke('notify-team-invite', {
+        body: { invitationId: invitation.id }
+      });
+
       if (emailError) {
         console.error('Error sending email:', emailError);
         toast({
@@ -84,6 +89,10 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
           title: "Invitation sent",
           description: `Invitation email sent to ${email}`,
         });
+      }
+
+      if (notifError) {
+        console.warn('notify-team-invite failed or user not found for email:', email, notifError);
       }
 
       refetchInvitations();
