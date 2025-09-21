@@ -29,10 +29,9 @@ public class TeamMembersControllerTests
         mockGateway.Setup(x => x.GetTeamMembersAsync(It.IsAny<string>(), teamId, It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
-        var factory = new WebApplicationFactory<Program>()
+        var factory = new TestApiFactory()
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -59,11 +58,7 @@ public class TeamMembersControllerTests
     {
         // Arrange
         var teamId = "test-team-id";
-        var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.UseEnvironment("Testing");
-            });
+        var factory = new TestApiFactory();
         var client = factory.CreateClient();
 
         // Act
@@ -78,11 +73,7 @@ public class TeamMembersControllerTests
     {
         // Arrange
         var teamId = "test-team-id";
-        var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.UseEnvironment("Testing");
-            });
+        var factory = new TestApiFactory();
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer invalid-token");
 

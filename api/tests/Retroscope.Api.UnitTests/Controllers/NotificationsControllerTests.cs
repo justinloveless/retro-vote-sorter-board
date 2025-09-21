@@ -29,10 +29,9 @@ public class NotificationsControllerTests
         mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
-        var factory = new WebApplicationFactory<Program>()
+        var factory = new TestApiFactory()
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -63,10 +62,9 @@ public class NotificationsControllerTests
         mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
-        var factory = new WebApplicationFactory<Program>()
+        var factory = new TestApiFactory()
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -88,11 +86,7 @@ public class NotificationsControllerTests
     public async Task GetNotifications_WithoutAuth_ReturnsUnauthorized()
     {
         // Arrange
-        var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.UseEnvironment("Testing");
-            });
+        var factory = new TestApiFactory();
         var client = factory.CreateClient();
 
         // Act
@@ -106,11 +100,7 @@ public class NotificationsControllerTests
     public async Task GetNotifications_WithInvalidToken_ReturnsUnauthorized()
     {
         // Arrange
-        var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.UseEnvironment("Testing");
-            });
+        var factory = new TestApiFactory();
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer invalid-token");
 
