@@ -14,7 +14,7 @@ export type AppNotification = {
 };
 
 export const useNotifications = () => {
-  const { user } = useAuth();
+  const { user, profile, isImpersonating } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,12 +23,13 @@ export const useNotifications = () => {
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
+    const targetUserId = isImpersonating && profile ? profile.id : user.id;
     setLoading(true);
     setError(null);
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) {
@@ -37,7 +38,7 @@ export const useNotifications = () => {
       setNotifications((data as AppNotification[]) || []);
     }
     setLoading(false);
-  }, [user]);
+  }, [user, isImpersonating, profile?.id]);
 
   const markAsRead = useCallback(async (id: string) => {
     const { error } = await supabase
@@ -51,11 +52,12 @@ export const useNotifications = () => {
 
   useEffect(() => {
     if (!user) return;
+    const targetUserId = isImpersonating && profile ? profile.id : user.id;
     fetchNotifications();
 
     const channel = supabase
       .channel('realtime:notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${targetUserId}` }, payload => {
         if (payload.eventType === 'INSERT') {
           setNotifications(prev => [payload.new as AppNotification, ...prev].slice(0, 50));
         } else if (payload.eventType === 'UPDATE') {
@@ -69,7 +71,7 @@ export const useNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchNotifications]);
+  }, [user, isImpersonating, profile?.id, fetchNotifications]);
 
   return { notifications, unreadCount, loading, error, fetchNotifications, markAsRead };
 };

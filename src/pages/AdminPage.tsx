@@ -9,6 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
 import { AdminSendNotification } from '@/components/admin/AdminSendNotification';
+import { AdminManageTeamMembers } from '@/components/admin/AdminManageTeamMembers';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -27,14 +28,7 @@ const AdminPage: React.FC = () => {
                     <TtsUrlManager />
                     <GithubIssueSettings />
                     <ImpersonateUser />
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Data Backfill</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <BackfillActionItems />
-                        </CardContent>
-                    </Card>
+                    <AdminManageTeamMembers />
                     <Card>
                         <CardHeader>
                             <CardTitle>Feature Flags</CardTitle>
@@ -49,6 +43,16 @@ const AdminPage: React.FC = () => {
                 </div>
                 <div className="lg:col-span-1">
                     <AdminSendNotification />
+                    <div className="mt-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Data Backfill</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <BackfillActionItems />
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
         </div>
