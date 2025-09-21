@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -31,6 +32,7 @@ public class TeamMembersControllerTests
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -57,7 +59,11 @@ public class TeamMembersControllerTests
     {
         // Arrange
         var teamId = "test-team-id";
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
 
         // Act
@@ -72,7 +78,11 @@ public class TeamMembersControllerTests
     {
         // Arrange
         var teamId = "test-team-id";
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer invalid-token");
 

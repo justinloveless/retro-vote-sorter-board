@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -31,6 +32,7 @@ public class AdminNotificationsControllerTests
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -65,7 +67,11 @@ public class AdminNotificationsControllerTests
             TargetUserIds = new List<string> { "user1" }
         };
         
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
         
         var json = JsonSerializer.Serialize(request);
@@ -89,7 +95,11 @@ public class AdminNotificationsControllerTests
             TargetUserIds = new List<string> { "user1" }
         };
         
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer invalid-token");
         
@@ -107,7 +117,11 @@ public class AdminNotificationsControllerTests
     public async Task SendNotification_WithInvalidPayload_ReturnsBadRequest()
     {
         // Arrange
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer admin-token");
         

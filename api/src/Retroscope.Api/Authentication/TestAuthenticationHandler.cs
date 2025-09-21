@@ -1,0 +1,38 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+
+namespace Retroscope.Api.Authentication;
+
+public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public TestAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock)
+        : base(options, logger, encoder, clock)
+    {
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var authHeader = Request.Headers.Authorization.ToString();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, "test-user"),
+            new Claim(ClaimTypes.NameIdentifier, "test-user-id"),
+            new Claim("sub", "test-user-id")
+        };
+
+        var identity = new ClaimsIdentity(claims, "Bearer");
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, "Bearer");
+
+        return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+}

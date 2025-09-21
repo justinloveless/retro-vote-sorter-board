@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public class NotificationsControllerTests
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -64,6 +66,7 @@ public class NotificationsControllerTests
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton(mockGateway.Object);
@@ -85,7 +88,11 @@ public class NotificationsControllerTests
     public async Task GetNotifications_WithoutAuth_ReturnsUnauthorized()
     {
         // Arrange
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
 
         // Act
@@ -99,7 +106,11 @@ public class NotificationsControllerTests
     public async Task GetNotifications_WithInvalidToken_ReturnsUnauthorized()
     {
         // Arrange
-        var factory = new WebApplicationFactory<Program>();
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+            });
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Bearer invalid-token");
 
