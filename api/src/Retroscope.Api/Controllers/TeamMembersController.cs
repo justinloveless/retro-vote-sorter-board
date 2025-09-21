@@ -28,7 +28,11 @@ public class TeamMembersController : ControllerBase
                 return Unauthorized();
             }
 
-            var response = await _supabaseGateway.GetTeamMembersAsync(authHeader, teamId);
+            // Extract correlation ID from request headers
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var response = await _supabaseGateway.GetTeamMembersAsync(authHeader, teamId, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)

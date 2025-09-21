@@ -38,7 +38,7 @@ public class SupabaseGateway : ISupabaseGateway
         }
     }
 
-    public async Task<NotificationsResponse> GetNotificationsAsync(string bearerToken, int limit, CancellationToken cancellationToken = default)
+    public async Task<NotificationsResponse> GetNotificationsAsync(string bearerToken, int limit, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -46,6 +46,12 @@ public class SupabaseGateway : ISupabaseGateway
 
             var request = new HttpRequestMessage(HttpMethod.Get, $"/notifications?select=*&order=created_at.desc&limit={limit}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            
+            // Propagate correlation ID to downstream call
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                request.Headers.Add("X-Correlation-Id", correlationId);
+            }
 
             var response = await _postgrestClient.SendAsync(request, cancellationToken);
             
@@ -70,7 +76,7 @@ public class SupabaseGateway : ISupabaseGateway
         }
     }
 
-    public async Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, CancellationToken cancellationToken = default)
+    public async Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -78,6 +84,12 @@ public class SupabaseGateway : ISupabaseGateway
 
             var request = new HttpRequestMessage(HttpMethod.Get, $"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            
+            // Propagate correlation ID to downstream call
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                request.Headers.Add("X-Correlation-Id", correlationId);
+            }
 
             var response = await _postgrestClient.SendAsync(request, cancellationToken);
             
@@ -121,7 +133,7 @@ public class SupabaseGateway : ISupabaseGateway
         }
     }
 
-    public async Task<AdminSendNotificationResponse> AdminSendNotificationAsync(string authHeader, AdminSendNotificationRequest request, CancellationToken cancellationToken = default)
+    public async Task<AdminSendNotificationResponse> AdminSendNotificationAsync(string authHeader, AdminSendNotificationRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -135,6 +147,12 @@ public class SupabaseGateway : ISupabaseGateway
                 Content = content
             };
             httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(authHeader);
+            
+            // Propagate correlation ID to downstream call
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                httpRequest.Headers.Add("X-Correlation-Id", correlationId);
+            }
 
             var response = await _functionsClient.SendAsync(httpRequest, cancellationToken);
             

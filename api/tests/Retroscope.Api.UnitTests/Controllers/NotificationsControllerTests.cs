@@ -26,7 +26,7 @@ public class NotificationsControllerTests
             }
         };
         
-        mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
         var factory = new TestApiFactory()
@@ -49,7 +49,7 @@ public class NotificationsControllerTests
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("Test");
         
-        mockGateway.Verify(x => x.GetNotificationsAsync("Bearer test-token", 50, It.IsAny<CancellationToken>()), Times.Once);
+        mockGateway.Verify(x => x.GetNotificationsAsync("Bearer test-token", 50, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class NotificationsControllerTests
         var mockGateway = new Mock<ISupabaseGateway>();
         var expectedResponse = new NotificationsResponse { Items = new List<NotificationItem>() };
         
-        mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
         var factory = new TestApiFactory()
@@ -79,7 +79,7 @@ public class NotificationsControllerTests
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        mockGateway.Verify(x => x.GetNotificationsAsync("Bearer test-token", 25, It.IsAny<CancellationToken>()), Times.Once);
+        mockGateway.Verify(x => x.GetNotificationsAsync("Bearer test-token", 25, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

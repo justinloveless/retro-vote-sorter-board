@@ -26,7 +26,7 @@ public class AdminNotificationsControllerTests
         };
         var expectedResponse = new AdminSendNotificationResponse { Status = "queued" };
         
-        mockGateway.Setup(x => x.AdminSendNotificationAsync(It.IsAny<string>(), It.IsAny<AdminSendNotificationRequest>(), It.IsAny<CancellationToken>()))
+        mockGateway.Setup(x => x.AdminSendNotificationAsync(It.IsAny<string>(), It.IsAny<AdminSendNotificationRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
         var factory = new TestApiFactory()
@@ -52,7 +52,7 @@ public class AdminNotificationsControllerTests
         var responseContent = await response.Content.ReadAsStringAsync();
         responseContent.Should().Contain("queued");
         
-        mockGateway.Verify(x => x.AdminSendNotificationAsync("Bearer admin-token", It.IsAny<AdminSendNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        mockGateway.Verify(x => x.AdminSendNotificationAsync("Bearer admin-token", It.IsAny<AdminSendNotificationRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

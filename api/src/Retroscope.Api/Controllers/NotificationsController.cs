@@ -28,7 +28,11 @@ public class NotificationsController : ControllerBase
                 return Unauthorized();
             }
 
-            var response = await _supabaseGateway.GetNotificationsAsync(authHeader, limit);
+            // Extract correlation ID from request headers
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var response = await _supabaseGateway.GetNotificationsAsync(authHeader, limit, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)

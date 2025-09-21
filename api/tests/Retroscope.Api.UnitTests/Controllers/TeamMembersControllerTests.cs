@@ -26,7 +26,7 @@ public class TeamMembersControllerTests
             }
         };
         
-        mockGateway.Setup(x => x.GetTeamMembersAsync(It.IsAny<string>(), teamId, It.IsAny<CancellationToken>()))
+        mockGateway.Setup(x => x.GetTeamMembersAsync(It.IsAny<string>(), teamId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
 
         var factory = new TestApiFactory()
@@ -50,7 +50,7 @@ public class TeamMembersControllerTests
         content.Should().Contain("John Doe");
         content.Should().Contain("Jane Smith");
         
-        mockGateway.Verify(x => x.GetTeamMembersAsync("Bearer test-token", teamId, It.IsAny<CancellationToken>()), Times.Once);
+        mockGateway.Verify(x => x.GetTeamMembersAsync("Bearer test-token", teamId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

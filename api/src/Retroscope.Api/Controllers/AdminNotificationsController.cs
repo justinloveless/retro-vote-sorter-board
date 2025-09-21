@@ -33,7 +33,11 @@ public class AdminNotificationsController : ControllerBase
                 return BadRequest(new { error = "Invalid request payload" });
             }
 
-            var response = await _supabaseGateway.AdminSendNotificationAsync(authHeader, request);
+            // Extract correlation ID from request headers
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var response = await _supabaseGateway.AdminSendNotificationAsync(authHeader, request, correlationId);
             return Accepted(response);
         }
         catch (UnauthorizedAccessException)

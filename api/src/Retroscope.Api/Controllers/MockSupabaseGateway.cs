@@ -5,7 +5,7 @@ namespace Retroscope.Api.Controllers;
 
 public class MockSupabaseGateway : ISupabaseGateway
 {
-    public Task<NotificationsResponse> GetNotificationsAsync(string bearerToken, int limit, CancellationToken cancellationToken = default)
+    public Task<NotificationsResponse> GetNotificationsAsync(string bearerToken, int limit, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         var response = new NotificationsResponse
         {
@@ -17,7 +17,7 @@ public class MockSupabaseGateway : ISupabaseGateway
         return Task.FromResult(response);
     }
 
-    public Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, CancellationToken cancellationToken = default)
+    public Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         var response = new TeamMembersResponse
         {
@@ -30,7 +30,7 @@ public class MockSupabaseGateway : ISupabaseGateway
         return Task.FromResult(response);
     }
 
-    public Task<AdminSendNotificationResponse> AdminSendNotificationAsync(string authHeader, AdminSendNotificationRequest request, CancellationToken cancellationToken = default)
+    public Task<AdminSendNotificationResponse> AdminSendNotificationAsync(string authHeader, AdminSendNotificationRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         var response = new AdminSendNotificationResponse { Status = "queued" };
         return Task.FromResult(response);

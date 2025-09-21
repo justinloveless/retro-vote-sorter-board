@@ -1,7 +1,18 @@
 using Microsoft.IdentityModel.Tokens;
 using Retroscope.Api.Controllers;
+using Serilog;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Add services to the container.
 
@@ -66,6 +77,37 @@ app.UseHttpsRedirection();
 
 // Use CORS before authentication
 app.UseCors();
+
+// Add correlation ID middleware
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault() 
+        ?? context.Request.Headers["Request-Id"].FirstOrDefault() 
+        ?? Guid.NewGuid().ToString();
+    
+    // Add to response headers
+    context.Response.Headers["X-Correlation-Id"] = correlationId;
+    context.Response.Headers["Request-Id"] = correlationId;
+    
+    // Add to log context
+    using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
+    using (Serilog.Context.LogContext.PushProperty("RequestId", correlationId))
+    {
+        Log.Information("Request started: {Method} {Path}", context.Request.Method, context.Request.Path);
+        var stopwatch = Stopwatch.StartNew();
+        
+        try
+        {
+            await next();
+        }
+        finally
+        {
+            stopwatch.Stop();
+            Log.Information("Request completed: {Method} {Path} {StatusCode} in {ElapsedMs}ms", 
+                context.Request.Method, context.Request.Path, context.Response.StatusCode, stopwatch.ElapsedMilliseconds);
+        }
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
