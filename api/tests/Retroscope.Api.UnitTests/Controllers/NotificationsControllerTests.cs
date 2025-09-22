@@ -22,7 +22,7 @@ public class NotificationsControllerTests
         {
             Items = new List<NotificationItem>
             {
-                new() { Id = "1", CreatedAt = DateTime.UtcNow, Type = "info", Title = "Test", Body = "Test body", Read = false }
+                new() { Id = "1", UserId = "test-user", CreatedAt = DateTime.UtcNow, Type = "info", Title = "Test", Message = "Test body", Url = "/notifications/1", IsRead = false }
             }
         };
         
