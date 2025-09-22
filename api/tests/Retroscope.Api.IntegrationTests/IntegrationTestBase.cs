@@ -128,6 +128,30 @@ public abstract class IntegrationTestBase : IDisposable
         return await Client.SendAsync(request);
     }
 
+    protected async Task<HttpResponseMessage> PatchAsync(string endpoint, object? content = null, string? authToken = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, endpoint);
+        if (!string.IsNullOrEmpty(authToken))
+        {
+            if (authToken.StartsWith("Bearer "))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authToken);
+            }
+            else
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
+        }
+        
+        if (content != null)
+        {
+            var json = JsonSerializer.Serialize(content);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+        
+        return await Client.SendAsync(request);
+    }
+
     protected void SetupPostgrestStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null)
     {
         var purePath = path.Split('?')[0];
@@ -135,6 +159,29 @@ public abstract class IntegrationTestBase : IDisposable
             .Given(WireMock.RequestBuilders.Request.Create()
                 .WithPath($"/postgrest/{purePath.TrimStart('/')}")
                 .UsingGet());
+
+        // Note: WireMock header matching can be added later if needed
+        // For now, we'll focus on basic request/response matching
+
+        var response = WireMock.ResponseBuilders.Response.Create()
+            .WithStatusCode(statusCode);
+
+        if (responseBody != null)
+        {
+            var json = JsonSerializer.Serialize(responseBody);
+            response = response.WithBody(json, "application/json");
+        }
+
+        requestBuilder.RespondWith(response);
+    }
+
+    protected void SetupPostgrestStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null, string method = "GET")
+    {
+        var purePath = path.Split('?')[0];
+        var requestBuilder = WireMockServer
+            .Given(WireMock.RequestBuilders.Request.Create()
+                .WithPath($"/postgrest/{purePath.TrimStart('/')}")
+                .UsingMethod(method));
 
         // Note: WireMock header matching can be added later if needed
         // For now, we'll focus on basic request/response matching

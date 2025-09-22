@@ -150,4 +150,151 @@ public class NotificationsIntegrationTests : IntegrationTestBase
         response.Headers.Should().ContainKey("X-Correlation-Id");
         response.Headers.GetValues("X-Correlation-Id").First().Should().Be("test-correlation-id");
     }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithValidAuth_ReturnsOk()
+    {
+        // Arrange
+        var notificationId = "notification-123";
+        var requestBody = new { is_read = true };
+        
+        SetupPostgrestStub($"/notifications?id=eq.{notificationId}", 
+            HttpStatusCode.OK, new { success = true }, ValidToken, "PATCH");
+
+        // Act
+        var response = await PatchAsync($"/api/notifications/{notificationId}", requestBody, ValidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<JsonElement>(content);
+        
+        result.GetProperty("success").GetBoolean().Should().BeTrue();
+        result.GetProperty("message").GetString().Should().Be("Notification marked as read");
+
+        // Verify the request was made to PostgREST with correct headers and body
+        VerifyPostgrestRequest($"/notifications?id=eq.{notificationId}", ValidToken);
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithoutAuth_ReturnsUnauthorized()
+    {
+        // Arrange
+        var notificationId = "notification-123";
+        var requestBody = new { is_read = true };
+
+        // Act
+        var response = await PatchAsync($"/api/notifications/{notificationId}", requestBody);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithInvalidToken_ReturnsUnauthorized()
+    {
+        // Arrange
+        var notificationId = "notification-123";
+        var requestBody = new { is_read = true };
+
+        // Act
+        var response = await PatchAsync($"/api/notifications/{notificationId}", requestBody, InvalidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithValidAuth_ReturnsOk()
+    {
+        // Arrange
+        var requestBody = new { is_read = true };
+        
+        SetupPostgrestStub("/notifications?user_id=eq.test-user-id", 
+            HttpStatusCode.OK, new { success = true }, ValidToken, "PATCH");
+
+        // Act
+        var response = await PostAsync("/api/notifications/mark-all-read", requestBody, ValidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<JsonElement>(content);
+        
+        result.GetProperty("success").GetBoolean().Should().BeTrue();
+        result.GetProperty("updated_count").GetInt32().Should().Be(0);
+        result.GetProperty("message").GetString().Should().Be("All notifications marked as read");
+
+        // Verify the request was made to PostgREST with correct headers and body
+        VerifyPostgrestRequest("/notifications?user_id=eq.test-user-id", ValidToken);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithoutAuth_ReturnsUnauthorized()
+    {
+        // Arrange
+        var requestBody = new { is_read = true };
+
+        // Act
+        var response = await PostAsync("/api/notifications/mark-all-read", requestBody);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithInvalidToken_ReturnsUnauthorized()
+    {
+        // Arrange
+        var requestBody = new { is_read = true };
+
+        // Act
+        var response = await PostAsync("/api/notifications/mark-all-read", requestBody, InvalidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_PostgrestReturns500_MapsToBadGateway()
+    {
+        // Arrange
+        var notificationId = "notification-123";
+        var requestBody = new { is_read = true };
+        
+        SetupPostgrestStub($"/notifications?id=eq.{notificationId}", 
+            HttpStatusCode.InternalServerError, null, ValidToken, "PATCH");
+
+        // Act
+        var response = await PatchAsync($"/api/notifications/{notificationId}", requestBody, ValidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        var error = JsonSerializer.Deserialize<JsonElement>(content);
+        error.GetProperty("error").GetString().Should().Be("Downstream service error");
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_PostgrestReturns500_MapsToBadGateway()
+    {
+        // Arrange
+        var requestBody = new { is_read = true };
+        
+        SetupPostgrestStub("/notifications?user_id=eq.test-user-id", 
+            HttpStatusCode.InternalServerError, null, ValidToken, "PATCH");
+
+        // Act
+        var response = await PostAsync("/api/notifications/mark-all-read", requestBody, ValidToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        var error = JsonSerializer.Deserialize<JsonElement>(content);
+        error.GetProperty("error").GetString().Should().Be("Downstream service error");
+    }
 }
