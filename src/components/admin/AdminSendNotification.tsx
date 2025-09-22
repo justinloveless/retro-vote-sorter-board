@@ -65,24 +65,24 @@ export const AdminSendNotification: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>Recipients (comma-separated emails or user IDs)</Label>
-          <Input value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="alice@example.com, 00000000-0000-0000-0000-000000000000" />
+          <Label htmlFor="recipients">Recipients (comma-separated emails or user IDs)</Label>
+          <Input id="recipients" value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="alice@example.com, 00000000-0000-0000-0000-000000000000" />
         </div>
         <div className="space-y-2">
-          <Label>Type</Label>
-          <Input value={type} onChange={(e) => setType(e.target.value)} placeholder="custom | team_invite | retro_session | poker_session" />
+          <Label htmlFor="type">Type</Label>
+          <Input id="type" value={type} onChange={(e) => setType(e.target.value)} placeholder="custom | team_invite | retro_session | poker_session" />
         </div>
         <div className="space-y-2">
-          <Label>Title</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Label htmlFor="title">Title</Label>
+          <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label>Message (optional)</Label>
-          <Input value={message} onChange={(e) => setMessage(e.target.value)} />
+          <Label htmlFor="message">Message (optional)</Label>
+          <Input id="message" value={message} onChange={(e) => setMessage(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label>URL (optional)</Label>
-          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/retro/ROOMID or https://..." />
+          <Label htmlFor="url">URL (optional)</Label>
+          <Input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/retro/ROOMID or https://..." />
         </div>
         <div className="flex justify-end">
           <Button onClick={handleSend} disabled={loading || !title || !recipients.trim()}>{loading ? 'Sending...' : 'Send'}</Button>
