@@ -1,0 +1,35 @@
+# Exclude build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Exclude test projects and files
+tests/
+
+# Exclude development files
+*.user
+*.suo
+*.userprefs
+*.usertasks
+
+# Exclude IDE files
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# Exclude logs
+*.log
+
+# Exclude temporary files
+*.tmp
+*.temp
+
+# Exclude Git files
+.git/
+.gitignore
+.gitattributes
+
+# Exclude documentation
+README.md
+*.md
