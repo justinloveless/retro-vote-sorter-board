@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiAdminSendNotification } from '@/lib/apiClient';
 
 export const AdminSendNotification: React.FC = () => {
   const { toast } = useToast();
@@ -33,9 +35,21 @@ export const AdminSendNotification: React.FC = () => {
         message: message || undefined,
         url: url || undefined,
       };
-      const { error } = await supabase.functions.invoke('admin-send-notification', { body: payload });
-      if (error) throw error;
-      toast({ title: 'Sent', description: 'Notifications queued.' });
+
+      if (shouldUseCSharpApi()) {
+        console.log('Using C# API for admin send notification');
+        const result = await apiAdminSendNotification(payload);
+        toast({ 
+          title: 'Sent', 
+          description: result.info || `Notifications sent to ${result.count || 0} recipients.` 
+        });
+      } else {
+        console.log('Using direct Supabase for admin send notification');
+        const { error } = await supabase.functions.invoke('admin-send-notification', { body: payload });
+        if (error) throw error;
+        toast({ title: 'Sent', description: 'Notifications queued.' });
+      }
+      
       setRecipients('');
     } catch (e: any) {
       toast({ title: 'Failed to send', description: e.message || String(e), variant: 'destructive' });

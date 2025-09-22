@@ -14,34 +14,44 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
     public async Task GetTeamMembers_WithValidAuth_ReturnsOk()
     {
         // Arrange
-        var expectedResponse = new[]
+        // Setup stub for team_members query
+        var teamMembersResponse = new[]
         {
             new
             {
                 user_id = "user-1",
                 team_id = TeamId,
-                role = "admin",
-                profiles = new
-                {
-                    display_name = "John Doe",
-                    email = "john@example.com"
-                }
+                role = "admin"
             },
             new
             {
                 user_id = "user-2",
                 team_id = TeamId,
-                role = "member",
-                profiles = new
-                {
-                    display_name = "Jane Smith",
-                    email = "jane@example.com"
-                }
+                role = "member"
             }
         };
 
-        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{TeamId}", 
-            HttpStatusCode.OK, expectedResponse, ValidToken);
+        // Setup stub for profiles query
+        var profilesResponse = new[]
+        {
+            new
+            {
+                id = "user-1",
+                display_name = "John Doe",
+                email = "john@example.com"
+            },
+            new
+            {
+                id = "user-2",
+                display_name = "Jane Smith",
+                email = "jane@example.com"
+            }
+        };
+
+        SetupPostgrestStub($"/team_members?select=user_id,team_id,role&team_id=eq.{TeamId}", 
+            HttpStatusCode.OK, teamMembersResponse, ValidToken);
+        SetupPostgrestStub($"/profiles?select=id,display_name,email&id=in.(user-1,user-2)", 
+            HttpStatusCode.OK, profilesResponse, ValidToken);
 
         // Act
         var response = await GetAsync($"/api/teams/{TeamId}/members", ValidToken);
@@ -61,8 +71,8 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
         firstMember.GetProperty("email").GetString().Should().Be("john@example.com");
         firstMember.GetProperty("role").GetString().Should().Be("admin");
 
-        // Verify the request was made to PostgREST with correct headers
-        VerifyPostgrestRequest($"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{TeamId}", ValidToken);
+        // Verify the requests were made to PostgREST with correct headers
+        VerifyPostgrestRequest($"/team_members?select=user_id,team_id,role&team_id=eq.{TeamId}", ValidToken);
     }
 
     [Fact]

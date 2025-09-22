@@ -44,7 +44,13 @@ export async function apiGetTeamMembers(teamId: string): Promise<{ items: Array<
   return res.json();
 }
 
-export async function apiAdminSendNotification(payload: { title: string; body: string; targetUserIds: string[] }): Promise<{ status: string }> {
+export async function apiAdminSendNotification(payload: { 
+  recipients: Array<{ userId?: string; email?: string }>; 
+  type: string; 
+  title: string; 
+  message?: string; 
+  url?: string; 
+}): Promise<{ success: boolean; count?: number; info?: string }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/admin/notifications`, {

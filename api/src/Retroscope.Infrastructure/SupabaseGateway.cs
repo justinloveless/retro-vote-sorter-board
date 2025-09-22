@@ -176,7 +176,7 @@ public class SupabaseGateway : ISupabaseGateway
     {
         try
         {
-            _logger.LogInformation("Sending admin notification to {UserCount} users", request.TargetUserIds.Count);
+            _logger.LogInformation("Sending admin notification to {UserCount} recipients", request.Recipients.Count);
 
             var json = JsonSerializer.Serialize(request);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -208,7 +208,7 @@ public class SupabaseGateway : ISupabaseGateway
             var result = JsonSerializer.Deserialize<AdminSendNotificationResponse>(responseJson, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            }) ?? new AdminSendNotificationResponse { Status = "queued" };
+            }) ?? new AdminSendNotificationResponse { Success = true };
 
             return result;
         }

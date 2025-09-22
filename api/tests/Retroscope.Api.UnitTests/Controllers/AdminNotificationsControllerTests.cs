@@ -21,10 +21,14 @@ public class AdminNotificationsControllerTests
         var request = new AdminSendNotificationRequest
         {
             Title = "Test Notification",
-            Body = "This is a test notification",
-            TargetUserIds = new List<string> { "user1", "user2" }
+            Type = "custom",
+            Recipients = new List<Recipient> 
+            { 
+                new Recipient { UserId = "user1" }, 
+                new Recipient { UserId = "user2" } 
+            }
         };
-        var expectedResponse = new AdminSendNotificationResponse { Status = "queued" };
+        var expectedResponse = new AdminSendNotificationResponse { Success = true, Count = 2 };
         
         mockGateway.Setup(x => x.AdminSendNotificationAsync(It.IsAny<string>(), It.IsAny<AdminSendNotificationRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);
@@ -50,7 +54,7 @@ public class AdminNotificationsControllerTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().Contain("queued");
+        responseContent.Should().Contain("success");
         
         mockGateway.Verify(x => x.AdminSendNotificationAsync("Bearer admin-token", It.IsAny<AdminSendNotificationRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -62,8 +66,8 @@ public class AdminNotificationsControllerTests
         var request = new AdminSendNotificationRequest
         {
             Title = "Test Notification",
-            Body = "This is a test notification",
-            TargetUserIds = new List<string> { "user1" }
+            Type = "custom",
+            Recipients = new List<Recipient> { new Recipient { UserId = "user1" } }
         };
         
         var factory = new TestApiFactory();
@@ -86,8 +90,8 @@ public class AdminNotificationsControllerTests
         var request = new AdminSendNotificationRequest
         {
             Title = "Test Notification",
-            Body = "This is a test notification",
-            TargetUserIds = new List<string> { "user1" }
+            Type = "custom",
+            Recipients = new List<Recipient> { new Recipient { UserId = "user1" } }
         };
         
         var factory = new TestApiFactory();

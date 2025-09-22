@@ -16,12 +16,13 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" }, new { userId = "user-2" } },
+            type = "custom",
             title = "Important Update",
-            body = "Please check the latest updates",
-            targetUserIds = new[] { "user-1", "user-2" }
+            message = "Please check the latest updates"
         };
 
-        var expectedResponse = new { status = "queued" };
+        var expectedResponse = new { success = true, count = 2 };
 
         SetupFunctionsStub("/admin-send-notification", HttpStatusCode.Accepted, expectedResponse, ValidToken);
 
@@ -34,7 +35,7 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         var content = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<JsonElement>(content);
         
-        result.GetProperty("status").GetString().Should().Be("queued");
+        result.GetProperty("success").GetBoolean().Should().Be(true);
 
         // Verify the request was made to Functions with correct headers
         VerifyFunctionsRequest("/admin-send-notification", ValidToken);
@@ -46,9 +47,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         // Act
@@ -64,9 +66,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         // Act
@@ -82,9 +85,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "", // Invalid: empty title
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         // Act
@@ -95,7 +99,7 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("Title and Body are required");
+        error.GetProperty("error").GetString().Should().Be("Title and Type are required");
     }
 
     [Fact]
@@ -109,7 +113,7 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("Title and Body are required");
+        error.GetProperty("error").GetString().Should().Be("Title and Type are required");
     }
 
     [Fact]
@@ -118,9 +122,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         SetupFunctionsStub("/admin-send-notification", HttpStatusCode.InternalServerError, null, ValidToken);
@@ -142,9 +147,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         SetupFunctionsStub("/admin-send-notification", HttpStatusCode.Unauthorized, null, ValidToken);
@@ -162,9 +168,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
         SetupFunctionsStub("/admin-send-notification", HttpStatusCode.Forbidden, null, ValidToken);
@@ -182,12 +189,13 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new[] { new { userId = "user-1" } },
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new[] { "user-1" }
+            message = "Test body"
         };
 
-        var expectedResponse = new { status = "queued" };
+        var expectedResponse = new { success = true, count = 1 };
 
         SetupFunctionsStub("/admin-send-notification", HttpStatusCode.Accepted, expectedResponse, ValidToken);
 
@@ -213,9 +221,10 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         // Arrange
         var requestPayload = new
         {
+            recipients = new object[0], // Invalid: empty array
+            type = "custom",
             title = "Test",
-            body = "Test body",
-            targetUserIds = new string[0] // Invalid: empty array
+            message = "Test body"
         };
 
         // Act
@@ -226,6 +235,6 @@ public class AdminNotificationsIntegrationTests : IntegrationTestBase
         
         var content = await response.Content.ReadAsStringAsync();
         var error = JsonSerializer.Deserialize<JsonElement>(content);
-        error.GetProperty("error").GetString().Should().Be("At least one target user ID is required");
+        error.GetProperty("error").GetString().Should().Be("At least one recipient is required");
     }
 }

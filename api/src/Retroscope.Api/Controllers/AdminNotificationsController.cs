@@ -35,14 +35,14 @@ public class AdminNotificationsController : ControllerBase
                 return BadRequest(new { error = "Request body is required" });
             }
 
-            if (string.IsNullOrEmpty(request.Title) || string.IsNullOrEmpty(request.Body))
+            if (string.IsNullOrEmpty(request.Title) || string.IsNullOrEmpty(request.Type))
             {
-                return BadRequest(new { error = "Title and Body are required" });
+                return BadRequest(new { error = "Title and Type are required" });
             }
 
-            if (request.TargetUserIds == null || request.TargetUserIds.Count == 0)
+            if (request.Recipients == null || request.Recipients.Count == 0)
             {
-                return BadRequest(new { error = "At least one target user ID is required" });
+                return BadRequest(new { error = "At least one recipient is required" });
             }
 
             // Extract correlation ID from request headers

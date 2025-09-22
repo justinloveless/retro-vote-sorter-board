@@ -32,7 +32,7 @@ public class MockSupabaseGateway : ISupabaseGateway
 
     public Task<AdminSendNotificationResponse> AdminSendNotificationAsync(string authHeader, AdminSendNotificationRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
     {
-        var response = new AdminSendNotificationResponse { Status = "queued" };
+        var response = new AdminSendNotificationResponse { Success = true, Count = request.Recipients.Count };
         return Task.FromResult(response);
     }
 }
