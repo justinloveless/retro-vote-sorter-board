@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { shouldUseCSharpApi } from '@/config/environment';
@@ -23,9 +23,19 @@ export const useNotifications = () => {
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
 
-  const fetchNotifications = useCallback(async () => {
+  const lastFetchRef = useRef<number>(0);
+
+  const fetchNotifications = useCallback(async (force = false) => {
     if (!user) return;
     const targetUserId = isImpersonating && profile ? profile.id : user.id;
+
+    // Avoid redundant refetches (e.g., tab refocus) unless forced or stale
+    const now = Date.now();
+    const STALE_MS = 30_000; // 30s freshness window
+    if (!force && now - lastFetchRef.current < STALE_MS) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -55,6 +65,7 @@ export const useNotifications = () => {
     }
     
     setLoading(false);
+    lastFetchRef.current = Date.now();
   }, [user, isImpersonating, profile?.id]);
 
   const markAsRead = useCallback(async (id: string) => {
