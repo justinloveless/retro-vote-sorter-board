@@ -89,49 +89,78 @@ public class SupabaseGateway : ISupabaseGateway
         {
             _logger.LogInformation("Fetching team members for team {TeamId}", teamId);
 
-            var request = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
-            request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            // Step 1: fetch team_members rows
+            var membersReq = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role&team_id=eq.{teamId}");
+            membersReq.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             if (!string.IsNullOrEmpty(_supabaseAnonKey))
             {
-                request.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+                membersReq.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
             }
-            
             if (!string.IsNullOrEmpty(correlationId))
             {
-                request.Headers.Add("X-Correlation-Id", correlationId);
+                membersReq.Headers.Add("X-Correlation-Id", correlationId);
             }
 
-            var response = await _postgrestClient.SendAsync(request, cancellationToken);
-            
-            if (!response.IsSuccessStatusCode)
+            var membersResp = await _postgrestClient.SendAsync(membersReq, cancellationToken);
+            if (!membersResp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Failed to fetch team members. Status: {StatusCode}", response.StatusCode);
-                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
+                _logger.LogWarning("Failed to fetch team members. Status: {StatusCode}", membersResp.StatusCode);
+                throw new HttpException(membersResp.StatusCode, $"Supabase request failed with status {membersResp.StatusCode}");
             }
 
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var rawData = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            }) ?? new List<JsonElement>();
+            var membersJson = await membersResp.Content.ReadAsStringAsync(cancellationToken);
+            var memberRows = JsonSerializer.Deserialize<List<JsonElement>>(membersJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                              ?? new List<JsonElement>();
 
-            var teamMembers = new List<TeamMemberItem>();
-            foreach (var item in rawData)
-            {
-                var teamMember = new TeamMemberItem
-                {
-                    TeamId = item.GetProperty("team_id").GetString() ?? "",
-                    UserId = item.GetProperty("user_id").GetString() ?? "",
-                    Role = item.GetProperty("role").GetString() ?? "",
-                };
+            var userIds = memberRows.Select(r => r.GetProperty("user_id").GetString()).Where(id => !string.IsNullOrEmpty(id)).Cast<string>().Distinct().ToList();
 
-                if (item.TryGetProperty("profiles", out var profiles) && profiles.ValueKind == JsonValueKind.Object)
+            var idToProfile = new Dictionary<string, (string? displayName, string? email)>();
+            if (userIds.Count > 0)
+            {
+                // Step 2: fetch profiles in bulk
+                var inList = string.Join(',', userIds);
+                var profilesReq = new HttpRequestMessage(HttpMethod.Get, $"profiles?select=id,display_name,email&id=in.({inList})");
+                profilesReq.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+                if (!string.IsNullOrEmpty(_supabaseAnonKey))
                 {
-                    teamMember.DisplayName = profiles.GetProperty("display_name").GetString() ?? "";
-                    teamMember.Email = profiles.GetProperty("email").GetString() ?? "";
+                    profilesReq.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+                }
+                if (!string.IsNullOrEmpty(correlationId))
+                {
+                    profilesReq.Headers.Add("X-Correlation-Id", correlationId);
                 }
 
-                teamMembers.Add(teamMember);
+                var profilesResp = await _postgrestClient.SendAsync(profilesReq, cancellationToken);
+                if (profilesResp.IsSuccessStatusCode)
+                {
+                    var profilesJson = await profilesResp.Content.ReadAsStringAsync(cancellationToken);
+                    var profileRows = JsonSerializer.Deserialize<List<JsonElement>>(profilesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                                       ?? new List<JsonElement>();
+                    foreach (var p in profileRows)
+                    {
+                        var id = p.GetProperty("id").GetString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            idToProfile[id] = (p.TryGetProperty("display_name", out var dn) ? dn.GetString() : null,
+                                               p.TryGetProperty("email", out var em) ? em.GetString() : null);
+                        }
+                    }
+                }
+            }
+
+            var teamMembers = new List<TeamMemberItem>();
+            foreach (var row in memberRows)
+            {
+                var uid = row.GetProperty("user_id").GetString() ?? "";
+                idToProfile.TryGetValue(uid, out var prof);
+                teamMembers.Add(new TeamMemberItem
+                {
+                    TeamId = row.GetProperty("team_id").GetString() ?? "",
+                    UserId = uid,
+                    Role = row.GetProperty("role").GetString() ?? "",
+                    DisplayName = prof.displayName ?? string.Empty,
+                    Email = prof.email ?? string.Empty
+                });
             }
 
             return new TeamMembersResponse { Items = teamMembers };

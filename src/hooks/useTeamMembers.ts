@@ -1,6 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetTeamMembers } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface TeamMember {
@@ -41,32 +43,45 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      // First get team members
-      const { data: membersData, error: membersError } = await supabase
-        .from('team_members')
-        .select('*')
-        .eq('team_id', teamId)
-        .order('joined_at', { ascending: true });
+      if (shouldUseCSharpApi()) {
+        // Use C# API passthrough
+        const { items } = await apiGetTeamMembers(teamId);
+        const typedMembers: TeamMember[] = (items || []).map((m: any) => ({
+          id: m.userId, // fallback; API doesn't expose team_members row id in Phase 1
+          team_id: m.teamId,
+          user_id: m.userId,
+          role: (m.role || 'member') as 'owner' | 'admin' | 'member',
+          joined_at: '',
+          profiles: { full_name: m.displayName ?? null }
+        }));
+        setMembers(typedMembers);
+      } else {
+        // First get team members
+        const { data: membersData, error: membersError } = await supabase
+          .from('team_members')
+          .select('*')
+          .eq('team_id', teamId)
+          .order('joined_at', { ascending: true });
 
-      if (membersError) throw membersError;
+        if (membersError) throw membersError;
 
-      // Then get profiles for those users
-      const userIds = membersData?.map(member => member.user_id) || [];
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
+        // Then get profiles for those users
+        const userIds = membersData?.map(member => member.user_id) || [];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
 
-      if (profilesError) throw profilesError;
+        if (profilesError) throw profilesError;
 
-      // Combine the data
-      const typedMembers = (membersData || []).map(member => ({
-        ...member,
-        role: member.role as 'owner' | 'admin' | 'member',
-        profiles: profilesData?.find(profile => profile.id === member.user_id) || null
-      }));
-      
-      setMembers(typedMembers);
+        // Combine the data
+        const typedMembers = (membersData || []).map(member => ({
+          ...member,
+          role: member.role as 'owner' | 'admin' | 'member',
+          profiles: profilesData?.find(profile => profile.id === member.user_id) || null
+        }));
+        setMembers(typedMembers);
+      }
     } catch (error) {
       console.error('Error loading team members:', error);
       toast({
