@@ -110,4 +110,119 @@ public class NotificationsControllerTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithValidAuth_ReturnsOk()
+    {
+        // Arrange
+        var mockGateway = new Mock<ISupabaseGateway>();
+        var expectedResponse = new MarkNotificationReadResponse
+        {
+            Success = true,
+            Message = "Notification marked as read"
+        };
+        
+        mockGateway.Setup(x => x.MarkNotificationReadAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<MarkNotificationReadRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(expectedResponse);
+
+        var factory = new TestApiFactory()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(mockGateway.Object);
+                });
+            });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
+
+        var requestBody = new { is_read = true };
+        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync("/api/notifications/test-id", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        responseContent.Should().Contain("success");
+        
+        mockGateway.Verify(x => x.MarkNotificationReadAsync("Bearer test-token", "test-id", It.IsAny<MarkNotificationReadRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithoutAuth_ReturnsUnauthorized()
+    {
+        // Arrange
+        var factory = new TestApiFactory();
+        var client = factory.CreateClient();
+
+        var requestBody = new { is_read = true };
+        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync("/api/notifications/test-id", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithValidAuth_ReturnsOk()
+    {
+        // Arrange
+        var mockGateway = new Mock<ISupabaseGateway>();
+        var expectedResponse = new MarkAllNotificationsReadResponse
+        {
+            Success = true,
+            UpdatedCount = 5,
+            Message = "All notifications marked as read"
+        };
+        
+        mockGateway.Setup(x => x.MarkAllNotificationsReadAsync(It.IsAny<string>(), It.IsAny<MarkAllNotificationsReadRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(expectedResponse);
+
+        var factory = new TestApiFactory()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(mockGateway.Object);
+                });
+            });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
+
+        var requestBody = new { is_read = true };
+        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PostAsync("/api/notifications/mark-all-read", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        responseContent.Should().Contain("updated_count");
+        
+        mockGateway.Verify(x => x.MarkAllNotificationsReadAsync("Bearer test-token", It.IsAny<MarkAllNotificationsReadRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithoutAuth_ReturnsUnauthorized()
+    {
+        // Arrange
+        var factory = new TestApiFactory();
+        var client = factory.CreateClient();
+
+        var requestBody = new { is_read = true };
+        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PostAsync("/api/notifications/mark-all-read", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

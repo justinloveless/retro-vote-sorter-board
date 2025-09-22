@@ -218,4 +218,136 @@ public class SupabaseGateway : ISupabaseGateway
             throw;
         }
     }
+
+    public async Task<MarkNotificationReadResponse> MarkNotificationReadAsync(string bearerToken, string notificationId, MarkNotificationReadRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Marking notification {NotificationId} as read", notificationId);
+
+            var requestBody = new { is_read = request.IsRead };
+            var jsonContent = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"notifications?id=eq.{notificationId}")
+            {
+                Content = content
+            };
+            httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            if (!string.IsNullOrEmpty(_supabaseAnonKey))
+            {
+                httpRequest.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+            }
+            
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                httpRequest.Headers.Add("X-Correlation-Id", correlationId);
+            }
+
+            var response = await _postgrestClient.SendAsync(httpRequest, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to mark notification as read. Status: {StatusCode}", response.StatusCode);
+                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
+            }
+
+            return new MarkNotificationReadResponse
+            {
+                Success = true,
+                Message = "Notification marked as read"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking notification as read");
+            throw;
+        }
+    }
+
+    public async Task<MarkAllNotificationsReadResponse> MarkAllNotificationsReadAsync(string bearerToken, MarkAllNotificationsReadRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Marking all notifications as read");
+
+            // First, get the user ID from the token to filter notifications
+            var userId = ExtractUserIdFromToken(bearerToken);
+            if (string.IsNullOrEmpty(userId))
+            {
+                throw new UnauthorizedAccessException("Unable to extract user ID from token");
+            }
+
+            var requestBody = new { is_read = request.IsRead };
+            var jsonContent = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"notifications?user_id=eq.{userId}")
+            {
+                Content = content
+            };
+            httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            if (!string.IsNullOrEmpty(_supabaseAnonKey))
+            {
+                httpRequest.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+            }
+            
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                httpRequest.Headers.Add("X-Correlation-Id", correlationId);
+            }
+
+            var response = await _postgrestClient.SendAsync(httpRequest, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to mark all notifications as read. Status: {StatusCode}", response.StatusCode);
+                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
+            }
+
+            // For mark-all-read, we don't get the count back from Supabase directly
+            // We could make a separate request to count, but for now we'll return a generic success
+            return new MarkAllNotificationsReadResponse
+            {
+                Success = true,
+                UpdatedCount = 0, // Could be enhanced to get actual count
+                Message = "All notifications marked as read"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking all notifications as read");
+            throw;
+        }
+    }
+
+    private string? ExtractUserIdFromToken(string bearerToken)
+    {
+        try
+        {
+            // Remove "Bearer " prefix
+            var token = bearerToken.StartsWith("Bearer ") ? bearerToken.Substring(7) : bearerToken;
+            
+            // Simple JWT payload extraction (without signature verification for this use case)
+            var parts = token.Split('.');
+            if (parts.Length != 3) return null;
+            
+            var payload = parts[1];
+            // Add padding if needed
+            while (payload.Length % 4 != 0)
+            {
+                payload += "=";
+            }
+            
+            var payloadBytes = Convert.FromBase64String(payload);
+            var payloadJson = Encoding.UTF8.GetString(payloadBytes);
+            
+            using var doc = JsonDocument.Parse(payloadJson);
+            return doc.RootElement.GetProperty("sub").GetString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

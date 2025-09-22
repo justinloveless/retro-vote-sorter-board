@@ -35,4 +35,25 @@ public class MockSupabaseGateway : ISupabaseGateway
         var response = new AdminSendNotificationResponse { Success = true, Count = request.Recipients.Count };
         return Task.FromResult(response);
     }
+
+    public Task<MarkNotificationReadResponse> MarkNotificationReadAsync(string bearerToken, string notificationId, MarkNotificationReadRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var response = new MarkNotificationReadResponse
+        {
+            Success = true,
+            Message = "Notification marked as read"
+        };
+        return Task.FromResult(response);
+    }
+
+    public Task<MarkAllNotificationsReadResponse> MarkAllNotificationsReadAsync(string bearerToken, MarkAllNotificationsReadRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var response = new MarkAllNotificationsReadResponse
+        {
+            Success = true,
+            UpdatedCount = 5, // Mock value
+            Message = "All notifications marked as read"
+        };
+        return Task.FromResult(response);
+    }
 }
