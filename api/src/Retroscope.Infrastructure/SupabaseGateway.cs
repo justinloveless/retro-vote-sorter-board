@@ -13,6 +13,7 @@ public class SupabaseGateway : ISupabaseGateway
     private readonly HttpClient _postgrestClient;
     private readonly HttpClient _functionsClient;
     private readonly ILogger<SupabaseGateway> _logger;
+    private readonly string? _supabaseAnonKey;
 
     public SupabaseGateway(
         IHttpClientFactory httpClientFactory,
@@ -22,6 +23,7 @@ public class SupabaseGateway : ISupabaseGateway
         _postgrestClient = httpClientFactory.CreateClient("PostgrestClient");
         _functionsClient = httpClientFactory.CreateClient("FunctionsClient");
         _logger = logger;
+        _supabaseAnonKey = configuration["SUPABASE_ANON_KEY"];
 
         // Configure base URLs from configuration
         var postgrestUrl = configuration["SUPABASE_POSTGREST_URL"];
@@ -29,11 +31,13 @@ public class SupabaseGateway : ISupabaseGateway
 
         if (!string.IsNullOrEmpty(postgrestUrl))
         {
+            if (!postgrestUrl.EndsWith("/")) postgrestUrl += "/";
             _postgrestClient.BaseAddress = new Uri(postgrestUrl);
         }
 
         if (!string.IsNullOrEmpty(functionsUrl))
         {
+            if (!functionsUrl.EndsWith("/")) functionsUrl += "/";
             _functionsClient.BaseAddress = new Uri(functionsUrl);
         }
     }
@@ -46,6 +50,10 @@ public class SupabaseGateway : ISupabaseGateway
 
             var request = new HttpRequestMessage(HttpMethod.Get, $"notifications?select=*&order=created_at.desc&limit={limit}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            if (!string.IsNullOrEmpty(_supabaseAnonKey))
+            {
+                request.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+            }
             
             if (!string.IsNullOrEmpty(correlationId))
             {
@@ -83,6 +91,10 @@ public class SupabaseGateway : ISupabaseGateway
 
             var request = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{teamId}");
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+            if (!string.IsNullOrEmpty(_supabaseAnonKey))
+            {
+                request.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+            }
             
             if (!string.IsNullOrEmpty(correlationId))
             {
@@ -145,6 +157,10 @@ public class SupabaseGateway : ISupabaseGateway
                 Content = content
             };
             httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(authHeader);
+            if (!string.IsNullOrEmpty(_supabaseAnonKey))
+            {
+                httpRequest.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+            }
             
             if (!string.IsNullOrEmpty(correlationId))
             {
