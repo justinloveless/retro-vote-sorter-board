@@ -1,0 +1,42 @@
+name: API CI
+
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - '.github/workflows/api-ci.yml'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'api/**'
+      - '.github/workflows/api-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore api/Retroscope.sln
+    
+    - name: Build
+      run: dotnet build api/Retroscope.sln --configuration Release --no-restore
+    
+    - name: Test
+      run: dotnet test api/Retroscope.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+    
+    - name: Upload coverage reports to Codecov
+      if: success()
+      uses: codecov/codecov-action@v4
+      with:
+        directory: ./coverage
+        flags: api
+        name: api-coverage
+        fail_ci_if_error: false
