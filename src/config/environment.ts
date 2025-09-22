@@ -25,7 +25,7 @@ const developmentConfig: EnvironmentConfig = {
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53Zndiam16Ynd1eXhlaGluZHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MjkyMzksImV4cCI6MjA2NDEwNTIzOX0.s_vI6z46NAYlpB8K0wznCWEr_cFcnsHh7Qn4LmsUZU0",
   environment: 'development',
   useCSharpApi: true, // Enabled in development
-  apiBaseUrl: 'http://localhost:5174/api' // Local C# API URL through nginx proxy
+  apiBaseUrl: 'http://localhost:5174' // Local C# API URL through nginx proxy
 };
 
 // Detect environment based on hostname or explicit environment variable
