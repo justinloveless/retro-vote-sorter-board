@@ -1,10 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
 
 namespace Retroscope.Api.Controllers;
 
-[ApiController]
 [Route("")]
 public class HealthController : ControllerBase
 {
@@ -23,12 +23,14 @@ public class HealthController : ControllerBase
     }
 
     [HttpGet("healthz")]
+    [AllowAnonymous]
     public IActionResult GetHealth()
     {
         return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
     }
 
     [HttpGet("readyz")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetReadiness()
     {
         try
