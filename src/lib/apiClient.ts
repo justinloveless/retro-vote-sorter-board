@@ -61,3 +61,27 @@ export async function apiAdminSendNotification(payload: {
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
+
+export async function apiMarkNotificationRead(notificationId: string): Promise<{ success: boolean; message: string }> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/notifications/${notificationId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_read: true })
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+export async function apiMarkAllNotificationsRead(): Promise<{ success: boolean; updated_count: number; message: string }> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/notifications/mark-all-read`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_read: true })
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}

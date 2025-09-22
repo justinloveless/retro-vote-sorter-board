@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetNotifications } from '@/lib/apiClient';
+import { apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead } from '@/lib/apiClient';
 
 export type AppNotification = {
   id: string;
@@ -69,16 +69,53 @@ export const useNotifications = () => {
   }, [user, isImpersonating, profile?.id]);
 
   const markAsRead = useCallback(async (id: string) => {
-    // TODO: Migrate to C# API when mark-as-read endpoint is implemented (Phase 2)
-    // For now, always use direct Supabase for mark-as-read operations
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id);
-    if (!error) {
+    try {
+      if (shouldUseCSharpApi()) {
+        // Use C# API passthrough
+        await apiMarkNotificationRead(id);
+      } else {
+        // Use direct Supabase
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', id);
+        if (error) {
+          setError(error.message);
+          return;
+        }
+      }
+      
+      // Update local state on success
       setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: true } : n)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mark notification as read');
     }
   }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    try {
+      if (shouldUseCSharpApi()) {
+        // Use C# API passthrough
+        await apiMarkAllNotificationsRead();
+      } else {
+        // Use direct Supabase - mark all unread notifications as read
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', isImpersonating && profile ? profile.id : user?.id)
+          .eq('is_read', false);
+        if (error) {
+          setError(error.message);
+          return;
+        }
+      }
+      
+      // Update local state on success - mark all unread notifications as read
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mark all notifications as read');
+    }
+  }, [user, isImpersonating, profile?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -107,7 +144,7 @@ export const useNotifications = () => {
     }
   }, [user, isImpersonating, profile?.id, fetchNotifications]);
 
-  return { notifications, unreadCount, loading, error, fetchNotifications, markAsRead };
+  return { notifications, unreadCount, loading, error, fetchNotifications, markAsRead, markAllAsRead };
 };
 
 
