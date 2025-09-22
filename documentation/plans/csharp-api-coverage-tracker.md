@@ -20,9 +20,9 @@ Legend for Status:
 
 | Feature | File (path) | Call Type | Supabase Resource | New API Endpoint | Status | Notes |
 |---|---|---|---|---|---|---|
-| Notifications | src/hooks/useNotifications.ts | PostgREST select | notifications | GET /api/notifications | Not started | Limit param; pass user bearer token |
-| Team Members | src/components/team/TeamMembersList.tsx | PostgREST select | team_members, profiles | GET /api/teams/{teamId}/members | Not started | Join profile fields; map to DTO |
-| Admin Send Notification | src/components/admin/AdminSendNotification.tsx | Edge Function | functions: admin-send-notification | POST /api/admin/notifications | Not started | Ensure admin role; service role only if needed |
+| Notifications | src/hooks/useNotifications.ts | PostgREST select | notifications | GET /api/notifications | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
+| Team Members | src/components/team/TeamMembersList.tsx | PostgREST select | team_members, profiles | GET /api/teams/{teamId}/members | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
+| Admin Send Notification | src/components/admin/AdminSendNotification.tsx | Edge Function | functions: admin-send-notification | POST /api/admin/notifications | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
 | Notifications: mark read | src/hooks/useNotifications.ts | PostgREST update | notifications | PATCH /api/notifications/{id} | Not started | Phase 2 |
 | Notifications: mark all read | src/hooks/useNotifications.ts | RPC/Function | notifications | POST /api/notifications/mark-all-read | Not started | Phase 2 |
 | Teams CRUD | src/hooks/useTeams.ts | PostgREST CRUD | teams | /api/teams (GET/POST/PATCH/DELETE) | Not started | Phase 3 |
