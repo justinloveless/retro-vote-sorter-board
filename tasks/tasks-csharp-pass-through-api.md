@@ -27,7 +27,7 @@ Status values: Not started | In progress | Blocked | In review | Done
 | 17 | CI for API | Add GitHub Actions workflow to build and test the API on PR. | Done | 1,2 | Steps: restore, build Release, test Release. Fail PR on test failure. |
 | 18 | Dockerize API | Create multi-stage `api/Dockerfile` for .NET publish and runtime layers. | Done | 1 | Ensure environment variables map correctly at runtime. |
 | 19 | Compose local stack | Update repo `docker-compose.yml` (or add in `api/`) to include the API service and optionally a WireMock container. | Done | 18 | Expose API at `http://localhost:5099`. Confirm CORS allows the front end origin. |
-| 20 | NGINX routing to API | Update NGINX config to route `/api/` to the API container/service. | Not started | 18,19 | Preserve static asset routes. Verify via browser devtools network. |
+| 20 | NGINX routing to API | Update NGINX config to route `/api/` to the API container/service. | Done | 18,19 | Preserve static asset routes. Verify via browser devtools network. |
 | 21 | Progressive coverage tracker setup | Create and maintain `documentation/plans/csharp-api-coverage-tracker.md`. Add rows for each Supabase usage. | In progress | - | Update on each PR. Use phases in plan to prioritize. |
 | 22 | Phase 2: Notifications parity | Implement mark-as-read and mark-all-read endpoints with tests and FE migration behind flag. | Not started | 6,7,10 | Follow TDD recipe: contract → tests → controller → gateway → integration tests → FE switch. |
 | 23 | Phase 3: Teams & Members | Add teams CRUD and member add/remove/role endpoints, tests, and FE migration. | Not started | 22 | Ensure RLS via user token; admin checks where required. |
