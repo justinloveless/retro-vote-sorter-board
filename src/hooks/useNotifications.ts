@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { shouldUseCSharpApi } from '@/config/environment';
+import { shouldUseCSharpApi, getApiBaseUrl } from '@/config/environment';
 import { apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead } from '@/lib/apiClient';
 
 export type AppNotification = {
@@ -39,14 +39,12 @@ export const useNotifications = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      if (shouldUseCSharpApi()) {
-        console.log('Using C# API');
-        // Use C# API passthrough
-        const response = await apiGetNotifications(50);
-        setNotifications(response.items as AppNotification[]);
-      } else {
-        console.log('Using direct Supabase');
+          try {
+            if (shouldUseCSharpApi()) {
+              // Use C# API passthrough
+              const response = await apiGetNotifications(50);
+              setNotifications(response.items as AppNotification[]);
+            } else {
         // Use direct Supabase
         const { data, error } = await supabase
           .from('notifications')
@@ -54,13 +52,14 @@ export const useNotifications = () => {
           .eq('user_id', targetUserId)
           .order('created_at', { ascending: false })
           .limit(50);
-        if (error) {
-          setError(error.message);
-        } else {
-          setNotifications((data as AppNotification[]) || []);
-        }
+              if (error) {
+                setError(error.message);
+              } else {
+                setNotifications((data as AppNotification[]) || []);
+              }
       }
     } catch (err) {
+      console.error('🔔 fetchNotifications error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
     }
     

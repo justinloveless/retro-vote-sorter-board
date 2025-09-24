@@ -23,8 +23,8 @@ Legend for Status:
 | Notifications | src/hooks/useNotifications.ts | PostgREST select | notifications | GET /api/notifications | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
 | Team Members | src/components/team/TeamMembersList.tsx | PostgREST select | team_members, profiles | GET /api/teams/{teamId}/members | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
 | Admin Send Notification | src/components/admin/AdminSendNotification.tsx | Edge Function | functions: admin-send-notification | POST /api/admin/notifications | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
-| Notifications: mark read | src/hooks/useNotifications.ts | PostgREST update | notifications | PATCH /api/notifications/{id} | Not started | Phase 2 |
-| Notifications: mark all read | src/hooks/useNotifications.ts | RPC/Function | notifications | POST /api/notifications/mark-all-read | Not started | Phase 2 |
+| Notifications: mark read | src/hooks/useNotifications.ts | PostgREST update | notifications | PATCH /api/notifications/{id} | Covered | ✅ Implemented in Task 22; API ready, FE behind flag |
+| Notifications: mark all read | src/hooks/useNotifications.ts | RPC/Function | notifications | POST /api/notifications/mark-all-read | Covered | ✅ Implemented in Task 22; API ready, FE behind flag |
 | Teams CRUD | src/hooks/useTeams.ts | PostgREST CRUD | teams | /api/teams (GET/POST/PATCH/DELETE) | Not started | Phase 3 |
 | Team Member Add/Remove/Role | src/hooks/useTeamMembers.ts | PostgREST | team_members | /api/teams/{teamId}/members (+ PATCH/DELETE) | Not started | Phase 3 |
 | Retro Boards CRUD | src/hooks/useRetroBoard.ts | PostgREST CRUD | retro_boards, retro_columns, retro_items | /api/retro/... | Not started | Phase 4 |

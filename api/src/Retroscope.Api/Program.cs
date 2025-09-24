@@ -213,9 +213,9 @@ app.Use(async (context, next) =>
     }
 });
 
-// Temporarily disable authentication for testing
-// app.UseAuthentication();
-// app.UseAuthorization();
+// Enable auth middleware (Dev handler in Development; JWT in non-Development)
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Health endpoints are handled by HealthController
 

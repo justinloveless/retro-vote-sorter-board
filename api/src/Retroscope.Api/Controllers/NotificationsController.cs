@@ -25,10 +25,7 @@ public class NotificationsController : ControllerBase
         try
         {
             var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                return Unauthorized();
-            }
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
 
             // Extract correlation ID from request headers
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
@@ -57,10 +54,7 @@ public class NotificationsController : ControllerBase
         try
         {
             var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                return Unauthorized();
-            }
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
 
             // Extract correlation ID from request headers
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
@@ -89,10 +83,7 @@ public class NotificationsController : ControllerBase
         try
         {
             var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                return Unauthorized();
-            }
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
 
             // Extract correlation ID from request headers
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 

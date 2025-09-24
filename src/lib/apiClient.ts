@@ -27,10 +27,17 @@ async function getSupabaseAccessToken(): Promise<string> {
 export async function apiGetNotifications(limit = 50): Promise<{ items: Array<any> }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
-  const res = await fetch(`${base}/api/notifications?limit=${limit}`, {
+  const url = `${base}/api/notifications?limit=${limit}`;
+  
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`API error ${res.status}: ${errorText}`);
+  }
+  
   return res.json();
 }
 
@@ -65,12 +72,19 @@ export async function apiAdminSendNotification(payload: {
 export async function apiMarkNotificationRead(notificationId: string): Promise<{ success: boolean; message: string }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
-  const res = await fetch(`${base}/api/notifications/${notificationId}`, {
+  const url = `${base}/api/notifications/${notificationId}`;
+  
+  const res = await fetch(url, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_read: true })
   });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`API error ${res.status}: ${errorText}`);
+  }
+  
   return res.json();
 }
 
