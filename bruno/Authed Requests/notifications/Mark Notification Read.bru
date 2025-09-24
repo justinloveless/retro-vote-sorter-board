@@ -1,0 +1,19 @@
+meta {
+  name: Mark Notification Read
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{apiBaseUrl}}/api/notifications/{{notificationId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  { "is_read": true }
+}
+
+settings {
+  encodeUrl: true
+}

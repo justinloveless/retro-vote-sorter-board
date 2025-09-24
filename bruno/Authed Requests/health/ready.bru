@@ -1,0 +1,15 @@
+meta {
+  name: ready
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:5174/readyz
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: true
+}

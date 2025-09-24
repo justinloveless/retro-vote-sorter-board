@@ -1,0 +1,75 @@
+meta {
+  name: Authed Requests
+  seq: 2
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:pre-request {
+  function decodeJwtPayload(token) {
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4 ? 4 - (normalized.length % 4) : 0;
+      const b64 = normalized + '='.repeat(pad);
+      const json = Buffer.from(b64, 'base64').toString('utf8');
+      return JSON.parse(json);
+    } catch { return null; }
+  }
+  
+  function isTokenExpired(token, skewSeconds = 60) {
+    const p = decodeJwtPayload(token);
+    if (!p || !p.exp) return true;
+    const now = Math.floor(Date.now() / 1000);
+    return (p.exp - skewSeconds) <= now;
+  }
+  
+  let accessToken = bru.getEnvVar('accessToken');
+  const refreshToken = bru.getEnvVar('refreshToken');
+  
+  if (accessToken && !isTokenExpired(accessToken)) {
+    return;
+  }
+  
+  // Try refresh first if present
+  if (refreshToken) {
+    try {
+      const r = await bru.runRequest('auth/Refresh Access Token'); // adjust to your path
+      console.log(`refresh status: ${r?.status}`);
+      if (r && r.status < 400) {
+        const data = r.data;
+        if (data.access_token) {
+          bru.setEnvVar('accessToken', data.access_token);
+          if (data.refresh_token) bru.setEnvVar('refreshToken', data.refresh_token);
+          return;
+        }
+      } else {
+        console.warn(`Refresh failed. Status=${r?.status}. Body=${(r?.body || '').substring(0,200)}`);
+      }
+    } catch (e) {
+      console.warn(`Refresh exception: ${e?.message || e}`);
+    }
+  }
+  
+  // Fallback: password grant
+  const p = await bru.runRequest('auth/Get Supabase Access Token'); // adjust to your path
+  console.log(`password-grant status: ${p?.status}`);
+  if (!p || p.status >= 400) {
+    throw new Error(`Password grant failed. Status=${p?.status}. Body=${(p?.body || '').substring(0,200)}`);
+  }
+  const pwd = p.data;
+  if (!pwd.access_token) throw new Error('No access_token in password grant response');
+  bru.setEnvVar('accessToken', pwd.access_token);
+  if (pwd.refresh_token) bru.setEnvVar('refreshToken', pwd.refresh_token);
+}

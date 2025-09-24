@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "retroscope",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
