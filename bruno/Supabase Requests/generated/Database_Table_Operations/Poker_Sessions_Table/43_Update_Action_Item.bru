@@ -1,0 +1,22 @@
+meta {
+  name: 43. Update Action Item
+  type: http
+  seq: 43
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/team_action_items?id=eq.{{itemId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "done": "boolean", "done_at": "string", "done_by": "string", "assigned_to": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

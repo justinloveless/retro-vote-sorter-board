@@ -1,0 +1,86 @@
+meta {
+  name: Supabase Requests
+  seq: 3
+}
+
+headers {
+  apikey: {{supabaseAnonKey}}
+  Authorization: Bearer {{accessToken}}
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:pre-request {
+  function decodeJwtPayload(token) {
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4 ? 4 - (normalized.length % 4) : 0;
+      const b64 = normalized + '='.repeat(pad);
+      const json = Buffer.from(b64, 'base64').toString('utf8');
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+
+  function isTokenExpired(token, skewSeconds = 60) {
+    const payload = decodeJwtPayload(token);
+    if (!payload || !payload.exp) {
+      return true;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    return (payload.exp - skewSeconds) <= now;
+  }
+
+  let accessToken = bru.getEnvVar('accessToken');
+  const refreshToken = bru.getEnvVar('refreshToken');
+
+  if (accessToken && !isTokenExpired(accessToken)) {
+    return;
+  }
+
+  if (refreshToken) {
+    try {
+      const response = await bru.runRequest('auth/Refresh Access Token');
+      if (response && response.status < 400) {
+        const data = typeof response.body === 'string'
+          ? JSON.parse(response.body || '{}')
+          : (response.data ?? {});
+        if (data.access_token) {
+          bru.setEnvVar('accessToken', data.access_token);
+          if (data.refresh_token) {
+            bru.setEnvVar('refreshToken', data.refresh_token);
+          }
+          return;
+        }
+      }
+    } catch (error) {
+      bru.warn(`Refresh token invocation failed: ${error?.message || error}`);
+    }
+  }
+
+  const passwordGrantResponse = await bru.runRequest('auth/Get Supabase Access Token');
+  if (!passwordGrantResponse || passwordGrantResponse.status >= 400) {
+    throw new Error(`Password grant failed. Status=${passwordGrantResponse?.status}`);
+  }
+  const tokenData = typeof passwordGrantResponse.body === 'string'
+    ? JSON.parse(passwordGrantResponse.body || '{}')
+    : (passwordGrantResponse.data ?? {});
+  if (!tokenData.access_token) {
+    throw new Error('No access_token in Supabase password grant response');
+  }
+  bru.setEnvVar('accessToken', tokenData.access_token);
+  if (tokenData.refresh_token) {
+    bru.setEnvVar('refreshToken', tokenData.refresh_token);
+  }
+}

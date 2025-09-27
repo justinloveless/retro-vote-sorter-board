@@ -1,0 +1,21 @@
+meta {
+  name: 70. Get Config Value
+  type: http
+  seq: 70
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/app_config?key=eq.{{key}}&select=value
+  body: none
+  auth: inherit
+}
+
+params:query {
+  key: 'eq.{{key}}'
+    select: 'value'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

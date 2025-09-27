@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Extensions.Http;
+using Retroscope.Infrastructure.Supabase;
 
 namespace Retroscope.Infrastructure;
 

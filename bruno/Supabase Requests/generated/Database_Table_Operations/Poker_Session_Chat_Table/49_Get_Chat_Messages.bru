@@ -1,0 +1,21 @@
+meta {
+  name: 49. Get Chat Messages
+  type: http
+  seq: 49
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/poker_session_chat?session_id=eq.{{sessionId}}&order=created_at
+  body: none
+  auth: inherit
+}
+
+params:query {
+  session_id: 'eq.{{sessionId}}'
+    order: 'created_at'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

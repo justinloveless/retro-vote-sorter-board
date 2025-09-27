@@ -1,0 +1,15 @@
+meta {
+  name: 100. GET /rest/v1 - health
+  type: http
+  seq: 100
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/
+  body: none
+  auth: inherit
+}
+
+headers {
+  apikey: {{supabaseAnonKey}}
+}

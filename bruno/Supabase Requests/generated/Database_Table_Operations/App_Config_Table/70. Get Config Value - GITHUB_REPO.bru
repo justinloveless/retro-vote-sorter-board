@@ -1,0 +1,21 @@
+meta {
+  name: 70. Get Config Value - GITHUB_REPO
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/app_config?key=eq.GITHUB_REPO&select=value
+  body: none
+  auth: inherit
+}
+
+params:query {
+  key: eq.GITHUB_REPO
+  select: value
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}

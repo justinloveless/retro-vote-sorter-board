@@ -37,20 +37,20 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
             new
             {
                 id = "user-1",
-                display_name = "John Doe",
+                full_name = "John Doe",
                 email = "john@example.com"
             },
             new
             {
                 id = "user-2",
-                display_name = "Jane Smith",
+                full_name = "Jane Smith",
                 email = "jane@example.com"
             }
         };
 
-        SetupPostgrestStub($"/team_members?select=user_id,team_id,role&team_id=eq.{TeamId}", 
+        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(full_name,email)&team_id=eq.{TeamId}", 
             HttpStatusCode.OK, teamMembersResponse, ValidToken);
-        SetupPostgrestStub($"/profiles?select=id,display_name,email&id=in.(user-1,user-2)", 
+        SetupPostgrestStub($"/profiles?select=id,full_name,email&id=in.(user-1,user-2)", 
             HttpStatusCode.OK, profilesResponse, ValidToken);
 
         // Act
@@ -99,7 +99,7 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
     public async Task GetTeamMembers_PostgrestReturns500_MapsToBadGateway()
     {
         // Arrange
-        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{TeamId}", 
+        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(full_name,email)&team_id=eq.{TeamId}", 
             HttpStatusCode.InternalServerError, null, ValidToken);
 
         // Act
@@ -117,7 +117,7 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
     public async Task GetTeamMembers_PostgrestReturns401_MapsToUnauthorized()
     {
         // Arrange
-        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{TeamId}", 
+        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(full_name,email)&team_id=eq.{TeamId}", 
             HttpStatusCode.Unauthorized, null, ValidToken);
 
         // Act
@@ -140,13 +140,13 @@ public class TeamMembersIntegrationTests : IntegrationTestBase
                 role = "admin",
                 profiles = new
                 {
-                    display_name = "John Doe",
+                    full_name = "John Doe",
                     email = "john@example.com"
                 }
             }
         };
 
-        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(display_name,email)&team_id=eq.{TeamId}", 
+        SetupPostgrestStub($"/team_members?select=user_id,team_id,role,profiles(full_name,email)&team_id=eq.{TeamId}", 
             HttpStatusCode.OK, expectedResponse, ValidToken);
 
         // Act

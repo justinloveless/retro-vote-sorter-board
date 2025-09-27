@@ -1,0 +1,17 @@
+meta {
+  name: 34. Delete Item
+  type: http
+  seq: 34
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/retro_items?id=eq.{{itemId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

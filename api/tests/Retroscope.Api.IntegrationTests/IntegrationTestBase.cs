@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using Retroscope.Infrastructure.Supabase;
 using WireMock.Net;
 using WireMock.Server;
 
@@ -71,7 +72,7 @@ public abstract class IntegrationTestBase : IDisposable
                     });
                     
                     services.AddScoped<Retroscope.Application.Interfaces.ISupabaseGateway, 
-                        Retroscope.Infrastructure.SupabaseGateway>();
+                        SupabaseGateway>();
                     
                     // Add test authentication scheme for integration tests
                     services.AddAuthentication(options =>
@@ -150,29 +151,6 @@ public abstract class IntegrationTestBase : IDisposable
         }
         
         return await Client.SendAsync(request);
-    }
-
-    protected void SetupPostgrestStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null)
-    {
-        var purePath = path.Split('?')[0];
-        var requestBuilder = WireMockServer
-            .Given(WireMock.RequestBuilders.Request.Create()
-                .WithPath($"/postgrest/{purePath.TrimStart('/')}")
-                .UsingGet());
-
-        // Note: WireMock header matching can be added later if needed
-        // For now, we'll focus on basic request/response matching
-
-        var response = WireMock.ResponseBuilders.Response.Create()
-            .WithStatusCode(statusCode);
-
-        if (responseBody != null)
-        {
-            var json = JsonSerializer.Serialize(responseBody);
-            response = response.WithBody(json, "application/json");
-        }
-
-        requestBuilder.RespondWith(response);
     }
 
     protected void SetupPostgrestStub(string path, HttpStatusCode statusCode, object? responseBody = null, string? authHeader = null, string method = "GET")

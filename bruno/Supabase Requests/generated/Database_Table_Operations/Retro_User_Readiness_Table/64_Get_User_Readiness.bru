@@ -1,0 +1,20 @@
+meta {
+  name: 64. Get User Readiness
+  type: http
+  seq: 64
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_user_readiness?board_id=eq.{{boardId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  board_id: 'eq.{{boardId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

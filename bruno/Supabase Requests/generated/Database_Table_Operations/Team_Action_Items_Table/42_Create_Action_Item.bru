@@ -1,0 +1,22 @@
+meta {
+  name: 42. Create Action Item
+  type: http
+  seq: 42
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/team_action_items
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "team_id": "string", "text": "string", "source_board_id": "string", "source_item_id": "string", "created_by": "string", "assigned_to": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

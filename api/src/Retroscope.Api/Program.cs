@@ -47,12 +47,20 @@ var isDevelopment = builder.Environment.IsDevelopment();
 
 if (isDevelopment)
 {
-    builder.Services.AddAuthentication("Dev")
-        .AddScheme<AuthenticationSchemeOptions, Retroscope.Api.DevelopmentAuthHandler>("Dev", options => { });
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = "Dev";
+        options.DefaultChallengeScheme = "Dev";
+    })
+    .AddScheme<AuthenticationSchemeOptions, Retroscope.Api.DevelopmentAuthHandler>("Dev", options => { });
 }
 else
 {
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         if (!isDevelopment)

@@ -1,0 +1,22 @@
+meta {
+  name: 33. Update Item
+  type: http
+  seq: 33
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/retro_items?id=eq.{{itemId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "text": "string", "column_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

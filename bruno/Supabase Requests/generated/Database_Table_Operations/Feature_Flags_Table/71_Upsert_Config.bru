@@ -1,0 +1,22 @@
+meta {
+  name: 71. Upsert Config
+  type: http
+  seq: 71
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/app_config
+  body: json
+  auth: inherit
+}
+
+body:json {
+[{ "key": "string", "value": "string" }]
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: resolution=merge-duplicates
+}

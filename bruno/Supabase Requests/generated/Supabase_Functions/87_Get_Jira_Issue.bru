@@ -1,0 +1,20 @@
+meta {
+  name: 87. Get Jira Issue
+  type: http
+  seq: 87
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/get-jira-issue
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "issueIdOrKey": "string", "teamId": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

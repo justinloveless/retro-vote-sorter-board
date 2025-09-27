@@ -1,0 +1,22 @@
+meta {
+  name: 12. Update Profile
+  type: http
+  seq: 12
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/profiles?id=eq.{{userId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "full_name": "string", "avatar_url": "string", "role": "string", "theme_preference": "string", "background_preference": "any" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

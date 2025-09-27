@@ -1,0 +1,17 @@
+meta {
+  name: 52. Delete Reaction
+  type: http
+  seq: 52
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/poker_session_chat_message_reactions?id=eq.{{reactionId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

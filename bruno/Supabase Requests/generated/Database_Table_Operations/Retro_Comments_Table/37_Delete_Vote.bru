@@ -1,0 +1,17 @@
+meta {
+  name: 37. Delete Vote
+  type: http
+  seq: 37
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/retro_votes?id=eq.{{voteId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

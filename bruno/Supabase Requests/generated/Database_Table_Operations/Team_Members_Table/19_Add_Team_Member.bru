@@ -1,0 +1,22 @@
+meta {
+  name: 19. Add Team Member
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/team_members
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "team_id": "string", "user_id": "string", "role": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

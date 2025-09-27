@@ -1,0 +1,21 @@
+meta {
+  name: 70. Get Config Value - SELF_HOSTED_TTS_URL
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/app_config?key=eq.SELF_HOSTED_TTS_URL&select=value
+  body: none
+  auth: inherit
+}
+
+params:query {
+  key: eq.SELF_HOSTED_TTS_URL
+  select: value
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}

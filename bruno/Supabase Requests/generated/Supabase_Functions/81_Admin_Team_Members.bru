@@ -1,0 +1,16 @@
+meta {
+  name: 81. Admin Team Members
+  type: http
+  seq: 81
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/admin-team-members
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

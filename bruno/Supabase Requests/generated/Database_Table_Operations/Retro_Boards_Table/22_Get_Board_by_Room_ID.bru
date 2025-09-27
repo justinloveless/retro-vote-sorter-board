@@ -1,0 +1,27 @@
+meta {
+  name: 22. Get Board by Room ID
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_boards?room_id=eq.{{roomId}}&select=*
+  body: none
+  auth: inherit
+}
+
+params:query {
+  room_id: 'eq.{{roomId}}'
+  select: '*'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}
+
+script:post-response {
+  res.getBody()
+  console.log(res.body[0].id)
+  bru.setEnvVar("boardId", res.body[0].id)
+}

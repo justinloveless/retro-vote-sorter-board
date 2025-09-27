@@ -1,0 +1,15 @@
+meta {
+  name: 92. Get Audio Public URL
+  type: http
+  seq: 92
+}
+
+get {
+  url: {{supabaseUrl}}/storage/v1/object/public/retro-audio/{{fileName}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

@@ -1,0 +1,20 @@
+meta {
+  name: 66. Get Invitations
+  type: http
+  seq: 66
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/team_invitations?team_id=eq.{{teamId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  team_id: 'eq.{{teamId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

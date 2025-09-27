@@ -1,0 +1,22 @@
+meta {
+  name: 28. Create Column
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/retro_columns
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "board_id": "string", "title": "string", "color": "string", "position": "number", "is_action_items": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

@@ -1,0 +1,22 @@
+meta {
+  name: 73. Update Feature Flag
+  type: http
+  seq: 73
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/feature_flags?flag_name=eq.{{flagName}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "is_enabled": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

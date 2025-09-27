@@ -1,0 +1,20 @@
+meta {
+  name: 53. Get Templates
+  type: http
+  seq: 53
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/board_templates?team_id=eq.{{teamId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  team_id: 'eq.{{teamId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

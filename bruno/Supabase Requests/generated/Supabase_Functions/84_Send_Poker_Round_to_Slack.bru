@@ -1,0 +1,20 @@
+meta {
+  name: 84. Send Poker Round to Slack
+  type: http
+  seq: 84
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/send-poker-round-to-slack
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "teamId": "string", "ticketNumber": "string", "ticketTitle": "string", "averagePoints": "number", "roundNumber": "number" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

@@ -1,0 +1,17 @@
+meta {
+  name: 17. Delete Team
+  type: http
+  seq: 17
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/teams?id=eq.{{teamId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

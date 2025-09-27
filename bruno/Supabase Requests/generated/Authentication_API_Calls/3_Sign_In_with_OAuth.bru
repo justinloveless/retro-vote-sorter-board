@@ -1,0 +1,20 @@
+meta {
+  name: 3. Sign In with OAuth
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{supabaseUrl}}/auth/v1/authorize?provider={provider}&redirect_to={redirectTo}
+  body: json
+  auth: inherit
+}
+
+params:query {
+  provider: string
+    redirect_to?: string
+}
+
+body:json {
+{ "provider": 'google' | 'github' | etc., "options": { "redirectTo": "string" } }
+}

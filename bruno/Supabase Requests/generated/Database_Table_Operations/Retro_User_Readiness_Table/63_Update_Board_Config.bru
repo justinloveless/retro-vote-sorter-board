@@ -1,0 +1,22 @@
+meta {
+  name: 63. Update Board Config
+  type: http
+  seq: 63
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/retro_board_config?board_id=eq.{{boardId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "voting_enabled": "boolean", "allow_anonymous": "boolean", "show_author_names": "boolean", "max_votes_per_user": "number", "retro_stages_enabled": "boolean", "enforce_stage_readiness": "boolean", "allow_self_votes": "boolean", "vote_emoji": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

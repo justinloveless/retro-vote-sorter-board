@@ -1,0 +1,22 @@
+meta {
+  name: 32. Create Item
+  type: http
+  seq: 32
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/retro_items
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "board_id": "string", "column_id": "string", "text": "string", "author": "string", "author_id": "string", "session_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

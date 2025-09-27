@@ -1,0 +1,20 @@
+meta {
+  name: GET /rest/v1/profiles (by ids)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/profiles?select=id,full_name&id=in.({{profileIds}})
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: id,full_name
+  id: in.({{profileIds}})
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,15 @@
+meta {
+  name: 94. Get Chat File Public URL
+  type: http
+  seq: 94
+}
+
+get {
+  url: {{supabaseUrl}}/storage/v1/object/public/{{bucketName}}/{{filePath}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

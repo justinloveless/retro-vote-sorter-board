@@ -1,0 +1,16 @@
+meta {
+  name: GET /rest/v1/teams (all)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/teams?select=*&order=created_at.desc
+  body: none
+  auth: none
+}
+
+params:query {
+  select: *
+  order: created_at.desc
+}

@@ -1,0 +1,15 @@
+meta {
+  name: 90. Get Public URL
+  type: http
+  seq: 90
+}
+
+get {
+  url: {{supabaseUrl}}/storage/v1/object/public/avatars/{{fileName}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

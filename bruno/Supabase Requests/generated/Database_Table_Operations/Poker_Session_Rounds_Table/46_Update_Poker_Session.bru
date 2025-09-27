@@ -1,0 +1,22 @@
+meta {
+  name: 46. Update Poker Session
+  type: http
+  seq: 46
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/poker_sessions?id=eq.{{sessionId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "current_round_number": "number", "selections": "any", "presence_enabled": "boolean", "send_to_slack": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

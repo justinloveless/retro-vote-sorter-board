@@ -1,0 +1,16 @@
+meta {
+  name: Get Teams
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{apiBaseUrl}}/api/teams
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
+
+

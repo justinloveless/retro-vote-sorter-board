@@ -1,0 +1,20 @@
+meta {
+  name: 98. GET /rest/v1/team_members
+  type: http
+  seq: 98
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/team_members?select=user_id,team_id,role,profiles(full_name)&team_id=eq.{{teamId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: 'user_id,team_id,role,profiles(full_name)'
+    team_id: 'eq.{{teamId}}'
+}
+
+headers {
+  apikey: {{supabaseAnonKey}}
+}

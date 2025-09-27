@@ -1,0 +1,22 @@
+meta {
+  name: 39. Create Comment
+  type: http
+  seq: 39
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/retro_comments
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "item_id": "string", "text": "string", "author": "string", "author_id": "string", "session_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

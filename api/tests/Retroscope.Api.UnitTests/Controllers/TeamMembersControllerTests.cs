@@ -84,3 +84,80 @@ public class TeamMembersControllerTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }
+
+public class TeamMembersControllerWriteTests
+{
+    [Fact]
+    public async Task AddMember_ReturnsNoContent_OnSuccess()
+    {
+        var mockGateway = new Mock<ISupabaseGateway>();
+        var teamId = "team-1";
+        mockGateway.Setup(g => g.AddMemberAsync(It.IsAny<string>(), teamId, It.IsAny<AddMemberRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var factory = new TestApiFactory()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(mockGateway.Object);
+                });
+            });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
+
+        var payload = new StringContent("{\"user_id\":\"user-x\",\"role\":\"member\"}", System.Text.Encoding.UTF8, "application/json");
+        var resp = await client.PostAsync($"/api/teams/{teamId}/members", payload);
+        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task UpdateMemberRole_ReturnsNoContent_OnSuccess()
+    {
+        var mockGateway = new Mock<ISupabaseGateway>();
+        var teamId = "team-1"; var userId = "user-x";
+        mockGateway.Setup(g => g.UpdateMemberRoleAsync(It.IsAny<string>(), teamId, userId, It.IsAny<UpdateMemberRoleRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var factory = new TestApiFactory()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(mockGateway.Object);
+                });
+            });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
+
+        var payload = new StringContent("{\"role\":\"admin\"}", System.Text.Encoding.UTF8, "application/json");
+        var resp = await client.PatchAsync($"/api/teams/{teamId}/members/{userId}", payload);
+        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task RemoveMember_ReturnsNoContent_OnSuccess()
+    {
+        var mockGateway = new Mock<ISupabaseGateway>();
+        var teamId = "team-1"; var userId = "user-x";
+        mockGateway.Setup(g => g.RemoveMemberAsync(It.IsAny<string>(), teamId, userId, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var factory = new TestApiFactory()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(mockGateway.Object);
+                });
+            });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
+
+        var resp = await client.DeleteAsync($"/api/teams/{teamId}/members/{userId}");
+        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+    }
+}

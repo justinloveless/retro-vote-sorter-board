@@ -1,0 +1,17 @@
+meta {
+  name: 30. Delete Column
+  type: http
+  seq: 30
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/retro_columns?id=eq.{{columnId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

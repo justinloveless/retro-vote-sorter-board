@@ -1,0 +1,22 @@
+meta {
+  name: 58. Create Template Column
+  type: http
+  seq: 58
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/template_columns
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "template_id": "string", "title": "string", "color": "string", "position": "number", "is_action_items": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

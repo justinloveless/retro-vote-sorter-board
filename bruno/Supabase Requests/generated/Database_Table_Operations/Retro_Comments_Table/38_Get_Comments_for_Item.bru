@@ -1,0 +1,25 @@
+meta {
+  name: 38. Get Comments for Item
+  type: http
+  seq: 38
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_comments?item_id=eq.{{itemId}}&select=*,profiles(avatar_url,full_name)
+  body: none
+  auth: inherit
+}
+
+params:query {
+  item_id: 'eq.{{itemId}}'
+  select: '*,profiles(avatar_url,full_name)'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}
+
+docs {
+  To get an itemId, run the request "31. Get Items for Board" and use the id of the retro item you want to set the itemId env var. 
+}

@@ -1,0 +1,27 @@
+meta {
+  name: 89. Upload Avatar
+  type: http
+  seq: 89
+}
+
+post {
+  url: {{supabaseUrl}}/storage/v1/object/avatars/{{fileName}}
+  body: json
+  auth: inherit
+}
+
+params:query {
+  fileName: string
+    upsert: true
+    contentType: 'image/png'
+}
+
+body:json {
+Blob data
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: image/png
+    x-upsert: true
+}

@@ -1,0 +1,22 @@
+meta {
+  name: 47. Create Round
+  type: http
+  seq: 47
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/poker_session_rounds
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "session_id": "string", "round_number": "number", "selections": "any", "game_state": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

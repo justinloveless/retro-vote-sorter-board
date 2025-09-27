@@ -1,0 +1,16 @@
+meta {
+  name: Remove Member
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{apiBaseUrl}}/api/teams/{{teamId}}/members/{{memberUserId}}
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
+
+

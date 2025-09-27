@@ -1,0 +1,22 @@
+meta {
+  name: 48. Update Round
+  type: http
+  seq: 48
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/poker_session_rounds?id=eq.{{roundId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "selections": "any", "game_state": "string", "average_points": "number", "completed_at": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

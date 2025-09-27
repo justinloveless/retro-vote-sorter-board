@@ -1,0 +1,22 @@
+meta {
+  name: 74. Create Feedback Report
+  type: http
+  seq: 74
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/feedback_reports
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "title": "string", "description": "string", "type": "string", "user_id": "string", "email": "string", "page_url": "string", "status": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

@@ -1,0 +1,17 @@
+meta {
+  name: 56. Delete Template
+  type: http
+  seq: 56
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/board_templates?id=eq.{{templateId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

@@ -1,0 +1,21 @@
+meta {
+  name: 35. Get Votes for Board
+  type: http
+  seq: 35
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_votes?board_id=eq.{{boardId}}&select=item_id
+  body: none
+  auth: inherit
+}
+
+params:query {
+  board_id: 'eq.{{boardId}}'
+    select: 'item_id'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

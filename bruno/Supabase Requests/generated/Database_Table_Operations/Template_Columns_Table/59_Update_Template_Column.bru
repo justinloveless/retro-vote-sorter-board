@@ -1,0 +1,22 @@
+meta {
+  name: 59. Update Template Column
+  type: http
+  seq: 59
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/template_columns?id=eq.{{columnId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "title": "string", "color": "string", "position": "number", "is_action_items": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

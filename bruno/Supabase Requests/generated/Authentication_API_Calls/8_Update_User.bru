@@ -1,0 +1,20 @@
+meta {
+  name: 8. Update User
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{supabaseUrl}}/auth/v1/user
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "email": "string", "password": "string", "data": "any" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

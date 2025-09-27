@@ -45,30 +45,26 @@ script:pre-request {
   // Try refresh first if present
   if (refreshToken) {
     try {
-      const r = await bru.runRequest('auth/Refresh Access Token'); // adjust to your path
-      console.log(`refresh status: ${r?.status}`);
+      const r = await bru.runRequest('auth/Refresh Access Token');
       if (r && r.status < 400) {
-        const data = r.data;
+        const data = typeof r.body === 'string' ? JSON.parse(r.body || '{}') : (r.data ?? {});
         if (data.access_token) {
           bru.setEnvVar('accessToken', data.access_token);
           if (data.refresh_token) bru.setEnvVar('refreshToken', data.refresh_token);
           return;
         }
-      } else {
-        console.warn(`Refresh failed. Status=${r?.status}. Body=${(r?.body || '').substring(0,200)}`);
       }
     } catch (e) {
-      console.warn(`Refresh exception: ${e?.message || e}`);
+      bru.warn(`Refresh exception: ${e?.message || e}`);
     }
   }
   
   // Fallback: password grant
-  const p = await bru.runRequest('auth/Get Supabase Access Token'); // adjust to your path
-  console.log(`password-grant status: ${p?.status}`);
+  const p = await bru.runRequest('auth/Get Supabase Access Token');
   if (!p || p.status >= 400) {
-    throw new Error(`Password grant failed. Status=${p?.status}. Body=${(p?.body || '').substring(0,200)}`);
+    throw new Error(`Password grant failed. Status=${p?.status}`);
   }
-  const pwd = p.data;
+  const pwd = typeof p.body === 'string' ? JSON.parse(p.body || '{}') : (p.data ?? {});
   if (!pwd.access_token) throw new Error('No access_token in password grant response');
   bru.setEnvVar('accessToken', pwd.access_token);
   if (pwd.refresh_token) bru.setEnvVar('refreshToken', pwd.refresh_token);

@@ -1,0 +1,20 @@
+meta {
+  name: 82. Admin Search Users
+  type: http
+  seq: 82
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/admin-search-users
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "q": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

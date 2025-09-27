@@ -1,0 +1,11 @@
+meta {
+  name: 10. Auth State Change Listener
+  type: http
+  seq: 10
+}
+
+websocket/sse {
+  url: {{supabaseUrl}}/realtime/v1/websocket
+  body: none
+  auth: inherit
+}

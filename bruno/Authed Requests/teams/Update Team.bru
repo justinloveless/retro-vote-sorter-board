@@ -1,0 +1,23 @@
+meta {
+  name: Update Team
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{apiBaseUrl}}/api/teams/{{teamId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Updated Team Name"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+

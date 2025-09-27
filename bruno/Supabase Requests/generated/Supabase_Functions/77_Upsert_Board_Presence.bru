@@ -1,0 +1,22 @@
+meta {
+  name: 77. Upsert Board Presence
+  type: http
+  seq: 77
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/board_presence
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "board_id": "string", "user_id": "string", "user_name": "string", "last_seen": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: resolution=merge-duplicates
+}

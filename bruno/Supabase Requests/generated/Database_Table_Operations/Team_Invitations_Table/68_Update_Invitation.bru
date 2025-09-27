@@ -1,0 +1,22 @@
+meta {
+  name: 68. Update Invitation
+  type: http
+  seq: 68
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/team_invitations?id=eq.{{invitationId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "status": "string", "is_active": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

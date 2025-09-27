@@ -1,0 +1,20 @@
+meta {
+  name: 88. Delete Session Data
+  type: http
+  seq: 88
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/delete-session-data
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "session_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

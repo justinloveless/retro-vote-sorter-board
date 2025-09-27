@@ -1,0 +1,20 @@
+meta {
+  name: 41. Get Action Items for Team
+  type: http
+  seq: 41
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/team_action_items?team_id=eq.{{teamId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  team_id: 'eq.{{teamId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

@@ -1,0 +1,22 @@
+meta {
+  name: 45. Create Poker Session
+  type: http
+  seq: 45
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/poker_sessions
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "room_id": "string", "current_round_number": "number" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

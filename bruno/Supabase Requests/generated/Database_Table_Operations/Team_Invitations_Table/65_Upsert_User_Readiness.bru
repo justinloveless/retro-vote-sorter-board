@@ -1,0 +1,22 @@
+meta {
+  name: 65. Upsert User Readiness
+  type: http
+  seq: 65
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/retro_user_readiness
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "board_id": "string", "user_id": "string", "current_stage": "string", "is_ready": "boolean", "session_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: resolution=merge-duplicates
+}

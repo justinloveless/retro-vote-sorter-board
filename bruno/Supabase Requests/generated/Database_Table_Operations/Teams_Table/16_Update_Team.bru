@@ -1,0 +1,22 @@
+meta {
+  name: 16. Update Team
+  type: http
+  seq: 16
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/teams?id=eq.{{teamId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "name": "string", "description": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

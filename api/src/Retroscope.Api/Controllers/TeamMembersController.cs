@@ -50,4 +50,64 @@ public class TeamMembersController : ControllerBase
             return StatusCode(502, new { error = "Downstream service error" });
         }
     }
+
+    [HttpPost]
+    public async Task<IActionResult> AddMember(string teamId, [FromBody] AddMemberRequest request)
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
+
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var ok = await _supabaseGateway.AddMemberAsync(authHeader, teamId, request, correlationId);
+            if (!ok) return StatusCode(502, new { error = "Failed to add member" });
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException) { return Unauthorized(); }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
+    }
+
+    [HttpPatch("{userId}")]
+    public async Task<IActionResult> UpdateMemberRole(string teamId, string userId, [FromBody] UpdateMemberRoleRequest request)
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
+
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var ok = await _supabaseGateway.UpdateMemberRoleAsync(authHeader, teamId, userId, request, correlationId);
+            if (!ok) return StatusCode(502, new { error = "Failed to update member role" });
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException) { return Unauthorized(); }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
+    }
+
+    [HttpDelete("{userId}")]
+    public async Task<IActionResult> RemoveMember(string teamId, string userId)
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
+
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var ok = await _supabaseGateway.RemoveMemberAsync(authHeader, teamId, userId, correlationId);
+            if (!ok) return StatusCode(502, new { error = "Failed to remove member" });
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException) { return Unauthorized(); }
+        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
+    }
 }

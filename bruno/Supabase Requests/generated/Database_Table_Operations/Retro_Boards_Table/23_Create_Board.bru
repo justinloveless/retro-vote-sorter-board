@@ -1,0 +1,22 @@
+meta {
+  name: 23. Create Board
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/retro_boards
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "room_id": "string", "title": "string", "team_id": "string", "creator_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=representation
+}

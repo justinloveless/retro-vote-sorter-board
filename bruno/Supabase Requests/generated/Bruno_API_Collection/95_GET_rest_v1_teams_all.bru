@@ -1,0 +1,20 @@
+meta {
+  name: 95. GET /rest/v1/teams (all)
+  type: http
+  seq: 95
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/teams?select=*&order=created_at.desc
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: '*'
+    order: 'created_at.desc'
+}
+
+headers {
+  apikey: {{supabaseAnonKey}}
+}

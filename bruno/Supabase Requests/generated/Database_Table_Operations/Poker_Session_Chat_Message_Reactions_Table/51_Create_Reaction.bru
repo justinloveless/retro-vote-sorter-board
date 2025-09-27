@@ -1,0 +1,22 @@
+meta {
+  name: 51. Create Reaction
+  type: http
+  seq: 51
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/poker_session_chat_message_reactions
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "message_id": "string", "session_id": "string", "emoji": "string", "user_id": "string", "user_name": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

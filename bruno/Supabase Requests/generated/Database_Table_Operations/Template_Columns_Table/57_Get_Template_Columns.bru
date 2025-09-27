@@ -1,0 +1,25 @@
+meta {
+  name: 57. Get Template Columns
+  type: http
+  seq: 57
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/template_columns?template_id=eq.{{templateId}}&order=position
+  body: none
+  auth: inherit
+}
+
+params:query {
+  template_id: 'eq.{{templateId}}'
+  order: 'position'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}
+
+docs {
+  To find a template Id, run request "53. Get Templates"
+}

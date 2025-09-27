@@ -1,0 +1,15 @@
+meta {
+  name: 1. Get Current User
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{supabaseUrl}}/auth/v1/user
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

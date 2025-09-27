@@ -1,0 +1,20 @@
+meta {
+  name: 85. Send Slack Notification
+  type: http
+  seq: 85
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/send-slack-notification
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "boardId": "string", "teamId": "string", "title": "string", "message": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

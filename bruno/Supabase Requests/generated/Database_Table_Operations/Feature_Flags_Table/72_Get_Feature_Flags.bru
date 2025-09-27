@@ -1,0 +1,20 @@
+meta {
+  name: 72. Get Feature Flags
+  type: http
+  seq: 72
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/feature_flags?select=flag_name,is_enabled
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: 'flag_name,is_enabled'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

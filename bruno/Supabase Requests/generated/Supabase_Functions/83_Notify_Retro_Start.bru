@@ -1,0 +1,20 @@
+meta {
+  name: 83. Notify Retro Start
+  type: http
+  seq: 83
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/notify-retro-start
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "roomId": "string", "title": "string", "teamId": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

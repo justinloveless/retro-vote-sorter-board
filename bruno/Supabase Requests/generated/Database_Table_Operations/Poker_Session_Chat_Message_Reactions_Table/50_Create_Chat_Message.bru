@@ -1,0 +1,22 @@
+meta {
+  name: 50. Create Chat Message
+  type: http
+  seq: 50
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/poker_session_chat
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "session_id": "string", "message": "string", "user_name": "string", "user_id": "string", "round_number": "number", "reply_to_message_id": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

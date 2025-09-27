@@ -2,6 +2,9 @@
   "version": "1",
   "name": "retroscope",
   "type": "collection",
+  "include": [
+    "Supabase Requests"
+  ],
   "ignore": [
     "node_modules",
     ".git"

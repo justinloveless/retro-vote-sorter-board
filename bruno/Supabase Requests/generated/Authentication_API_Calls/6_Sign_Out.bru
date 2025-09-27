@@ -1,0 +1,15 @@
+meta {
+  name: 6. Sign Out
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{supabaseUrl}}/auth/v1/logout
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

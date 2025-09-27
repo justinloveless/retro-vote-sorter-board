@@ -1,0 +1,22 @@
+meta {
+  name: 24. Update Board
+  type: http
+  seq: 24
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/retro_boards?id=eq.{{boardId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "title": "string", "retro_stage": "string", "archived": "boolean", "archived_by": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

@@ -1,0 +1,19 @@
+meta {
+  name: 5. Sign Up
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{supabaseUrl}}/auth/v1/signup
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "email": "string", "password": "string" }
+}
+
+headers {
+  Content-Type: application/json
+}

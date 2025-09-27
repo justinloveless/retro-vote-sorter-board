@@ -1,0 +1,21 @@
+meta {
+  name: 44. Get Poker Session
+  type: http
+  seq: 44
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/poker_sessions?room_id=eq.{{roomId}}&select=*
+  body: none
+  auth: inherit
+}
+
+params:query {
+  room_id: 'eq.{{roomId}}'
+    select: '*'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

@@ -1,0 +1,28 @@
+meta {
+  name: 93. Upload Chat File
+  type: http
+  seq: 93
+}
+
+post {
+  url: {{supabaseUrl}}/storage/v1/object/{{bucketName}}/{{filePath}}
+  body: json
+  auth: inherit
+}
+
+params:query {
+  bucketName: string
+    filePath: string
+    upsert: true
+    contentType: <file.type>
+}
+
+body:json {
+File data
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: <file.type>
+    x-upsert: true
+}

@@ -1,0 +1,22 @@
+meta {
+  name: 55. Update Template
+  type: http
+  seq: 55
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/board_templates?id=eq.{{templateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "name": "string", "is_default": "boolean", "voting_enabled": "boolean", "allow_anonymous": "boolean", "show_author_names": "boolean", "max_votes_per_user": "number", "retro_stages_enabled": "boolean", "enforce_stage_readiness": "boolean", "allow_self_votes": "boolean", "vote_emoji": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

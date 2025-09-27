@@ -1,0 +1,21 @@
+meta {
+  name: 27. Get Columns for Board
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_columns?board_id=eq.{{boardId}}&order=position
+  body: none
+  auth: inherit
+}
+
+params:query {
+  board_id: 'eq.{{boardId}}'
+    order: 'position'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

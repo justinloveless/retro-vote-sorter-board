@@ -1,0 +1,22 @@
+meta {
+  name: 67. Create Invitation
+  type: http
+  seq: 67
+}
+
+post {
+  url: {{supabaseUrl}}/rest/v1/team_invitations
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "team_id": "string", "email": "string", "invited_by": "string", "token": "string", "expires_at": "string", "invite_type": "string", "status": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

@@ -1,0 +1,20 @@
+meta {
+  name: 76. Get Board Presence
+  type: http
+  seq: 76
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/board_presence?board_id=eq.{{boardId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  board_id: 'eq.{{boardId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

@@ -1,0 +1,17 @@
+meta {
+  name: 60. Delete Template Column
+  type: http
+  seq: 60
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/template_columns?id=eq.{{columnId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

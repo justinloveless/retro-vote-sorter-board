@@ -1,0 +1,20 @@
+meta {
+  name: 78. Send Invitation Email
+  type: http
+  seq: 78
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/send-invitation-email
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "invitationId": "string", "email": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

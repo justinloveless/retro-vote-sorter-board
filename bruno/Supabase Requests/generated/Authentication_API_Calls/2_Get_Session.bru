@@ -1,0 +1,15 @@
+meta {
+  name: 2. Get Session
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{supabaseUrl}}/auth/v1/session
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

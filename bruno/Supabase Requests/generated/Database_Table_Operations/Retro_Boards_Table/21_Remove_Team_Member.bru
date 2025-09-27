@@ -1,0 +1,17 @@
+meta {
+  name: 21. Remove Team Member
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/team_members?id=eq.{{memberId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

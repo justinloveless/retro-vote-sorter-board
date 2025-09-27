@@ -1,0 +1,23 @@
+meta {
+  name: Create Team
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{apiBaseUrl}}/api/teams
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Sample Team"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+

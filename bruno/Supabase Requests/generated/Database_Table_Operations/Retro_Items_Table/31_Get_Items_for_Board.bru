@@ -1,0 +1,21 @@
+meta {
+  name: 31. Get Items for Board
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/retro_items?board_id=eq.{{boardId}}&select=*,profiles(avatar_url,full_name)
+  body: none
+  auth: inherit
+}
+
+params:query {
+  board_id: eq.{{boardId}}
+  select: *,profiles(avatar_url,full_name)
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}

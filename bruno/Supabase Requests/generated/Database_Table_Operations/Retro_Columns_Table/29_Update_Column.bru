@@ -1,0 +1,22 @@
+meta {
+  name: 29. Update Column
+  type: http
+  seq: 29
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/retro_columns?id=eq.{{columnId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "title": "string", "color": "string", "position": "number", "is_action_items": "boolean" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

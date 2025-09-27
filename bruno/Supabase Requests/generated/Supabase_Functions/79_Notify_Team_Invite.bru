@@ -1,0 +1,20 @@
+meta {
+  name: 79. Notify Team Invite
+  type: http
+  seq: 79
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/notify-team-invite
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "invitationId": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

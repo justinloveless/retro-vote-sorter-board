@@ -1,0 +1,17 @@
+meta {
+  name: 69. Delete Invitation
+  type: http
+  seq: 69
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/team_invitations?id=eq.{{invitationId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

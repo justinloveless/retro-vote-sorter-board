@@ -1,0 +1,22 @@
+meta {
+  name: 75. Update Feedback Report
+  type: http
+  seq: 75
+}
+
+patch {
+  url: {{supabaseUrl}}/rest/v1/feedback_reports?id=eq.{{reportId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "github_issue_url": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Content-Type: application/json
+    Prefer: return=minimal
+}

@@ -1,0 +1,21 @@
+meta {
+  name: 11. Get Profile by ID
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/profiles?id=eq.{{userId}}&select=id,full_name,avatar_url,role,theme_preference,background_preference
+  body: none
+  auth: inherit
+}
+
+params:query {
+  id: eq.{{userId}}
+    select: 'id,full_name,avatar_url,role,theme_preference,background_preference'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+}

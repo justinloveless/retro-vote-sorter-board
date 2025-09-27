@@ -1,0 +1,16 @@
+meta {
+  name: GET /rest/v1/teams (by id)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/teams?select=name,team_members(user_id,role,profiles(full_name))&id=eq.{{teamId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  select: name,team_members(user_id,role,profiles(full_name))
+  id: eq.{{teamId}}
+}

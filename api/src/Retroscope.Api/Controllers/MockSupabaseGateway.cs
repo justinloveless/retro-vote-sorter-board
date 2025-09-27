@@ -56,4 +56,64 @@ public class MockSupabaseGateway : ISupabaseGateway
         };
         return Task.FromResult(response);
     }
+
+    // Phase 3: Teams mocks
+    public Task<TeamsResponse> GetTeamsAsync(string bearerToken, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var response = new TeamsResponse
+        {
+            Items = new List<TeamItem>
+            {
+                new() { Id = "team-1", Name = "Alpha", CreaterId = "owner-1", CreatedAt = DateTime.UtcNow.AddDays(-10) },
+                new() { Id = "team-2", Name = "Beta", CreaterId = "owner-2", CreatedAt = DateTime.UtcNow.AddDays(-5) }
+            }
+        };
+        return Task.FromResult(response);
+    }
+
+    public Task<TeamDetailsResponse> GetTeamByIdAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var response = new TeamDetailsResponse
+        {
+            Team = new TeamItem { Id = teamId, Name = $"Team {teamId}", CreaterId = "owner-1", CreatedAt = DateTime.UtcNow.AddDays(-7) },
+            Members = new List<TeamMemberItem>
+            {
+                new() { TeamId = teamId, UserId = "user1", DisplayName = "Mock User 1", Email = "user1@example.com", Role = "admin" },
+                new() { TeamId = teamId, UserId = "user2", DisplayName = "Mock User 2", Email = "user2@example.com", Role = "member" }
+            }
+        };
+        return Task.FromResult(response);
+    }
+
+    public Task<TeamItem> CreateTeamAsync(string bearerToken, CreateTeamRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var created = new TeamItem { Id = Guid.NewGuid().ToString(), Name = request.Name, CreaterId = "owner-1", CreatedAt = DateTime.UtcNow };
+        return Task.FromResult(created);
+    }
+
+    public Task<TeamItem> UpdateTeamAsync(string bearerToken, string teamId, UpdateTeamRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var updated = new TeamItem { Id = teamId, Name = request.Name, CreaterId = "owner-1", CreatedAt = DateTime.UtcNow.AddDays(-3) };
+        return Task.FromResult(updated);
+    }
+
+    public Task<bool> DeleteTeamAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> AddMemberAsync(string bearerToken, string teamId, AddMemberRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> UpdateMemberRoleAsync(string bearerToken, string teamId, string userId, UpdateMemberRoleRequest request, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> RemoveMemberAsync(string bearerToken, string teamId, string userId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
 }

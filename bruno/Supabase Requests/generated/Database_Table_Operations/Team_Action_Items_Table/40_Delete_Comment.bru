@@ -1,0 +1,17 @@
+meta {
+  name: 40. Delete Comment
+  type: http
+  seq: 40
+}
+
+delete {
+  url: {{supabaseUrl}}/rest/v1/retro_comments?id=eq.{{commentId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    apikey: {{supabaseAnonKey}}
+    Prefer: return=minimal
+}

@@ -1,0 +1,20 @@
+meta {
+  name: 80. Admin Send Notification
+  type: http
+  seq: 80
+}
+
+post {
+  url: {{supabaseUrl}}/functions/v1/admin-send-notification
+  body: json
+  auth: inherit
+}
+
+body:json {
+{ "recipients": "Array"<{ "userId": "string" }>, "type": "string", "title": "string", "body": "string" }
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+    Content-Type: application/json
+}

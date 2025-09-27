@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetTeams, apiCreateTeam, apiUpdateTeam, apiDeleteTeam } from '@/lib/apiClient';
 
 interface Team {
   id: string;
@@ -26,26 +28,40 @@ export const useTeams = () => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select(`
-          *,
-          team_members!inner( role, user_id )
-        `)
-        .eq('team_members.user_id', profile.id)
-        .order('created_at', { ascending: false });
+      if (shouldUseCSharpApi()) {
+        const response = await apiGetTeams();
+        const mapped = (response.items || []).map((team: any) => ({
+          id: team.id,
+          name: team.name,
+          description: team.description ?? null,
+          creator_id: team.ownerId ?? null,
+          created_at: team.createdAt ?? '',
+          updated_at: team.createdAt ?? '',
+          role: team.role ?? null
+        })) as Team[];
+        setTeams(mapped);
+      } else {
+        const { data, error } = await supabase
+          .from('teams')
+          .select(`
+            *,
+            team_members!inner( role, user_id )
+          `)
+          .eq('team_members.user_id', profile.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const teamsWithRoles = data.map(team => {
-        const currentUserMembership = team.team_members.find(m => m.user_id === profile.id);
-        return {
-          ...team,
-          role: currentUserMembership?.role || null
-        }
-      });
+        const teamsWithRoles = data.map(team => {
+          const currentUserMembership = team.team_members.find(m => m.user_id === profile.id);
+          return {
+            ...team,
+            role: currentUserMembership?.role || null
+          }
+        });
 
-      setTeams(teamsWithRoles || []);
+        setTeams(teamsWithRoles || []);
+      }
     } catch (error) {
       console.error('Error loading teams:', error);
       toast({
@@ -64,18 +80,18 @@ export const useTeams = () => {
 
   const createTeam = async (name: string, description?: string) => {
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
-      if (!currentUser) throw new Error('User not authenticated');
+      if (shouldUseCSharpApi()) {
+        await apiCreateTeam(name);
+      } else {
+        const currentUser = (await supabase.auth.getUser()).data.user;
+        if (!currentUser) throw new Error('User not authenticated');
 
-      const { error } = await supabase
-        .from('teams')
-        .insert([{
-          name,
-          description,
-          creator_id: currentUser.id
-        }]);
+        const { error } = await supabase
+          .from('teams')
+          .insert([{ name, description, creator_id: currentUser.id }]);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: "Team created",
@@ -95,12 +111,16 @@ export const useTeams = () => {
 
   const updateTeam = async (teamId: string, updates: Partial<Pick<Team, 'name' | 'description'>>) => {
     try {
-      const { error } = await supabase
-        .from('teams')
-        .update(updates)
-        .eq('id', teamId);
+      if (shouldUseCSharpApi()) {
+        await apiUpdateTeam(teamId, { name: updates.name });
+      } else {
+        const { error } = await supabase
+          .from('teams')
+          .update(updates)
+          .eq('id', teamId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: "Team updated",
@@ -120,12 +140,16 @@ export const useTeams = () => {
 
   const deleteTeam = async (teamId: string) => {
     try {
-      const { error } = await supabase
-        .from('teams')
-        .delete()
-        .eq('id', teamId);
+      if (shouldUseCSharpApi()) {
+        await apiDeleteTeam(teamId);
+      } else {
+        const { error } = await supabase
+          .from('teams')
+          .delete()
+          .eq('id', teamId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: "Team deleted",
