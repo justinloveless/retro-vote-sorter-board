@@ -25,8 +25,8 @@ Legend for Status:
 | Admin Send Notification | src/components/admin/AdminSendNotification.tsx | Edge Function | functions: admin-send-notification | POST /api/admin/notifications | Covered | ✅ Implemented in Tasks 1-20; API ready, FE behind flag |
 | Notifications: mark read | src/hooks/useNotifications.ts | PostgREST update | notifications | PATCH /api/notifications/{id} | Covered | ✅ Implemented in Task 22; API ready, FE behind flag |
 | Notifications: mark all read | src/hooks/useNotifications.ts | RPC/Function | notifications | POST /api/notifications/mark-all-read | Covered | ✅ Implemented in Task 22; API ready, FE behind flag |
-| Teams CRUD | src/hooks/useTeams.ts | PostgREST CRUD | teams | /api/teams (GET/POST/PATCH/DELETE) | Not started | Phase 3 |
-| Team Member Add/Remove/Role | src/hooks/useTeamMembers.ts | PostgREST | team_members | /api/teams/{teamId}/members (+ PATCH/DELETE) | Not started | Phase 3 |
+| Teams CRUD | src/hooks/useTeams.ts | PostgREST CRUD | teams | /api/teams (GET/POST/PATCH/DELETE) | Covered | Implemented Phase 3; FE behind flag |
+| Team Member Add/Remove/Role | src/hooks/useTeamMembers.ts | PostgREST | team_members | /api/teams/{teamId}/members (+ PATCH/DELETE) | Covered | Implemented Phase 3; FE behind flag |
 | Retro Boards CRUD | src/hooks/useRetroBoard.ts | PostgREST CRUD | retro_boards, retro_columns, retro_items | /api/retro/... | Not started | Phase 4 |
 | Retro Sentiment | supabase/functions/analyze-board-sentiment | Edge Function | functions: analyze-board-sentiment | POST /api/retro/sentiment | Not started | Phase 4 |
 | Poker Sessions CRUD | src/hooks/usePokerSession.ts | PostgREST/RPC | poker_sessions | /api/poker/sessions | Not started | Phase 5 |
