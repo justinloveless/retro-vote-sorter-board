@@ -8,15 +8,15 @@ import { getApiBaseUrl } from '@/config/environment';
  */
 async function getSupabaseAccessToken(): Promise<string> {
   const { data: { session }, error } = await supabase.auth.getSession();
-  
+
   if (error) {
     throw new Error(`Failed to get session: ${error.message}`);
   }
-  
+
   if (!session?.access_token) {
     throw new Error('No valid session found');
   }
-  
+
   return session.access_token;
 }
 
@@ -28,16 +28,16 @@ export async function apiGetNotifications(limit = 50): Promise<{ items: Array<an
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const url = `${base}/api/notifications?limit=${limit}`;
-  
+
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  
+
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`API error ${res.status}: ${errorText}`);
   }
-  
+
   return res.json();
 }
 
@@ -51,12 +51,12 @@ export async function apiGetTeamMembers(teamId: string): Promise<{ items: Array<
   return res.json();
 }
 
-export async function apiAdminSendNotification(payload: { 
-  recipients: Array<{ userId?: string; email?: string }>; 
-  type: string; 
-  title: string; 
-  message?: string; 
-  url?: string; 
+export async function apiAdminSendNotification(payload: {
+  recipients: Array<{ userId?: string; email?: string }>;
+  type: string;
+  title: string;
+  message?: string;
+  url?: string;
 }): Promise<{ success: boolean; count?: number; info?: string }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
@@ -73,7 +73,7 @@ export async function apiAdminSendNotification(payload: {
 // Teams API (Phase 3)
 // ===============
 
-export async function apiGetTeams(): Promise<{ items: Array<any> }>{
+export async function apiGetTeams(): Promise<{ items: Array<any> }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams`, { headers: { Authorization: `Bearer ${token}` } });
@@ -81,7 +81,7 @@ export async function apiGetTeams(): Promise<{ items: Array<any> }>{
   return res.json();
 }
 
-export async function apiCreateTeam(name: string): Promise<{ id: string; name: string }>{
+export async function apiCreateTeam(name: string): Promise<{ id: string; name: string }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams`, {
@@ -93,7 +93,7 @@ export async function apiCreateTeam(name: string): Promise<{ id: string; name: s
   return res.json();
 }
 
-export async function apiUpdateTeam(teamId: string, updates: { name?: string }): Promise<{ id: string; name: string }>{
+export async function apiUpdateTeam(teamId: string, updates: { name?: string }): Promise<{ id: string; name: string }> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}`, {
@@ -105,7 +105,7 @@ export async function apiUpdateTeam(teamId: string, updates: { name?: string }):
   return res.json();
 }
 
-export async function apiDeleteTeam(teamId: string): Promise<void>{
+export async function apiDeleteTeam(teamId: string): Promise<void> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}`, {
@@ -115,7 +115,7 @@ export async function apiDeleteTeam(teamId: string): Promise<void>{
   if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
-export async function apiAddMember(teamId: string, userId: string, role: string = 'member'): Promise<void>{
+export async function apiAddMember(teamId: string, userId: string, role: string = 'member'): Promise<void> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}/members`, {
@@ -126,7 +126,7 @@ export async function apiAddMember(teamId: string, userId: string, role: string 
   if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
-export async function apiUpdateMemberRole(teamId: string, userId: string, role: string): Promise<void>{
+export async function apiUpdateMemberRole(teamId: string, userId: string, role: string): Promise<void> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}/members/${userId}`, {
@@ -137,7 +137,7 @@ export async function apiUpdateMemberRole(teamId: string, userId: string, role: 
   if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
-export async function apiRemoveMember(teamId: string, userId: string): Promise<void>{
+export async function apiRemoveMember(teamId: string, userId: string): Promise<void> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const res = await fetch(`${base}/api/teams/${teamId}/members/${userId}`, {
@@ -151,18 +151,18 @@ export async function apiMarkNotificationRead(notificationId: string): Promise<{
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
   const url = `${base}/api/notifications/${notificationId}`;
-  
+
   const res = await fetch(url, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_read: true })
   });
-  
+
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`API error ${res.status}: ${errorText}`);
   }
-  
+
   return res.json();
 }
 
@@ -176,4 +176,29 @@ export async function apiMarkAllNotificationsRead(): Promise<{ success: boolean;
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+// ===============
+// Feature Flags API
+// ===============
+
+export async function apiGetFeatureFlags(): Promise<{ items: Array<{ flagName: string; description?: string | null; isEnabled: boolean }> }> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/featureflags`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+export async function apiUpdateFeatureFlag(flagName: string, isEnabled: boolean): Promise<void> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/featureflags/${encodeURIComponent(flagName)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(isEnabled)
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
 }

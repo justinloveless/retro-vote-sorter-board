@@ -31,33 +31,35 @@ const developmentConfig: EnvironmentConfig = {
 // Detect environment based on hostname or explicit environment variable
 const getEnvironment = (): 'development' | 'production' => {
   const hostname = window.location.hostname;
-  
+
   // Check if we're on localhost or a development domain
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('dev.') || hostname.includes('develop.')) {
     return 'development';
   }
-  
+
   // Check for explicit environment indicator in URL
   if (window.location.search.includes('env=development') || window.location.search.includes('env=dev')) {
     return 'development';
   }
-  
+
   return 'production';
 };
 
 // Get configuration from environment variables (Vite)
 const getEnvConfig = () => {
+  const rawUse = (import.meta as any)?.env?.VITE_USE_CSHARP_API;
+  const rawBase = (import.meta as any)?.env?.VITE_API_BASE_URL;
   return {
-    useCSharpApi: import.meta.env.VITE_USE_CSHARP_API === 'true',
-    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || ''
-  };
+    useCSharpApi: typeof rawUse === 'string' ? (rawUse === 'true') : undefined,
+    apiBaseUrl: typeof rawBase === 'string' && rawBase.length > 0 ? rawBase : ''
+  } as { useCSharpApi: boolean | undefined; apiBaseUrl: string };
 };
 
 // Get the current environment configuration
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   const env = getEnvironment();
   const envConfig = getEnvConfig();
-  
+
   let config: EnvironmentConfig;
   switch (env) {
     case 'development':
@@ -68,15 +70,15 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
       config = productionConfig;
       break;
   }
-  
+
   // Override with environment variables if provided
-  if (envConfig.useCSharpApi !== undefined) {
+  if (typeof envConfig.useCSharpApi === 'boolean') {
     config.useCSharpApi = envConfig.useCSharpApi;
   }
   if (envConfig.apiBaseUrl) {
     config.apiBaseUrl = envConfig.apiBaseUrl;
   }
-  
+
   return config;
 };
 

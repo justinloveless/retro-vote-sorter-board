@@ -201,4 +201,23 @@ public class MockSupabaseGateway : ISupabaseGateway
     {
         return Task.FromResult(true);
     }
+
+    // Feature Flags mocks
+    public Task<FeatureFlagsResponse> GetFeatureFlagsAsync(string bearerToken, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var response = new FeatureFlagsResponse
+        {
+            Items = new List<FeatureFlagItem>
+            {
+                new() { FlagName = "retro.audio_summary", Description = "Enable AI audio summaries", IsEnabled = false },
+                new() { FlagName = "retro.user_readiness", Description = "Enable readiness tracking", IsEnabled = true }
+            }
+        };
+        return Task.FromResult(response);
+    }
+
+    public Task<bool> UpdateFeatureFlagAsync(string bearerToken, string flagName, bool isEnabled, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
 }

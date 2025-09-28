@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetFeatureFlags } from '@/lib/apiClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type FeatureFlags = {
@@ -24,55 +26,65 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const setupFlags = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase.from('feature_flags').select('flag_name, is_enabled');
-                if (error) throw error;
-
-                const flagsObject = (data || []).reduce((acc, flag) => {
-                    acc[flag.flag_name] = flag.is_enabled;
-                    return acc;
-                }, {} as FeatureFlags);
-                setFlags(flagsObject);
+                if (shouldUseCSharpApi()) {
+                    const response = await apiGetFeatureFlags();
+                    const flagsObject = (response.items || []).reduce((acc, flag) => {
+                        acc[flag.flagName] = flag.isEnabled;
+                        return acc;
+                    }, {} as FeatureFlags);
+                    setFlags(flagsObject);
+                } else {
+                    const { data, error } = await supabase.from('feature_flags').select('flag_name, is_enabled');
+                    if (error) throw error;
+                    const flagsObject = (data || []).reduce((acc, flag) => {
+                        acc[flag.flag_name] = flag.is_enabled;
+                        return acc;
+                    }, {} as FeatureFlags);
+                    setFlags(flagsObject);
+                }
             } catch (error) {
                 console.error("Error fetching initial feature flags:", error);
             } finally {
                 setLoading(false);
             }
 
-            channel = supabase
-                .channel('feature-flags-realtime')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'feature_flags' },
-                    (payload) => {
-                        switch (payload.eventType) {
-                            case 'INSERT':
-                                const newFlag = payload.new as { flag_name: string; is_enabled: boolean };
-                                setFlags(currentFlags => ({
-                                    ...currentFlags,
-                                    [newFlag.flag_name]: newFlag.is_enabled
-                                }));
-                                break;
-                            case 'UPDATE':
-                                const updatedFlag = payload.new as { flag_name: string; is_enabled: boolean };
-                                setFlags(currentFlags => ({
-                                    ...currentFlags,
-                                    [updatedFlag.flag_name]: updatedFlag.is_enabled
-                                }));
-                                break;
-                            case 'DELETE':
-                                const deletedFlag = payload.old as { flag_name: string };
-                                setFlags(currentFlags => {
-                                    const newFlags = { ...currentFlags };
-                                    delete newFlags[deletedFlag.flag_name];
-                                    return newFlags;
-                                });
-                                break;
-                            default:
-                                break;
+            if (!shouldUseCSharpApi()) {
+                channel = supabase
+                    .channel('feature-flags-realtime')
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'feature_flags' },
+                        (payload) => {
+                            switch (payload.eventType) {
+                                case 'INSERT':
+                                    const newFlag = payload.new as { flag_name: string; is_enabled: boolean };
+                                    setFlags(currentFlags => ({
+                                        ...currentFlags,
+                                        [newFlag.flag_name]: newFlag.is_enabled
+                                    }));
+                                    break;
+                                case 'UPDATE':
+                                    const updatedFlag = payload.new as { flag_name: string; is_enabled: boolean };
+                                    setFlags(currentFlags => ({
+                                        ...currentFlags,
+                                        [updatedFlag.flag_name]: updatedFlag.is_enabled
+                                    }));
+                                    break;
+                                case 'DELETE':
+                                    const deletedFlag = payload.old as { flag_name: string };
+                                    setFlags(currentFlags => {
+                                        const newFlags = { ...currentFlags };
+                                        delete newFlags[deletedFlag.flag_name];
+                                        return newFlags;
+                                    });
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
-                    }
-                )
-                .subscribe();
+                    )
+                    .subscribe();
+            }
         };
 
         setupFlags();

@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetFeatureFlags, apiUpdateFeatureFlag } from '@/lib/apiClient';
 
 interface FeatureFlag {
     flag_name: string;
@@ -18,15 +20,25 @@ export const FeatureFlagManager: React.FC = () => {
     useEffect(() => {
         const fetchFlags = async () => {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('feature_flags')
-                .select('*');
-
-            if (error) {
+            try {
+                if (shouldUseCSharpApi()) {
+                    const response = await apiGetFeatureFlags();
+                    const mapped = (response.items || []).map(item => ({
+                        flag_name: item.flagName,
+                        description: item.description ?? null,
+                        is_enabled: item.isEnabled
+                    }));
+                    setFlags(mapped);
+                } else {
+                    const { data, error } = await supabase
+                        .from('feature_flags')
+                        .select('*');
+                    if (error) throw error;
+                    setFlags(data || []);
+                }
+            } catch (error) {
                 console.error('Error fetching feature flags:', error);
                 toast({ title: 'Error fetching flags', variant: 'destructive' });
-            } else {
-                setFlags(data || []);
             }
             setLoading(false);
         };
@@ -42,12 +54,18 @@ export const FeatureFlagManager: React.FC = () => {
             )
         );
 
-        const { error } = await supabase
-            .from('feature_flags')
-            .update({ is_enabled: isEnabled })
-            .eq('flag_name', flagName);
-
-        if (error) {
+        try {
+            if (shouldUseCSharpApi()) {
+                await apiUpdateFeatureFlag(flagName, isEnabled);
+            } else {
+                const { error } = await supabase
+                    .from('feature_flags')
+                    .update({ is_enabled: isEnabled })
+                    .eq('flag_name', flagName);
+                if (error) throw error;
+            }
+            toast({ title: 'Feature flag updated!' });
+        } catch (error) {
             console.error('Error updating feature flag:', error);
             // Revert on error
             setFlags(currentFlags =>
@@ -56,8 +74,6 @@ export const FeatureFlagManager: React.FC = () => {
                 )
             );
             toast({ title: 'Error updating flag', description: 'Please try again.', variant: 'destructive' });
-        } else {
-            toast({ title: 'Feature flag updated!' });
         }
     };
 
