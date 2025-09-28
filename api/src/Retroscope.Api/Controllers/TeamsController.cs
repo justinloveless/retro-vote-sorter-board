@@ -19,7 +19,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<TeamsResponse>> GetTeams()
+    public async Task<ActionResult<TeamsResponse>> GetTeams([FromQuery] string? scope = null)
     {
         try
         {
@@ -29,7 +29,8 @@ public class TeamsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.GetTeamsAsync(authHeader, correlationId);
+            var includeAll = string.Equals(scope, "all", StringComparison.OrdinalIgnoreCase);
+            var response = await _supabaseGateway.GetTeamsAsync(authHeader, includeAll, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)

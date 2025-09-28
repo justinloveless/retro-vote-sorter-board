@@ -58,7 +58,7 @@ public class MockSupabaseGateway : ISupabaseGateway
     }
 
     // Phase 3: Teams mocks
-    public Task<TeamsResponse> GetTeamsAsync(string bearerToken, string? correlationId = null, CancellationToken cancellationToken = default)
+    public Task<TeamsResponse> GetTeamsAsync(string bearerToken, bool includeAll = false, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         var response = new TeamsResponse
         {
@@ -113,6 +113,91 @@ public class MockSupabaseGateway : ISupabaseGateway
     }
 
     public Task<bool> RemoveMemberAsync(string bearerToken, string teamId, string userId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    // Phase 4: Retro mocks
+    public Task<RetroBoardAggregateResponse> GetRetroBoardAsync(string bearerToken, string roomId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var board = new RetroBoardItem
+        {
+            Id = Guid.NewGuid().ToString(),
+            RoomId = roomId,
+            Title = "Mock Retro Board",
+            RetroStage = "thinking",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var response = new RetroBoardAggregateResponse
+        {
+            Board = board,
+            Config = new { allow_anonymous = true, voting_enabled = true },
+            Columns = new List<RetroColumnItem>
+            {
+                new() { Id = Guid.NewGuid().ToString(), BoardId = board.Id, Title = "Went Well", Position = 1, SortOrder = 1, IsActionItems = false },
+                new() { Id = Guid.NewGuid().ToString(), BoardId = board.Id, Title = "To Improve", Position = 2, SortOrder = 2, IsActionItems = false }
+            },
+            Items = new List<RetroItem>(),
+            Comments = new List<RetroComment>(),
+            UserVotes = new List<string>()
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<RetroItem> CreateRetroItemAsync(string bearerToken, string boardId, string columnId, string text, string author, string? sessionId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var item = new RetroItem
+        {
+            Id = Guid.NewGuid().ToString(),
+            BoardId = boardId,
+            ColumnId = columnId,
+            Text = text,
+            Author = author,
+            AuthorId = null,
+            Votes = 0,
+            CreatedAt = DateTime.UtcNow,
+            SessionId = sessionId
+        };
+        return Task.FromResult(item);
+    }
+
+    public Task<bool> UpdateRetroItemAsync(string bearerToken, string itemId, string text, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> DeleteRetroItemAsync(string bearerToken, string itemId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> AddRetroVoteAsync(string bearerToken, string boardId, string itemId, string? userId, string? sessionId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> RemoveRetroVoteAsync(string bearerToken, string boardId, string itemId, string? userId, string? sessionId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<RetroComment> AddRetroCommentAsync(string bearerToken, string itemId, string text, string author, string? authorId, string? sessionId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var comment = new RetroComment
+        {
+            Id = Guid.NewGuid().ToString(),
+            ItemId = itemId,
+            Text = text,
+            Author = author,
+            AuthorId = authorId,
+            CreatedAt = DateTime.UtcNow
+        };
+        return Task.FromResult(comment);
+    }
+
+    public Task<bool> DeleteRetroCommentAsync(string bearerToken, string commentId, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(true);
     }
