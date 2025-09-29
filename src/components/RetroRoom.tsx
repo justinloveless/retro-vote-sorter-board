@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useSlackNotification } from '@/hooks/useSlackNotification';
-import { supabase } from '@/integrations/supabase/client';
+import { updateRetroBoardPrivacyByRoom } from '@/lib/dataClient';
 import { PasswordDialog } from './retro/PasswordDialog';
 import { ShareDialog } from './retro/ShareDialog';
 import { FloatingButtons } from './retro/FloatingButtons';
@@ -112,13 +112,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       setPassword(generatedPassword);
 
       // Update board in database
-      await supabase
-        .from('retro_boards')
-        .update({
-          is_private: true,
-          password_hash: generatedPassword
-        })
-        .eq('room_id', roomId);
+      await updateRetroBoardPrivacyByRoom(roomId, { is_private: true, password_hash: generatedPassword });
 
       localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({
         isPrivate: true,
@@ -132,13 +126,7 @@ export const RetroRoom: React.FC<RetroRoomProps> = ({ roomId: initialRoomId }) =
       });
     } else {
       // Update board in database
-      await supabase
-        .from('retro_boards')
-        .update({
-          is_private: false,
-          password_hash: null
-        })
-        .eq('room_id', roomId);
+      await updateRetroBoardPrivacyByRoom(roomId, { is_private: false, password_hash: null });
 
       localStorage.setItem(`retro-room-${roomId}`, JSON.stringify({
         isPrivate: false,

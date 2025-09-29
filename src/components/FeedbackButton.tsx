@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { insertFeedbackReport, updateFeedbackReport, getAppConfigValue } from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { Github } from 'lucide-react';
 
@@ -27,22 +27,19 @@ export const FeedbackButton: React.FC<Props> = () => {
     }
     setLoading(true);
     try {
-      const insertRes = await supabase.from('feedback_reports').insert({
-        user_id: user?.id || null,
+      const { id: feedbackId } = await insertFeedbackReport({
+        userId: user?.id || null,
         email: user?.email || null,
         type,
         title,
         description,
-        page_url: pageUrl,
-      }).select('id').single();
-      if (insertRes.error) throw insertRes.error;
+        pageUrl,
+      });
 
       // Try to create GitHub issue if similar not found using Admin-configured settings
       try {
-        const { data: repoRow } = await supabase.from('app_config').select('value').eq('key', 'GITHUB_REPO').single();
-        const { data: tokenRow } = await supabase.from('app_config').select('value').eq('key', 'GITHUB_TOKEN').single();
-        const ghRepo = repoRow?.value as string | undefined;
-        const ghToken = tokenRow?.value as string | undefined;
+        const ghRepo = await getAppConfigValue('GITHUB_REPO');
+        const ghToken = await getAppConfigValue('GITHUB_TOKEN');
         if (ghToken && ghRepo) {
           // search similar issues
           const searchQ = encodeURIComponent(`${title} repo:${ghRepo} in:title state:open`);
@@ -63,7 +60,7 @@ export const FeedbackButton: React.FC<Props> = () => {
             });
             if (issueRes.ok) {
               const issue = await issueRes.json();
-              await supabase.from('feedback_reports').update({ github_issue_url: issue.html_url }).eq('id', insertRes.data.id);
+              await updateFeedbackReport(feedbackId, { github_issue_url: issue.html_url });
             }
           }
         }

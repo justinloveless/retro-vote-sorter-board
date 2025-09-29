@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RetroStage } from './useRetroBoard';
+import { getAuthUser } from '../lib/dataClient.ts';
 
 interface ReadinessSummary {
   total_users: number;
@@ -20,7 +21,7 @@ interface UserReadinessData {
 }
 
 export const useUserReadiness = (
-  boardId: string, 
+  boardId: string,
   currentStage: RetroStage | null,
   activeUsers: Array<{
     id?: string;
@@ -51,13 +52,13 @@ export const useUserReadiness = (
 
   // Get session ID for anonymous users
   const sessionId = localStorage.getItem('retroSessionId');
-  
+
   // Track readiness state in memory (synced via broadcasts between users)
   const [readinessMap, setReadinessMap] = useState<Map<string, { isReady: boolean; userName: string }>>(new Map());
 
   // Get current user ID
   const getCurrentUserId = useCallback(async () => {
-    const currentUser = (await supabase.auth.getUser()).data.user;
+    const currentUser = (await getAuthUser()).data.user;
     return currentUser?.id || sessionId;
   }, [sessionId]);
 
@@ -76,13 +77,13 @@ export const useUserReadiness = (
     activeUsers.forEach(user => {
       const userKey = user.user_id || user.id;
       const readinessData = readinessMap.get(userKey || '');
-      
+
       console.log(`👤 User ${user.user_name} (${userKey}):`, {
         hasReadinessData: !!readinessData,
         isReady: readinessData?.isReady || false,
         userStructure: { user_id: user.user_id, id: user.id }
       });
-      
+
       if (readinessData?.isReady) {
         readyCount++;
         readyUsersList.push({
@@ -108,7 +109,7 @@ export const useUserReadiness = (
 
     setReadyUsers(readyUsersList);
     setReadinessSummary(newSummary);
-    
+
     console.log('✅ Readiness summary calculated:', {
       totalActiveUsers,
       readyCount,
@@ -125,7 +126,7 @@ export const useUserReadiness = (
     try {
       const userId = await getCurrentUserId();
       const newReadyState = !isCurrentUserReady;
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getAuthUser()).data.user;
       const currentUserName = activeUsers.find(u => (u.user_id || u.id) === userId)?.user_name || 'Unknown';
 
       console.log('🔄 Toggling readiness:', {
@@ -180,7 +181,7 @@ export const useUserReadiness = (
 
       // Optimistic updates for current user
       setIsCurrentUserReady(newReadyState);
-      
+
       // Also optimistically update the readiness map so tooltip shows immediate change
       setReadinessMap(prev => {
         const newMap = new Map(prev);
@@ -198,8 +199,8 @@ export const useUserReadiness = (
 
       toast({
         title: newReadyState ? "Marked as ready" : "Marked as not ready",
-        description: newReadyState 
-          ? "You're ready to move to the next stage" 
+        description: newReadyState
+          ? "You're ready to move to the next stage"
           : "You're not ready to move to the next stage",
       });
 
@@ -224,7 +225,7 @@ export const useUserReadiness = (
 
     const handleReadinessChange = (event: CustomEvent) => {
       const readinessData = event.detail;
-      
+
       console.log('📡 [Broadcast] Readiness change received:', readinessData);
 
       // Only handle changes for our current board and stage
@@ -252,7 +253,7 @@ export const useUserReadiness = (
       const userKey = readinessData.userId;
       if (userKey) {
         console.log('📋 Updating readiness for user:', userKey, 'to ready:', readinessData.isReady);
-        
+
         setReadinessMap(prev => {
           const newMap = new Map(prev);
           newMap.set(userKey, {
@@ -270,7 +271,7 @@ export const useUserReadiness = (
             currentUserId,
             matches: userKey === currentUserId
           });
-          
+
           if (userKey === currentUserId) {
             console.log('✅ Updating current user ready state:', readinessData.isReady);
             setIsCurrentUserReady(readinessData.isReady);
@@ -371,7 +372,7 @@ export const useUserReadiness = (
   // Reset readiness when stage changes (but not on initial mount)
   const [previousStage, setPreviousStage] = useState<RetroStage | null>(null);
   const [isInitialMount, setIsInitialMount] = useState(true);
-  
+
   useEffect(() => {
     console.log('🔍 Stage effect triggered:', {
       currentStage,
@@ -382,7 +383,7 @@ export const useUserReadiness = (
 
     if (!isInitialMount && previousStage !== null && previousStage !== currentStage) {
       console.log('🔄 Stage changed from', previousStage, 'to', currentStage, '- resetting readiness for all users');
-      
+
       // Reset local state immediately
       setReadinessMap(new Map());
       setIsCurrentUserReady(false);
@@ -414,7 +415,7 @@ export const useUserReadiness = (
         broadcastStageReset();
       }
     }
-    
+
     setPreviousStage(currentStage);
     if (isInitialMount) {
       setIsInitialMount(false);

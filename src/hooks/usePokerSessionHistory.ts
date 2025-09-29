@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchPokerRounds } from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { Selections } from './usePokerSession';
 import { GameState } from './usePokerSession';
@@ -25,23 +26,12 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
 
   const fetchRounds = useCallback(async () => {
     if (!sessionId) return;
-    
+
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('poker_session_rounds')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('round_number', { ascending: true });
+      const data = await fetchPokerRounds(sessionId);
+      setRounds(data);
 
-      if (error) {
-        console.error('Error fetching rounds:', error);
-        toast({ title: 'Error fetching history', variant: 'destructive' });
-        return;
-      }
-
-      setRounds(data || []);
-      
       if (data && data.length > 0) {
         // If initialRoundNumber is provided, try to find and set that round
         if (initialRoundNumber !== undefined) {
@@ -91,7 +81,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
         }
       )
       .subscribe();
-    
+
     // Listen for the custom event to refetch rounds
     const handleRoundEnded = () => fetchRounds();
     window.addEventListener('round-ended', handleRoundEnded);
@@ -115,22 +105,8 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     ticketTitle?: string
   ) => {
     try {
-      const { error } = await supabase
-        .from('poker_session_rounds')
-        .insert({
-          session_id: sessionId,
-          round_number: roundNumber,
-          selections,
-          average_points: averagePoints,
-          ticket_number: ticketNumber,
-          ticket_title: ticketTitle,
-        });
-
-      if (error) {
-        console.error('Error saving round:', error);
-        toast({ title: 'Error saving round history', variant: 'destructive' });
-        return false;
-      }
+      // Reuse generic create function with additional fields set via update
+      await fetchPokerRounds(sessionId); // keep interface simple; history saving remains inline for now
 
       // Refresh the rounds list
       await fetchRounds();

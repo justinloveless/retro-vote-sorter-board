@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getAppConfigValue, upsertAppConfig } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -19,10 +19,10 @@ export const GithubIssueSettings: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      const { data: repoRow } = await supabase.from('app_config').select('value').eq('key', GH_REPO_KEY).single();
-      const { data: tokenRow } = await supabase.from('app_config').select('value').eq('key', GH_TOKEN_KEY).single();
-      setRepo(repoRow?.value || '');
-      setToken(tokenRow?.value || '');
+      const repoVal = await getAppConfigValue(GH_REPO_KEY);
+      const tokenVal = await getAppConfigValue(GH_TOKEN_KEY);
+      setRepo(repoVal || '');
+      setToken(tokenVal || '');
       setIsLoading(false);
     };
     load();
@@ -31,12 +31,10 @@ export const GithubIssueSettings: React.FC = () => {
   const save = async () => {
     setIsSaving(true);
     try {
-      const upserts = [
+      await upsertAppConfig([
         { key: GH_REPO_KEY, value: repo },
         { key: GH_TOKEN_KEY, value: token }
-      ];
-      const { error } = await supabase.from('app_config').upsert(upserts, { onConflict: 'key' });
-      if (error) throw error;
+      ]);
       toast({ title: 'Saved GitHub settings' });
     } catch (e: any) {
       toast({ title: 'Failed to save', description: e.message || String(e), variant: 'destructive' });

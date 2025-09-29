@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { adminAddMember, adminListTeamMembers, adminListTeams, adminRemoveMember } from '@/lib/dataClient';
 
 type Team = { id: string; name: string };
-type Member = { id: string; user_id: string; full_name: string | null; avatar_url: string | null; email: string | null; role: 'owner'|'admin'|'member' };
+type Member = { id: string; user_id: string; full_name: string | null; avatar_url: string | null; email: string | null; role: 'owner' | 'admin' | 'member' };
 
 export const AdminManageTeamMembers: React.FC = () => {
   const { toast } = useToast();
@@ -17,19 +17,25 @@ export const AdminManageTeamMembers: React.FC = () => {
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [members, setMembers] = useState<Member[]>([]);
   const [userInput, setUserInput] = useState(''); // email or userId
-  const [role, setRole] = useState<'owner'|'admin'|'member'>('member');
+  const [role, setRole] = useState<'owner' | 'admin' | 'member'>('member');
   const [loading, setLoading] = useState(false);
 
   const loadTeams = async () => {
-    const { data, error } = await supabase.functions.invoke('admin-team-members', { body: { action: 'list_teams', query: teamQuery } });
-    if (error) { toast({ title: 'Failed to load teams', description: error.message, variant: 'destructive' }); return; }
-    setTeams((data as any)?.teams || []);
+    try {
+      const list = await adminListTeams(teamQuery);
+      setTeams(list);
+    } catch (e: any) {
+      toast({ title: 'Failed to load teams', description: e.message || String(e), variant: 'destructive' });
+    }
   };
 
   const loadMembers = async (teamId: string) => {
-    const { data, error } = await supabase.functions.invoke('admin-team-members', { body: { action: 'list_team_members', team_id: teamId } });
-    if (error) { toast({ title: 'Failed to load members', description: error.message, variant: 'destructive' }); return; }
-    setMembers((data as any)?.members || []);
+    try {
+      const list = await adminListTeamMembers(teamId);
+      setMembers(list);
+    } catch (e: any) {
+      toast({ title: 'Failed to load members', description: e.message || String(e), variant: 'destructive' });
+    }
   };
 
   useEffect(() => { loadTeams(); }, []);
@@ -39,10 +45,7 @@ export const AdminManageTeamMembers: React.FC = () => {
     if (!selectedTeamId || !userInput.trim()) return;
     setLoading(true);
     try {
-      const body: any = { action: 'add_member', team_id: selectedTeamId, role };
-      if (/^[0-9a-fA-F-]{36}$/.test(userInput.trim())) body.user_id = userInput.trim(); else body.email = userInput.trim();
-      const { error } = await supabase.functions.invoke('admin-team-members', { body });
-      if (error) throw error;
+      await adminAddMember(selectedTeamId, { userIdOrEmail: userInput, role });
       toast({ title: 'Member added' });
       setUserInput('');
       await loadMembers(selectedTeamId);
@@ -55,8 +58,7 @@ export const AdminManageTeamMembers: React.FC = () => {
     if (!selectedTeamId) return;
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('admin-team-members', { body: { action: 'remove_member', member_id: member.id } });
-      if (error) throw error;
+      await adminRemoveMember(member.id);
       toast({ title: 'Member removed' });
       await loadMembers(selectedTeamId);
     } catch (e: any) {

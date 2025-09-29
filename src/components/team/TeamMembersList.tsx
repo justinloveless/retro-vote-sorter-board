@@ -11,6 +11,7 @@ import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
+import { cancelTeamInvitation as dcCancelInvitation, removeTeamMember as dcRemoveTeamMember, updateTeamMemberRole as dcUpdateTeamMemberRole, inviteMemberByEmail } from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface TeamMembersListProps {
@@ -30,55 +31,10 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const inviteMember = async (email: string) => {
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
-      if (!currentUser) throw new Error('User not authenticated');
+      const { emailSent, notifOk } = await inviteMemberByEmail(teamId, email);
 
-      // Get current user's profile for the inviter name
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', currentUser.id)
-        .single();
-
-      // Get team name
-      const { data: team } = await supabase
-        .from('teams')
-        .select('name')
-        .eq('id', teamId)
-        .single();
-
-      // Create the invitation record
-      const { data: invitation, error } = await supabase
-        .from('team_invitations')
-        .insert([{
-          team_id: teamId,
-          email,
-          invited_by: currentUser.id,
-          invite_type: 'email'
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Send the email via edge function
-      const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
-        body: {
-          invitationId: invitation.id,
-          email: email,
-          teamName: team?.name || 'Team',
-          inviterName: profile?.full_name || 'Someone',
-          token: invitation.token
-        }
-      });
-
-      // Emit in-app notification if the email belongs to an existing account
-      const { error: notifError } = await supabase.functions.invoke('notify-team-invite', {
-        body: { invitationId: invitation.id }
-      });
-
-      if (emailError) {
-        console.error('Error sending email:', emailError);
+      if (!emailSent) {
+        console.error('Error sending email');
         toast({
           title: "Invitation created",
           description: `Invitation created for ${email}, but email may not have been sent. They can still use the invite link.`,
@@ -90,9 +46,8 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
           description: `Invitation email sent to ${email}`,
         });
       }
-
-      if (notifError) {
-        console.warn('notify-team-invite failed or user not found for email:', email, notifError);
+      if (!notifOk) {
+        console.warn('notify-team-invite failed or user not found for email:', email);
       }
 
       refetchInvitations();
@@ -108,12 +63,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const removeMember = async (memberId: string) => {
     try {
-      const { error } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('id', memberId);
-
-      if (error) throw error;
+      await dcRemoveTeamMember(teamId, memberId);
 
       toast({
         title: "Member removed",
@@ -133,12 +83,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const updateMemberRole = async (memberId: string, newRole: 'owner' | 'admin' | 'member') => {
     try {
-      const { error } = await supabase
-        .from('team_members')
-        .update({ role: newRole })
-        .eq('id', memberId);
-
-      if (error) throw error;
+      await dcUpdateTeamMemberRole(teamId, memberId, newRole);
 
       toast({
         title: "Role updated",
@@ -158,12 +103,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const cancelInvitation = async (invitationId: string) => {
     try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .delete()
-        .eq('id', invitationId);
-
-      if (error) throw error;
+      await dcCancelInvitation(invitationId);
 
       toast({
         title: "Invitation cancelled",
@@ -227,15 +167,15 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
             </CardTitle>
             {canManageMembers && (
               <div className={`flex gap-2 ${isMobile ? 'w-full flex-col' : ''}`}>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowLinkDialog(true)}
                   className={isMobile ? 'w-full' : ''}
                 >
                   <Link className="h-4 w-4 mr-2" />
                   Invite Link
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setShowInviteDialog(true)}
                   className={isMobile ? 'w-full' : ''}
                 >
@@ -265,7 +205,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
                   {member.role}
                 </Badge>
               </div>
-              
+
               <div className={`flex items-center gap-2 ${isMobile ? 'justify-end' : ''}`}>
                 {canChangeRoles && member.role !== 'owner' && (
                   <Select
@@ -281,12 +221,12 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
                     </SelectContent>
                   </Select>
                 )}
-                
+
                 {canManageMembers && member.role !== 'owner' && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size={isMobile ? "sm" : "sm"}
                         className={isMobile ? 'h-8 px-2' : ''}
                       >
@@ -340,7 +280,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
                   </div>
                   {!isMobile && <Badge variant="outline">Pending</Badge>}
                 </div>
-                
+
                 <div className={`flex items-center ${isMobile ? 'justify-between' : 'gap-2'}`}>
                   {isMobile && <Badge variant="outline">Pending</Badge>}
                   <Button

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetRetroBoardSummary } from '@/lib/apiClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults } from '@/lib/dataClient';
 
 export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
 
@@ -24,26 +23,9 @@ export const useRoomAccess = (roomId: string, user: any) => {
       let board: any = null;
       let team: { id: string; name: string; members: Array<{ userId: string; role: string }> } | undefined;
 
-      if (shouldUseCSharpApi()) {
-        const summary = await apiGetRetroBoardSummary(roomId);
-        board = summary.board;
-        team = summary.team;
-      } else {
-        const { data, error } = await supabase
-          .from('retro_boards')
-          .select(`
-            *,
-            teams(
-              id,
-              name,
-              team_members(user_id, role)
-            )
-          `)
-          .eq('room_id', roomId)
-          .single();
-        if (error && error.code !== 'PGRST116') throw error;
-        board = data;
-      }
+      const summary = await fetchRetroBoardSummary(roomId);
+      board = summary.board;
+      team = summary.team;
 
       if (board) {
         if (board.deleted) {
@@ -94,67 +76,15 @@ export const useRoomAccess = (roomId: string, user: any) => {
         const createNewRoom = async () => {
           try {
             const newBoardTitle = 'Quick Retro Board';
-            const { data: newBoard, error: boardError } = await supabase
-              .from('retro_boards')
-              .insert([{
-                room_id: roomId,
-                title: newBoardTitle,
-                creator_id: user?.id || null,
-                is_private: false,
-              }])
-              .select()
-              .single();
-
-            if (boardError) {
-              throw boardError;
-            }
-
-            const { error: configError } = await supabase
-              .from('retro_board_config')
-              .insert([{
-                board_id: newBoard.id,
-                allow_anonymous: true,
-                voting_enabled: true,
-                max_votes_per_user: 3,
-                show_author_names: true
-              }]);
-
-            if (configError) {
-              console.error('Error creating board config:', configError);
-            }
-
-            // Refetch board data to include team info if any
-            const { data: board, error } = await supabase
-              .from('retro_boards')
-              .select(`
-                *,
-                teams(
-                  id,
-                  name,
-                  team_members(user_id, role)
-                )
-              `)
-              .eq('room_id', roomId)
-              .single();
-
-            if (error) throw error;
-
+            const board = await createRetroBoardWithDefaults({ roomId, title: newBoardTitle, creatorId: user?.id || null });
             setBoardData(board);
             setAccessStatus('granted');
             setIsPrivate(false);
-            toast({
-              title: "New board created!",
-              description: "Welcome to your new retro board.",
-            });
-
+            toast({ title: "New board created!", description: "Welcome to your new retro board." });
           } catch (creationError) {
             console.error('Error creating new room:', creationError);
             setAccessStatus('denied');
-            toast({
-              title: "Error creating board",
-              description: "Could not create a new board. Please try again.",
-              variant: "destructive",
-            });
+            toast({ title: "Error creating board", description: "Could not create a new board. Please try again.", variant: "destructive" });
           }
         };
 

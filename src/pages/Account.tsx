@@ -14,7 +14,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { currentEnvironment, shouldUseCSharpApi, getApiBaseUrl } from '@/config/environment';
+import { currentEnvironment } from '@/config/environment';
+import { getImpersonatedEmailIfAdmin, uploadAvatarForUser, adminSetAvatar, signInWithPassword, updateAuthUser } from '@/lib/dataClient';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
 
@@ -48,9 +49,8 @@ const Account = () => {
         return;
       }
       try {
-        const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
-        if (error) throw error as any;
-        setImpersonatedEmail((data as any) || null);
+        const email = await getImpersonatedEmailIfAdmin(profile.id);
+        setImpersonatedEmail(email);
       } catch (e) {
         setImpersonatedEmail(null);
       }
@@ -110,17 +110,17 @@ const Account = () => {
 
     try {
       // First verify current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user!.email!,
-        password: passwordData.currentPassword,
-      });
+      const { error: signInError } = await signInWithPassword(
+        user!.email!,
+        passwordData.currentPassword,
+      );
 
       if (signInError) {
         throw new Error('Current password is incorrect');
       }
 
       // Update password
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await updateAuthUser({
         password: passwordData.newPassword,
       });
 
@@ -191,47 +191,13 @@ const Account = () => {
                         onCropped={async (blob) => {
                           try {
                             if (isImpersonating && profile?.id) {
-                              // When impersonating, call admin Edge Function to set avatar for target user
-                              const arrayBuffer = await blob.arrayBuffer();
-                              const { data: { session } } = await supabase.auth.getSession();
-                              const resp = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/admin-set-avatar?user_id=${profile.id}`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'image/png',
-                                  'Authorization': `Bearer ${session?.access_token ?? ''}`
-                                },
-                                body: arrayBuffer
-                              });
-                              if (!resp.ok) {
-                                const err = await resp.text();
-                                throw new Error(err || 'Failed to set avatar as admin');
-                              }
-                              const json = await resp.json();
+                              const publicUrl = await adminSetAvatar(profile.id, blob);
                               await refreshImpersonatedProfile();
                               toast({ title: 'Profile picture updated for impersonated user' });
                             } else {
-                              // Normal case: update own avatar via C# API when enabled
-                              if (shouldUseCSharpApi()) {
-                                const base = getApiBaseUrl();
-                                const { data: { session } } = await supabase.auth.getSession();
-                                const form = new FormData();
-                                form.append('file', blob, `${user.id}.png`);
-                                const resp = await fetch(`${base}/api/avatars/${user.id}`, {
-                                  method: 'POST',
-                                  headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-                                  body: form
-                                });
-                                if (!resp.ok) throw new Error(`Upload failed ${resp.status}`);
-                                const json = await resp.json();
-                                await updateProfile({ avatar_url: json.publicUrl || json.PublicUrl });
-                                toast({ title: 'Profile picture updated' });
-                              } else {
-                                const fileName = `${user.id}.png`;
-                                await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
-                                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-                                await updateProfile({ avatar_url: data.publicUrl });
-                                toast({ title: 'Profile picture updated' });
-                              }
+                              const publicUrl = await uploadAvatarForUser(user.id, blob);
+                              await updateProfile({ avatar_url: publicUrl });
+                              toast({ title: 'Profile picture updated' });
                             }
                           } catch (e: any) {
                             toast({ title: 'Failed to update avatar', description: e.message || String(e), variant: 'destructive' });

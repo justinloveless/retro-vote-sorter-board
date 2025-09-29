@@ -1,20 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetTeamMembers, apiAddMember, apiUpdateMemberRole, apiRemoveMember } from '@/lib/apiClient';
+import { fetchTeamMembers as dcFetchTeamMembers, updateTeamMemberRole as dcUpdateMemberRole, removeTeamMember as dcRemoveTeamMember, TeamMemberRecord, getAuthUser } from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 
-interface TeamMember {
-  id: string;
-  team_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'member';
-  joined_at: string;
-  profiles?: {
-    full_name: string | null;
-  } | null;
-}
+type TeamMember = TeamMemberRecord;
 
 interface TeamInvitation {
   id: string;
@@ -43,45 +33,8 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      if (shouldUseCSharpApi()) {
-        // Use C# API passthrough
-        const { items } = await apiGetTeamMembers(teamId);
-        const typedMembers: TeamMember[] = (items || []).map((m: any) => ({
-          id: m.userId,
-          team_id: m.teamId,
-          user_id: m.userId,
-          role: (m.role || 'member') as 'owner' | 'admin' | 'member',
-          joined_at: '',
-          profiles: { full_name: m.displayName ?? null }
-        }));
-        setMembers(typedMembers);
-      } else {
-        // First get team members
-        const { data: membersData, error: membersError } = await supabase
-          .from('team_members')
-          .select('*')
-          .eq('team_id', teamId)
-          .order('joined_at', { ascending: true });
-
-        if (membersError) throw membersError;
-
-        // Then get profiles for those users
-        const userIds = membersData?.map(member => member.user_id) || [];
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
-
-        if (profilesError) throw profilesError;
-
-        // Combine the data
-        const typedMembers = (membersData || []).map(member => ({
-          ...member,
-          role: member.role as 'owner' | 'admin' | 'member',
-          profiles: profilesData?.find(profile => profile.id === member.user_id) || null
-        }));
-        setMembers(typedMembers);
-      }
+      const typedMembers = await dcFetchTeamMembers(teamId);
+      setMembers(typedMembers);
     } catch (error) {
       console.error('Error loading team members:', error);
       toast({
@@ -110,14 +63,14 @@ export const useTeamMembers = (teamId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Type cast the data to ensure proper typing
       const typedInvitations = (data || []).map(invitation => ({
         ...invitation,
         status: invitation.status as 'pending' | 'accepted' | 'declined',
         invite_type: invitation.invite_type as 'email' | 'link'
       }));
-      
+
       setInvitations(typedInvitations);
     } catch (error) {
       console.error('Error loading invitations:', error);
@@ -134,7 +87,7 @@ export const useTeamMembers = (teamId: string | null) => {
 
     try {
       // Invitations still rely on Supabase direct flow (not yet implemented in C# API)
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       const { data: profile } = await supabase
@@ -203,17 +156,8 @@ export const useTeamMembers = (teamId: string | null) => {
 
   const removeMember = async (memberId: string) => {
     try {
-      if (shouldUseCSharpApi()) {
-        if (!teamId) throw new Error('Team not selected');
-        await apiRemoveMember(teamId, memberId);
-      } else {
-        const { error } = await supabase
-          .from('team_members')
-          .delete()
-          .eq('id', memberId);
-
-        if (error) throw error;
-      }
+      if (!teamId) throw new Error('Team not selected');
+      await dcRemoveTeamMember(teamId, memberId);
 
       toast({
         title: "Member removed",
@@ -233,17 +177,8 @@ export const useTeamMembers = (teamId: string | null) => {
 
   const updateMemberRole = async (memberId: string, newRole: 'owner' | 'admin' | 'member') => {
     try {
-      if (shouldUseCSharpApi()) {
-        if (!teamId) throw new Error('Team not selected');
-        await apiUpdateMemberRole(teamId, memberId, newRole);
-      } else {
-        const { error } = await supabase
-          .from('team_members')
-          .update({ role: newRole })
-          .eq('id', memberId);
-
-        if (error) throw error;
-      }
+      if (!teamId) throw new Error('Team not selected');
+      await dcUpdateMemberRole(teamId, memberId, newRole);
 
       toast({
         title: "Role updated",

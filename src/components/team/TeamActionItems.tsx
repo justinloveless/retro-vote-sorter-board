@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { assignTeamActionItemById, markTeamActionItemDoneById } from '@/lib/dataClient';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
 import { useTeamData } from '@/contexts/TeamDataContext';
@@ -16,7 +17,7 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   const [assignee, setAssignee] = useState<string | 'all'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const teamData = useTeamData();
-  
+
   // Use cached data
   const { data: items, loading, refetch } = teamData.getActionItems(teamId);
   const { data: teamMembers } = teamData.getMembers(teamId);
@@ -24,20 +25,20 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   // Set up realtime updates to refetch when data changes
   React.useEffect(() => {
     if (!teamId) return;
-    
+
     const channel = supabase.channel(`team-action-items-tab-${teamId}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'team_action_items', 
-        filter: `team_id=eq.${teamId}` 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'team_action_items',
+        filter: `team_id=eq.${teamId}`
       }, () => {
         refetch();
       })
       .subscribe();
-    
-    return () => { 
-      supabase.removeChannel(channel); 
+
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [teamId, refetch]);
 
@@ -68,12 +69,12 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   }, [visible]);
 
   const markDone = async (id: string, next: boolean) => {
-    await supabase.from('team_action_items').update({ done: next, done_at: next ? new Date().toISOString() : null }).eq('id', id);
+    await markTeamActionItemDoneById(id);
     refetch();
   };
 
   const assign = async (id: string, userId: string | null) => {
-    await supabase.from('team_action_items').update({ assigned_to: userId }).eq('id', id);
+    await assignTeamActionItemById(id, userId);
     refetch();
   };
 

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetFeatureFlags } from '@/lib/apiClient';
+import { fetchFeatureFlags } from '@/lib/dataClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type FeatureFlags = {
@@ -26,22 +26,12 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const setupFlags = async () => {
             setLoading(true);
             try {
-                if (shouldUseCSharpApi()) {
-                    const response = await apiGetFeatureFlags();
-                    const flagsObject = (response.items || []).reduce((acc, flag) => {
-                        acc[flag.flagName] = flag.isEnabled;
-                        return acc;
-                    }, {} as FeatureFlags);
-                    setFlags(flagsObject);
-                } else {
-                    const { data, error } = await supabase.from('feature_flags').select('flag_name, is_enabled');
-                    if (error) throw error;
-                    const flagsObject = (data || []).reduce((acc, flag) => {
-                        acc[flag.flag_name] = flag.is_enabled;
-                        return acc;
-                    }, {} as FeatureFlags);
-                    setFlags(flagsObject);
-                }
+                const list = await fetchFeatureFlags();
+                const flagsObject = (list || []).reduce((acc, flag) => {
+                    acc[flag.flag_name] = flag.is_enabled;
+                    return acc;
+                }, {} as FeatureFlags);
+                setFlags(flagsObject);
             } catch (error) {
                 console.error("Error fetching initial feature flags:", error);
             } finally {

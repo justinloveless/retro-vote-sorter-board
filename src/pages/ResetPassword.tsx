@@ -3,10 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GlobalBackground } from '@/components/ui/GlobalBackground';
 import { AppHeader } from '@/components/AppHeader';
+import { onAuthStateChange, setAuthSession, updateAuthUser } from '@/lib/dataClient';
+
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -37,7 +38,7 @@ const ResetPassword = () => {
             console.log('Password reset parameters:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
 
             // Set up auth state change listener
-            authSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+            authSubscription = onAuthStateChange(async (event, session) => {
                 console.log('Auth state change:', event, !!session);
 
                 if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session && type === 'recovery')) {
@@ -65,10 +66,10 @@ const ResetPassword = () => {
                 try {
                     console.log('Attempting to set session...');
                     // Set the session with the tokens from the URL
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
+                    const { data, error } = await setAuthSession(
+                        accessToken,
+                        refreshToken,
+                    );
 
                     console.log('Session set result:', { data: !!data, error });
 
@@ -131,9 +132,7 @@ const ResetPassword = () => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
-                password: password,
-            });
+            const { error } = await updateAuthUser({ password: password });
 
             if (error) throw error;
 

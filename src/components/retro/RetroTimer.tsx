@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { getRetroAudioPublicUrl, uploadRetroAudio, deleteRetroAudio } from '@/lib/dataClient';
 
 export const RetroTimer: React.FC = () => {
   const { user } = useAuth();
   const isAnonymousUser = !user;
-  
+
   const [minutes, setMinutes] = useState(15);
   const [seconds, setSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -27,14 +27,14 @@ export const RetroTimer: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [usingDefaultAudio, setUsingDefaultAudio] = useState(false);
-  
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Default audio file configuration
   const defaultAudioFileName = "retro-music-7c2a52ff-cea8-4a3f-9de9-0f2f744be625-1748877023437.mp3";
-  const defaultAudioUrl = `${supabase.storage.from('retro-audio').getPublicUrl(defaultAudioFileName).data.publicUrl}`;
+  const defaultAudioUrl = `${getRetroAudioPublicUrl(defaultAudioFileName)}`;
 
   // Initialize with default audio
   useEffect(() => {
@@ -52,7 +52,7 @@ export const RetroTimer: React.FC = () => {
         // Set volume based on mute state
         audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.loop = true;
-        
+
         // Only start playing if not already playing
         if (audioRef.current.paused) {
           audioRef.current.play().catch(error => {
@@ -119,23 +119,11 @@ export const RetroTimer: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const fileExt = audioFile.name.split('.').pop();
-      const fileName = `retro-music-${user.id}-${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('retro-audio')
-        .upload(fileName, audioFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('retro-audio')
-        .getPublicUrl(fileName);
-
+      const { fileName, publicUrl } = await uploadRetroAudio(user.id, audioFile);
       setUploadedAudioUrl(publicUrl);
       setUploadedFileName(audioFile.name);
       setUsingDefaultAudio(false);
-      
+
       toast({
         title: "Audio uploaded successfully",
         description: "Your background music is ready to use.",
@@ -170,19 +158,15 @@ export const RetroTimer: React.FC = () => {
       // Extract file path from URL
       const urlParts = uploadedAudioUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
-      
-      const { error } = await supabase.storage
-        .from('retro-audio')
-        .remove([fileName]);
 
-      if (error) throw error;
+      await deleteRetroAudio(fileName);
 
       // Reset to default audio
       setUploadedAudioUrl(defaultAudioUrl);
       setUploadedFileName("Default Background Music");
       setUsingDefaultAudio(true);
       setMusicEnabled(false);
-      
+
       toast({
         title: "Audio deleted",
         description: "Reverted to default background music.",
@@ -246,13 +230,13 @@ export const RetroTimer: React.FC = () => {
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
           <Timer className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-          
+
           {timeLeft > 0 ? (
             <div className="flex items-center gap-2">
               <span className="text-lg font-mono font-bold">
                 {formatTime(timeLeft)}
               </span>
-              
+
               <Button
                 size="sm"
                 variant="outline"
@@ -261,7 +245,7 @@ export const RetroTimer: React.FC = () => {
               >
                 {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
-              
+
               <Button
                 size="sm"
                 variant="outline"
@@ -270,7 +254,7 @@ export const RetroTimer: React.FC = () => {
               >
                 <RotateCcw className="h-4 w-4" />
               </Button>
-              
+
               <Button
                 size="sm"
                 variant="outline"
@@ -285,8 +269,8 @@ export const RetroTimer: React.FC = () => {
           ) : (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   disabled={isAnonymousUser}
                 >
@@ -322,10 +306,10 @@ export const RetroTimer: React.FC = () => {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <label className="text-sm font-medium">Background Music</label>
-                    
+
                     {uploadedAudioUrl ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded border">
@@ -345,7 +329,7 @@ export const RetroTimer: React.FC = () => {
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                        
+
                         {/* Upload new audio option */}
                         <div className="border-t pt-2">
                           <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
@@ -401,12 +385,12 @@ export const RetroTimer: React.FC = () => {
                         </Button>
                       </div>
                     )}
-                    
+
                     <div className="text-xs text-gray-500">
                       Supported formats: MP3, WAV, OGG, M4A
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -420,7 +404,7 @@ export const RetroTimer: React.FC = () => {
                       Play background music {!uploadedAudioUrl && '(upload audio first)'}
                     </label>
                   </div>
-                  
+
                   {musicEnabled && uploadedAudioUrl && (
                     <div>
                       <label className="text-sm font-medium">
@@ -443,7 +427,7 @@ export const RetroTimer: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <Button onClick={startTimer} className="w-full">
                     Start Timer
                   </Button>
@@ -451,14 +435,14 @@ export const RetroTimer: React.FC = () => {
               </DialogContent>
             </Dialog>
           )}
-          
+
           {isAnonymousUser && (
             <span className="text-xs text-gray-500">
               (Sign in to use timer)
             </span>
           )}
         </div>
-        
+
         {/* Hidden audio element for playback */}
         {uploadedAudioUrl && (
           <audio

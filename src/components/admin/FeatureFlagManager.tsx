@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetFeatureFlags, apiUpdateFeatureFlag } from '@/lib/apiClient';
+import { fetchFeatureFlags, updateFeatureFlag } from '@/lib/dataClient';
 
 interface FeatureFlag {
     flag_name: string;
@@ -21,21 +19,8 @@ export const FeatureFlagManager: React.FC = () => {
         const fetchFlags = async () => {
             setLoading(true);
             try {
-                if (shouldUseCSharpApi()) {
-                    const response = await apiGetFeatureFlags();
-                    const mapped = (response.items || []).map(item => ({
-                        flag_name: item.flagName,
-                        description: item.description ?? null,
-                        is_enabled: item.isEnabled
-                    }));
-                    setFlags(mapped);
-                } else {
-                    const { data, error } = await supabase
-                        .from('feature_flags')
-                        .select('*');
-                    if (error) throw error;
-                    setFlags(data || []);
-                }
+                const mapped = await fetchFeatureFlags();
+                setFlags(mapped);
             } catch (error) {
                 console.error('Error fetching feature flags:', error);
                 toast({ title: 'Error fetching flags', variant: 'destructive' });
@@ -55,15 +40,7 @@ export const FeatureFlagManager: React.FC = () => {
         );
 
         try {
-            if (shouldUseCSharpApi()) {
-                await apiUpdateFeatureFlag(flagName, isEnabled);
-            } else {
-                const { error } = await supabase
-                    .from('feature_flags')
-                    .update({ is_enabled: isEnabled })
-                    .eq('flag_name', flagName);
-                if (error) throw error;
-            }
+            await updateFeatureFlag(flagName, isEnabled);
             toast({ title: 'Feature flag updated!' });
         } catch (error) {
             console.error('Error updating feature flag:', error);

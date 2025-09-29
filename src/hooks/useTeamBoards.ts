@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getAuthUser } from '../lib/dataClient.ts';
 
 interface TeamBoard {
   id: string;
@@ -58,7 +59,7 @@ export const useTeamBoards = (teamId: string | null) => {
     if (!teamId) return null;
 
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       // Generate a room ID

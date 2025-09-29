@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { shouldUseCSharpApi } from '@/config/environment';
-import { apiGetRetroBoardSummary } from '@/lib/apiClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment } from '@/lib/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -191,52 +190,25 @@ export const useRetroBoard = (roomId: string) => {
       try {
         setLoading(true);
 
-        // Load or create board
+        // Load or create board via data client
         let boardData: any = null;
-        if (shouldUseCSharpApi()) {
-          const summary = await apiGetRetroBoardSummary(roomId);
-          if (summary?.board?.id) {
-            const b = summary.board as any;
-            boardData = {
-              id: b.id,
-              room_id: b.roomId,
-              title: b.title || 'RetroScope Session',
-              is_private: false,
-              password_hash: null,
-              created_at: b.createdAt || new Date().toISOString(),
-              archived: false,
-              team_id: b.teamId || null,
-              retro_stage: b.retroStage || null,
-            } as RetroBoard;
-          } else {
-            // Fallback to create when no board exists
-            const { data: newBoard, error: createError } = await supabase
-              .from('retro_boards')
-              .insert([{ room_id: roomId, title: 'RetroScope Session' }])
-              .select()
-              .single();
-            if (createError) throw createError;
-            boardData = newBoard;
-          }
+        const summary = await fetchRetroBoardSummary(roomId);
+        if (summary?.board?.id) {
+          const b = summary.board as any;
+          boardData = {
+            id: b.id,
+            room_id: b.roomId,
+            title: b.title || 'RetroScope Session',
+            is_private: false,
+            password_hash: null,
+            created_at: b.createdAt || new Date().toISOString(),
+            archived: false,
+            team_id: b.teamId || null,
+            retro_stage: b.retroStage || null,
+          } as RetroBoard;
         } else {
-          const { data, error } = await supabase
-            .from('retro_boards')
-            .select('*')
-            .eq('room_id', roomId)
-            .single();
-          if (error && error.code === 'PGRST116') {
-            const { data: newBoard, error: createError } = await supabase
-              .from('retro_boards')
-              .insert([{ room_id: roomId, title: 'RetroScope Session' }])
-              .select()
-              .single();
-            if (createError) throw createError;
-            boardData = newBoard;
-          } else if (error) {
-            throw error;
-          } else {
-            boardData = data;
-          }
+          const created = await createRetroBoardWithDefaults({ roomId, title: 'RetroScope Session' });
+          boardData = created;
         }
 
         setBoard(boardData);
@@ -294,14 +266,8 @@ export const useRetroBoard = (roomId: string) => {
         setProfileCache(prev => ({ ...prev, ...itemProfiles }));
 
         // Load comments
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('retro_comments')
-          .select('*, profiles(avatar_url, full_name)')
-          .in('item_id', (itemsData || []).map(item => item.id))
-          .order('created_at');
-
-        if (commentsError) throw commentsError;
-        setComments(commentsData || []);
+        const commentsData = await fetchCommentsForItems((itemsData || []).map(item => item.id));
+        setComments(commentsData);
 
         // Cache profile data from comments
         const commentProfiles: Record<string, { avatar_url: string; full_name: string }> = {};
@@ -342,17 +308,8 @@ export const useRetroBoard = (roomId: string) => {
 
         // Load user's votes
         const currentUserId = profile?.id || null;
-        const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
-        if (currentUserId) {
-          voteQuery.eq('user_id', currentUserId);
-        } else {
-          voteQuery.eq('session_id', sessionId);
-        }
-
-        const { data: userVotesData, error: userVotesError } = await voteQuery;
-
-        if (userVotesError) throw userVotesError;
-        setUserVotes((userVotesData || []).map(v => v.item_id));
+        const votes = await getUserVotes(boardData.id, currentUserId, currentUserId ? undefined : sessionId);
+        setUserVotes(votes);
 
       } catch (error) {
         console.error('Error loading board data:', error);
@@ -910,13 +867,9 @@ export const useRetroBoard = (roomId: string) => {
     );
 
     if (hasVoted) {
-      // Remove vote from server
-      const { error } = await supabase
-        .from('retro_votes')
-        .delete()
-        .match({ item_id: itemId, board_id: board.id, user_id: userId, session_id: voteSessionId });
-
-      if (error) {
+      try {
+        await removeVote({ boardId: board.id, itemId, userId, sessionId: voteSessionId });
+      } catch (error) {
         toast({ title: 'Error removing vote', variant: 'destructive' });
         // Revert UI changes on error
         setUserVotes(prev => [...prev, itemId]);
@@ -927,15 +880,9 @@ export const useRetroBoard = (roomId: string) => {
         );
       }
     } else {
-      // Add vote to server
-      const { error } = await supabase.from('retro_votes').insert({
-        item_id: itemId,
-        board_id: board.id,
-        user_id: userId,
-        session_id: voteSessionId,
-      });
-
-      if (error) {
+      try {
+        await addVote({ boardId: board.id, itemId, userId, sessionId: voteSessionId });
+      } catch (error) {
         toast({ title: 'Error adding vote', variant: 'destructive' });
         // Revert UI changes on error
         setUserVotes(prev => prev.filter(id => id !== itemId));
@@ -1025,27 +972,18 @@ export const useRetroBoard = (roomId: string) => {
   const addComment = async (itemId: string, text: string, author: string, isAnonymous: boolean) => {
     const authorId = profile?.id || null;
 
-    const { data: newComment, error } = await supabase
-      .from('retro_comments')
-      .insert([{
-        item_id: itemId,
-        text,
-        author,
-        author_id: authorId,
-        session_id: isAnonymous ? sessionId : null
-      }])
-      .select()
-      .single();
-
-    if (error) {
+    try {
+      const newComment = await addRetroComment({ itemId, text, author, authorId, sessionId: isAnonymous ? sessionId : null });
+      if (newComment) {
+        setComments(prevComments => [...prevComments, newComment]);
+      }
+    } catch (error) {
       console.error('Error adding comment:', error);
       toast({
         title: "Error adding comment",
         description: "Please try again.",
         variant: "destructive",
       });
-    } else if (newComment) {
-      setComments(prevComments => [...prevComments, newComment]);
     }
   };
 
@@ -1053,12 +991,9 @@ export const useRetroBoard = (roomId: string) => {
     const oldComments = [...comments];
     setComments(prevComments => prevComments.filter(c => c.id !== commentId));
 
-    const { error } = await supabase
-      .from('retro_comments')
-      .delete()
-      .eq('id', commentId);
-
-    if (error) {
+    try {
+      await deleteRetroComment(commentId);
+    } catch (error) {
       console.error('Error deleting comment:', error);
       setComments(oldComments);
       toast({

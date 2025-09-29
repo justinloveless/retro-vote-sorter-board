@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getAppConfigValue, upsertAppConfig } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -18,19 +18,9 @@ export const TtsUrlManager: React.FC = () => {
         const fetchTtsUrl = async () => {
             setIsLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('app_config')
-                    .select('value')
-                    .eq('key', TTS_CONFIG_KEY)
-                    .single();
-
-                if (error && error.code !== 'PGRST116') { // PGRST116 = 'exact one row not found'
-                    throw error;
-                }
-                if (data) {
-                    setTtsUrl(data.value || '');
-                }
-            } catch (error) {
+                const val = await getAppConfigValue(TTS_CONFIG_KEY);
+                if (val) setTtsUrl(val || '');
+            } catch (error: any) {
                 toast({
                     title: 'Error fetching TTS URL',
                     description: error.message,
@@ -47,17 +37,13 @@ export const TtsUrlManager: React.FC = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from('app_config')
-                .upsert({ key: TTS_CONFIG_KEY, value: ttsUrl }, { onConflict: 'key' });
-
-            if (error) throw error;
+            await upsertAppConfig([{ key: TTS_CONFIG_KEY, value: ttsUrl }]);
 
             toast({
                 title: 'Success',
                 description: 'TTS Server URL saved successfully.',
             });
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 title: 'Error saving TTS URL',
                 description: error.message,

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/config/environment';
+import { getAuthSession } from './dataClient.ts';
 
 /**
  * Gets the current Supabase access token from the session
@@ -7,7 +8,7 @@ import { getApiBaseUrl } from '@/config/environment';
  * @throws Error if no valid session is found
  */
 async function getSupabaseAccessToken(): Promise<string> {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const { data: { session }, error } = await getAuthSession();
 
   if (error) {
     throw new Error(`Failed to get session: ${error.message}`);

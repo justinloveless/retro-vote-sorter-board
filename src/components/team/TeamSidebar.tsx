@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Calendar, FolderOpen, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchOpenTeamActionItems, markTeamActionItemDoneById, assignTeamActionItemById } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -24,12 +25,7 @@ export const TeamSidebar: React.FC<TeamSidebarProps> = ({ team, boardCount, memb
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
-      const { data } = await supabase
-        .from('team_action_items')
-        .select('id, text, assigned_to')
-        .eq('team_id', team.id)
-        .eq('done', false)
-        .order('created_at');
+      const data = await fetchOpenTeamActionItems(team.id);
       if (isMounted) setOpenActions(data || []);
     };
     load();
@@ -58,11 +54,9 @@ export const TeamSidebar: React.FC<TeamSidebarProps> = ({ team, boardCount, memb
     const prev = openActions;
     // Optimistic remove
     setOpenActions(curr => curr.filter(i => i.id !== id));
-    const { error } = await supabase
-      .from('team_action_items')
-      .update({ done: true, done_at: new Date().toISOString() })
-      .eq('id', id);
-    if (error) {
+    try {
+      await markTeamActionItemDoneById(id);
+    } catch (error) {
       // Revert on error
       setOpenActions(prev);
     }
@@ -71,11 +65,9 @@ export const TeamSidebar: React.FC<TeamSidebarProps> = ({ team, boardCount, memb
   const assign = async (id: string, userId: string | null) => {
     // Optimistic
     setOpenActions(curr => curr.map(i => i.id === id ? { ...i, assigned_to: userId } : i));
-    const { error } = await supabase
-      .from('team_action_items')
-      .update({ assigned_to: userId })
-      .eq('id', id);
-    if (error) {
+    try {
+      await assignTeamActionItemById(id, userId);
+    } catch (error) {
       // Silently ignore; realtime will resync
     }
   };
@@ -94,7 +86,7 @@ export const TeamSidebar: React.FC<TeamSidebarProps> = ({ team, boardCount, memb
               <div className="text-sm text-gray-500 dark:text-gray-400">Active Boards</div>
             </div>
           </div>
-          
+
           {memberCount !== undefined && (
             <div className="flex items-center gap-3">
               <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -104,7 +96,7 @@ export const TeamSidebar: React.FC<TeamSidebarProps> = ({ team, boardCount, memb
               </div>
             </div>
           )}
-          
+
           <div className="flex items-center gap-3">
             <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             <div>

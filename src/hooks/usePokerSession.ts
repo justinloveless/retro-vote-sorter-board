@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getPokerSessionByRoom, createPokerSession, getPokerRound, createPokerRound, updatePokerRoundById, updatePokerSessionById, deletePokerSessionData } from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { PokerSessionRound } from './usePokerSessionHistory';
@@ -49,24 +50,13 @@ export const usePokerSession = (
     setLoading(true);
 
     // 1. Fetch the main session
-    let { data: sessionData, error } = await supabase
-      .from('poker_sessions')
-      .select('*')
-      .eq('room_id', roomId)
-      .single();
+    let sessionData = await getPokerSessionByRoom(roomId);
 
     // 2. Create session if it doesn't exist
-    if (error && error.code === 'PGRST116' && shouldCreate) {
-      const { data: newSession, error: createError } = await supabase
-        .from('poker_sessions')
-        .insert({ room_id: roomId, current_round_number: 1 })
-        .select()
-        .single();
-      
-      if (createError) throw createError;
-      sessionData = newSession;
-    } else if (error) {
-      throw error;
+    if (!sessionData && shouldCreate) {
+      sessionData = await createPokerSession(roomId);
+    } else if (!sessionData) {
+      throw new Error('Session not found');
     }
 
     if (!sessionData) {
@@ -76,52 +66,24 @@ export const usePokerSession = (
     }
 
     // 3. Fetch the current round for the session
-    let { data: roundData, error: roundError } = await supabase
-      .from('poker_session_rounds')
-      .select('*')
-      .eq('session_id', sessionData.id)
-      .eq('round_number', sessionData.current_round_number)
-      .single();
+    let roundData = await getPokerRound(sessionData.id, sessionData.current_round_number);
 
     // 4. Create the first round if it doesn't exist
-    if (roundError && roundError.code === 'PGRST116') {
-      const initialSelections: Selections = {
-        [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
-      };
-      const { data: newRound, error: newRoundError } = await supabase
-        .from('poker_session_rounds')
-        .insert({
-          session_id: sessionData.id,
-          round_number: sessionData.current_round_number,
-          selections: initialSelections,
-        })
-        .select()
-        .single();
-
-      if (newRoundError) throw newRoundError;
-      roundData = newRound;
-    } else if (roundError) {
-      throw roundError;
+    if (!roundData) {
+      const initialSelections: Selections = { [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName } };
+      roundData = await createPokerRound(sessionData.id, sessionData.current_round_number, initialSelections);
     }
 
     // 5. Add user to selections if they aren't there
     if (roundData && !roundData.selections[currentUserId]) {
-        roundData.selections[currentUserId] = {
-            points: 1,
-            locked: false,
-            name: currentUserDisplayName,
-        };
-        const { data: updatedRound, error: updateRoundError } = await supabase
-            .from('poker_session_rounds')
-            .update({ selections: roundData.selections })
-            .eq('id', roundData.id)
-            .select()
-            .single();
-
-        if (updateRoundError) throw updateRoundError;
-        roundData = updatedRound;
+      roundData.selections[currentUserId] = {
+        points: 1,
+        locked: false,
+        name: currentUserDisplayName,
+      };
+      roundData = await updatePokerRoundById(roundData.id, { selections: roundData.selections });
     }
-    
+
     // 6. Combine session and round data into a single state object
     setSession({ ...sessionData, ...roundData });
     setLoading(false);
@@ -177,26 +139,26 @@ export const usePokerSession = (
       (payload) => {
         // Ignore broadcast if it's from the current user
         if (payload.senderUserId === currentUserId) return;
-        
+
         setSession(prev => prev ? ({ ...prev, ...payload.payload }) : null);
       }
     );
-    
+
     const isPresenceEnabled = session.presence_enabled !== false;
     if (isPresenceEnabled) {
-        channel.on('presence', { event: 'sync' }, () => {
-            const presenceState = channel.presenceState();
-            const userIds = Object.keys(presenceState);
-            setPresentUserIds(userIds);
-        });
-    
-        channel.on('presence', { event: 'join' }, ({ key }) => {
-            setPresentUserIds((prev) => [...new Set([...prev, key])]);
-        });
-    
-        channel.on('presence', { event: 'leave' }, ({ key }) => {
-            setPresentUserIds((prev) => prev.filter(id => id !== key));
-        });
+      channel.on('presence', { event: 'sync' }, () => {
+        const presenceState = channel.presenceState();
+        const userIds = Object.keys(presenceState);
+        setPresentUserIds(userIds);
+      });
+
+      channel.on('presence', { event: 'join' }, ({ key }) => {
+        setPresentUserIds((prev) => [...new Set([...prev, key])]);
+      });
+
+      channel.on('presence', { event: 'leave' }, ({ key }) => {
+        setPresentUserIds((prev) => prev.filter(id => id !== key));
+      });
     }
 
     channel.subscribe(async (status) => {
@@ -235,19 +197,14 @@ export const usePokerSession = (
 
   const updateRoundState = async (newState: Partial<PokerSessionRound>) => {
     if (!session) return;
-    const { data, error } = await supabase
-      .from('poker_session_rounds')
-      .update(newState)
-      .eq('id', session.id)
-      .select()
-      .single();
+    const { data, error } = await updatePokerRoundById(session.id, newState);
 
     if (error) {
       console.error('Error updating round state:', error);
       toast({ title: 'Error updating round', description: error.message, variant: 'destructive' });
       return;
     }
-    
+
     // Broadcast the change
     if (sessionChannelRef.current) {
       await sessionChannelRef.current.send({
@@ -277,13 +234,13 @@ export const usePokerSession = (
       await updateRoundState({ selections: newSelections });
     }
   };
-  
+
   const toggleAbstainUserSelection = async () => {
     if (!session || !currentUserId) return;
     const userSelection = session.selections[currentUserId];
     if (userSelection) {
       const isCurrentlyAbstained = userSelection.points === -1;
-      const newSelection = { 
+      const newSelection = {
         ...userSelection,
         points: isCurrentlyAbstained ? 1 : -1,
         locked: !isCurrentlyAbstained,
@@ -296,26 +253,20 @@ export const usePokerSession = (
 
   const updateSessionConfig = async (newConfig: Partial<PokerSession>) => {
     if (!session) return;
-    const { error } = await supabase
-      .from('poker_sessions')
-      .update(newConfig)
-      .eq('id', session.session_id);
-    if (error) {
-      console.error('Error updating session config', error);
-    }
+    await updatePokerSessionById(session.session_id, newConfig);
   };
 
   const updateTicketNumber = async (ticketNumber: string) => {
     await updateRoundState({ ticket_number: ticketNumber });
   };
-  
+
   const playHand = async () => {
     if (!session) return;
     const newSelections: Selections = { ...session.selections };
     Object.values(newSelections).forEach((s: PlayerSelection) => { if (!s.locked) s.points = -1; });
     const participating = Object.values(newSelections).filter((s: PlayerSelection) => s.points !== -1);
     const average_points = participating.length > 0 ? participating.reduce((a, b) => a + b.points, 0) / participating.length : 0;
-    
+
     const newState = { game_state: 'Playing' as GameState, selections: newSelections, average_points };
 
     setSession(prev => prev ? { ...prev, ...newState } : null);
@@ -350,24 +301,14 @@ export const usePokerSession = (
     const newRoundNumber = session.round_number + 1;
     const resetSelections: Selections = {};
     Object.keys(session.selections).forEach(key => {
-        resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
+      resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
     });
 
-    const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
-        session_id: session.session_id,
-        round_number: newRoundNumber,
-        selections: resetSelections,
-        ticket_number: newTicketNumber || ''
-    });
-
-    if (newRoundError) {
-        console.error('Error creating new round', newRoundError);
-        return;
-    }
+    await createPokerRound(session.session_id, newRoundNumber, resetSelections, newTicketNumber);
 
     // 2. Update the session to point to the new round
     // The realtime subscription on the session table will trigger a full refresh for all clients.
-    await supabase.from('poker_sessions').update({ current_round_number: newRoundNumber }).eq('id', session.session_id);
+    await updatePokerSessionById(session.session_id, { current_round_number: newRoundNumber });
 
     // 3. Broadcast to all clients to refetch the session data
     if (sessionChannelRef.current) {
@@ -384,10 +325,7 @@ export const usePokerSession = (
   const deleteAllRounds = async () => {
     if (!session) return;
     try {
-      const { error } = await supabase.functions.invoke('delete-session-data', {
-        body: { session_id: session.session_id },
-      });
-      if (error) throw new Error(`Function invocation failed: ${error.message}`);
+      await deletePokerSessionData(session.session_id);
       toast({ title: 'All previous rounds have been deleted.' });
       window.dispatchEvent(new Event('rounds-deleted'));
       window.dispatchEvent(new Event('chats-deleted'));

@@ -7,6 +7,7 @@ import { Archive, Trash2, MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getAuthUser } from '@/lib/dataClient';
 
 interface BoardActionsProps {
   boardId: string;
@@ -39,7 +40,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
         .update({
           archived: !isArchived,
           archived_at: !isArchived ? new Date().toISOString() : null,
-          archived_by: !isArchived ? (await supabase.auth.getUser()).data.user?.id : null
+          archived_by: !isArchived ? (await getAuthUser()).data.user?.id : null
         })
         .eq('id', boardId);
 
@@ -47,8 +48,8 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
 
       toast({
         title: isArchived ? "Board unarchived" : "Board archived",
-        description: isArchived 
-          ? "The board has been unarchived and can be edited again." 
+        description: isArchived
+          ? "The board has been unarchived and can be edited again."
           : "The board has been archived and is now read-only.",
       });
 
@@ -115,7 +116,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
         </DropdownMenuItem>
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogTrigger asChild>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="text-red-600 dark:text-red-400"
               onSelect={(e) => {
                 e.preventDefault();
@@ -130,7 +131,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Board</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the board "{boardTitle}" 
+                This action cannot be undone. This will permanently delete the board "{boardTitle}"
                 and all associated items, comments, and votes.
               </AlertDialogDescription>
             </AlertDialogHeader>

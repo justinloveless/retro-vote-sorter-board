@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getAuthUser } from '../lib/dataClient.ts';
 
 interface InviteLink {
   id: string;
@@ -33,13 +34,13 @@ export const useInviteLinks = (teamId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Type cast the data to ensure proper typing
       const typedInviteLinks = (data || []).map(link => ({
         ...link,
         invite_type: link.invite_type as 'email' | 'link'
       }));
-      
+
       setInviteLinks(typedInviteLinks);
     } catch (error) {
       console.error('Error loading invite links:', error);
@@ -56,7 +57,7 @@ export const useInviteLinks = (teamId: string | null) => {
 
     setLoading(true);
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
@@ -103,8 +104,8 @@ export const useInviteLinks = (teamId: string | null) => {
 
       toast({
         title: isActive ? "Invite link activated" : "Invite link deactivated",
-        description: isActive 
-          ? "The invite link is now active and can be used to join the team" 
+        description: isActive
+          ? "The invite link is now active and can be used to join the team"
           : "The invite link has been deactivated and can no longer be used",
       });
 

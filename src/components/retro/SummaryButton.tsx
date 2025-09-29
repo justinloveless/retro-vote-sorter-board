@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { currentEnvironment } from '@/config/environment';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { getAuthSession } from '@/lib/dataClient';
 
 
 const NARRATION_STYLES = [
@@ -34,14 +35,14 @@ export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle
         }
 
         setIsLoading(true);
-        
+
         try {
             // The function will broadcast the audio URL via realtime channels
             const response = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/generate-audio-summary`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                    'Authorization': `Bearer ${(await getAuthSession()).data.session?.access_token}`,
                 },
                 body: JSON.stringify({ items, columnTitle, style, boardId }),
             });
@@ -52,7 +53,7 @@ export const SummaryButton: React.FC<SummaryButtonProps> = ({ items, columnTitle
             }
 
             const result = await response.json();
-            
+
             toast({
                 title: "Summary generated!",
                 description: "Audio will play automatically for all users.",
