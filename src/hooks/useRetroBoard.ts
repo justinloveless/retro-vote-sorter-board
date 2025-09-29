@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetRetroBoardSummary } from '@/lib/apiClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -190,24 +192,51 @@ export const useRetroBoard = (roomId: string) => {
         setLoading(true);
 
         // Load or create board
-        let { data: boardData, error: boardError } = await supabase
-          .from('retro_boards')
-          .select('*')
-          .eq('room_id', roomId)
-          .single();
-
-        if (boardError && boardError.code === 'PGRST116') {
-          // Board doesn't exist, create it
-          const { data: newBoard, error: createError } = await supabase
+        let boardData: any = null;
+        if (shouldUseCSharpApi()) {
+          const summary = await apiGetRetroBoardSummary(roomId);
+          if (summary?.board?.id) {
+            const b = summary.board as any;
+            boardData = {
+              id: b.id,
+              room_id: b.roomId,
+              title: b.title || 'RetroScope Session',
+              is_private: false,
+              password_hash: null,
+              created_at: b.createdAt || new Date().toISOString(),
+              archived: false,
+              team_id: b.teamId || null,
+              retro_stage: b.retroStage || null,
+            } as RetroBoard;
+          } else {
+            // Fallback to create when no board exists
+            const { data: newBoard, error: createError } = await supabase
+              .from('retro_boards')
+              .insert([{ room_id: roomId, title: 'RetroScope Session' }])
+              .select()
+              .single();
+            if (createError) throw createError;
+            boardData = newBoard;
+          }
+        } else {
+          const { data, error } = await supabase
             .from('retro_boards')
-            .insert([{ room_id: roomId, title: 'RetroScope Session' }])
-            .select()
+            .select('*')
+            .eq('room_id', roomId)
             .single();
-
-          if (createError) throw createError;
-          boardData = newBoard;
-        } else if (boardError) {
-          throw boardError;
+          if (error && error.code === 'PGRST116') {
+            const { data: newBoard, error: createError } = await supabase
+              .from('retro_boards')
+              .insert([{ room_id: roomId, title: 'RetroScope Session' }])
+              .select()
+              .single();
+            if (createError) throw createError;
+            boardData = newBoard;
+          } else if (error) {
+            throw error;
+          } else {
+            boardData = data;
+          }
         }
 
         setBoard(boardData);
@@ -346,12 +375,12 @@ export const useRetroBoard = (roomId: string) => {
     if (items.some(item => item.id === newItem.id)) {
       return;
     }
-    
+
     if (newItem.author_id) {
       const profileData = await fetchProfileData(newItem.author_id);
       newItem.profiles = profileData;
     }
-    
+
     setItems(prevItems => [...prevItems, newItem]);
   }, [items, fetchProfileData]);
 
@@ -362,12 +391,12 @@ export const useRetroBoard = (roomId: string) => {
       if (comments.some(comment => comment.id === newComment.id)) {
         return;
       }
-      
+
       if (newComment.author_id) {
         const profileData = await fetchProfileData(newComment.author_id);
         newComment.profiles = profileData;
       }
-      
+
       setComments(prevComments => [...prevComments, newComment]);
     }
   }, [items, comments, fetchProfileData]);
@@ -397,15 +426,15 @@ export const useRetroBoard = (roomId: string) => {
         setAudioUrlToPlay(payload.url);
       }
     })
-    .on('broadcast', { event: 'readiness-change' }, ({ payload }) => {
-      console.log('📡 [Broadcast] Readiness change received:', payload);
-      
-      // Dispatch window event for useUserReadiness hooks to pick up
-      const readinessChangeEvent = new CustomEvent('readiness-change', {
-        detail: payload
+      .on('broadcast', { event: 'readiness-change' }, ({ payload }) => {
+        console.log('📡 [Broadcast] Readiness change received:', payload);
+
+        // Dispatch window event for useUserReadiness hooks to pick up
+        const readinessChangeEvent = new CustomEvent('readiness-change', {
+          detail: payload
+        });
+        window.dispatchEvent(readinessChangeEvent);
       });
-      window.dispatchEvent(readinessChangeEvent);
-    });
 
     // Database changes
     channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, handleNewItem)
@@ -487,29 +516,29 @@ export const useRetroBoard = (roomId: string) => {
           duration: 2500,
         });
       })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
         table: 'retro_boards',
         filter: `id=eq.${board.id}`
       }, (payload) => {
         const updatedBoard = payload.new as RetroBoard;
         // Update board state with new stage and other properties
-        setBoard(currentBoard => 
+        setBoard(currentBoard =>
           currentBoard ? { ...currentBoard, ...updatedBoard } : null
         );
-        
+
         // Show toast notification for stage changes if retro_stage changed
         if (payload.old.retro_stage !== updatedBoard.retro_stage) {
           const stageLabels: Record<string, string> = {
             'thinking': 'Thinking',
-            'voting': 'Voting', 
+            'voting': 'Voting',
             'discussing': 'Discussing',
             'closed': 'Closed'
           };
-          
+
           const newStageLabel = stageLabels[updatedBoard.retro_stage || 'thinking'] || updatedBoard.retro_stage;
-          
+
           toast({
             title: "Stage Changed",
             description: `Retrospective moved to ${newStageLabel} stage`,
@@ -747,17 +776,17 @@ export const useRetroBoard = (roomId: string) => {
 
   const updateColumn = async (columnId: string, updates: { title?: string; is_action_items?: boolean }) => {
     const oldColumns = [...columns];
-    
+
     // If setting this column as action items, ensure other columns are not action items
     if (updates.is_action_items === true) {
       setColumns(prevColumns =>
         prevColumns.map(column =>
-          column.id === columnId 
+          column.id === columnId
             ? { ...column, ...updates }
             : { ...column, is_action_items: false }
         )
       );
-      
+
       // Update all columns in the database - set others to false
       if (board) {
         const { error: resetError } = await supabase
@@ -765,7 +794,7 @@ export const useRetroBoard = (roomId: string) => {
           .update({ is_action_items: false })
           .eq('board_id', board.id)
           .neq('id', columnId);
-          
+
         if (resetError) {
           console.error('Error resetting other columns:', resetError);
         }
@@ -794,8 +823,8 @@ export const useRetroBoard = (roomId: string) => {
     } else if (updates.is_action_items !== undefined) {
       toast({
         title: updates.is_action_items ? "Action items column set" : "Action items column removed",
-        description: updates.is_action_items 
-          ? "This column is now designated for action items." 
+        description: updates.is_action_items
+          ? "This column is now designated for action items."
           : "This column is no longer the action items column.",
       });
     }
