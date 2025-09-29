@@ -1,10 +1,5 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http;
-using Moq;
 using System.Net;
-using System.Net.Http;
 
 namespace Retroscope.Api.UnitTests.Controllers;
 

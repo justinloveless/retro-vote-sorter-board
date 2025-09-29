@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
-using System.Net.Http;
 using Retroscope.Application.DTOs.Notifications;
 
 namespace Retroscope.Api.Controllers;

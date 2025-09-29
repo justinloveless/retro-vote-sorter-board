@@ -1,8 +1,5 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
 using FluentAssertions;

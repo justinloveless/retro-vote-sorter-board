@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.DTOs.Storage;
 
 namespace Retroscope.Infrastructure.Supabase;

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
 using Retroscope.Application.DTOs.Storage;

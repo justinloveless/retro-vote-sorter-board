@@ -4,11 +4,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Retroscope.Infrastructure.Supabase;
-using WireMock.Net;
 using WireMock.Server;
 
 namespace Retroscope.Api.IntegrationTests;

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Retroscope.Api.Controllers;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.DTOs.TeamMembers;
 using Retroscope.Application.DTOs.Teams;
 using Retroscope.Application.Interfaces;

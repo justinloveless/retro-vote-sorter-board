@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Retroscope.Application.DTOs;
 using Retroscope.Application.DTOs.FeatureFlags;
 
 namespace Retroscope.Infrastructure.Supabase;
