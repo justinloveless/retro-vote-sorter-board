@@ -5,13 +5,13 @@ using System.Text.Encodings.Web;
 
 namespace Retroscope.Api;
 
-public class DevelopmentAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+public class DevelopmentAuthHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    ISystemClock clock)
+    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder, clock)
 {
-    public DevelopmentAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock)
-        : base(options, logger, encoder, clock)
-    {
-    }
-
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var authHeader = Request.Headers["Authorization"].ToString();
@@ -19,9 +19,9 @@ public class DevelopmentAuthHandler : AuthenticationHandler<AuthenticationScheme
         // Always provide authentication - create a user with appropriate claims
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, "dev-user"),
-            new Claim(ClaimTypes.Name, "dev-user"),
-            new Claim("role", "authenticated")
+            new(ClaimTypes.NameIdentifier, "dev-user"),
+            new(ClaimTypes.Name, "dev-user"),
+            new("role", "authenticated")
         };
 
         // If there's a bearer token, use it to determine the user

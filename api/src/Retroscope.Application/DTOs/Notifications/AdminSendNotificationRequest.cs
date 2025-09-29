@@ -5,7 +5,7 @@ namespace Retroscope.Application.DTOs.Notifications;
 public class AdminSendNotificationRequest
 {
     [JsonPropertyName("recipients")]
-    public List<Recipient> Recipients { get; set; } = new();
+    public List<Recipient> Recipients { get; set; } = [];
     
     [JsonPropertyName("type")]
     public string Type { get; set; } = string.Empty;

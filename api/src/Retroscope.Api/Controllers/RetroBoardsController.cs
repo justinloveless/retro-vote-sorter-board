@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class RetroBoardsController : ControllerBase
+public class RetroBoardsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public RetroBoardsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpGet("{roomId}/summary")]
     public async Task<ActionResult<RetroBoardTeamSummary>> GetBoardSummary(string roomId)
     {
@@ -29,7 +22,7 @@ public class RetroBoardsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var result = await _supabaseGateway.GetRetroBoardTeamSummaryAsync(authHeader, roomId, correlationId, HttpContext.RequestAborted);
+            var result = await supabaseGateway.GetRetroBoardTeamSummaryAsync(authHeader, roomId, correlationId, HttpContext.RequestAborted);
             if (result.Board.Id == string.Empty)
             {
                 return NotFound();
@@ -40,11 +33,11 @@ public class RetroBoardsController : ControllerBase
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.NotFound)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.NotFound)
         {
             return NotFound();
         }

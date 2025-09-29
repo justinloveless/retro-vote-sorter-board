@@ -29,7 +29,8 @@ public partial class SupabaseGateway
             }
 
             var membersJson = await membersResp.Content.ReadAsStringAsync(cancellationToken);
-            var memberRows = JsonSerializer.Deserialize<List<JsonElement>>(membersJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var memberRows = JsonSerializer.Deserialize<List<JsonElement>>(membersJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                             [];
 
             var teamMembers = new List<TeamMemberItem>();
             var userIdsForProfiles = new List<string>();
@@ -88,7 +89,8 @@ public partial class SupabaseGateway
             }
 
             var json = await resp.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var items = new List<TeamItem>();
             foreach (var r in rows)
             {
@@ -145,7 +147,8 @@ public partial class SupabaseGateway
             }
 
             var teamJson = await teamResp.Content.ReadAsStringAsync(cancellationToken);
-            var teamRows = JsonSerializer.Deserialize<List<JsonElement>>(teamJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var teamRows = JsonSerializer.Deserialize<List<JsonElement>>(teamJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                           [];
             var teamRow = teamRows.FirstOrDefault();
             if (teamRow.ValueKind == JsonValueKind.Undefined)
             {
@@ -199,7 +202,8 @@ public partial class SupabaseGateway
             if (!response.IsSuccessStatusCode) throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var r = rows.FirstOrDefault();
             return new TeamItem
             {
@@ -232,7 +236,8 @@ public partial class SupabaseGateway
             if (!response.IsSuccessStatusCode) throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var r = rows.FirstOrDefault();
             return new TeamItem
             {

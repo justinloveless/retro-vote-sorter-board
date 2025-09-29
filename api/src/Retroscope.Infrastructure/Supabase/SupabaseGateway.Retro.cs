@@ -22,7 +22,8 @@ public partial class SupabaseGateway
             throw new HttpException(boardResp.StatusCode, $"Supabase request failed with status {boardResp.StatusCode}");
         }
         var boardJson = await boardResp.Content.ReadAsStringAsync(cancellationToken);
-        var boardRows = JsonSerializer.Deserialize<List<JsonElement>>(boardJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        var boardRows = JsonSerializer.Deserialize<List<JsonElement>>(boardJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                        [];
         var row = boardRows.FirstOrDefault();
         if (row.ValueKind == JsonValueKind.Undefined)
         {
@@ -54,7 +55,8 @@ public partial class SupabaseGateway
             if (teamResp.IsSuccessStatusCode)
             {
                 var teamJson = await teamResp.Content.ReadAsStringAsync(cancellationToken);
-                var teamRows = JsonSerializer.Deserialize<List<JsonElement>>(teamJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                var teamRows = JsonSerializer.Deserialize<List<JsonElement>>(teamJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                               [];
                 var trow = teamRows.FirstOrDefault();
                 if (trow.ValueKind != JsonValueKind.Undefined)
                 {
@@ -72,7 +74,8 @@ public partial class SupabaseGateway
                     if (membersResp.IsSuccessStatusCode)
                     {
                         var memJson = await membersResp.Content.ReadAsStringAsync(cancellationToken);
-                        var memRows = JsonSerializer.Deserialize<List<JsonElement>>(memJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                        var memRows = JsonSerializer.Deserialize<List<JsonElement>>(memJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                                      [];
                         team.Members = memRows.Select(m => new RetroBoardTeamMember
                         {
                             UserId = m.TryGetProperty("user_id", out var uid) ? uid.GetString() ?? string.Empty : string.Empty,
@@ -108,7 +111,8 @@ public partial class SupabaseGateway
             }
 
             var boardJson = await boardResp.Content.ReadAsStringAsync(cancellationToken);
-            var boardRows = JsonSerializer.Deserialize<List<JsonElement>>(boardJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var boardRows = JsonSerializer.Deserialize<List<JsonElement>>(boardJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                            [];
             var boardRow = boardRows.FirstOrDefault();
             if (boardRow.ValueKind == JsonValueKind.Undefined)
             {
@@ -136,7 +140,8 @@ public partial class SupabaseGateway
             if (cfgResp.IsSuccessStatusCode)
             {
                 var cfgJson = await cfgResp.Content.ReadAsStringAsync(cancellationToken);
-                var cfgRows = JsonSerializer.Deserialize<List<JsonElement>>(cfgJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                var cfgRows = JsonSerializer.Deserialize<List<JsonElement>>(cfgJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                              [];
                 aggregate.Config = cfgRows.FirstOrDefault();
             }
 
@@ -148,7 +153,8 @@ public partial class SupabaseGateway
             if (colResp.IsSuccessStatusCode)
             {
                 var colJson = await colResp.Content.ReadAsStringAsync(cancellationToken);
-                var colRows = JsonSerializer.Deserialize<List<JsonElement>>(colJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                var colRows = JsonSerializer.Deserialize<List<JsonElement>>(colJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                              [];
                 aggregate.Columns = colRows.Select(r => new RetroColumnItem
                 {
                     Id = r.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty,
@@ -169,7 +175,8 @@ public partial class SupabaseGateway
             if (itemsResp.IsSuccessStatusCode)
             {
                 var itemsJson = await itemsResp.Content.ReadAsStringAsync(cancellationToken);
-                var itemRows = JsonSerializer.Deserialize<List<JsonElement>>(itemsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                var itemRows = JsonSerializer.Deserialize<List<JsonElement>>(itemsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                               [];
                 items = itemRows.Select(r => new RetroItem
                 {
                     Id = r.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty,
@@ -196,7 +203,8 @@ public partial class SupabaseGateway
                 if (commentsResp.IsSuccessStatusCode)
                 {
                     var commentsJson = await commentsResp.Content.ReadAsStringAsync(cancellationToken);
-                    var commentRows = JsonSerializer.Deserialize<List<JsonElement>>(commentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                    var commentRows = JsonSerializer.Deserialize<List<JsonElement>>(commentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                                      [];
                     aggregate.Comments = commentRows.Select(r => new RetroComment
                     {
                         Id = r.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty,
@@ -217,7 +225,8 @@ public partial class SupabaseGateway
             if (votesResp.IsSuccessStatusCode)
             {
                 var votesJson = await votesResp.Content.ReadAsStringAsync(cancellationToken);
-                var voteRows = JsonSerializer.Deserialize<List<JsonElement>>(votesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                var voteRows = JsonSerializer.Deserialize<List<JsonElement>>(votesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                               [];
                 var voteCounts = voteRows
                     .Where(v => v.TryGetProperty("item_id", out _))
                     .Select(v => v.GetProperty("item_id").GetString() ?? string.Empty)
@@ -231,7 +240,7 @@ public partial class SupabaseGateway
             }
 
             var userId = ExtractUserIdFromToken(bearerToken);
-            aggregate.UserVotes = new List<string>();
+            aggregate.UserVotes = [];
             if (!string.IsNullOrEmpty(userId))
             {
                 var myVotesReq = new HttpRequestMessage(HttpMethod.Get, $"retro_votes?board_id=eq.{boardId}&user_id=eq.{userId}&select=item_id");
@@ -242,7 +251,8 @@ public partial class SupabaseGateway
                 if (myVotesResp.IsSuccessStatusCode)
                 {
                     var myVotesJson = await myVotesResp.Content.ReadAsStringAsync(cancellationToken);
-                    var myVoteRows = JsonSerializer.Deserialize<List<JsonElement>>(myVotesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                    var myVoteRows = JsonSerializer.Deserialize<List<JsonElement>>(myVotesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                                     [];
                     aggregate.UserVotes = myVoteRows
                         .Where(v => v.TryGetProperty("item_id", out _))
                         .Select(v => v.GetProperty("item_id").GetString() ?? string.Empty)
@@ -289,7 +299,8 @@ public partial class SupabaseGateway
             var resp = await _postgrestClient.SendAsync(req, cancellationToken);
             if (!resp.IsSuccessStatusCode) throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}");
             var json = await resp.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var r = rows.First();
             return new RetroItem
             {
@@ -412,7 +423,8 @@ public partial class SupabaseGateway
             var resp = await _postgrestClient.SendAsync(req, cancellationToken);
             if (!resp.IsSuccessStatusCode) throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}");
             var json = await resp.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var r = rows.First();
             return new RetroComment
             {

@@ -17,11 +17,19 @@ public class TeamMembersControllerTests
         var teamId = "test-team-id";
         var expectedResponse = new TeamMembersResponse
         {
-            Items = new List<TeamMemberItem>
-            {
-                new() { TeamId = teamId, UserId = "user1", DisplayName = "John Doe", Email = "john@example.com", Role = "admin" },
-                new() { TeamId = teamId, UserId = "user2", DisplayName = "Jane Smith", Email = "jane@example.com", Role = "member" }
-            }
+            Items =
+            [
+                new TeamMemberItem
+                {
+                    TeamId = teamId, UserId = "user1", DisplayName = "John Doe", Email = "john@example.com",
+                    Role = "admin"
+                },
+                new TeamMemberItem
+                {
+                    TeamId = teamId, UserId = "user2", DisplayName = "Jane Smith", Email = "jane@example.com",
+                    Role = "member"
+                }
+            ]
         };
         
         mockGateway.Setup(x => x.GetTeamMembersAsync(It.IsAny<string>(), teamId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -107,7 +115,7 @@ public class TeamMembersControllerWriteTests
 
         var payload = new StringContent("{\"user_id\":\"user-x\",\"role\":\"member\"}", System.Text.Encoding.UTF8, "application/json");
         var resp = await client.PostAsync($"/api/teams/{teamId}/members", payload);
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -132,7 +140,7 @@ public class TeamMembersControllerWriteTests
 
         var payload = new StringContent("{\"role\":\"admin\"}", System.Text.Encoding.UTF8, "application/json");
         var resp = await client.PatchAsync($"/api/teams/{teamId}/members/{userId}", payload);
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -156,6 +164,6 @@ public class TeamMembersControllerWriteTests
         client.DefaultRequestHeaders.Add("Authorization", "Bearer test-token");
 
         var resp = await client.DeleteAsync($"/api/teams/{teamId}/members/{userId}");
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 }

@@ -23,7 +23,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Configure CORS
-var allowedOrigins = builder.Configuration["ALLOW_ORIGINS"]?.Split(',') ?? new[] { "http://localhost:5173", "http://localhost:3000" };
+var allowedOrigins = builder.Configuration["ALLOW_ORIGINS"]?.Split(',') ?? ["http://localhost:5173", "http://localhost:3000"
+];
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -67,7 +68,7 @@ else
         options.Audience = "authenticated";
         options.RequireHttpsMetadata = false; // Set to true in production
         options.SaveToken = true;
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = !isDevelopment && false ? true : false,
             ValidateAudience = !isDevelopment && false ? true : false,
@@ -97,8 +98,8 @@ else
                         {
                             if (key.TryGetProperty("n", out var modulus) && key.TryGetProperty("e", out var exponent))
                             {
-                                var nBytes = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.DecodeBytes(modulus.GetString()!);
-                                var eBytes = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.DecodeBytes(exponent.GetString()!);
+                                var nBytes = Base64UrlEncoder.DecodeBytes(modulus.GetString()!);
+                                var eBytes = Base64UrlEncoder.DecodeBytes(exponent.GetString()!);
                                 var rsa = System.Security.Cryptography.RSA.Create();
                                 rsa.ImportParameters(new System.Security.Cryptography.RSAParameters { Modulus = nBytes, Exponent = eBytes });
                                 securityKeys.Add(new RsaSecurityKey(rsa));

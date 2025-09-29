@@ -50,7 +50,7 @@ public abstract class IntegrationTestBase : IDisposable
                 {
                     // Remove existing Supabase gateway registration
                     var descriptor = services.SingleOrDefault(
-                        d => d.ServiceType == typeof(Retroscope.Application.Interfaces.ISupabaseGateway));
+                        d => d.ServiceType == typeof(Application.Interfaces.ISupabaseGateway));
                     if (descriptor != null)
                     {
                         services.Remove(descriptor);
@@ -69,7 +69,7 @@ public abstract class IntegrationTestBase : IDisposable
                         client.DefaultRequestHeaders.Add("User-Agent", "Retroscope-API/1.0");
                     });
                     
-                    services.AddScoped<Retroscope.Application.Interfaces.ISupabaseGateway, 
+                    services.AddScoped<Application.Interfaces.ISupabaseGateway, 
                         SupabaseGateway>();
                     
                     // Add test authentication scheme for integration tests

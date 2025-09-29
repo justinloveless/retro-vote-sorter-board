@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/admin/notifications")]
 [Authorize]
-public class AdminNotificationsController : ControllerBase
+public class AdminNotificationsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public AdminNotificationsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpPost]
     public async Task<ActionResult<AdminSendNotificationResponse>> SendNotification([FromBody] AdminSendNotificationRequest request)
     {
@@ -29,17 +22,12 @@ public class AdminNotificationsController : ControllerBase
                 return Unauthorized();
             }
 
-            if (request == null)
-            {
-                return BadRequest(new { error = "Request body is required" });
-            }
-
             if (string.IsNullOrEmpty(request.Title) || string.IsNullOrEmpty(request.Type))
             {
                 return BadRequest(new { error = "Title and Type are required" });
             }
 
-            if (request.Recipients == null || request.Recipients.Count == 0)
+            if (request.Recipients.Count == 0)
             {
                 return BadRequest(new { error = "At least one recipient is required" });
             }
@@ -48,22 +36,18 @@ public class AdminNotificationsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.AdminSendNotificationAsync(authHeader, request, correlationId);
+            var response = await supabaseGateway.AdminSendNotificationAsync(authHeader, request, correlationId);
             return Accepted(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Forbidden)
-        {
-            return Forbid();
-        }
-        catch (ForbiddenAccessException)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Forbidden)
         {
             return Forbid();
         }
@@ -72,10 +56,4 @@ public class AdminNotificationsController : ControllerBase
             return StatusCode(502, new { error = "Downstream service error" });
         }
     }
-}
-
-// Custom exception for forbidden access
-public class ForbiddenAccessException : Exception
-{
-    public ForbiddenAccessException(string message) : base(message) { }
 }

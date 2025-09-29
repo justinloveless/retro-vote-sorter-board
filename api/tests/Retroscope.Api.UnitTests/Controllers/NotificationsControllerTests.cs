@@ -17,10 +17,14 @@ public class NotificationsControllerTests
         var mockGateway = new Mock<ISupabaseGateway>();
         var expectedResponse = new NotificationsResponse
         {
-            Items = new List<NotificationItem>
-            {
-                new() { Id = "1", UserId = "test-user", CreatedAt = DateTime.UtcNow, Type = "info", Title = "Test", Message = "Test body", Url = "/notifications/1", IsRead = false }
-            }
+            Items =
+            [
+                new NotificationItem
+                {
+                    Id = "1", UserId = "test-user", CreatedAt = DateTime.UtcNow, Type = "info", Title = "Test",
+                    Message = "Test body", Url = "/notifications/1", IsRead = false
+                }
+            ]
         };
         
         mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -54,7 +58,7 @@ public class NotificationsControllerTests
     {
         // Arrange
         var mockGateway = new Mock<ISupabaseGateway>();
-        var expectedResponse = new NotificationsResponse { Items = new List<NotificationItem>() };
+        var expectedResponse = new NotificationsResponse { Items = [] };
         
         mockGateway.Setup(x => x.GetNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync(expectedResponse);

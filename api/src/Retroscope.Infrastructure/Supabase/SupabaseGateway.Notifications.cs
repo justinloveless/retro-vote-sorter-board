@@ -38,7 +38,7 @@ public partial class SupabaseGateway
             var notifications = JsonSerializer.Deserialize<List<NotificationItem>>(json, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            }) ?? new List<NotificationItem>();
+            }) ?? [];
 
             return new NotificationsResponse { Items = notifications };
         }

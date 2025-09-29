@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/teams/{teamId}/members")]
 [Authorize]
-public class TeamMembersController : ControllerBase
+public class TeamMembersController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public TeamMembersController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpGet]
     public async Task<ActionResult<TeamMembersResponse>> GetTeamMembers(string teamId)
     {
@@ -33,14 +26,14 @@ public class TeamMembersController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.GetTeamMembersAsync(authHeader, teamId, correlationId);
+            var response = await supabaseGateway.GetTeamMembersAsync(authHeader, teamId, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -61,12 +54,12 @@ public class TeamMembersController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await _supabaseGateway.AddMemberAsync(authHeader, teamId, request, correlationId);
+            var ok = await supabaseGateway.AddMemberAsync(authHeader, teamId, request, correlationId);
             if (!ok) return StatusCode(502, new { error = "Failed to add member" });
             return NoContent();
         }
         catch (UnauthorizedAccessException) { return Unauthorized(); }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
         catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
     }
 
@@ -81,12 +74,12 @@ public class TeamMembersController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await _supabaseGateway.UpdateMemberRoleAsync(authHeader, teamId, userId, request, correlationId);
+            var ok = await supabaseGateway.UpdateMemberRoleAsync(authHeader, teamId, userId, request, correlationId);
             if (!ok) return StatusCode(502, new { error = "Failed to update member role" });
             return NoContent();
         }
         catch (UnauthorizedAccessException) { return Unauthorized(); }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
         catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
     }
 
@@ -101,12 +94,12 @@ public class TeamMembersController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await _supabaseGateway.RemoveMemberAsync(authHeader, teamId, userId, correlationId);
+            var ok = await supabaseGateway.RemoveMemberAsync(authHeader, teamId, userId, correlationId);
             if (!ok) return StatusCode(502, new { error = "Failed to remove member" });
             return NoContent();
         }
         catch (UnauthorizedAccessException) { return Unauthorized(); }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized) { return Unauthorized(); }
         catch (Exception) { return StatusCode(502, new { error = "Downstream service error" }); }
     }
 }

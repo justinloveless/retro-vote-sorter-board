@@ -16,10 +16,12 @@ public class TeamsControllerTests
     {
         var mockGateway = new Mock<ISupabaseGateway>();
         mockGateway.Setup(g => g.GetTeamsAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TeamsResponse { Items = new List<TeamItem> { new() { Id = "t1", Name = "Alpha" } } });
+            .ReturnsAsync(new TeamsResponse { Items = [new TeamItem { Id = "t1", Name = "Alpha" }] });
 
-        var controller = new TeamsController(mockGateway.Object);
-        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        var controller = new TeamsController(mockGateway.Object)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
         controller.HttpContext.Request.Headers["Authorization"] = "Bearer test";
 
         var result = await controller.GetTeams();
@@ -37,7 +39,7 @@ public class TeamsControllerTests
             .ReturnsAsync(new TeamDetailsResponse
             {
                 Team = new TeamItem { Id = "t1", Name = "Alpha" },
-                Members = new List<TeamMemberItem>()
+                Members = []
             });
 
         var controller = new TeamsController(mockGateway.Object)

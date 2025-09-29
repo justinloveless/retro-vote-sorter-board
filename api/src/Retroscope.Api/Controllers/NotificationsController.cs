@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class NotificationsController : ControllerBase
+public class NotificationsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public NotificationsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpGet]
     public async Task<ActionResult<NotificationsResponse>> GetNotifications([FromQuery] int limit = 50)
     {
@@ -30,14 +23,14 @@ public class NotificationsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.GetNotificationsAsync(authHeader, limit, correlationId);
+            var response = await supabaseGateway.GetNotificationsAsync(authHeader, limit, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -59,14 +52,14 @@ public class NotificationsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.MarkNotificationReadAsync(authHeader, id, request, correlationId);
+            var response = await supabaseGateway.MarkNotificationReadAsync(authHeader, id, request, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -88,14 +81,14 @@ public class NotificationsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault() 
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.MarkAllNotificationsReadAsync(authHeader, request, correlationId);
+            var response = await supabaseGateway.MarkAllNotificationsReadAsync(authHeader, request, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }

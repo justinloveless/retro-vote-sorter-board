@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FeatureFlagsController : ControllerBase
+public class FeatureFlagsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public FeatureFlagsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpGet]
     public async Task<ActionResult<FeatureFlagsResponse>> GetFeatureFlags()
     {
@@ -29,14 +22,14 @@ public class FeatureFlagsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.GetFeatureFlagsAsync(authHeader, correlationId);
+            var response = await supabaseGateway.GetFeatureFlagsAsync(authHeader, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -47,7 +40,7 @@ public class FeatureFlagsController : ControllerBase
     }
 
     [HttpPatch("{flagName}")]
-    public async Task<IActionResult> UpdateFeatureFlag(string flagName, [FromBody] bool is_enabled)
+    public async Task<IActionResult> UpdateFeatureFlag(string flagName, [FromBody] bool isEnabled)
     {
         try
         {
@@ -57,7 +50,7 @@ public class FeatureFlagsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await _supabaseGateway.UpdateFeatureFlagAsync(authHeader, flagName, is_enabled, correlationId);
+            var ok = await supabaseGateway.UpdateFeatureFlagAsync(authHeader, flagName, isEnabled, correlationId);
             if (!ok) return StatusCode(502, new { error = "Failed to update feature flag" });
             return NoContent();
         }
@@ -65,7 +58,7 @@ public class FeatureFlagsController : ControllerBase
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }

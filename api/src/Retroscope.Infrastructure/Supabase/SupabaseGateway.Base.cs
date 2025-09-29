@@ -68,7 +68,8 @@ public partial class SupabaseGateway : ISupabaseGateway
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                   [];
         foreach (var row in rows)
         {
             var id = row.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;

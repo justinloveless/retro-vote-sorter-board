@@ -20,11 +20,11 @@ public class AdminNotificationsControllerTests
         {
             Title = "Test Notification",
             Type = "custom",
-            Recipients = new List<Recipient> 
-            { 
-                new Recipient { UserId = "user1" }, 
-                new Recipient { UserId = "user2" } 
-            }
+            Recipients =
+            [
+                new Recipient() { UserId = "user1" },
+                new Recipient() { UserId = "user2" }
+            ]
         };
         var expectedResponse = new AdminSendNotificationResponse { Success = true, Count = 2 };
         
@@ -65,7 +65,7 @@ public class AdminNotificationsControllerTests
         {
             Title = "Test Notification",
             Type = "custom",
-            Recipients = new List<Recipient> { new Recipient { UserId = "user1" } }
+            Recipients = [new Recipient() { UserId = "user1" }]
         };
         
         var factory = new TestApiFactory();
@@ -89,7 +89,7 @@ public class AdminNotificationsControllerTests
         {
             Title = "Test Notification",
             Type = "custom",
-            Recipients = new List<Recipient> { new Recipient { UserId = "user1" } }
+            Recipients = [new Recipient() { UserId = "user1" }]
         };
         
         var factory = new TestApiFactory();

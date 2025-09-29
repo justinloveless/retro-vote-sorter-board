@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class AvatarsController : ControllerBase
+public class AvatarsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public AvatarsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpPost("{userId}")]
     [RequestSizeLimit(5_000_000)] // 5MB limit
     public async Task<ActionResult<AvatarUploadResponse>> UploadAvatar(string userId)
@@ -41,14 +34,14 @@ public class AvatarsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var result = await _supabaseGateway.UploadAvatarAsync(authHeader, userId, bytes, contentType, correlationId, HttpContext.RequestAborted);
+            var result = await supabaseGateway.UploadAvatarAsync(authHeader, userId, bytes, contentType, correlationId, HttpContext.RequestAborted);
             return Ok(result);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }

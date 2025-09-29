@@ -9,15 +9,8 @@ namespace Retroscope.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class TeamsController : ControllerBase
+public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
 {
-    private readonly ISupabaseGateway _supabaseGateway;
-
-    public TeamsController(ISupabaseGateway supabaseGateway)
-    {
-        _supabaseGateway = supabaseGateway;
-    }
-
     [HttpGet]
     public async Task<ActionResult<TeamsResponse>> GetTeams([FromQuery] string? scope = null)
     {
@@ -30,14 +23,14 @@ public class TeamsController : ControllerBase
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
             var includeAll = string.Equals(scope, "all", StringComparison.OrdinalIgnoreCase);
-            var response = await _supabaseGateway.GetTeamsAsync(authHeader, includeAll, correlationId);
+            var response = await supabaseGateway.GetTeamsAsync(authHeader, includeAll, correlationId);
             return Ok(response);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -58,7 +51,7 @@ public class TeamsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var response = await _supabaseGateway.GetTeamByIdAsync(authHeader, teamId, correlationId);
+            var response = await supabaseGateway.GetTeamByIdAsync(authHeader, teamId, correlationId);
             if (response.Team == null)
             {
                 return NotFound();
@@ -70,11 +63,11 @@ public class TeamsController : ControllerBase
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.NotFound)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.NotFound)
         {
             return NotFound();
         }
@@ -95,14 +88,14 @@ public class TeamsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var created = await _supabaseGateway.CreateTeamAsync(authHeader, request, correlationId);
+            var created = await supabaseGateway.CreateTeamAsync(authHeader, request, correlationId);
             return Created($"/api/teams/{created.Id}", created);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -123,14 +116,14 @@ public class TeamsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var updated = await _supabaseGateway.UpdateTeamAsync(authHeader, teamId, request, correlationId);
+            var updated = await supabaseGateway.UpdateTeamAsync(authHeader, teamId, request, correlationId);
             return Ok(updated);
         }
         catch (UnauthorizedAccessException)
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }
@@ -151,7 +144,7 @@ public class TeamsController : ControllerBase
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
                 ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await _supabaseGateway.DeleteTeamAsync(authHeader, teamId, correlationId);
+            var ok = await supabaseGateway.DeleteTeamAsync(authHeader, teamId, correlationId);
             if (!ok) return StatusCode(502, new { error = "Failed to delete team" });
             return NoContent();
         }
@@ -159,7 +152,7 @@ public class TeamsController : ControllerBase
         {
             return Unauthorized();
         }
-        catch (Retroscope.Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
         {
             return Unauthorized();
         }

@@ -21,7 +21,8 @@ public partial class SupabaseGateway
             if (!resp.IsSuccessStatusCode) throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}");
 
             var json = await resp.Content.ReadAsStringAsync(cancellationToken);
-            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+                       [];
             var items = rows.Select(r => new FeatureFlagItem
             {
                 FlagName = r.TryGetProperty("flag_name", out var fn) ? fn.GetString() ?? string.Empty : string.Empty,
