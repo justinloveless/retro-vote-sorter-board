@@ -14,7 +14,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { currentEnvironment } from '@/config/environment';
+import { currentEnvironment, shouldUseCSharpApi, getApiBaseUrl } from '@/config/environment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
 
@@ -210,12 +210,28 @@ const Account = () => {
                               await refreshImpersonatedProfile();
                               toast({ title: 'Profile picture updated for impersonated user' });
                             } else {
-                              // Normal case: update own avatar
-                              const fileName = `${user.id}.png`;
-                              await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
-                              const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-                              await updateProfile({ avatar_url: data.publicUrl });
-                              toast({ title: 'Profile picture updated' });
+                              // Normal case: update own avatar via C# API when enabled
+                              if (shouldUseCSharpApi()) {
+                                const base = getApiBaseUrl();
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const form = new FormData();
+                                form.append('file', blob, `${user.id}.png`);
+                                const resp = await fetch(`${base}/api/avatars/${user.id}`, {
+                                  method: 'POST',
+                                  headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+                                  body: form
+                                });
+                                if (!resp.ok) throw new Error(`Upload failed ${resp.status}`);
+                                const json = await resp.json();
+                                await updateProfile({ avatar_url: json.publicUrl || json.PublicUrl });
+                                toast({ title: 'Profile picture updated' });
+                              } else {
+                                const fileName = `${user.id}.png`;
+                                await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                                await updateProfile({ avatar_url: data.publicUrl });
+                                toast({ title: 'Profile picture updated' });
+                              }
                             }
                           } catch (e: any) {
                             toast({ title: 'Failed to update avatar', description: e.message || String(e), variant: 'destructive' });

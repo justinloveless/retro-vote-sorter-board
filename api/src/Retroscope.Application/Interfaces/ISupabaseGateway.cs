@@ -39,4 +39,8 @@ public interface ISupabaseGateway
     // Feature Flags
     Task<FeatureFlagsResponse> GetFeatureFlagsAsync(string bearerToken, string? correlationId = null, CancellationToken cancellationToken = default);
     Task<bool> UpdateFeatureFlagAsync(string bearerToken, string flagName, bool isEnabled, string? correlationId = null, CancellationToken cancellationToken = default);
+
+    // Storage: Avatars
+    Task<AvatarUploadResponse> UploadAvatarAsync(string bearerToken, string userId, byte[] bytes, string contentType, string? correlationId = null, CancellationToken cancellationToken = default);
+    Task<string> GetAvatarPublicUrlAsync(string bearerToken, string userId, string? correlationId = null, CancellationToken cancellationToken = default);
 }

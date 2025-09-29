@@ -220,4 +220,15 @@ public class MockSupabaseGateway : ISupabaseGateway
     {
         return Task.FromResult(true);
     }
+
+    public Task<AvatarUploadResponse> UploadAvatarAsync(string bearerToken, string userId, byte[] bytes, string contentType, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var resp = new AvatarUploadResponse { PublicUrl = $"https://example.com/avatars/{userId}.png" };
+        return Task.FromResult(resp);
+    }
+
+    public Task<string> GetAvatarPublicUrlAsync(string bearerToken, string userId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult($"https://example.com/avatars/{userId}.png");
+    }
 }
