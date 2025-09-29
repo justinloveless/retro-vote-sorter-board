@@ -55,6 +55,30 @@ const getEnvConfig = () => {
   } as { useCSharpApi: boolean | undefined; apiBaseUrl: string };
 };
 
+// Runtime override (for dev toggling)
+const OVERRIDE_KEY = 'debug.useCSharpApiOverride';
+export const getUseCSharpApiOverride = (): boolean | undefined => {
+  try {
+    const v = localStorage.getItem(OVERRIDE_KEY);
+    if (v === null) return undefined;
+    return v === 'true';
+  } catch {
+    return undefined;
+  }
+};
+
+export const setUseCSharpApiOverride = (value: boolean | null) => {
+  try {
+    if (value === null) {
+      localStorage.removeItem(OVERRIDE_KEY);
+    } else {
+      localStorage.setItem(OVERRIDE_KEY, value ? 'true' : 'false');
+    }
+  } catch {
+    // ignore
+  }
+};
+
 // Get the current environment configuration
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   const env = getEnvironment();
@@ -77,6 +101,13 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   }
   if (envConfig.apiBaseUrl) {
     config.apiBaseUrl = envConfig.apiBaseUrl;
+  }
+  // Apply runtime override in development only
+  if (config.environment === 'development') {
+    const override = getUseCSharpApiOverride();
+    if (typeof override === 'boolean') {
+      config.useCSharpApi = override;
+    }
   }
 
   return config;

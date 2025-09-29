@@ -23,6 +23,7 @@ import AdminPage from "./pages/AdminPage";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
 import { AuthProvider } from "./hooks/useAuth";
 import { TeamDataProvider } from "./contexts/TeamDataContext";
+import { DebugApiToggle } from "@/components/DebugApiToggle";
 
 const queryClient = new QueryClient();
 
@@ -30,41 +31,42 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <ThemeProvider>
-      <BackgroundProvider>
-        <FeatureFlagProvider>
-          <TeamDataProvider>
-            <TooltipProvider>
-              <AudioPlayerProvider>
-              <GlobalBackground />
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/retro/:roomId" element={<Retro />} />
-                  <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
-                  <Route path="/teams" element={<Teams />} />
-                  <Route path="/teams/:teamId" element={<Team />} />
-                  <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
-                  <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
-                  <Route path="/account" element={<Account />} />
-                  <Route path="/invite/:token" element={<InviteAccept />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
+        <BackgroundProvider>
+          <FeatureFlagProvider>
+            <TeamDataProvider>
+              <TooltipProvider>
+                <AudioPlayerProvider>
+                  <GlobalBackground />
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/retro/:roomId" element={<Retro />} />
+                      <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
+                      <Route path="/teams" element={<Teams />} />
+                      <Route path="/teams/:teamId" element={<Team />} />
+                      <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
+                      <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
+                      <Route path="/account" element={<Account />} />
+                      <Route path="/invite/:token" element={<InviteAccept />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
 
-                  {/* Admin Routes */}
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminPage />} />
-                  </Route>
+                      {/* Admin Routes */}
+                      <Route path="/admin" element={<AdminLayout />}>
+                        <Route index element={<AdminPage />} />
+                      </Route>
 
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-              </AudioPlayerProvider>
-            </TooltipProvider>
-          </TeamDataProvider>
-        </FeatureFlagProvider>
-      </BackgroundProvider>
-    </ThemeProvider>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BrowserRouter>
+                  <DebugApiToggle />
+                </AudioPlayerProvider>
+              </TooltipProvider>
+            </TeamDataProvider>
+          </FeatureFlagProvider>
+        </BackgroundProvider>
+      </ThemeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
