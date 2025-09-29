@@ -1,4 +1,4 @@
-namespace Retroscope.Application.DTOs;
+namespace Retroscope.Application.DTOs.FeatureFlags;
 
 public class FeatureFlagItem
 {
@@ -6,10 +6,3 @@ public class FeatureFlagItem
     public string? Description { get; set; }
     public bool IsEnabled { get; set; }
 }
-
-public class FeatureFlagsResponse
-{
-    public List<FeatureFlagItem> Items { get; set; } = new();
-}
-
-

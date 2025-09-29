@@ -8,6 +8,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using Retroscope.Application.DTOs.Notifications;
 
 namespace Retroscope.Api.UnitTests.Controllers;
 

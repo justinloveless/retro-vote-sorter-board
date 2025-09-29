@@ -1,4 +1,9 @@
-using Retroscope.Application.DTOs;
+using Retroscope.Application.DTOs.FeatureFlags;
+using Retroscope.Application.DTOs.Notifications;
+using Retroscope.Application.DTOs.RetroBoard;
+using Retroscope.Application.DTOs.Storage;
+using Retroscope.Application.DTOs.TeamMembers;
+using Retroscope.Application.DTOs.Teams;
 
 namespace Retroscope.Application.Interfaces;
 
@@ -43,4 +48,7 @@ public interface ISupabaseGateway
     // Storage: Avatars
     Task<AvatarUploadResponse> UploadAvatarAsync(string bearerToken, string userId, byte[] bytes, string contentType, string? correlationId = null, CancellationToken cancellationToken = default);
     Task<string> GetAvatarPublicUrlAsync(string bearerToken, string userId, string? correlationId = null, CancellationToken cancellationToken = default);
+
+    // Retro Board + Team Summary (UI load)
+    Task<RetroBoardTeamSummary> GetRetroBoardTeamSummaryAsync(string bearerToken, string roomId, string? correlationId = null, CancellationToken cancellationToken = default);
 }

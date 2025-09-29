@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
+using Retroscope.Application.DTOs.FeatureFlags;
 
 namespace Retroscope.Api.Controllers;
 

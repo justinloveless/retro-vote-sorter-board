@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Retroscope.Api.Controllers;
 using Retroscope.Application.DTOs;
+using Retroscope.Application.DTOs.TeamMembers;
+using Retroscope.Application.DTOs.Teams;
 using Retroscope.Application.Interfaces;
 
 namespace Retroscope.Api.UnitTests.Controllers;
@@ -14,7 +16,7 @@ public class TeamsControllerTests
     public async Task GetTeams_ReturnsOk_WithItems()
     {
         var mockGateway = new Mock<ISupabaseGateway>();
-        mockGateway.Setup(g => g.GetTeamsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+        mockGateway.Setup(g => g.GetTeamsAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TeamsResponse { Items = new List<TeamItem> { new() { Id = "t1", Name = "Alpha" } } });
 
         var controller = new TeamsController(mockGateway.Object);

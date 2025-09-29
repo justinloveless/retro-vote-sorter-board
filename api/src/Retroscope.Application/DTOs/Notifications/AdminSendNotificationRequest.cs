@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Retroscope.Application.DTOs;
+namespace Retroscope.Application.DTOs.Notifications;
 
 public class AdminSendNotificationRequest
 {

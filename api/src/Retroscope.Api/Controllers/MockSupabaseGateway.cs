@@ -1,4 +1,10 @@
 using Retroscope.Application.DTOs;
+using Retroscope.Application.DTOs.FeatureFlags;
+using Retroscope.Application.DTOs.Notifications;
+using Retroscope.Application.DTOs.RetroBoard;
+using Retroscope.Application.DTOs.Storage;
+using Retroscope.Application.DTOs.TeamMembers;
+using Retroscope.Application.DTOs.Teams;
 using Retroscope.Application.Interfaces;
 
 namespace Retroscope.Api.Controllers;
@@ -230,5 +236,24 @@ public class MockSupabaseGateway : ISupabaseGateway
     public Task<string> GetAvatarPublicUrlAsync(string bearerToken, string userId, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         return Task.FromResult($"https://example.com/avatars/{userId}.png");
+    }
+
+    public Task<RetroBoardTeamSummary> GetRetroBoardTeamSummaryAsync(string bearerToken, string roomId, string? correlationId = null, CancellationToken cancellationToken = default)
+    {
+        var summary = new RetroBoardTeamSummary
+        {
+            Board = new RetroBoardItem { Id = "mock-board", RoomId = roomId, TeamId = "team-1", Title = "Mock Board" },
+            Team = new RetroBoardTeam
+            {
+                Id = "team-1",
+                Name = "Mock Team",
+                Members = new List<RetroBoardTeamMember>
+                {
+                    new() { UserId = "user1", Role = "admin" },
+                    new() { UserId = "user2", Role = "member" }
+                }
+            }
+        };
+        return Task.FromResult(summary);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
+using Retroscope.Application.DTOs.Teams;
 
 namespace Retroscope.Api.Controllers;
 

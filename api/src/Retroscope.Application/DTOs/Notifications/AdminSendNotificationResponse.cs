@@ -1,4 +1,4 @@
-namespace Retroscope.Application.DTOs;
+namespace Retroscope.Application.DTOs.Notifications;
 
 public class AdminSendNotificationResponse
 {

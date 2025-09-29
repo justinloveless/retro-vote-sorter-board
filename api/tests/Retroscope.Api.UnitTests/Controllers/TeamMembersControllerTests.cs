@@ -6,6 +6,7 @@ using Retroscope.Application.DTOs;
 using Retroscope.Application.Interfaces;
 using System.Net;
 using FluentAssertions;
+using Retroscope.Application.DTOs.TeamMembers;
 
 namespace Retroscope.Api.UnitTests.Controllers;
 
