@@ -89,8 +89,8 @@ public class SupabaseGateway : ISupabaseGateway
         {
             _logger.LogInformation("Fetching team members for team {TeamId}", teamId);
 
-            // Step 1: fetch team_members rows
-            var membersReq = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role,profiles(full_name,email)&team_id=eq.{teamId}");
+            // Step 1: fetch team_members rows (no joins; enrich via separate profiles call)
+            var membersReq = new HttpRequestMessage(HttpMethod.Get, $"team_members?select=user_id,team_id,role&team_id=eq.{teamId}");
             membersReq.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
             if (!string.IsNullOrEmpty(_supabaseAnonKey))
             {
@@ -113,36 +113,31 @@ public class SupabaseGateway : ISupabaseGateway
                               ?? new List<JsonElement>();
 
             var teamMembers = new List<TeamMemberItem>();
+            var userIdsForProfiles = new List<string>();
             foreach (var row in memberRows)
             {
                 var uid = row.GetProperty("user_id").GetString() ?? "";
-                string? displayName = null;
-                string? email = null;
-
-                if (row.TryGetProperty("profiles", out var profileElement) && profileElement.ValueKind == JsonValueKind.Object)
-                {
-                    if (profileElement.TryGetProperty("full_name", out var fn))
-                    {
-                        displayName = fn.GetString();
-                    }
-                    else if (profileElement.TryGetProperty("display_name", out var dn))
-                    {
-                        displayName = dn.GetString();
-                    }
-
-                    if (profileElement.TryGetProperty("email", out var em))
-                    {
-                        email = em.GetString();
-                    }
-                }
+                if (!string.IsNullOrEmpty(uid)) userIdsForProfiles.Add(uid);
                 teamMembers.Add(new TeamMemberItem
                 {
                     TeamId = row.GetProperty("team_id").GetString() ?? "",
                     UserId = uid,
                     Role = row.GetProperty("role").GetString() ?? "",
-                    DisplayName = displayName ?? string.Empty,
-                    Email = email ?? string.Empty
+                    DisplayName = string.Empty,
+                    Email = string.Empty
                 });
+            }
+
+            // Step 2: enrich with profiles data in batch
+            var profileMap = await FetchProfilesAsync(userIdsForProfiles, bearerToken, correlationId, cancellationToken);
+            for (var i = 0; i < teamMembers.Count; i++)
+            {
+                var tm = teamMembers[i];
+                if (!string.IsNullOrEmpty(tm.UserId) && profileMap.TryGetValue(tm.UserId, out var profileInfo))
+                {
+                    teamMembers[i].DisplayName = profileInfo.fullName ?? string.Empty;
+                    teamMembers[i].Email = profileInfo.email ?? string.Empty;
+                }
             }
 
             return new TeamMembersResponse { Items = teamMembers };
