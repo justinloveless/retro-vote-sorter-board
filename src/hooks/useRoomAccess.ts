@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { shouldUseCSharpApi } from '@/config/environment';
+import { apiGetRetroBoardSummary } from '@/lib/apiClient';
 
 export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
 
@@ -19,21 +21,28 @@ export const useRoomAccess = (roomId: string, user: any) => {
 
     try {
       setAccessStatus('loading');
-      const { data: board, error } = await supabase
-        .from('retro_boards')
-        .select(`
-          *,
-          teams(
-            id,
-            name,
-            team_members(user_id, role)
-          )
-        `)
-        .eq('room_id', roomId)
-        .single();
+      let board: any = null;
+      let team: { id: string; name: string; members: Array<{ userId: string; role: string }> } | undefined;
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (shouldUseCSharpApi()) {
+        const summary = await apiGetRetroBoardSummary(roomId);
+        board = summary.board;
+        team = summary.team;
+      } else {
+        const { data, error } = await supabase
+          .from('retro_boards')
+          .select(`
+            *,
+            teams(
+              id,
+              name,
+              team_members(user_id, role)
+            )
+          `)
+          .eq('room_id', roomId)
+          .single();
+        if (error && error.code !== 'PGRST116') throw error;
+        board = data;
       }
 
       if (board) {
@@ -51,8 +60,8 @@ export const useRoomAccess = (roomId: string, user: any) => {
         setIsPrivate(board.is_private);
 
         // Check if user is a team member for this board
-        if (board.team_id && user && board.teams) {
-          const teamMembers = board.teams.team_members || [];
+        if (board.team_id && user) {
+          const teamMembers = team ? team.members : (board.teams?.team_members || []);
           const isMember = teamMembers.some((member: any) => member.user_id === user.id);
           setIsTeamMember(isMember);
 

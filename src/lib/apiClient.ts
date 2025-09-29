@@ -192,6 +192,20 @@ export async function apiGetFeatureFlags(): Promise<{ items: Array<{ flagName: s
   return res.json();
 }
 
+// ===============
+// Retro Boards API
+// ===============
+
+export async function apiGetRetroBoardSummary(roomId: string): Promise<{ board: any; team?: { id: string; name: string; members: Array<{ userId: string; role: string }> } }> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(roomId)}/summary`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
 export async function apiUpdateFeatureFlag(flagName: string, isEnabled: boolean): Promise<void> {
   const base = getApiBaseUrl();
   const token = await getSupabaseAccessToken();
