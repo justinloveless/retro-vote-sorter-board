@@ -13,4 +13,13 @@ public class TeamItem
     public string? CreatorId { get; set; }
     [JsonPropertyName("created_at")]
     public DateTime? CreatedAt { get; set; }
+    [JsonPropertyName("role")]
+    public TeamMemberRole? Role { get; set; }
+}
+
+public enum TeamMemberRole
+{
+    Owner,
+    Admin,
+    Member
 }

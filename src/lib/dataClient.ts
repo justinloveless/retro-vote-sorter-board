@@ -148,9 +148,9 @@ export async function fetchTeams(): Promise<TeamRecord[]> {
             id: team.id,
             name: team.name,
             description: team.description ?? null,
-            creator_id: team.ownerId ?? null,
-            created_at: team.createdAt ?? '',
-            updated_at: team.createdAt ?? '',
+            creator_id: team.creator_id ?? null,
+            created_at: team.created_at ?? '',
+            updated_at: team.created_at ?? '',
             role: team.role ?? null
         })) as TeamRecord[];
         return mapped;

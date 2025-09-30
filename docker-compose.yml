@@ -28,18 +28,26 @@ services:
           cpus: '0.50'
           memory: 512M
 
-  # app-dev:
-  #   image: node:20-alpine
-  #   working_dir: /app
-  #   volumes:
-  #     - .:/app
-  #   command: sh -c "npm install && npm run dev"
-  #   ports:
-  #     - "5173:8080"
-  #   environment:
-  #     - NODE_ENV=development
-  #     - VITE_SITE_URL=http://localhost:5173
-  #   restart: unless-stopped
+  app-dev:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.git
+      - /app/dist
+      - /app/api
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - VITE_USE_CSHARP_API=true
+      - VITE_API_BASE_URL=http://localhost:5228
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - api-dev
+    restart: unless-stopped
 
   api:
     build:
@@ -67,6 +75,29 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+
+  api-dev:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    volumes:
+      - ./api:/src
+      - api-dev-packages:/root/.nuget/packages
+    command: >
+      sh -c "dotnet restore src/Retroscope.Api/Retroscope.Api.csproj &&
+             dotnet watch run --project src/Retroscope.Api/Retroscope.Api.csproj --no-restore --no-launch-profile"
+    ports:
+      - "5228:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - SUPABASE_URL=https://nwfwbjmzbwuyxehindpv.supabase.co
+      - SUPABASE_JWKS_URL=https://nwfwbjmzbwuyxehindpv.supabase.co/auth/v1/.well-known/jwks.json
+      - SUPABASE_POSTGREST_URL=https://nwfwbjmzbwuyxehindpv.supabase.co/rest/v1
+      - SUPABASE_FUNCTIONS_URL=https://nwfwbjmzbwuyxehindpv.supabase.co/functions/v1
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53Zndiam16Ynd1eXhlaGluZHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MjkyMzksImV4cCI6MjA2NDEwNTIzOX0.s_vI6z46NAYlpB8K0wznCWEr_cFcnsHh7Qn4LmsUZU0
+      - ALLOW_ORIGINS=http://localhost:5174,http://localhost:5173,http://localhost:3000,http://localhost:8081
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+    restart: unless-stopped
 
   wiremock:
     image: wiremock/wiremock:latest
@@ -102,5 +133,6 @@ services:
   #   restart: unless-stopped
 volumes:
   tts_models:
+  api-dev-packages:
 
 

@@ -11,10 +11,17 @@ public partial class SupabaseGateway : ISupabaseGateway
 {
     private readonly HttpClient _postgrestClient;
     private readonly HttpClient _functionsClient;
+    private readonly HttpClient _authClient;
     private readonly ILogger<SupabaseGateway> _logger;
     private readonly string? _supabaseAnonKey;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly Dictionary<ClientType, HttpClient> _clients;
 
+    private enum ClientType {
+        Postgrest,
+        Functions,
+        Auth
+    }
     public SupabaseGateway(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
@@ -23,6 +30,7 @@ public partial class SupabaseGateway : ISupabaseGateway
     {
         _postgrestClient = httpClientFactory.CreateClient("PostgrestClient");
         _functionsClient = httpClientFactory.CreateClient("FunctionsClient");
+        _authClient = httpClientFactory.CreateClient("AuthClient");
         _logger = logger;
         _supabaseAnonKey = configuration["SUPABASE_ANON_KEY"];
         _httpContextAccessor = httpContextAccessor;
@@ -30,6 +38,7 @@ public partial class SupabaseGateway : ISupabaseGateway
         // Configure base URLs from configuration
         var postgrestUrl = configuration["SUPABASE_POSTGREST_URL"];
         var functionsUrl = configuration["SUPABASE_FUNCTIONS_URL"];
+        var authUrl = configuration["SUPABASE_AUTH_URL"];
 
         if (!string.IsNullOrEmpty(postgrestUrl))
         {
@@ -41,6 +50,12 @@ public partial class SupabaseGateway : ISupabaseGateway
         {
             if (!functionsUrl.EndsWith("/")) functionsUrl += "/";
             _functionsClient.BaseAddress = new Uri(functionsUrl);
+        }
+        
+        if (!string.IsNullOrEmpty(authUrl))
+        {
+            if (!authUrl.EndsWith("/")) authUrl += "/";
+            _authClient.BaseAddress = new Uri(authUrl);
         }
     }
 
@@ -108,7 +123,8 @@ public partial class SupabaseGateway : ISupabaseGateway
         string path,
         object? bodyObject,
         string? preferHeader,
-        CancellationToken cancellationToken)
+        ClientType clientType = ClientType.Postgrest,
+        CancellationToken cancellationToken = default)
     {
         string? bodyJson = null;
         if (bodyObject is not null)
@@ -117,13 +133,14 @@ public partial class SupabaseGateway : ISupabaseGateway
         }
 
         var request = BuildPostgrestRequest(method, path, bodyJson, preferHeader);
-        return await _postgrestClient.SendAsync(request, cancellationToken);
+        var client = _clients[clientType];
+        return await client.SendAsync(request, cancellationToken);
     }
 
     // High-level helpers with default error handling and typed results
     protected async Task<List<T>> GetPostgrestAsync<T>(string path, CancellationToken cancellationToken = default)
     {
-        var resp = await SendPostgrestAsync(HttpMethod.Get, path, null, null, cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Get, path, null, null, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -144,7 +161,7 @@ public partial class SupabaseGateway : ISupabaseGateway
     protected async Task PostPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
     {
         var prefer = returnRepresentation ? "return=representation" : "return=minimal";
-        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, prefer, cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, prefer, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -155,7 +172,7 @@ public partial class SupabaseGateway : ISupabaseGateway
     protected async Task<T?> PostPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
     {
         // Since caller expects a type, return representation by default
-        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, "return=representation", cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, "return=representation", cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -171,7 +188,7 @@ public partial class SupabaseGateway : ISupabaseGateway
     protected async Task PatchPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
     {
         var prefer = returnRepresentation ? "return=representation" : "return=minimal";
-        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, prefer, cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, prefer, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -181,7 +198,7 @@ public partial class SupabaseGateway : ISupabaseGateway
 
     protected async Task<T?> PatchPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
     {
-        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, "return=representation", cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, "return=representation", cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -197,7 +214,7 @@ public partial class SupabaseGateway : ISupabaseGateway
     protected async Task PutPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
     {
         var prefer = returnRepresentation ? "return=representation" : "return=minimal";
-        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, prefer, cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, prefer, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -207,7 +224,7 @@ public partial class SupabaseGateway : ISupabaseGateway
 
     protected async Task<T?> PutPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
     {
-        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, "return=representation", cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, "return=representation", cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
@@ -223,17 +240,33 @@ public partial class SupabaseGateway : ISupabaseGateway
     protected async Task DeletePostgrestAsync(string path, bool returnRepresentation = false, CancellationToken cancellationToken = default)
     {
         var prefer = returnRepresentation ? "return=representation" : null; // default minimal
-        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, prefer, cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, prefer, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);
             throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
         }
     }
+    
+    // FUNCTIONS helpers
+    protected async Task<T?> ExecutePostgrestFunctionAsync<T>(string path, object body, CancellationToken cancellationToken = default) {
+        
+        // Since caller expects a type, return representation by default
+        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, "return=representation", ClientType.Functions, cancellationToken: cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items.FirstOrDefault();
+    }
 
     protected async Task<T?> DeletePostgrestAsync<T>(string path, CancellationToken cancellationToken = default)
     {
-        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, "return=representation", cancellationToken);
+        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, "return=representation", cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(cancellationToken);

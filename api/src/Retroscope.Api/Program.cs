@@ -23,7 +23,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Configure CORS
-var allowedOrigins = builder.Configuration["ALLOW_ORIGINS"]?.Split(',') ?? ["http://localhost:5173", "http://localhost:3000"
+var allowedOrigins = builder.Configuration["ALLOW_ORIGINS"]?.Split(',') ?? ["http://localhost:5173", "http://localhost:3000", "http://localhost:8081"
 ];
 builder.Services.AddCors(options =>
 {
