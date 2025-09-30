@@ -18,7 +18,7 @@ public static class ServiceCollectionExtensions
             {
                 client.BaseAddress = new Uri(postgrestUrl);
             }
-            
+
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         })
         .AddPolicyHandler(GetRetryPolicy());
@@ -30,13 +30,14 @@ public static class ServiceCollectionExtensions
             {
                 client.BaseAddress = new Uri(functionsUrl);
             }
-            
+
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         })
         .AddPolicyHandler(GetRetryPolicy());
 
         // Register the gateway
         services.AddScoped<Application.Interfaces.ISupabaseGateway, SupabaseGateway>();
+        services.AddHttpContextAccessor();
 
         return services;
     }

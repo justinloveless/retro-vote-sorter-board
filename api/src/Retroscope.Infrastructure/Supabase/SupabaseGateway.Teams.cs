@@ -192,62 +192,22 @@ public partial class SupabaseGateway
         try
         {
             var userId = ExtractUserIdFromToken(bearerToken);
-            var body = JsonSerializer.Serialize(new { name = request.Name, description = request.Description, creator_id = userId });
-            var content = new StringContent(body, Encoding.UTF8, "application/json");
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, "teams") { Content = content };
-            httpRequest.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
-            if (!string.IsNullOrEmpty(_supabaseAnonKey)) httpRequest.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
-            if (!string.IsNullOrEmpty(correlationId)) httpRequest.Headers.Add("X-Correlation-Id", correlationId);
-            httpRequest.Headers.TryAddWithoutValidation("X-Tenant", "00000000-0000-0000-0000-000000000000");
-            httpRequest.Headers.TryAddWithoutValidation("Prefer", "return=minimal");
+            await PostPostgrestAsync("teams",
+                new { name = request.Name, description = request.Description, creator_id = userId },
+                cancellationToken: cancellationToken
+            );
 
-            var response = await _postgrestClient.SendAsync(httpRequest, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new HttpException(response.StatusCode, $"Supabase request failed with status {response.StatusCode}");
-            }
+            var items = await GetPostgrestAsync<TeamItem>($"teams?select=*&creator_id=eq.{userId}&order=created_at.desc&limit=1", cancellationToken);
+            var created = items.FirstOrDefault();
+            if (created != null) return created;
 
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (!string.IsNullOrWhiteSpace(json))
-            {
-                var rows = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
-                           [];
-                var r = rows.FirstOrDefault();
-                return new TeamItem
-                {
-                    Id = r.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty,
-                    Name = r.TryGetProperty("name", out var nm) ? nm.GetString() ?? string.Empty : string.Empty,
-                    Description = r.TryGetProperty("description", out var desc) ? desc.GetString() : null,
-                    CreaterId = r.TryGetProperty("creator_id", out var ow) ? ow.GetString() : null,
-                    CreatedAt = r.TryGetProperty("created_at", out var ca) && ca.ValueKind == JsonValueKind.String ? DateTime.Parse(ca.GetString()!) : null,
-                };
-            }
-
-            // Fallback for Prefer: return=minimal (empty body) → fetch the most recent team for this creator
-            var fetchPath = $"teams?select=*&creator_id=eq.{userId}&order=created_at.desc&limit=1";
-            var fetchReq = new HttpRequestMessage(HttpMethod.Get, fetchPath);
-            fetchReq.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
-            if (!string.IsNullOrEmpty(_supabaseAnonKey)) fetchReq.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
-            if (!string.IsNullOrEmpty(correlationId)) fetchReq.Headers.Add("X-Correlation-Id", correlationId);
-            fetchReq.Headers.TryAddWithoutValidation("X-Tenant", "00000000-0000-0000-0000-000000000000");
-
-            var fetchResp = await _postgrestClient.SendAsync(fetchReq, cancellationToken);
-            if (!fetchResp.IsSuccessStatusCode)
-            {
-                var err2 = await fetchResp.Content.ReadAsStringAsync(cancellationToken);
-                throw new HttpException(fetchResp.StatusCode, $"Supabase follow-up fetch failed with status {fetchResp.StatusCode}: {err2}");
-            }
-
-            var fetchJson = await fetchResp.Content.ReadAsStringAsync(cancellationToken);
-            var fRows = JsonSerializer.Deserialize<List<JsonElement>>(fetchJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-            var fr = fRows.FirstOrDefault();
             return new TeamItem
             {
-                Id = fr.TryGetProperty("id", out var fid) ? fid.GetString() ?? string.Empty : string.Empty,
-                Name = fr.TryGetProperty("name", out var fnm) ? fnm.GetString() ?? request.Name : request.Name,
-                Description = fr.TryGetProperty("description", out var fdesc) ? fdesc.GetString() : request.Description,
-                CreaterId = fr.TryGetProperty("creator_id", out var fow) ? fow.GetString() : userId,
-                CreatedAt = fr.TryGetProperty("created_at", out var fca) && fca.ValueKind == JsonValueKind.String ? DateTime.Parse(fca.GetString()!) : null,
+                Id = string.Empty,
+                Name = request.Name,
+                Description = request.Description,
+                CreaterId = userId,
+                CreatedAt = null
             };
         }
         catch (Exception ex)

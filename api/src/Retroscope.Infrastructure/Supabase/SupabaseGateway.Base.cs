@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Retroscope.Application.Interfaces;
@@ -12,16 +13,19 @@ public partial class SupabaseGateway : ISupabaseGateway
     private readonly HttpClient _functionsClient;
     private readonly ILogger<SupabaseGateway> _logger;
     private readonly string? _supabaseAnonKey;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public SupabaseGateway(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
-        ILogger<SupabaseGateway> logger)
+        ILogger<SupabaseGateway> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _postgrestClient = httpClientFactory.CreateClient("PostgrestClient");
         _functionsClient = httpClientFactory.CreateClient("FunctionsClient");
         _logger = logger;
         _supabaseAnonKey = configuration["SUPABASE_ANON_KEY"];
+        _httpContextAccessor = httpContextAccessor;
 
         // Configure base URLs from configuration
         var postgrestUrl = configuration["SUPABASE_POSTGREST_URL"];
@@ -38,6 +42,136 @@ public partial class SupabaseGateway : ISupabaseGateway
             if (!functionsUrl.EndsWith("/")) functionsUrl += "/";
             _functionsClient.BaseAddress = new Uri(functionsUrl);
         }
+    }
+
+    private const string NullTenantId = "00000000-0000-0000-0000-000000000000";
+
+    private (string BearerToken, string? CorrelationId, string TenantId) GetRequestContext()
+    {
+        var http = _httpContextAccessor.HttpContext;
+        var headers = http?.Request?.Headers;
+
+        var bearer = headers?.Authorization.ToString();
+        if (string.IsNullOrEmpty(bearer))
+        {
+            // Fall back to an empty token; downstream will reject unauthenticated requests
+            bearer = string.Empty;
+        }
+
+        string? correlationId = null;
+        if (headers is not null)
+        {
+            correlationId = headers["X-Correlation-Id"].FirstOrDefault()
+                ?? headers["Request-Id"].FirstOrDefault()
+                ?? http?.TraceIdentifier;
+        }
+
+        var tenantId = headers?["X-Tenant"].FirstOrDefault();
+        if (string.IsNullOrEmpty(tenantId)) tenantId = NullTenantId;
+
+        return (bearer, correlationId, tenantId);
+    }
+
+    private HttpRequestMessage BuildPostgrestRequest(
+        HttpMethod method,
+        string path,
+        string? bodyJson,
+        string? preferHeader)
+    {
+        var (bearerToken, correlationId, tenantId) = GetRequestContext();
+        var request = new HttpRequestMessage(method, path);
+        if (!string.IsNullOrEmpty(bodyJson))
+        {
+            request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
+        }
+
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearerToken);
+        if (!string.IsNullOrEmpty(_supabaseAnonKey))
+        {
+            request.Headers.TryAddWithoutValidation("apikey", _supabaseAnonKey);
+        }
+        if (!string.IsNullOrEmpty(correlationId))
+        {
+            request.Headers.Add("X-Correlation-Id", correlationId);
+        }
+        request.Headers.TryAddWithoutValidation("X-Tenant", string.IsNullOrEmpty(tenantId) ? NullTenantId : tenantId);
+        if (!string.IsNullOrEmpty(preferHeader))
+        {
+            request.Headers.TryAddWithoutValidation("Prefer", preferHeader);
+        }
+
+        return request;
+    }
+
+    private async Task<HttpResponseMessage> SendPostgrestAsync(
+        HttpMethod method,
+        string path,
+        object? bodyObject,
+        string? preferHeader,
+        CancellationToken cancellationToken)
+    {
+        string? bodyJson = null;
+        if (bodyObject is not null)
+        {
+            bodyJson = JsonSerializer.Serialize(bodyObject);
+        }
+
+        var request = BuildPostgrestRequest(method, path, bodyJson, preferHeader);
+        return await _postgrestClient.SendAsync(request, cancellationToken);
+    }
+
+    // High-level helpers with default error handling and typed results
+    protected async Task<List<T>> GetPostgrestAsync<T>(string path, CancellationToken cancellationToken = default)
+    {
+        var resp = await SendPostgrestAsync(HttpMethod.Get, path, null, null, cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items;
+    }
+
+    protected async Task<T?> GetSinglePostgrestAsync<T>(string path, CancellationToken cancellationToken = default)
+    {
+        var list = await GetPostgrestAsync<T>(path, cancellationToken);
+        return list.FirstOrDefault();
+    }
+
+    protected async Task PostPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
+    {
+        var prefer = returnRepresentation ? "return=representation" : "return=minimal";
+        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, prefer, cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+    }
+
+    protected async Task<T?> PostPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
+    {
+        // Since caller expects a type, return representation by default
+        var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, "return=representation", cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items.FirstOrDefault();
+    }
+
+    private static async Task<List<JsonElement>> ReadJsonArrayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
     }
 
     private async Task<Dictionary<string, (string? fullName, string? email)>> FetchProfilesAsync(IEnumerable<string> userIds, string bearerToken, string? correlationId, CancellationToken cancellationToken)
