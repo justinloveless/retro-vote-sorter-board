@@ -105,11 +105,10 @@ public partial class SupabaseGateway : ISupabaseGateway
             }
             var parts = token.Split('.');
             if (parts.Length != 3) return null;
-            var payload = parts[1];
-            while (payload.Length % 4 != 0)
-            {
-                payload += "=";
-            }
+            var payload = parts[1]
+                .Replace('-', '+')
+                .Replace('_', '/');
+            while (payload.Length % 4 != 0) payload += "=";
             var payloadBytes = Convert.FromBase64String(payload);
             var payloadJson = Encoding.UTF8.GetString(payloadBytes);
             using var doc = JsonDocument.Parse(payloadJson);
