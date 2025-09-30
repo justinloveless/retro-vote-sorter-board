@@ -167,6 +167,84 @@ public partial class SupabaseGateway : ISupabaseGateway
         return items.FirstOrDefault();
     }
 
+    // PATCH helpers
+    protected async Task PatchPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
+    {
+        var prefer = returnRepresentation ? "return=representation" : "return=minimal";
+        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, prefer, cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+    }
+
+    protected async Task<T?> PatchPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
+    {
+        var resp = await SendPostgrestAsync(HttpMethod.Patch, path, body, "return=representation", cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items.FirstOrDefault();
+    }
+
+    // PUT helpers
+    protected async Task PutPostgrestAsync(string path, object body, bool returnRepresentation = false, CancellationToken cancellationToken = default)
+    {
+        var prefer = returnRepresentation ? "return=representation" : "return=minimal";
+        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, prefer, cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+    }
+
+    protected async Task<T?> PutPostgrestAsync<T>(string path, object body, CancellationToken cancellationToken = default)
+    {
+        var resp = await SendPostgrestAsync(HttpMethod.Put, path, body, "return=representation", cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items.FirstOrDefault();
+    }
+
+    // DELETE helpers
+    protected async Task DeletePostgrestAsync(string path, bool returnRepresentation = false, CancellationToken cancellationToken = default)
+    {
+        var prefer = returnRepresentation ? "return=representation" : null; // default minimal
+        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, prefer, cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+    }
+
+    protected async Task<T?> DeletePostgrestAsync<T>(string path, CancellationToken cancellationToken = default)
+    {
+        var resp = await SendPostgrestAsync(HttpMethod.Delete, path, null, "return=representation", cancellationToken);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
+        }
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return items.FirstOrDefault();
+    }
+
     private static async Task<List<JsonElement>> ReadJsonArrayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var json = await response.Content.ReadAsStringAsync(cancellationToken);

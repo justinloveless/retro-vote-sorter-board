@@ -1,0 +1,21 @@
+meta {
+  name: 14. Get Teams
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{supabaseUrl}}/rest/v1/teams?select=*,team_members!inner(role,user_id)&team_members.user_id=eq.{{userId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: '*,team_members!inner(role,user_id)'
+  team_members.user_id: 'eq.{{userId}}'
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  apikey: {{supabaseAnonKey}}
+}
