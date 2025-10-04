@@ -17,7 +17,8 @@ public partial class SupabaseGateway : ISupabaseGateway
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly Dictionary<ClientType, HttpClient> _clients;
 
-    private enum ClientType {
+    private enum ClientType
+    {
         Postgrest,
         Functions,
         Auth
@@ -35,6 +36,14 @@ public partial class SupabaseGateway : ISupabaseGateway
         _supabaseAnonKey = configuration["SUPABASE_ANON_KEY"];
         _httpContextAccessor = httpContextAccessor;
 
+        // Initialize the clients dictionary
+        _clients = new Dictionary<ClientType, HttpClient>
+        {
+            [ClientType.Postgrest] = _postgrestClient,
+            [ClientType.Functions] = _functionsClient,
+            [ClientType.Auth] = _authClient
+        };
+
         // Configure base URLs from configuration
         var postgrestUrl = configuration["SUPABASE_POSTGREST_URL"];
         var functionsUrl = configuration["SUPABASE_FUNCTIONS_URL"];
@@ -51,7 +60,7 @@ public partial class SupabaseGateway : ISupabaseGateway
             if (!functionsUrl.EndsWith("/")) functionsUrl += "/";
             _functionsClient.BaseAddress = new Uri(functionsUrl);
         }
-        
+
         if (!string.IsNullOrEmpty(authUrl))
         {
             if (!authUrl.EndsWith("/")) authUrl += "/";
@@ -247,10 +256,11 @@ public partial class SupabaseGateway : ISupabaseGateway
             throw new HttpException(resp.StatusCode, $"Supabase request failed with status {resp.StatusCode}: {err}");
         }
     }
-    
+
     // FUNCTIONS helpers
-    protected async Task<T?> ExecutePostgrestFunctionAsync<T>(string path, object body, CancellationToken cancellationToken = default) {
-        
+    protected async Task<T?> ExecutePostgrestFunctionAsync<T>(string path, object body, CancellationToken cancellationToken = default)
+    {
+
         // Since caller expects a type, return representation by default
         var resp = await SendPostgrestAsync(HttpMethod.Post, path, body, "return=representation", ClientType.Functions, cancellationToken: cancellationToken);
         if (!resp.IsSuccessStatusCode)

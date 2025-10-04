@@ -335,8 +335,152 @@ export async function updateTeamMemberRole(teamId: string, memberId: string, rol
     if (error) throw error;
 }
 
+// ====================
+// Team Invitations
+// ====================
+
+export type TeamInvitationRecord = {
+    id: string;
+    team_id: string;
+    email: string;
+    invited_by: string;
+    token: string;
+    status: 'pending' | 'accepted' | 'declined';
+    invite_type: 'email' | 'link';
+    is_active: boolean;
+    expires_at: string;
+    created_at: string;
+};
+
+export async function fetchTeamInvitations(
+    teamId: string,
+    inviteType?: 'email' | 'link',
+    status?: 'pending' | 'accepted' | 'declined'
+): Promise<TeamInvitationRecord[]> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetTeamInvitations } = await import('@/lib/apiClient');
+        const response = await apiGetTeamInvitations(teamId, inviteType, status);
+        return response.items.map(item => ({
+            id: item.id,
+            team_id: item.teamId,
+            email: item.email,
+            invited_by: item.invitedBy,
+            token: item.token,
+            status: item.status as 'pending' | 'accepted' | 'declined',
+            invite_type: item.inviteType as 'email' | 'link',
+            is_active: item.isActive,
+            expires_at: item.expiresAt,
+            created_at: item.createdAt
+        }));
+    }
+
+    const query = supabase
+        .from('team_invitations')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false });
+
+    if (inviteType) {
+        query.eq('invite_type', inviteType);
+    }
+    if (status) {
+        query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(invitation => ({
+        ...invitation,
+        status: invitation.status as 'pending' | 'accepted' | 'declined',
+        invite_type: invitation.invite_type as 'email' | 'link'
+    }));
+}
+
+export async function createTeamInvitation(
+    teamId: string,
+    email: string,
+    inviteType: 'email' | 'link',
+    userId: string
+): Promise<TeamInvitationRecord> {
+    if (shouldUseCSharpApi()) {
+        const { apiCreateTeamInvitation } = await import('@/lib/apiClient');
+        const item = await apiCreateTeamInvitation(teamId, email, inviteType);
+        return {
+            id: item.id,
+            team_id: item.teamId,
+            email: item.email,
+            invited_by: item.invitedBy,
+            token: item.token,
+            status: item.status as 'pending' | 'accepted' | 'declined',
+            invite_type: item.inviteType as 'email' | 'link',
+            is_active: item.isActive,
+            expires_at: item.expiresAt,
+            created_at: item.createdAt
+        };
+    }
+
+    const { data, error } = await supabase
+        .from('team_invitations')
+        .insert([{
+            team_id: teamId,
+            email,
+            invited_by: userId,
+            invite_type: inviteType
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    return {
+        ...data,
+        status: data.status as 'pending' | 'accepted' | 'declined',
+        invite_type: data.invite_type as 'email' | 'link'
+    };
+}
+
+export async function updateTeamInvitation(
+    teamId: string,
+    invitationId: string,
+    isActive: boolean
+): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiUpdateTeamInvitation } = await import('@/lib/apiClient');
+        await apiUpdateTeamInvitation(teamId, invitationId, isActive);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('team_invitations')
+        .update({ is_active: isActive })
+        .eq('id', invitationId);
+
+    if (error) throw error;
+}
+
+export async function deleteTeamInvitation(
+    teamId: string,
+    invitationId: string
+): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiDeleteTeamInvitation } = await import('@/lib/apiClient');
+        await apiDeleteTeamInvitation(teamId, invitationId);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('team_invitations')
+        .delete()
+        .eq('id', invitationId);
+
+    if (error) throw error;
+}
+
+// Legacy method for backward compatibility
 export async function cancelTeamInvitation(invitationId: string): Promise<void> {
-    // Currently only direct Supabase implementation exists
+    // This method doesn't have team_id, so we can't use the C# API easily
+    // Keep direct Supabase for now until we can refactor callers
     const { error } = await supabase
         .from('team_invitations')
         .delete()

@@ -1,7 +1,15 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTeamMembers as dcFetchTeamMembers, updateTeamMemberRole as dcUpdateMemberRole, removeTeamMember as dcRemoveTeamMember, TeamMemberRecord, getAuthUser } from '@/lib/dataClient';
+import {
+  fetchTeamMembers as dcFetchTeamMembers,
+  updateTeamMemberRole as dcUpdateMemberRole,
+  removeTeamMember as dcRemoveTeamMember,
+  fetchTeamInvitations as dcFetchTeamInvitations,
+  deleteTeamInvitation as dcDeleteTeamInvitation,
+  TeamMemberRecord,
+  getAuthUser
+} from '@/lib/dataClient';
 import { useToast } from '@/hooks/use-toast';
 
 type TeamMember = TeamMemberRecord;
@@ -54,24 +62,8 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('invite_type', 'email')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Type cast the data to ensure proper typing
-      const typedInvitations = (data || []).map(invitation => ({
-        ...invitation,
-        status: invitation.status as 'pending' | 'accepted' | 'declined',
-        invite_type: invitation.invite_type as 'email' | 'link'
-      }));
-
-      setInvitations(typedInvitations);
+      const data = await dcFetchTeamInvitations(teamId, 'email', 'pending');
+      setInvitations(data);
     } catch (error) {
       console.error('Error loading invitations:', error);
     }
@@ -197,13 +189,10 @@ export const useTeamMembers = (teamId: string | null) => {
   };
 
   const cancelInvitation = async (invitationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .delete()
-        .eq('id', invitationId);
+    if (!teamId) return;
 
-      if (error) throw error;
+    try {
+      await dcDeleteTeamInvitation(teamId, invitationId);
 
       toast({
         title: "Invitation cancelled",

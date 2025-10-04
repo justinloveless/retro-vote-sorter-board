@@ -1,8 +1,13 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthUser } from '../lib/dataClient.ts';
+import {
+  fetchTeamInvitations as dcFetchTeamInvitations,
+  createTeamInvitation as dcCreateTeamInvitation,
+  updateTeamInvitation as dcUpdateTeamInvitation,
+  deleteTeamInvitation as dcDeleteTeamInvitation,
+  getAuthUser
+} from '../lib/dataClient.ts';
 
 interface InviteLink {
   id: string;
@@ -26,22 +31,8 @@ export const useInviteLinks = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('invite_type', 'link')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Type cast the data to ensure proper typing
-      const typedInviteLinks = (data || []).map(link => ({
-        ...link,
-        invite_type: link.invite_type as 'email' | 'link'
-      }));
-
-      setInviteLinks(typedInviteLinks);
+      const data = await dcFetchTeamInvitations(teamId, 'link');
+      setInviteLinks(data);
     } catch (error) {
       console.error('Error loading invite links:', error);
       toast({
@@ -60,18 +51,7 @@ export const useInviteLinks = (teamId: string | null) => {
       const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .insert([{
-          team_id: teamId,
-          email: '', // Empty email for link invitations
-          invited_by: currentUser.id,
-          invite_type: 'link'
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await dcCreateTeamInvitation(teamId, '', 'link', currentUser.id);
 
       toast({
         title: "Invite link created",
@@ -94,13 +74,10 @@ export const useInviteLinks = (teamId: string | null) => {
   };
 
   const toggleInviteLink = async (linkId: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .update({ is_active: isActive })
-        .eq('id', linkId);
+    if (!teamId) return;
 
-      if (error) throw error;
+    try {
+      await dcUpdateTeamInvitation(teamId, linkId, isActive);
 
       toast({
         title: isActive ? "Invite link activated" : "Invite link deactivated",
@@ -121,13 +98,10 @@ export const useInviteLinks = (teamId: string | null) => {
   };
 
   const deleteInviteLink = async (linkId: string) => {
-    try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .delete()
-        .eq('id', linkId);
+    if (!teamId) return;
 
-      if (error) throw error;
+    try {
+      await dcDeleteTeamInvitation(teamId, linkId);
 
       toast({
         title: "Invite link deleted",

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchTeamInvitations as dcFetchTeamInvitations } from '@/lib/dataClient';
 
 // Types
 interface TeamMember {
@@ -99,7 +100,7 @@ interface TeamDataContextType {
   getActionItems: (teamId: string) => { data: TeamActionItem[], loading: boolean, refetch: () => Promise<void> };
   getTeamInfo: (teamId: string) => { data: Team | null, loading: boolean, refetch: () => Promise<void> };
   getActionItemComments: (teamId: string, itemId: string) => { data: TeamActionItemComment[], loading: boolean, refetch: () => Promise<void> };
-  
+
   // Cache management
   invalidateTeamCache: (teamId: string) => void;
   invalidateAllCache: () => void;
@@ -202,23 +203,9 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'invitations', [], true);
 
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('invite_type', 'email')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      const data = await dcFetchTeamInvitations(teamId, 'email', 'pending');
 
-      if (error) throw error;
-
-      const typedInvitations = (data || []).map(invitation => ({
-        ...invitation,
-        status: invitation.status as 'pending' | 'accepted' | 'declined',
-        invite_type: invitation.invite_type as 'email' | 'link'
-      }));
-
-      updateCache(teamId, 'invitations', typedInvitations);
+      updateCache(teamId, 'invitations', data);
     } catch (error) {
       console.error('Error fetching invitations:', error);
       updateCache(teamId, 'invitations', []);
@@ -257,7 +244,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const base = (data || []) as TeamActionItem[];
       const boardIds = Array.from(new Set(base.map(i => i.source_board_id).filter(Boolean))) as string[];
       let titleMap: Record<string, string> = {};
-      
+
       if (boardIds.length > 0) {
         const { data: boards } = await supabase
           .from('retro_boards')
@@ -266,9 +253,9 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         (boards || []).forEach(b => { titleMap[b.id] = b.title; });
       }
 
-      const itemsWithTitles = base.map(i => ({ 
-        ...i, 
-        board_title: i.source_board_id ? (titleMap[i.source_board_id] || 'Board') : 'Other' 
+      const itemsWithTitles = base.map(i => ({
+        ...i,
+        board_title: i.source_board_id ? (titleMap[i.source_board_id] || 'Board') : 'Other'
       }));
 
       updateCache(teamId, 'actionItems', itemsWithTitles);
@@ -349,7 +336,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getMembers = useCallback((teamId: string) => {
     const teamCache = getTeamCache(teamId);
     const cached = teamCache.members;
-    
+
     const refetch = async () => {
       await fetchMembers(teamId);
     };
@@ -377,7 +364,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getInvitations = useCallback((teamId: string) => {
     const teamCache = getTeamCache(teamId);
     const cached = teamCache.invitations;
-    
+
     const refetch = async () => {
       await fetchInvitations(teamId);
     };
@@ -405,7 +392,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getBoards = useCallback((teamId: string) => {
     const teamCache = getTeamCache(teamId);
     const cached = teamCache.boards;
-    
+
     const refetch = async () => {
       await fetchBoards(teamId);
     };
@@ -433,7 +420,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getActionItems = useCallback((teamId: string) => {
     const teamCache = getTeamCache(teamId);
     const cached = teamCache.actionItems;
-    
+
     const refetch = async () => {
       await fetchActionItems(teamId);
     };
@@ -461,7 +448,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getTeamInfo = useCallback((teamId: string) => {
     const teamCache = getTeamCache(teamId);
     const cached = teamCache.teamInfo;
-    
+
     const refetch = async () => {
       await fetchTeamInfo(teamId);
     };
@@ -495,7 +482,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const cached = teamCache.actionItemComments;
     const itemComments = cached.data[itemId] || [];
     const itemFetched = cached.fetched && cached.data.hasOwnProperty(itemId);
-    
+
     const refetch = async () => {
       await fetchActionItemComments(teamId, itemId);
     };
