@@ -6,8 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Archive, Trash2, MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { getAuthUser } from '@/lib/dataClient';
+import { getAuthUser, updateRetroBoard } from '@/lib/dataClient';
 
 interface BoardActionsProps {
   boardId: string;
@@ -35,16 +34,11 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
 
     setIsArchiving(true);
     try {
-      const { error } = await supabase
-        .from('retro_boards')
-        .update({
-          archived: !isArchived,
-          archived_at: !isArchived ? new Date().toISOString() : null,
-          archived_by: !isArchived ? (await getAuthUser()).data.user?.id : null
-        })
-        .eq('id', boardId);
-
-      if (error) throw error;
+      await updateRetroBoard(boardId, {
+        archived: !isArchived,
+        archived_at: !isArchived ? new Date().toISOString() : null,
+        archived_by: !isArchived ? (await getAuthUser()).data.user?.id : null
+      });
 
       toast({
         title: isArchived ? "Board unarchived" : "Board archived",
@@ -71,12 +65,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('retro_boards')
-        .update({ deleted: true })
-        .eq('id', boardId);
-
-      if (error) throw error;
+      await updateRetroBoard(boardId, { deleted: true });
 
       toast({
         title: "Board deleted",

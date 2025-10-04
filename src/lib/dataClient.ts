@@ -615,6 +615,176 @@ export async function updateRetroBoardPrivacyByRoom(roomId: string, payload: { i
     if (error) throw error;
 }
 
+export type RetroBoardRecord = {
+    id: string;
+    room_id: string;
+    title: string;
+    is_private: boolean;
+    password_hash?: string | null;
+    archived: boolean;
+    archived_at?: string | null;
+    archived_by?: string | null;
+    deleted: boolean;
+    team_id?: string | null;
+    retro_stage?: string | null;
+    creator_id?: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export async function fetchRetroBoards(teamId: string, includeDeleted: boolean = false): Promise<RetroBoardRecord[]> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetRetroBoards } = await import('@/lib/apiClient');
+        const response = await apiGetRetroBoards(teamId, includeDeleted);
+        return (response.items || []).map(item => ({
+            id: item.id,
+            room_id: item.roomId,
+            title: item.title,
+            is_private: item.isPrivate,
+            password_hash: item.passwordHash,
+            archived: item.archived,
+            archived_at: item.archivedAt,
+            archived_by: item.archivedBy,
+            deleted: item.deleted,
+            team_id: item.teamId,
+            retro_stage: item.retroStage,
+            creator_id: item.creatorId,
+            created_at: item.createdAt,
+            updated_at: item.updatedAt,
+        }));
+    }
+
+    const query = supabase
+        .from('retro_boards')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false });
+
+    if (!includeDeleted) {
+        query.neq('deleted', true);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []) as RetroBoardRecord[];
+}
+
+export async function fetchRetroBoardTitles(boardIds: string[]): Promise<Array<{ id: string; title: string }>> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetRetroBoardTitlesByIds } = await import('@/lib/apiClient');
+        const response = await apiGetRetroBoardTitlesByIds(boardIds);
+        return response.items || [];
+    }
+
+    if (boardIds.length === 0) return [];
+
+    const { data, error } = await supabase
+        .from('retro_boards')
+        .select('id, title')
+        .in('id', boardIds);
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createRetroBoard(params: {
+    roomId: string;
+    title: string;
+    isPrivate?: boolean;
+    passwordHash?: string | null;
+    teamId?: string | null;
+}): Promise<RetroBoardRecord> {
+    if (shouldUseCSharpApi()) {
+        const { apiCreateRetroBoard } = await import('@/lib/apiClient');
+        const board = await apiCreateRetroBoard(
+            params.roomId,
+            params.title,
+            params.isPrivate ?? false,
+            params.passwordHash ?? null,
+            params.teamId ?? null
+        );
+        return {
+            id: board.id,
+            room_id: board.roomId,
+            title: board.title,
+            is_private: board.isPrivate,
+            password_hash: board.passwordHash,
+            archived: board.archived,
+            archived_at: board.archivedAt,
+            archived_by: board.archivedBy,
+            deleted: board.deleted,
+            team_id: board.teamId,
+            retro_stage: board.retroStage,
+            creator_id: board.creatorId,
+            created_at: board.createdAt,
+            updated_at: board.updatedAt,
+        };
+    }
+
+    const { data, error } = await supabase
+        .from('retro_boards')
+        .insert([{
+            room_id: params.roomId,
+            title: params.title,
+            is_private: params.isPrivate ?? false,
+            password_hash: params.passwordHash ?? null,
+            team_id: params.teamId ?? null,
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data as RetroBoardRecord;
+}
+
+export async function updateRetroBoard(boardId: string, updates: {
+    title?: string;
+    is_private?: boolean;
+    password_hash?: string | null;
+    archived?: boolean;
+    archived_at?: string | null;
+    archived_by?: string | null;
+    deleted?: boolean;
+    retro_stage?: string | null;
+}): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiUpdateRetroBoard } = await import('@/lib/apiClient');
+        await apiUpdateRetroBoard(boardId, {
+            title: updates.title,
+            isPrivate: updates.is_private,
+            passwordHash: updates.password_hash,
+            archived: updates.archived,
+            archivedAt: updates.archived_at,
+            archivedBy: updates.archived_by,
+            deleted: updates.deleted,
+            retroStage: updates.retro_stage,
+        });
+        return;
+    }
+
+    const { error } = await supabase
+        .from('retro_boards')
+        .update(updates)
+        .eq('id', boardId);
+
+    if (error) throw error;
+}
+
+export async function deleteRetroBoard(boardId: string): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiDeleteRetroBoard } = await import('@/lib/apiClient');
+        await apiDeleteRetroBoard(boardId);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('retro_boards')
+        .delete()
+        .eq('id', boardId);
+
+    if (error) throw error;
+}
+
 export async function getUserVotes(boardId: string, userId?: string | null, sessionId?: string): Promise<string[]> {
     // Direct Supabase for now
     const query = supabase.from('retro_votes').select('item_id').eq('board_id', boardId);

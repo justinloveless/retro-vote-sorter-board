@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchTeamInvitations as dcFetchTeamInvitations, fetchCommentsForItem as dcFetchCommentsForItem } from '@/lib/dataClient';
+import {
+  fetchTeamInvitations as dcFetchTeamInvitations,
+  fetchCommentsForItem as dcFetchCommentsForItem,
+  fetchRetroBoards as dcFetchRetroBoards,
+  fetchRetroBoardTitles as dcFetchRetroBoardTitles
+} from '@/lib/dataClient';
 
 // Types
 interface TeamMember {
@@ -216,14 +221,8 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'boards', [], true);
 
-      const { data, error } = await supabase
-        .from('retro_boards')
-        .select('*')
-        .eq('team_id', teamId)
-        .neq('deleted', true)
-        .order('created_at', { ascending: false });
+      const data = await dcFetchRetroBoards(teamId, false);
 
-      if (error) throw error;
       updateCache(teamId, 'boards', data || []);
     } catch (error) {
       console.error('Error fetching boards:', error);
@@ -246,11 +245,8 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let titleMap: Record<string, string> = {};
 
       if (boardIds.length > 0) {
-        const { data: boards } = await supabase
-          .from('retro_boards')
-          .select('id, title')
-          .in('id', boardIds);
-        (boards || []).forEach(b => { titleMap[b.id] = b.title; });
+        const boards = await dcFetchRetroBoardTitles(boardIds);
+        boards.forEach(b => { titleMap[b.id] = b.title; });
       }
 
       const itemsWithTitles = base.map(i => ({

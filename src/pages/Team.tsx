@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { createRetroBoard } from '@/lib/dataClient';
 import { AuthForm } from '@/components/AuthForm';
 import { TeamHeader } from '@/components/team/TeamHeader';
 import { TeamBoardsList } from '@/components/team/TeamBoardsList';
@@ -58,7 +58,7 @@ const Team = () => {
 
     try {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-      let passwordHash = null;
+      let passwordHash: string | null = null;
 
       if (isPrivate && password) {
         // Hash the password using Web Crypto API
@@ -69,19 +69,13 @@ const Team = () => {
         passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
 
-      const { data, error } = await supabase
-        .from('retro_boards')
-        .insert([{
-          room_id: roomId,
-          title,
-          is_private: isPrivate,
-          password_hash: passwordHash,
-          team_id: teamId
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await createRetroBoard({
+        roomId,
+        title,
+        isPrivate,
+        passwordHash,
+        teamId,
+      });
 
       toast({
         title: "Board created",

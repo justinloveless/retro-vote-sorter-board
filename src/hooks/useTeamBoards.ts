@@ -2,17 +2,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthUser } from '../lib/dataClient.ts';
+import { getAuthUser, fetchRetroBoards, createRetroBoard } from '../lib/dataClient.ts';
 
 interface TeamBoard {
   id: string;
   room_id: string;
   title: string;
   is_private: boolean;
-  password_hash: string | null;
+  password_hash?: string | null;
   archived: boolean;
-  archived_at: string | null;
-  archived_by: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  deleted: boolean;
+  team_id?: string | null;
+  retro_stage?: string | null;
+  creator_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,14 +34,7 @@ export const useTeamBoards = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('retro_boards')
-        .select('*')
-        .eq('team_id', teamId)
-        .neq('deleted', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchRetroBoards(teamId, false);
       setBoards(data || []);
     } catch (error) {
       console.error('Error loading team boards:', error);
@@ -65,24 +62,26 @@ export const useTeamBoards = (teamId: string | null) => {
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      // The board creation will automatically use the team's default template
-      // thanks to the database trigger we created
-      const { data: board, error } = await supabase
-        .from('retro_boards')
-        .insert([{
-          room_id: roomId,
-          title,
-          team_id: teamId,
-          creator_id: currentUser.id,
-          is_private: isPrivate,
-          password_hash: password
-        }])
-        .select()
-        .single();
+      // Hash the password if provided
+      let passwordHash: string | null = null;
+      if (isPrivate && password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
 
-      if (error) throw error;
+      // Create the board via dataClient
+      const board = await createRetroBoard({
+        roomId,
+        title,
+        isPrivate,
+        passwordHash,
+        teamId,
+      });
 
-      // Get the default template for this team to apply its settings
+      // Apply template settings (still using Supabase directly as this isn't in the C# API yet)
       const { data: defaultTemplate } = await supabase
         .from('board_templates')
         .select('*')
@@ -91,7 +90,6 @@ export const useTeamBoards = (teamId: string | null) => {
         .single();
 
       if (defaultTemplate && board) {
-        // Apply template settings to board config
         await supabase
           .from('retro_board_config')
           .insert([{
@@ -102,10 +100,7 @@ export const useTeamBoards = (teamId: string | null) => {
             show_author_names: defaultTemplate.show_author_names,
             retro_stages_enabled: defaultTemplate.retro_stages_enabled
           }]);
-
-        // Note: Columns are automatically created by the database trigger 'on_board_created'
       } else {
-        // Fall back to team default settings if no template is set
         const { data: defaultSettings } = await supabase
           .from('team_default_settings')
           .select('*')
@@ -124,7 +119,6 @@ export const useTeamBoards = (teamId: string | null) => {
               retro_stages_enabled: defaultSettings.retro_stages_enabled || false
             }]);
         } else if (board) {
-          // Final fallback: create minimal default config
           await supabase
             .from('retro_board_config')
             .insert([{

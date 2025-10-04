@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard } from '@/lib/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -522,12 +522,9 @@ export const useRetroBoard = (roomId: string) => {
     const oldTitle = board.title;
     setBoard(prev => prev ? { ...prev, title } : null); // Optimistic update
 
-    const { error } = await supabase
-      .from('retro_boards')
-      .update({ title })
-      .eq('id', board.id);
-
-    if (error) {
+    try {
+      await updateRetroBoard(board.id, { title });
+    } catch (error) {
       console.error('Error updating board title:', error);
       setBoard(prev => prev ? { ...prev, title: oldTitle } : null); // Revert on error
       toast({
@@ -1019,21 +1016,9 @@ export const useRetroBoard = (roomId: string) => {
     const oldBoard = { ...board };
     setBoard(prev => prev ? { ...prev, retro_stage: newStage } : null);
 
-    const { error } = await supabase
-      .from('retro_boards')
-      .update({ retro_stage: newStage })
-      .eq('id', board.id);
+    try {
+      await updateRetroBoard(board.id, { retro_stage: newStage });
 
-    if (error) {
-      console.error('Error updating retro stage:', error);
-      // Revert on error
-      setBoard(oldBoard);
-      toast({
-        title: "Error updating retro stage",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } else {
       toast({
         title: `Retro stage updated`,
         description: `Board is now in ${newStage} stage`,
@@ -1058,6 +1043,15 @@ export const useRetroBoard = (roomId: string) => {
       } catch (e) {
         console.warn('Failed to emit retro start notifications', e);
       }
+    } catch (error) {
+      console.error('Error updating retro stage:', error);
+      // Revert on error
+      setBoard(oldBoard);
+      toast({
+        title: "Error updating retro stage",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
