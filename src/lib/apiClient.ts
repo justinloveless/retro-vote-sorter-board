@@ -217,3 +217,30 @@ export async function apiUpdateFeatureFlag(flagName: string, isEnabled: boolean)
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);
 }
+
+// ===============
+// Profiles API
+// ===============
+
+export type ProfileItem = {
+  id: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  role: string | null;
+  themePreference: string | null;
+  backgroundPreference: any | null;
+};
+
+export type ProfileResponse = {
+  profile: ProfileItem;
+};
+
+export async function apiGetProfile(userId: string): Promise<ProfileResponse> {
+  const base = getApiBaseUrl();
+  const token = await getSupabaseAccessToken();
+  const res = await fetch(`${base}/api/profiles/${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}

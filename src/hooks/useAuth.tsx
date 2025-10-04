@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { onAuthStateChange } from '@/lib/dataClient';
+import { onAuthStateChange, fetchProfile as dcFetchProfile } from '@/lib/dataClient';
 import { signOut as dcSignOut } from '@/lib/dataClient';
 
 export interface Profile {
@@ -74,14 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { data: profileData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
-        .eq('id', userId)
-        .single();
+      const profileData = await dcFetchProfile(userId);
 
-      if (error) {
-        throw error;
+      if (!profileData) {
+        throw new Error('Profile not found');
       }
 
       localStorage.setItem('profile', JSON.stringify(profileData));
@@ -150,12 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshImpersonatedProfile = useCallback(async () => {
     if (!impersonatedProfile?.id) return;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
-        .eq('id', impersonatedProfile.id)
-        .single();
-      if (error) throw error;
+      const data = await dcFetchProfile(impersonatedProfile.id);
+      if (!data) throw new Error('Profile not found');
       localStorage.setItem('impersonated_profile', JSON.stringify(data));
       setImpersonatedProfile(data);
     } catch (e) {
@@ -167,12 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Only allow if current profile is admin
     if (profile?.role !== 'admin') throw new Error('Only admins can impersonate');
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
-        .eq('id', userId)
-        .single();
-      if (error) throw error;
+      const data = await dcFetchProfile(userId);
+      if (!data) throw new Error('Profile not found');
       localStorage.setItem('impersonated_profile', JSON.stringify(data));
       setImpersonatedProfile(data);
     } catch (e) {

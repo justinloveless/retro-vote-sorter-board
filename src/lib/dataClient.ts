@@ -109,6 +109,56 @@ export async function markAllNotificationsRead(): Promise<void> {
 }
 
 // ====================
+// Profiles
+// ====================
+
+export type ProfileRecord = {
+    id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    role: 'user' | 'admin' | null;
+    theme_preference: string | null;
+    background_preference: any | null;
+};
+
+export async function fetchProfile(userId: string): Promise<ProfileRecord | null> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetProfile } = await import('@/lib/apiClient');
+        try {
+            const response = await apiGetProfile(userId);
+            return {
+                id: response.profile.id,
+                full_name: response.profile.fullName,
+                avatar_url: response.profile.avatarUrl,
+                role: (response.profile.role as 'user' | 'admin') || null,
+                theme_preference: response.profile.themePreference,
+                background_preference: response.profile.backgroundPreference
+            };
+        } catch (error) {
+            console.error('Error fetching profile from API:', error);
+            return null;
+        }
+    }
+
+    try {
+        const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        return profileData;
+    } catch (error) {
+        console.error('Error fetching profile from Supabase:', error);
+        return null;
+    }
+}
+
+// ====================
 // Admin
 // ====================
 
