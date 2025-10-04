@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchTeamInvitations as dcFetchTeamInvitations } from '@/lib/dataClient';
+import { fetchTeamInvitations as dcFetchTeamInvitations, fetchCommentsForItem as dcFetchCommentsForItem } from '@/lib/dataClient';
 
 // Types
 interface TeamMember {
@@ -300,13 +300,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
       updateCache(teamId, 'actionItemComments', updatedComments, true);
 
-      const { data, error } = await supabase
-        .from('retro_comments')
-        .select('*, profiles(avatar_url, full_name)')
-        .eq('item_id', itemId)
-        .order('created_at');
-
-      if (error) throw error;
+      const data = await dcFetchCommentsForItem(itemId);
 
       const typedComments = (data || []).map(comment => ({
         ...comment,
