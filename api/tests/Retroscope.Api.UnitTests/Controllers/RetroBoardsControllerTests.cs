@@ -7,6 +7,7 @@ using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.Interfaces;
 using System.Security.Claims;
 using Retroscope.Application.DTOs.RetroBoardConfig;
+using Retroscope.Application.DTOs.RetroColumns;
 using Xunit;
 
 namespace Retroscope.Api.UnitTests.Controllers;
@@ -403,6 +404,156 @@ public sealed class RetroBoardsControllerTests
 
         // Act
         var result = await controllerWithoutAuth.UpdateRetroBoardConfig("board-1", request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetRetroColumns_ReturnsOkWithColumns()
+    {
+        // Arrange
+        var boardId = "board-1";
+        var expectedColumns = new List<RetroColumnItem>
+        {
+            new() { Id = "column-1", BoardId = boardId, Title = "What went well", Color = "green", Position = 1, IsActionItems = false },
+            new() { Id = "column-2", BoardId = boardId, Title = "What could be improved", Color = "red", Position = 2, IsActionItems = true }
+        };
+        _mockSupabaseGateway.Setup(g => g.GetRetroColumnsAsync(boardId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedColumns);
+
+        // Act
+        var result = await _controller.GetRetroColumns(boardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<RetroColumnsResponse>().Subject;
+        response.Items.Should().BeEquivalentTo(expectedColumns);
+    }
+
+    [Fact]
+    public async Task CreateRetroColumn_ReturnsCreated()
+    {
+        // Arrange
+        var request = new CreateRetroColumnRequest
+        {
+            BoardId = "board-1",
+            Title = "New Column",
+            Color = "blue",
+            Position = 3,
+            IsActionItems = false
+        };
+        var expectedColumn = new RetroColumnItem
+        {
+            Id = "new-column",
+            BoardId = request.BoardId,
+            Title = request.Title,
+            Color = request.Color,
+            Position = request.Position,
+            IsActionItems = request.IsActionItems
+        };
+        _mockSupabaseGateway.Setup(g => g.CreateRetroColumnAsync(request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedColumn);
+
+        // Act
+        var result = await _controller.CreateRetroColumn(request, CancellationToken.None);
+
+        // Assert
+        var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        createdResult.ActionName.Should().Be(nameof(RetroBoardsController.GetRetroColumns));
+        createdResult.RouteValues!["boardId"].Should().Be(request.BoardId);
+        createdResult.Value.Should().BeEquivalentTo(expectedColumn);
+    }
+
+    [Fact]
+    public async Task UpdateRetroColumn_ReturnsNoContent()
+    {
+        // Arrange
+        var columnId = "column-1";
+        var request = new UpdateRetroColumnRequest
+        {
+            Title = "Updated Title",
+            IsActionItems = true
+        };
+        _mockSupabaseGateway.Setup(g => g.UpdateRetroColumnAsync(columnId, request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.UpdateRetroColumn(columnId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteRetroColumn_ReturnsNoContent()
+    {
+        // Arrange
+        var columnId = "column-1";
+        _mockSupabaseGateway.Setup(g => g.DeleteRetroColumnAsync(columnId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.DeleteRetroColumn(columnId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRetroColumnsBatch_ReturnsNoContent()
+    {
+        // Arrange
+        var requests = new List<UpdateRetroColumnRequest>
+        {
+            new() { Position = 1, SortOrder = 1 },
+            new() { Position = 2, SortOrder = 2 }
+        };
+        _mockSupabaseGateway.Setup(g => g.UpdateRetroColumnsBatchAsync(requests, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.UpdateRetroColumnsBatch(requests, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task CreateRetroColumn_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new CreateRetroColumnRequest { BoardId = "board-1" };
+
+        // Act
+        var result = await controllerWithoutAuth.CreateRetroColumn(request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRetroColumn_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new UpdateRetroColumnRequest { Title = "Test" };
+
+        // Act
+        var result = await controllerWithoutAuth.UpdateRetroColumn("column-1", request, CancellationToken.None);
 
         // Assert
         result.Should().BeOfType<UnauthorizedObjectResult>();

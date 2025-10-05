@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchRetroColumns } from '@/lib/dataClient';
 
 export const BackfillActionItems: React.FC = () => {
   const [running, setRunning] = useState(false);
@@ -22,12 +23,8 @@ export const BackfillActionItems: React.FC = () => {
       for (const board of boards || []) {
         if (!board.team_id) continue;
         // Find action items column for this board
-        const { data: columns, error: colsError } = await supabase
-          .from('retro_columns')
-          .select('id, is_action_items')
-          .eq('board_id', board.id);
-        if (colsError) throw colsError;
-        const actionColumn = (columns || []).find(c => c.is_action_items === true);
+        const columns = await fetchRetroColumns(board.id);
+        const actionColumn = columns.find(c => c.is_action_items === true);
         if (!actionColumn) continue;
 
         // Get items in that column

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch } from '@/lib/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -20,12 +20,12 @@ interface RetroBoard {
 
 interface RetroColumn {
   id: string;
-  board_id: string;
+  board_id?: string;
   title: string;
   color: string;
   position: number;
   sort_order?: number;
-  is_action_items: boolean | null;
+  is_action_items?: boolean;
 }
 
 interface RetroItem {
@@ -229,14 +229,8 @@ export const useRetroBoard = (roomId: string) => {
         setBoardConfig(configData);
 
         // Load columns
-        const { data: columnsData, error: columnsError } = await supabase
-          .from('retro_columns')
-          .select('*')
-          .eq('board_id', boardData.id)
-          .order('position');
-
-        if (columnsError) throw columnsError;
-        setColumns(columnsData || []);
+        const columnsData = await fetchRetroColumns(boardData.id);
+        setColumns(columnsData);
 
         // Load items
         const { data: itemsData, error: itemsError } = await supabase
@@ -693,27 +687,22 @@ export const useRetroBoard = (roomId: string) => {
       'bg-indigo-100 border-indigo-300'
     ];
 
-    const { data: newColumn, error } = await supabase
-      .from('retro_columns')
-      .insert([{
-        board_id: board.id,
+    try {
+      const newColumn = await createRetroColumn(
+        board.id,
         title,
-        color: colors[columns.length % colors.length],
-        position: columns.length + 1,
-        is_action_items: false
-      }])
-      .select()
-      .single();
-
-    if (error) {
+        colors[columns.length % colors.length],
+        columns.length + 1,
+        false
+      );
+      setColumns(prevColumns => [...prevColumns, newColumn]);
+    } catch (error) {
       console.error('Error adding column:', error);
       toast({
         title: "Error adding column",
         description: "Please try again.",
         variant: "destructive",
       });
-    } else if (newColumn) {
-      setColumns(prevColumns => [...prevColumns, newColumn]);
     }
   };
 
@@ -732,13 +721,12 @@ export const useRetroBoard = (roomId: string) => {
 
       // Update all columns in the database - set others to false
       if (board) {
-        const { error: resetError } = await supabase
-          .from('retro_columns')
-          .update({ is_action_items: false })
-          .eq('board_id', board.id)
-          .neq('id', columnId);
-
-        if (resetError) {
+        try {
+          const otherColumns = columns.filter(c => c.id !== columnId);
+          for (const column of otherColumns) {
+            await updateRetroColumn(column.id, { is_action_items: false });
+          }
+        } catch (resetError) {
           console.error('Error resetting other columns:', resetError);
         }
       }
@@ -750,12 +738,9 @@ export const useRetroBoard = (roomId: string) => {
       );
     }
 
-    const { error } = await supabase
-      .from('retro_columns')
-      .update(updates)
-      .eq('id', columnId);
-
-    if (error) {
+    try {
+      await updateRetroColumn(columnId, updates);
+    } catch (error) {
       console.error('Error updating column:', error);
       setColumns(oldColumns);
       toast({
@@ -763,7 +748,10 @@ export const useRetroBoard = (roomId: string) => {
         description: "Please try again.",
         variant: "destructive",
       });
-    } else if (updates.is_action_items !== undefined) {
+      return;
+    }
+
+    if (updates.is_action_items !== undefined) {
       toast({
         title: updates.is_action_items ? "Action items column set" : "Action items column removed",
         description: updates.is_action_items
@@ -775,15 +763,8 @@ export const useRetroBoard = (roomId: string) => {
 
   const deleteColumn = async (columnId: string) => {
     try {
-      const { error } = await supabase
-        .from('retro_columns')
-        .delete()
-        .eq('id', columnId);
-
-      if (error) throw error;
-
+      await deleteRetroColumn(columnId);
       setColumns(prevColumns => prevColumns.filter(c => c.id !== columnId));
-
     } catch (error) {
       console.error('Error deleting column:', error);
       toast({
@@ -803,11 +784,17 @@ export const useRetroBoard = (roomId: string) => {
       sort_order: index + 1
     }));
 
-    for (const update of updates) {
-      await supabase
-        .from('retro_columns')
-        .update({ position: update.position, sort_order: update.sort_order })
-        .eq('id', update.id);
+    try {
+      await updateRetroColumnsBatch(updates);
+    } catch (error) {
+      console.error('Error reordering columns:', error);
+      // Revert on error - set back to original order
+      setColumns(columns);
+      toast({
+        title: "Error reordering columns",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

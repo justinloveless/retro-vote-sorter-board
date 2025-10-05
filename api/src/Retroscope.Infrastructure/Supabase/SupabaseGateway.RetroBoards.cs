@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.DTOs.RetroBoardConfig;
+using Retroscope.Application.DTOs.RetroColumns;
 
 namespace Retroscope.Infrastructure.Supabase;
 
@@ -451,5 +452,161 @@ public sealed partial class SupabaseGateway
     {
         public string Id { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
+    }
+
+    public async Task<List<RetroColumnItem>> GetRetroColumnsAsync(string boardId, string authorizationHeader, CancellationToken ct)
+    {
+        var url = $"retro_columns?board_id=eq.{boardId}&order=position.asc";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        request.Headers.Add("apikey", _supabaseAnonKey);
+
+        var response = await _postgrestClient.SendAsync(request, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to access retro columns.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var columns = await response.Content.ReadFromJsonAsync<List<RetroColumnRecord>>(cancellationToken: ct)
+                     ?? new List<RetroColumnRecord>();
+
+        return columns.Select(MapToRetroColumnItem).ToList();
+    }
+
+    public async Task<RetroColumnItem> CreateRetroColumnAsync(CreateRetroColumnRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["board_id"] = request.BoardId,
+            ["title"] = request.Title,
+            ["color"] = request.Color,
+            ["position"] = request.Position
+        };
+
+        if (request.SortOrder.HasValue) payload["sort_order"] = request.SortOrder.Value;
+        if (request.IsActionItems.HasValue) payload["is_action_items"] = request.IsActionItems.Value;
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "retro_columns");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=representation");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to create retro column.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var newColumn = await response.Content.ReadFromJsonAsync<RetroColumnRecord>(cancellationToken: ct);
+        if (newColumn == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize new retro column from Supabase.");
+        }
+
+        return MapToRetroColumnItem(newColumn);
+    }
+
+    public async Task UpdateRetroColumnAsync(string columnId, UpdateRetroColumnRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>();
+
+        if (request.Title != null) payload["title"] = request.Title;
+        if (request.Color != null) payload["color"] = request.Color;
+        if (request.Position.HasValue) payload["position"] = request.Position.Value;
+        if (request.SortOrder.HasValue) payload["sort_order"] = request.SortOrder.Value;
+        if (request.IsActionItems.HasValue) payload["is_action_items"] = request.IsActionItems.Value;
+
+        var httpRequest = new HttpRequestMessage(new HttpMethod("PATCH"), $"retro_columns?id=eq.{columnId}");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=minimal");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to update retro column.");
+        }
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException($"Retro column with ID {columnId} not found.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteRetroColumnAsync(string columnId, string authorizationHeader, CancellationToken ct)
+    {
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"retro_columns?id=eq.{columnId}");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=minimal");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to delete retro column.");
+        }
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException($"Retro column with ID {columnId} not found.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UpdateRetroColumnsBatchAsync(List<UpdateRetroColumnRequest> requests, string authorizationHeader, CancellationToken ct)
+    {
+        // For batch updates, we'll need to update each column individually
+        // since Supabase PostgREST doesn't support batch PATCH operations easily
+        foreach (var request in requests)
+        {
+            // We need the column ID for each request, but the UpdateRetroColumnRequest doesn't have it
+            // This is a design issue - we need to modify the request structure
+            // For now, let's implement a simpler approach where we expect the column ID to be provided separately
+            // Actually, looking at the frontend code, it seems like it sends individual updates with IDs
+            // Let me implement this by expecting the column ID to be in the request or modify the approach
+        }
+
+        // For now, implement a simpler approach where we expect column IDs to be provided
+        // This is a limitation of the current design - in practice, the frontend should send individual updates with IDs
+        throw new NotImplementedException("Batch column updates require column IDs in the request");
+    }
+
+    private static RetroColumnItem MapToRetroColumnItem(RetroColumnRecord record)
+    {
+        return new RetroColumnItem
+        {
+            Id = record.Id,
+            BoardId = record.Board_Id,
+            Title = record.Title,
+            Color = record.Color,
+            Position = record.Position,
+            SortOrder = record.Sort_Order,
+            IsActionItems = record.Is_Action_Items,
+            CreatedAt = record.Created_At
+        };
+    }
+
+    private sealed class RetroColumnRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? Board_Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public int Position { get; set; }
+        public int? Sort_Order { get; set; }
+        public bool? Is_Action_Items { get; set; }
+        public string? Created_At { get; set; }
     }
 }

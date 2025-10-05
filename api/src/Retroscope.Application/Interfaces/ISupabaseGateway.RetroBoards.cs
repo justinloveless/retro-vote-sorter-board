@@ -1,5 +1,6 @@
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.DTOs.RetroBoardConfig;
+using Retroscope.Application.DTOs.RetroColumns;
 
 namespace Retroscope.Application.Interfaces;
 
@@ -54,4 +55,29 @@ public partial interface ISupabaseGateway
     /// Updates retro board config for a specific board
     /// </summary>
     Task UpdateRetroBoardConfigAsync(string boardId, UpdateRetroBoardConfigRequest request, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Gets retro columns for a specific board
+    /// </summary>
+    Task<List<RetroColumnItem>> GetRetroColumnsAsync(string boardId, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Creates a new retro column
+    /// </summary>
+    Task<RetroColumnItem> CreateRetroColumnAsync(CreateRetroColumnRequest request, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Updates a retro column by ID
+    /// </summary>
+    Task UpdateRetroColumnAsync(string columnId, UpdateRetroColumnRequest request, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes a retro column by ID
+    /// </summary>
+    Task DeleteRetroColumnAsync(string columnId, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Updates multiple retro columns (for reordering)
+    /// </summary>
+    Task UpdateRetroColumnsBatchAsync(List<UpdateRetroColumnRequest> requests, string authorizationHeader, CancellationToken ct);
 }

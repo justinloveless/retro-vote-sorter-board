@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.DTOs.RetroBoardConfig;
+using Retroscope.Application.DTOs.RetroColumns;
 using Retroscope.Application.Interfaces;
 
 namespace Retroscope.Api.Controllers;
@@ -343,6 +344,190 @@ public sealed class RetroBoardsController : ControllerBase
         {
             _logger.LogError(ex, "Failed to update retro board config for board {BoardId}", boardId);
             return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro board config.", error = ex.Message });
+        }
+    }
+
+    [HttpGet("{boardId}/columns")]
+    [ProducesResponseType(typeof(RetroColumnsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetRetroColumns(
+        string boardId,
+        CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var columns = await _supabaseGateway.GetRetroColumnsAsync(boardId, authHeader, ct);
+            return Ok(new RetroColumnsResponse { Items = columns });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when fetching retro columns for board {BoardId}", boardId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve retro columns for board {BoardId}", boardId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to retrieve retro columns.", error = ex.Message });
+        }
+    }
+
+    [HttpPost("columns")]
+    [ProducesResponseType(typeof(RetroColumnItem), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> CreateRetroColumn(
+        [FromBody] CreateRetroColumnRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var newColumn = await _supabaseGateway.CreateRetroColumnAsync(request, authHeader, ct);
+            return CreatedAtAction(nameof(GetRetroColumns), new { boardId = newColumn.BoardId }, newColumn);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when creating retro column");
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create retro column", ex);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to create retro column.", error = ex.Message });
+        }
+    }
+
+    [HttpPatch("columns/{columnId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> UpdateRetroColumn(
+        string columnId,
+        [FromBody] UpdateRetroColumnRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.UpdateRetroColumnAsync(columnId, request, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when updating retro column {ColumnId}", columnId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update retro column {ColumnId}", columnId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro column.", error = ex.Message });
+        }
+    }
+
+    [HttpDelete("columns/{columnId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> DeleteRetroColumn(
+        string columnId,
+        CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.DeleteRetroColumnAsync(columnId, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when deleting retro column {ColumnId}", columnId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete retro column {ColumnId}", columnId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to delete retro column.", error = ex.Message });
+        }
+    }
+
+    [HttpPatch("columns/batch")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> UpdateRetroColumnsBatch(
+        [FromBody] List<UpdateRetroColumnRequest> requests,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.UpdateRetroColumnsBatchAsync(requests, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when updating retro columns batch");
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update retro columns batch", ex);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro columns batch.", error = ex.Message });
         }
     }
 }
