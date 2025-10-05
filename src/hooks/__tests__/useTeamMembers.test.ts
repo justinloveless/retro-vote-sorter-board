@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { useTeamMembers } from '../useTeamMembers'
 import { shouldUseCSharpApi } from '@/config/environment'
-import { apiGetTeamMembers } from '@/lib/apiClient'
+import { apiGetTeamMembers } from '@/lib/data/csharpApi/apiClient'
 
 // Mock dependencies
 vi.mock('@/config/environment')
@@ -74,7 +74,7 @@ describe('useTeamMembers', () => {
           }
         ]
       }
-      
+
       mockApiGetTeamMembers.mockResolvedValue(mockApiResponse)
 
       const { result } = renderHook(() => useTeamMembers('team-123'))
@@ -84,7 +84,7 @@ describe('useTeamMembers', () => {
       })
 
       expect(mockApiGetTeamMembers).toHaveBeenCalledWith('team-123')
-      
+
       // Verify the mapping from API response to internal format
       expect(result.current.members).toEqual([
         {
@@ -158,7 +158,7 @@ describe('useTeamMembers', () => {
 
       // Verify API client was not called
       expect(mockApiGetTeamMembers).not.toHaveBeenCalled()
-      
+
       // Verify Supabase path was used (indirectly by checking no API call)
       expect(result.current.members).toEqual([])
     })
@@ -192,7 +192,7 @@ describe('useTeamMembers', () => {
           }
         ]
       }
-      
+
       mockApiGetTeamMembers.mockResolvedValue(mockApiResponse)
 
       const { result } = renderHook(() => useTeamMembers('team-123'))
@@ -216,7 +216,7 @@ describe('useTeamMembers', () => {
           }
         ]
       }
-      
+
       mockApiGetTeamMembers.mockResolvedValue(mockApiResponse)
 
       const { result } = renderHook(() => useTeamMembers('team-123'))

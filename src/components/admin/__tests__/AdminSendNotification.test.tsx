@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { AdminSendNotification } from '../AdminSendNotification'
 import { shouldUseCSharpApi } from '@/config/environment'
-import { apiAdminSendNotification } from '@/lib/apiClient'
+import { apiAdminSendNotification } from '@/lib/data/csharpApi/apiClient'
 
 // Mock dependencies
 vi.mock('@/config/environment')
@@ -42,7 +42,7 @@ describe('AdminSendNotification', () => {
         count: 2,
         info: 'Notifications sent successfully'
       }
-      
+
       mockApiAdminSendNotification.mockResolvedValue(mockResponse)
 
       render(<AdminSendNotification />)
@@ -51,13 +51,13 @@ describe('AdminSendNotification', () => {
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
       const messageInput = screen.getByLabelText('Message (optional)')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com, bob@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
-      
+
       await user.clear(messageInput)
       await user.type(messageInput, 'This is a test message')
 
@@ -84,7 +84,7 @@ describe('AdminSendNotification', () => {
         count: 2,
         info: 'Notifications sent successfully'
       }
-      
+
       mockApiAdminSendNotification.mockResolvedValue(mockResponse)
 
       render(<AdminSendNotification />)
@@ -92,10 +92,10 @@ describe('AdminSendNotification', () => {
       // Clear and fill out the form with mix of emails and user IDs
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com, 12345678-1234-1234-1234-123456789012')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -123,10 +123,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -144,17 +144,17 @@ describe('AdminSendNotification', () => {
         count: 1,
         info: undefined
       }
-      
+
       mockApiAdminSendNotification.mockResolvedValue(mockResponse)
 
       render(<AdminSendNotification />)
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -171,17 +171,17 @@ describe('AdminSendNotification', () => {
         count: 1,
         info: 'Sent successfully'
       }
-      
+
       mockApiAdminSendNotification.mockResolvedValue(mockResponse)
 
       render(<AdminSendNotification />)
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -207,10 +207,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -241,10 +241,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -281,10 +281,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -293,7 +293,7 @@ describe('AdminSendNotification', () => {
     })
 
     it('should show loading state while sending', async () => {
-      mockApiAdminSendNotification.mockImplementation(() => 
+      mockApiAdminSendNotification.mockImplementation(() =>
         new Promise(resolve => setTimeout(() => resolve({ success: true, count: 1 }), 100))
       )
 
@@ -301,10 +301,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -337,10 +337,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, ' alice@example.com , bob@example.com ')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 
@@ -365,10 +365,10 @@ describe('AdminSendNotification', () => {
 
       const recipientsInput = screen.getByLabelText('Recipients (comma-separated emails or user IDs)')
       const titleInput = screen.getByLabelText('Title')
-      
+
       await user.clear(recipientsInput)
       await user.type(recipientsInput, 'alice@example.com,,bob@example.com,')
-      
+
       await user.clear(titleInput)
       await user.type(titleInput, 'Test Notification')
 

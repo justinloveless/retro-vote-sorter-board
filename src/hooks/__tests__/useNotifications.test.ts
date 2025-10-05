@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { useNotifications } from '../useNotifications'
 import { shouldUseCSharpApi } from '@/config/environment'
-import { apiGetNotifications } from '@/lib/apiClient'
+import { apiGetNotifications } from '@/lib/data/csharpApi/apiClient'
 
 // Mock dependencies
 vi.mock('@/config/environment')
@@ -60,7 +60,7 @@ describe('useNotifications', () => {
           is_read: false
         }
       ]
-      
+
       mockApiGetNotifications.mockResolvedValue({ items: mockNotifications })
 
       const { result } = renderHook(() => useNotifications())
@@ -118,7 +118,7 @@ describe('useNotifications', () => {
 
       // Verify API client was not called
       expect(mockApiGetNotifications).not.toHaveBeenCalled()
-      
+
       // Verify Supabase path was used (indirectly by checking no API call)
       expect(result.current.notifications).toEqual([])
     })
@@ -193,7 +193,7 @@ describe('useNotifications', () => {
         { id: '2', is_read: true, created_at: '2025-01-01T00:00:00Z', user_id: 'test-user-id', type: 'test', title: 'Test 2', message: null, url: null },
         { id: '3', is_read: false, created_at: '2025-01-01T00:00:00Z', user_id: 'test-user-id', type: 'test', title: 'Test 3', message: null, url: null }
       ]
-      
+
       mockApiGetNotifications.mockResolvedValue({ items: mockNotifications })
 
       const { result } = renderHook(() => useNotifications())
