@@ -1,4 +1,5 @@
 using Retroscope.Application.DTOs.RetroBoards;
+using Retroscope.Application.DTOs.RetroBoardConfig;
 
 namespace Retroscope.Application.Interfaces;
 
@@ -38,4 +39,19 @@ public partial interface ISupabaseGateway
     /// Gets board titles for a list of board IDs
     /// </summary>
     Task<List<BoardTitleItem>> GetRetroBoardTitlesByIdsAsync(List<string> boardIds, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Gets retro board config for a specific board
+    /// </summary>
+    Task<RetroBoardConfigItem?> GetRetroBoardConfigAsync(string boardId, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Creates a new retro board config
+    /// </summary>
+    Task<RetroBoardConfigItem> CreateRetroBoardConfigAsync(CreateRetroBoardConfigRequest request, string authorizationHeader, CancellationToken ct);
+
+    /// <summary>
+    /// Updates retro board config for a specific board
+    /// </summary>
+    Task UpdateRetroBoardConfigAsync(string boardId, UpdateRetroBoardConfigRequest request, string authorizationHeader, CancellationToken ct);
 }

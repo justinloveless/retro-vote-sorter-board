@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs.RetroBoards;
+using Retroscope.Application.DTOs.RetroBoardConfig;
 using Retroscope.Application.Interfaces;
 
 namespace Retroscope.Api.Controllers;
@@ -11,10 +12,12 @@ namespace Retroscope.Api.Controllers;
 public sealed class RetroBoardsController : ControllerBase
 {
     private readonly ISupabaseGateway _supabaseGateway;
+    private readonly ILogger<RetroBoardsController> _logger;
 
-    public RetroBoardsController(ISupabaseGateway supabaseGateway)
+    public RetroBoardsController(ISupabaseGateway supabaseGateway, ILogger<RetroBoardsController>? logger = null)
     {
         _supabaseGateway = supabaseGateway;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<RetroBoardsController>.Instance;
     }
 
     [HttpGet("team/{teamId}")]
@@ -224,6 +227,122 @@ public sealed class RetroBoardsController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to delete retro board.", error = ex.Message });
+        }
+    }
+
+    [HttpGet("{boardId}/config")]
+    [ProducesResponseType(typeof(RetroBoardConfigResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetRetroBoardConfig(
+        string boardId,
+        CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var config = await _supabaseGateway.GetRetroBoardConfigAsync(boardId, authHeader, ct);
+            if (config == null)
+            {
+                return NotFound();
+            }
+            return Ok(new RetroBoardConfigResponse { Config = config });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when fetching retro board config for board {BoardId}", boardId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve retro board config for board {BoardId}", boardId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to retrieve retro board config.", error = ex.Message });
+        }
+    }
+
+    [HttpPost("config")]
+    [ProducesResponseType(typeof(RetroBoardConfigItem), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> CreateRetroBoardConfig(
+        [FromBody] CreateRetroBoardConfigRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var newConfig = await _supabaseGateway.CreateRetroBoardConfigAsync(request, authHeader, ct);
+            return CreatedAtAction(nameof(GetRetroBoardConfig), new { boardId = newConfig.BoardId }, newConfig);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when creating retro board config");
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create retro board config", ex);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to create retro board config.", error = ex.Message });
+        }
+    }
+
+    [HttpPatch("{boardId}/config")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> UpdateRetroBoardConfig(
+        string boardId,
+        [FromBody] UpdateRetroBoardConfigRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.UpdateRetroBoardConfigAsync(boardId, request, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when updating retro board config for board {BoardId}", boardId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update retro board config for board {BoardId}", boardId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro board config.", error = ex.Message });
         }
     }
 }

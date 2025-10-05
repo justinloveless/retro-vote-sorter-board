@@ -6,6 +6,7 @@ using Retroscope.Api.Controllers;
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.Interfaces;
 using System.Security.Claims;
+using Retroscope.Application.DTOs.RetroBoardConfig;
 using Xunit;
 
 namespace Retroscope.Api.UnitTests.Controllers;
@@ -252,6 +253,159 @@ public sealed class RetroBoardsControllerTests
         // Assert
         capturedRequest.Should().NotBeNull();
         capturedRequest!.CreatorId.Should().Be("test-user-id");
+    }
+
+    [Fact]
+    public async Task GetRetroBoardConfig_ReturnsOkWithConfig()
+    {
+        // Arrange
+        var boardId = "board-1";
+        var expectedConfig = new RetroBoardConfigItem
+        {
+            Id = "config-1",
+            BoardId = boardId,
+            AllowAnonymous = true,
+            VotingEnabled = true,
+            MaxVotesPerUser = 3,
+            ShowAuthorNames = true,
+            RetroStagesEnabled = false,
+            EnforceStageReadiness = false,
+            AllowSelfVotes = true,
+            VoteEmoji = "👍"
+        };
+        _mockSupabaseGateway.Setup(g => g.GetRetroBoardConfigAsync(boardId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedConfig);
+
+        // Act
+        var result = await _controller.GetRetroBoardConfig(boardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<RetroBoardConfigResponse>().Subject;
+        response.Config.Should().BeEquivalentTo(expectedConfig);
+    }
+
+    [Fact]
+    public async Task GetRetroBoardConfig_ReturnsNotFound_WhenConfigDoesNotExist()
+    {
+        // Arrange
+        var boardId = "board-1";
+        _mockSupabaseGateway.Setup(g => g.GetRetroBoardConfigAsync(boardId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetroBoardConfigItem?)null);
+
+        // Act
+        var result = await _controller.GetRetroBoardConfig(boardId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateRetroBoardConfig_ReturnsCreated()
+    {
+        // Arrange
+        var request = new CreateRetroBoardConfigRequest
+        {
+            BoardId = "board-1",
+            AllowAnonymous = true,
+            VotingEnabled = true,
+            MaxVotesPerUser = 3
+        };
+        var expectedConfig = new RetroBoardConfigItem
+        {
+            Id = "new-config",
+            BoardId = request.BoardId,
+            AllowAnonymous = request.AllowAnonymous,
+            VotingEnabled = request.VotingEnabled,
+            MaxVotesPerUser = request.MaxVotesPerUser
+        };
+        _mockSupabaseGateway.Setup(g => g.CreateRetroBoardConfigAsync(request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedConfig);
+
+        // Act
+        var result = await _controller.CreateRetroBoardConfig(request, CancellationToken.None);
+
+        // Assert
+        var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        createdResult.ActionName.Should().Be(nameof(RetroBoardsController.GetRetroBoardConfig));
+        createdResult.RouteValues!["boardId"].Should().Be(request.BoardId);
+        createdResult.Value.Should().BeEquivalentTo(expectedConfig);
+    }
+
+    [Fact]
+    public async Task UpdateRetroBoardConfig_ReturnsNoContent()
+    {
+        // Arrange
+        var boardId = "board-1";
+        var request = new UpdateRetroBoardConfigRequest
+        {
+            AllowAnonymous = false,
+            VotingEnabled = false
+        };
+        _mockSupabaseGateway.Setup(g => g.UpdateRetroBoardConfigAsync(boardId, request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.UpdateRetroBoardConfig(boardId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRetroBoardConfig_ReturnsNotFound_WhenConfigDoesNotExist()
+    {
+        // Arrange
+        var boardId = "nonexistent-board";
+        var request = new UpdateRetroBoardConfigRequest { AllowAnonymous = true };
+        _mockSupabaseGateway.Setup(g => g.UpdateRetroBoardConfigAsync(boardId, request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException());
+
+        // Act
+        var result = await _controller.UpdateRetroBoardConfig(boardId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateRetroBoardConfig_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new CreateRetroBoardConfigRequest { BoardId = "board-1" };
+
+        // Act
+        var result = await controllerWithoutAuth.CreateRetroBoardConfig(request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRetroBoardConfig_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new UpdateRetroBoardConfigRequest { AllowAnonymous = true };
+
+        // Act
+        var result = await controllerWithoutAuth.UpdateRetroBoardConfig("board-1", request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 }
 

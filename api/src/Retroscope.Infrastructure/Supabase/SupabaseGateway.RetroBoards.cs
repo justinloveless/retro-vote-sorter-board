@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Retroscope.Application.DTOs.RetroBoards;
+using Retroscope.Application.DTOs.RetroBoardConfig;
 
 namespace Retroscope.Infrastructure.Supabase;
 
@@ -241,6 +242,138 @@ public sealed partial class SupabaseGateway
             Id = b.Id,
             Title = b.Title
         }).ToList();
+    }
+
+    public async Task<RetroBoardConfigItem?> GetRetroBoardConfigAsync(string boardId, string authorizationHeader, CancellationToken ct)
+    {
+        var url = $"retro_board_config?board_id=eq.{boardId}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        request.Headers.Add("apikey", _supabaseAnonKey);
+
+        var response = await _postgrestClient.SendAsync(request, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to access retro board config.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var configs = await response.Content.ReadFromJsonAsync<List<RetroBoardConfigRecord>>(cancellationToken: ct)
+                     ?? new List<RetroBoardConfigRecord>();
+
+        var configRecord = configs.FirstOrDefault();
+        return configRecord != null ? MapToRetroBoardConfigItem(configRecord) : null;
+    }
+
+    public async Task<RetroBoardConfigItem> CreateRetroBoardConfigAsync(CreateRetroBoardConfigRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["board_id"] = request.BoardId
+        };
+
+        if (request.AllowAnonymous.HasValue) payload["allow_anonymous"] = request.AllowAnonymous.Value;
+        if (request.VotingEnabled.HasValue) payload["voting_enabled"] = request.VotingEnabled.Value;
+        if (request.MaxVotesPerUser.HasValue) payload["max_votes_per_user"] = request.MaxVotesPerUser.Value;
+        if (request.ShowAuthorNames.HasValue) payload["show_author_names"] = request.ShowAuthorNames.Value;
+        if (request.RetroStagesEnabled.HasValue) payload["retro_stages_enabled"] = request.RetroStagesEnabled.Value;
+        if (request.EnforceStageReadiness.HasValue) payload["enforce_stage_readiness"] = request.EnforceStageReadiness.Value;
+        if (request.AllowSelfVotes.HasValue) payload["allow_self_votes"] = request.AllowSelfVotes.Value;
+        if (request.VoteEmoji != null) payload["vote_emoji"] = request.VoteEmoji;
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "retro_board_config");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=representation");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to create retro board config.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var newConfig = await response.Content.ReadFromJsonAsync<RetroBoardConfigRecord>(cancellationToken: ct);
+        if (newConfig == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize new retro board config from Supabase.");
+        }
+
+        return MapToRetroBoardConfigItem(newConfig);
+    }
+
+    public async Task UpdateRetroBoardConfigAsync(string boardId, UpdateRetroBoardConfigRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>();
+
+        if (request.AllowAnonymous.HasValue) payload["allow_anonymous"] = request.AllowAnonymous.Value;
+        if (request.VotingEnabled.HasValue) payload["voting_enabled"] = request.VotingEnabled.Value;
+        if (request.MaxVotesPerUser.HasValue) payload["max_votes_per_user"] = request.MaxVotesPerUser.Value;
+        if (request.ShowAuthorNames.HasValue) payload["show_author_names"] = request.ShowAuthorNames.Value;
+        if (request.RetroStagesEnabled.HasValue) payload["retro_stages_enabled"] = request.RetroStagesEnabled.Value;
+        if (request.EnforceStageReadiness.HasValue) payload["enforce_stage_readiness"] = request.EnforceStageReadiness.Value;
+        if (request.AllowSelfVotes.HasValue) payload["allow_self_votes"] = request.AllowSelfVotes.Value;
+        if (request.VoteEmoji != null) payload["vote_emoji"] = request.VoteEmoji;
+
+        var httpRequest = new HttpRequestMessage(new HttpMethod("PATCH"), $"retro_board_config?board_id=eq.{boardId}");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=minimal");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to update retro board config.");
+        }
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException($"Retro board config with board ID {boardId} not found.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static RetroBoardConfigItem MapToRetroBoardConfigItem(RetroBoardConfigRecord record)
+    {
+        return new RetroBoardConfigItem
+        {
+            Id = record.Id,
+            BoardId = record.Board_Id,
+            AllowAnonymous = record.Allow_Anonymous,
+            VotingEnabled = record.Voting_Enabled,
+            MaxVotesPerUser = record.Max_Votes_Per_User,
+            ShowAuthorNames = record.Show_Author_Names,
+            RetroStagesEnabled = record.Retro_Stages_Enabled,
+            EnforceStageReadiness = record.Enforce_Stage_Readiness,
+            AllowSelfVotes = record.Allow_Self_Votes,
+            VoteEmoji = record.Vote_Emoji,
+            CreatedAt = record.Created_At,
+            UpdatedAt = record.Updated_At
+        };
+    }
+
+    private sealed class RetroBoardConfigRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Board_Id { get; set; } = string.Empty;
+        public bool? Allow_Anonymous { get; set; }
+        public bool? Voting_Enabled { get; set; }
+        public int? Max_Votes_Per_User { get; set; }
+        public bool? Show_Author_Names { get; set; }
+        public bool? Retro_Stages_Enabled { get; set; }
+        public bool? Enforce_Stage_Readiness { get; set; }
+        public bool? Allow_Self_Votes { get; set; }
+        public string? Vote_Emoji { get; set; }
+        public string Created_At { get; set; } = string.Empty;
+        public string Updated_At { get; set; } = string.Empty;
     }
 
     private static RetroBoardItem MapToRetroBoardItem(RetroBoardRecord record)

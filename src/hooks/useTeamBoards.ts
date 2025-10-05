@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthUser, fetchRetroBoards, createRetroBoard } from '../lib/dataClient.ts';
+import { getAuthUser, fetchRetroBoards, createRetroBoard, createRetroBoardConfig } from '../lib/dataClient.ts';
 
 interface TeamBoard {
   id: string;
@@ -81,7 +81,7 @@ export const useTeamBoards = (teamId: string | null) => {
         teamId,
       });
 
-      // Apply template settings (still using Supabase directly as this isn't in the C# API yet)
+      // Apply template settings using dataClient
       const { data: defaultTemplate } = await supabase
         .from('board_templates')
         .select('*')
@@ -90,16 +90,13 @@ export const useTeamBoards = (teamId: string | null) => {
         .single();
 
       if (defaultTemplate && board) {
-        await supabase
-          .from('retro_board_config')
-          .insert([{
-            board_id: board.id,
-            allow_anonymous: defaultTemplate.allow_anonymous,
-            voting_enabled: defaultTemplate.voting_enabled,
-            max_votes_per_user: defaultTemplate.max_votes_per_user,
-            show_author_names: defaultTemplate.show_author_names,
-            retro_stages_enabled: defaultTemplate.retro_stages_enabled
-          }]);
+        await createRetroBoardConfig(board.id, {
+          allow_anonymous: defaultTemplate.allow_anonymous,
+          voting_enabled: defaultTemplate.voting_enabled,
+          max_votes_per_user: defaultTemplate.max_votes_per_user,
+          show_author_names: defaultTemplate.show_author_names,
+          retro_stages_enabled: defaultTemplate.retro_stages_enabled
+        });
       } else {
         const { data: defaultSettings } = await supabase
           .from('team_default_settings')
@@ -108,27 +105,21 @@ export const useTeamBoards = (teamId: string | null) => {
           .single();
 
         if (defaultSettings && board) {
-          await supabase
-            .from('retro_board_config')
-            .insert([{
-              board_id: board.id,
-              allow_anonymous: defaultSettings.allow_anonymous,
-              voting_enabled: defaultSettings.voting_enabled,
-              max_votes_per_user: defaultSettings.max_votes_per_user,
-              show_author_names: defaultSettings.show_author_names,
-              retro_stages_enabled: defaultSettings.retro_stages_enabled || false
-            }]);
+          await createRetroBoardConfig(board.id, {
+            allow_anonymous: defaultSettings.allow_anonymous,
+            voting_enabled: defaultSettings.voting_enabled,
+            max_votes_per_user: defaultSettings.max_votes_per_user,
+            show_author_names: defaultSettings.show_author_names,
+            retro_stages_enabled: defaultSettings.retro_stages_enabled || false
+          });
         } else if (board) {
-          await supabase
-            .from('retro_board_config')
-            .insert([{
-              board_id: board.id,
-              allow_anonymous: true,
-              voting_enabled: true,
-              max_votes_per_user: null,
-              show_author_names: true,
-              retro_stages_enabled: false
-            }]);
+          await createRetroBoardConfig(board.id, {
+            allow_anonymous: true,
+            voting_enabled: true,
+            max_votes_per_user: null,
+            show_author_names: true,
+            retro_stages_enabled: false
+          });
         }
       }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig } from '@/lib/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -66,14 +66,14 @@ interface RetroComment {
 interface RetroBoardConfig {
   id: string;
   board_id: string;
-  allow_anonymous: boolean;
-  voting_enabled: boolean;
-  max_votes_per_user: number | null;
-  show_author_names: boolean;
-  retro_stages_enabled: boolean | null;
-  enforce_stage_readiness: boolean | null;
-  allow_self_votes?: boolean | null;
-  vote_emoji?: string | null;
+  allow_anonymous?: boolean;
+  voting_enabled?: boolean;
+  max_votes_per_user?: number | null;
+  show_author_names?: boolean;
+  retro_stages_enabled?: boolean;
+  enforce_stage_readiness?: boolean;
+  allow_self_votes?: boolean;
+  vote_emoji?: string;
 }
 
 interface ActiveUser {
@@ -210,27 +210,23 @@ export const useRetroBoard = (roomId: string) => {
         setBoard(boardData);
 
         // Load board config
-        const { data: configData, error: configError } = await supabase
-          .from('retro_board_config')
-          .select('*')
-          .eq('board_id', boardData.id)
-          .single();
+        let configData = await fetchRetroBoardConfig(boardData.id);
 
-        if (configError && configError.code === 'PGRST116') {
-          // Config doesn't exist, create it
-          const { data: newConfig, error: createConfigError } = await supabase
-            .from('retro_board_config')
-            .insert([{ board_id: boardData.id }])
-            .select()
-            .single();
-
-          if (createConfigError) throw createConfigError;
-          setBoardConfig(newConfig);
-        } else if (configError) {
-          throw configError;
-        } else {
-          setBoardConfig(configData);
+        if (!configData) {
+          // Config doesn't exist, create it with defaults
+          configData = await createRetroBoardConfig(boardData.id, {
+            allow_anonymous: true,
+            voting_enabled: true,
+            max_votes_per_user: 3,
+            show_author_names: true,
+            retro_stages_enabled: false,
+            enforce_stage_readiness: false,
+            allow_self_votes: true,
+            vote_emoji: '👍'
+          });
         }
+
+        setBoardConfig(configData);
 
         // Load columns
         const { data: columnsData, error: columnsError } = await supabase
@@ -537,12 +533,9 @@ export const useRetroBoard = (roomId: string) => {
     const oldConfig = { ...boardConfig };
     setBoardConfig(prev => prev ? { ...prev, ...config } : null); // Optimistic update
 
-    const { error } = await supabase
-      .from('retro_board_config')
-      .update(config)
-      .eq('board_id', board.id);
-
-    if (error) {
+    try {
+      await updateRetroBoardConfig(board.id, config);
+    } catch (error) {
       console.error('Error updating board config:', error);
       setBoardConfig(oldConfig); // Revert on error
       toast({
