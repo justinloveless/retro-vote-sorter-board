@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchRetroColumns } from '@/lib/dataClient';
+import { fetchRetroColumns, fetchRetroItems } from '@/lib/dataClient';
 
 export const BackfillActionItems: React.FC = () => {
   const [running, setRunning] = useState(false);
@@ -28,18 +28,14 @@ export const BackfillActionItems: React.FC = () => {
         if (!actionColumn) continue;
 
         // Get items in that column
-        const { data: items, error: itemsError } = await supabase
-          .from('retro_items')
-          .select('id, text')
-          .eq('board_id', board.id)
-          .eq('column_id', actionColumn.id);
-        if (itemsError) throw itemsError;
+        const allItems = await fetchRetroItems(board.id);
+        const items = allItems.filter(item => item.column_id === actionColumn.id);
 
         for (const item of items || []) {
           // Upsert into team_action_items if not exists (protected by unique index)
           const { error: insError } = await supabase
             .from('team_action_items')
-            .upsert([{ team_id: board.team_id, text: item.text, source_board_id: board.id, source_item_id: item.id }], { 
+            .upsert([{ team_id: board.team_id, text: item.text, source_board_id: board.id, source_item_id: item.id }], {
               onConflict: 'source_item_id',
               ignoreDuplicates: false
             });

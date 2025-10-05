@@ -1227,6 +1227,149 @@ export async function updateRetroColumnsBatch(updates: Array<{ id: string; posit
     }
 }
 
+export type RetroItemRecord = {
+    id: string;
+    board_id?: string;
+    column_id?: string;
+    text: string;
+    author: string;
+    author_id?: string;
+    votes?: number;
+    session_id?: string;
+    created_at?: string;
+    updated_at?: string;
+    profiles?: { avatar_url: string; full_name: string } | null;
+};
+
+export async function fetchRetroItems(boardId: string): Promise<RetroItemRecord[]> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetRetroItems } = await import('@/lib/apiClient');
+        try {
+            const response = await apiGetRetroItems(boardId);
+            return response.items.map(item => ({
+                id: item.id,
+                board_id: item.boardId,
+                column_id: item.columnId,
+                text: item.text,
+                author: item.author,
+                author_id: item.authorId,
+                votes: item.votes,
+                session_id: item.sessionId,
+                created_at: item.createdAt,
+                updated_at: item.updatedAt
+            }));
+        } catch (error) {
+            console.error('Error fetching retro items from API:', error);
+            return [];
+        }
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('retro_items')
+            .select('*, profiles(avatar_url, full_name)')
+            .eq('board_id', boardId)
+            .order('votes', { ascending: false });
+
+        if (error) throw error;
+        return (data || []) as RetroItemRecord[];
+    } catch (error) {
+        console.error('Error fetching retro items from Supabase:', error);
+        return [];
+    }
+}
+
+export async function createRetroItem(boardId: string, columnId: string, text: string, author: string, authorId?: string, sessionId?: string): Promise<RetroItemRecord> {
+    if (shouldUseCSharpApi()) {
+        const { apiCreateRetroItem } = await import('@/lib/apiClient');
+        try {
+            const item = await apiCreateRetroItem(boardId, columnId, text, author, authorId, sessionId);
+            return {
+                id: item.id,
+                board_id: item.boardId,
+                column_id: item.columnId,
+                text: item.text,
+                author: item.author,
+                author_id: item.authorId,
+                votes: item.votes,
+                session_id: item.sessionId,
+                created_at: item.createdAt,
+                updated_at: item.updatedAt
+            };
+        } catch (error) {
+            console.error('Error creating retro item from API:', error);
+            throw error;
+        }
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('retro_items')
+            .insert([{ board_id: boardId, column_id: columnId, text, author, author_id: authorId, session_id: sessionId }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as RetroItemRecord;
+    } catch (error) {
+        console.error('Error creating retro item from Supabase:', error);
+        throw error;
+    }
+}
+
+export async function updateRetroItem(itemId: string, updates: { column_id?: string; text?: string }): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiUpdateRetroItem } = await import('@/lib/apiClient');
+        try {
+            await apiUpdateRetroItem(itemId, {
+                columnId: updates.column_id,
+                text: updates.text
+            });
+            return;
+        } catch (error) {
+            console.error('Error updating retro item from API:', error);
+            throw error;
+        }
+    }
+
+    try {
+        const { error } = await supabase
+            .from('retro_items')
+            .update(updates)
+            .eq('id', itemId);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error updating retro item from Supabase:', error);
+        throw error;
+    }
+}
+
+export async function deleteRetroItem(itemId: string): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiDeleteRetroItem } = await import('@/lib/apiClient');
+        try {
+            await apiDeleteRetroItem(itemId);
+            return;
+        } catch (error) {
+            console.error('Error deleting retro item from API:', error);
+            throw error;
+        }
+    }
+
+    try {
+        const { error } = await supabase
+            .from('retro_items')
+            .delete()
+            .eq('id', itemId);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error deleting retro item from Supabase:', error);
+        throw error;
+    }
+}
+
 export async function getUserVotes(boardId: string, userId?: string | null, sessionId?: string): Promise<string[]> {
     // Direct Supabase for now
     const query = supabase.from('retro_votes').select('item_id').eq('board_id', boardId);

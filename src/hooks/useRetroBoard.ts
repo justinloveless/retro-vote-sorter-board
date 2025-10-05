@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch, fetchRetroItems, createRetroItem, updateRetroItem, deleteRetroItem } from '@/lib/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -30,13 +30,13 @@ interface RetroColumn {
 
 interface RetroItem {
   id: string;
-  board_id: string;
-  column_id: string;
+  board_id?: string;
+  column_id?: string;
   text: string;
   author: string;
   author_id?: string;
-  votes: number;
-  created_at: string;
+  votes?: number;
+  created_at?: string;
   session_id?: string;
   profiles?: { avatar_url: string; full_name: string } | null;
 }
@@ -233,14 +233,8 @@ export const useRetroBoard = (roomId: string) => {
         setColumns(columnsData);
 
         // Load items
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('retro_items')
-          .select('*, profiles(avatar_url, full_name)')
-          .eq('board_id', boardData.id)
-          .order('votes', { ascending: false });
-
-        if (itemsError) throw itemsError;
-        setItems(itemsData || []);
+        const itemsData = await fetchRetroItems(boardData.id);
+        setItems(itemsData);
 
         // Cache profile data from items
         const itemProfiles: Record<string, { avatar_url: string; full_name: string }> = {};
@@ -545,47 +539,43 @@ export const useRetroBoard = (roomId: string) => {
 
     const effectiveAuthorId = profile?.id || null;
 
-    const { data: newItem, error } = await supabase
-      .from('retro_items')
-      .insert([{
-        board_id: board.id,
-        column_id: columnId,
+    try {
+      const newItem = await createRetroItem(
+        board.id,
+        columnId,
         text,
         author,
-        author_id: effectiveAuthorId,
-        session_id: isAnonymous ? sessionId : null
-      }])
-      .select()
-      .single();
+        effectiveAuthorId,
+        isAnonymous ? sessionId : null
+      );
 
-    if (error) {
+      // Update presence when adding item
+      updatePresence(author === 'Anonymous' ? (profile?.full_name || 'Anonymous User') : author);
+
+      // If this item is in the designated action items column, create a team action item
+      try {
+        const targetColumn = columns.find(c => c.id === columnId);
+        if (newItem && targetColumn?.is_action_items && board.team_id) {
+          await supabase
+            .from('team_action_items')
+            .insert([{
+              team_id: board.team_id,
+              text: newItem.text,
+              source_board_id: board.id,
+              source_item_id: newItem.id,
+              created_by: effectiveAuthorId
+            }]);
+        }
+      } catch (e) {
+        console.error('Error creating team action item:', e);
+      }
+    } catch (error) {
       console.error('Error adding item:', error);
       toast({
         title: "Error adding item",
         description: "Please try again.",
         variant: "destructive",
       });
-    }
-
-    // Update presence when adding item
-    updatePresence(author === 'Anonymous' ? (profile?.full_name || 'Anonymous User') : author);
-
-    // If this item is in the designated action items column, create a team action item
-    try {
-      const targetColumn = columns.find(c => c.id === columnId);
-      if (newItem && targetColumn?.is_action_items && board.team_id) {
-        await supabase
-          .from('team_action_items')
-          .insert([{
-            team_id: board.team_id,
-            text: newItem.text,
-            source_board_id: board.id,
-            source_item_id: newItem.id,
-            created_by: effectiveAuthorId
-          }]);
-      }
-    } catch (e) {
-      console.error('Error creating team action item:', e);
     }
   };
 
@@ -882,12 +872,23 @@ export const useRetroBoard = (roomId: string) => {
       setTeamActionItems(prev => prev.map(a => a.id === linkedAction.id ? { ...a, text } as TeamActionItem : a));
     }
 
-    const { error } = await supabase
-      .from('retro_items')
-      .update({ text })
-      .eq('id', itemId);
+    try {
+      await updateRetroItem(itemId, { text });
 
-    if (error) {
+      // Persist update to linked team action item if this item is in action items column
+      try {
+        const updatedItem = items.find(i => i.id === itemId);
+        const actionColumn = updatedItem ? columns.find(c => c.id === updatedItem.column_id)?.is_action_items : false;
+        if (board?.team_id && actionColumn) {
+          await supabase
+            .from('team_action_items')
+            .update({ text })
+            .eq('source_item_id', itemId);
+        }
+      } catch (e) {
+        console.error('Error updating linked team action item text:', e);
+      }
+    } catch (error) {
       console.error('Error updating item:', error);
       setItems(oldItems);
       toast({
@@ -902,21 +903,6 @@ export const useRetroBoard = (roomId: string) => {
           setTeamActionItems(prev => prev.map(a => a.id === linkedAction.id ? { ...a, text: original } as TeamActionItem : a));
         }
       }
-      return;
-    }
-
-    // Persist update to linked team action item if this item is in action items column
-    try {
-      const updatedItem = items.find(i => i.id === itemId);
-      const actionColumn = updatedItem ? columns.find(c => c.id === updatedItem.column_id)?.is_action_items : false;
-      if (board?.team_id && actionColumn) {
-        await supabase
-          .from('team_action_items')
-          .update({ text })
-          .eq('source_item_id', itemId);
-      }
-    } catch (e) {
-      console.error('Error updating linked team action item text:', e);
     }
   };
 
@@ -926,12 +912,9 @@ export const useRetroBoard = (roomId: string) => {
       currentItems.filter(item => item.id !== itemId)
     );
 
-    const { error } = await supabase
-      .from('retro_items')
-      .delete()
-      .eq('id', itemId);
-
-    if (error) {
+    try {
+      await deleteRetroItem(itemId);
+    } catch (error) {
       console.error('Error deleting item:', error);
       setItems(oldItems);
       toast({

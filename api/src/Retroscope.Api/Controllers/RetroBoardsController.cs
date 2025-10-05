@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.DTOs.RetroBoardConfig;
 using Retroscope.Application.DTOs.RetroColumns;
+using Retroscope.Application.DTOs.RetroItems;
 using Retroscope.Application.Interfaces;
 
 namespace Retroscope.Api.Controllers;
@@ -528,6 +529,153 @@ public sealed class RetroBoardsController : ControllerBase
         {
             _logger.LogError(ex, "Failed to update retro columns batch", ex);
             return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro columns batch.", error = ex.Message });
+        }
+    }
+
+    [HttpGet("{boardId}/items")]
+    [ProducesResponseType(typeof(RetroItemsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetRetroItems(
+        string boardId,
+        CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var items = await _supabaseGateway.GetRetroItemsAsync(boardId, authHeader, ct);
+            return Ok(new RetroItemsResponse { Items = items });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when fetching retro items for board {BoardId}", boardId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve retro items for board {BoardId}", boardId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to retrieve retro items.", error = ex.Message });
+        }
+    }
+
+    [HttpPost("items")]
+    [ProducesResponseType(typeof(RetroItemItem), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> CreateRetroItem(
+        [FromBody] CreateRetroItemRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            var newItem = await _supabaseGateway.CreateRetroItemAsync(request, authHeader, ct);
+            return CreatedAtAction(nameof(GetRetroItems), new { boardId = newItem.BoardId }, newItem);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when creating retro item");
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create retro item", ex);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to create retro item.", error = ex.Message });
+        }
+    }
+
+    [HttpPatch("items/{itemId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> UpdateRetroItem(
+        string itemId,
+        [FromBody] UpdateRetroItemRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.UpdateRetroItemAsync(itemId, request, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when updating retro item {ItemId}", itemId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update retro item {ItemId}", itemId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to update retro item.", error = ex.Message });
+        }
+    }
+
+    [HttpDelete("items/{itemId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> DeleteRetroItem(
+        string itemId,
+        CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        try
+        {
+            await _supabaseGateway.DeleteRetroItemAsync(itemId, authHeader, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access when deleting retro item {ItemId}", itemId);
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete retro item {ItemId}", itemId);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Failed to delete retro item.", error = ex.Message });
         }
     }
 }

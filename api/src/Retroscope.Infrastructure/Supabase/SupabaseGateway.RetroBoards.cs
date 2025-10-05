@@ -4,6 +4,7 @@ using System.Text.Json;
 using Retroscope.Application.DTOs.RetroBoards;
 using Retroscope.Application.DTOs.RetroBoardConfig;
 using Retroscope.Application.DTOs.RetroColumns;
+using Retroscope.Application.DTOs.RetroItems;
 
 namespace Retroscope.Infrastructure.Supabase;
 
@@ -608,5 +609,144 @@ public sealed partial class SupabaseGateway
         public int? Sort_Order { get; set; }
         public bool? Is_Action_Items { get; set; }
         public string? Created_At { get; set; }
+    }
+    
+    public async Task<List<RetroItemItem>> GetRetroItemsAsync(string boardId, string authorizationHeader, CancellationToken ct)
+    {
+        var url = $"retro_items?board_id=eq.{boardId}&select=*,profiles(avatar_url,full_name)&order=votes.desc";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        request.Headers.Add("apikey", _supabaseAnonKey);
+
+        var response = await _postgrestClient.SendAsync(request, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to access retro items.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var items = await response.Content.ReadFromJsonAsync<List<RetroItemRecord>>(cancellationToken: ct)
+                     ?? new List<RetroItemRecord>();
+
+        return items.Select(MapToRetroItemItem).ToList();
+    }
+
+    public async Task<RetroItemItem> CreateRetroItemAsync(CreateRetroItemRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["board_id"] = request.BoardId,
+            ["text"] = request.Text,
+            ["author"] = request.Author
+        };
+
+        if (request.ColumnId != null) payload["column_id"] = request.ColumnId;
+        if (request.AuthorId != null) payload["author_id"] = request.AuthorId;
+        if (request.SessionId != null) payload["session_id"] = request.SessionId;
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "retro_items");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=representation");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to create retro item.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var newItem = await response.Content.ReadFromJsonAsync<RetroItemRecord>(cancellationToken: ct);
+        if (newItem == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize new retro item from Supabase.");
+        }
+
+        return MapToRetroItemItem(newItem);
+    }
+
+    public async Task UpdateRetroItemAsync(string itemId, UpdateRetroItemRequest request, string authorizationHeader, CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>();
+
+        if (request.Text != null) payload["text"] = request.Text;
+        if (request.ColumnId != null) payload["column_id"] = request.ColumnId;
+
+        var httpRequest = new HttpRequestMessage(new HttpMethod("PATCH"), $"retro_items?id=eq.{itemId}");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=minimal");
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to update retro item.");
+        }
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException($"Retro item with ID {itemId} not found.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteRetroItemAsync(string itemId, string authorizationHeader, CancellationToken ct)
+    {
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"retro_items?id=eq.{itemId}");
+        httpRequest.Headers.Add("Authorization", authorizationHeader.Replace("Bearer ", "").Trim());
+        httpRequest.Headers.Add("apikey", _supabaseAnonKey);
+        httpRequest.Headers.Add("Prefer", "return=minimal");
+
+        var response = await _postgrestClient.SendAsync(httpRequest, ct);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Not authorized to delete retro item.");
+        }
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException($"Retro item with ID {itemId} not found.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static RetroItemItem MapToRetroItemItem(RetroItemRecord record)
+    {
+        return new RetroItemItem
+        {
+            Id = record.Id,
+            BoardId = record.Board_Id,
+            ColumnId = record.Column_Id,
+            Text = record.Text,
+            Author = record.Author,
+            AuthorId = record.Author_Id,
+            Votes = record.Votes,
+            SessionId = record.Session_Id,
+            CreatedAt = record.Created_At,
+            UpdatedAt = record.Updated_At
+        };
+    }
+
+    private sealed class RetroItemRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? Board_Id { get; set; }
+        public string? Column_Id { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
+        public string? Author_Id { get; set; }
+        public int? Votes { get; set; }
+        public string? Session_Id { get; set; }
+        public string? Created_At { get; set; }
+        public string? Updated_At { get; set; }
     }
 }

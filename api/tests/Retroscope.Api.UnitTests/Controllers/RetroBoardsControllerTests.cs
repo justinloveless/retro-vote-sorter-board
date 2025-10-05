@@ -8,6 +8,7 @@ using Retroscope.Application.Interfaces;
 using System.Security.Claims;
 using Retroscope.Application.DTOs.RetroBoardConfig;
 using Retroscope.Application.DTOs.RetroColumns;
+using Retroscope.Application.DTOs.RetroItems;
 using Xunit;
 
 namespace Retroscope.Api.UnitTests.Controllers;
@@ -554,6 +555,137 @@ public sealed class RetroBoardsControllerTests
 
         // Act
         var result = await controllerWithoutAuth.UpdateRetroColumn("column-1", request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetRetroItems_ReturnsOkWithItems()
+    {
+        // Arrange
+        var boardId = "board-1";
+        var expectedItems = new List<RetroItemItem>
+        {
+            new() { Id = "item-1", BoardId = boardId, Text = "Test item 1", Author = "User 1", Votes = 5 },
+            new() { Id = "item-2", BoardId = boardId, Text = "Test item 2", Author = "User 2", Votes = 3 }
+        };
+        _mockSupabaseGateway.Setup(g => g.GetRetroItemsAsync(boardId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedItems);
+
+        // Act
+        var result = await _controller.GetRetroItems(boardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<RetroItemsResponse>().Subject;
+        response.Items.Should().BeEquivalentTo(expectedItems);
+    }
+
+    [Fact]
+    public async Task CreateRetroItem_ReturnsCreated()
+    {
+        // Arrange
+        var request = new CreateRetroItemRequest
+        {
+            BoardId = "board-1",
+            ColumnId = "column-1",
+            Text = "New item",
+            Author = "User 1",
+            AuthorId = "user-1"
+        };
+        var expectedItem = new RetroItemItem
+        {
+            Id = "new-item",
+            BoardId = request.BoardId,
+            ColumnId = request.ColumnId,
+            Text = request.Text,
+            Author = request.Author,
+            AuthorId = request.AuthorId
+        };
+        _mockSupabaseGateway.Setup(g => g.CreateRetroItemAsync(request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedItem);
+
+        // Act
+        var result = await _controller.CreateRetroItem(request, CancellationToken.None);
+
+        // Assert
+        var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        createdResult.ActionName.Should().Be(nameof(RetroBoardsController.GetRetroItems));
+        createdResult.RouteValues!["boardId"].Should().Be(request.BoardId);
+        createdResult.Value.Should().BeEquivalentTo(expectedItem);
+    }
+
+    [Fact]
+    public async Task UpdateRetroItem_ReturnsNoContent()
+    {
+        // Arrange
+        var itemId = "item-1";
+        var request = new UpdateRetroItemRequest
+        {
+            Text = "Updated text",
+            ColumnId = "column-2"
+        };
+        _mockSupabaseGateway.Setup(g => g.UpdateRetroItemAsync(itemId, request, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.UpdateRetroItem(itemId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteRetroItem_ReturnsNoContent()
+    {
+        // Arrange
+        var itemId = "item-1";
+        _mockSupabaseGateway.Setup(g => g.DeleteRetroItemAsync(itemId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.DeleteRetroItem(itemId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task CreateRetroItem_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new CreateRetroItemRequest { BoardId = "board-1" };
+
+        // Act
+        var result = await controllerWithoutAuth.CreateRetroItem(request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRetroItem_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var controllerWithoutAuth = new RetroBoardsController(_mockSupabaseGateway.Object);
+        var httpContext = new DefaultHttpContext();
+        controllerWithoutAuth.ControllerContext = new ControllerContext()
+        {
+            HttpContext = httpContext
+        };
+
+        var request = new UpdateRetroItemRequest { Text = "Test" };
+
+        // Act
+        var result = await controllerWithoutAuth.UpdateRetroItem("item-1", request, CancellationToken.None);
 
         // Assert
         result.Should().BeOfType<UnauthorizedObjectResult>();
