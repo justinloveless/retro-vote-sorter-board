@@ -2,8 +2,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { onAuthStateChange, fetchProfile as dcFetchProfile } from '@/lib/dataClient';
-import { signOut as dcSignOut } from '@/lib/dataClient';
+import { onAuthStateChange, fetchProfile as dcFetchProfile } from '@/lib/data/dataClient';
+import { signOut as dcSignOut } from '@/lib/data/dataClient';
 
 export interface Profile {
   id: string;
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error("No user is logged in");
 
     try {
-      const data = await (await import('@/lib/dataClient')).updateProfile(user.id, updates);
+      const data = await (await import('@/lib/data/dataClient')).updateProfile(user.id, updates);
 
       if (data) {
         localStorage.setItem('profile', JSON.stringify(data));

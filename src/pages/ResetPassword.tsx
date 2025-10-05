@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { GlobalBackground } from '@/components/ui/GlobalBackground';
 import { AppHeader } from '@/components/AppHeader';
-import { onAuthStateChange, setAuthSession, updateAuthUser } from '@/lib/dataClient';
+import { onAuthStateChange, setAuthSession, updateAuthUser } from '@/lib/data/dataClient';
 
 
 const ResetPassword = () => {

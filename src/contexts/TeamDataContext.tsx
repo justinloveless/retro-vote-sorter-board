@@ -6,7 +6,7 @@ import {
   fetchCommentsForItem as dcFetchCommentsForItem,
   fetchRetroBoards as dcFetchRetroBoards,
   fetchRetroBoardTitles as dcFetchRetroBoardTitles
-} from '@/lib/dataClient';
+} from '@/lib/data/dataClient';
 
 // Types
 interface TeamMember {
@@ -183,7 +183,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Then get profiles for those users
       const userIds = membersData?.map(member => member.user_id) || [];
-      const profilesData = await (await import('@/lib/dataClient')).fetchProfilesByIds(userIds);
+      const profilesData = await (await import('@/lib/data/dataClient')).fetchProfilesByIds(userIds);
 
       // Combine the data
       const typedMembers = (membersData || []).map(member => ({

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { getRetroAudioPublicUrl, uploadRetroAudio, deleteRetroAudio } from '@/lib/dataClient';
+import { getRetroAudioPublicUrl, uploadRetroAudio, deleteRetroAudio } from '@/lib/data/dataClient';
 
 export const RetroTimer: React.FC = () => {
   const { user } = useAuth();

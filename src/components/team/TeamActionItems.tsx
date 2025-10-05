@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { assignTeamActionItemById, markTeamActionItemDoneById } from '@/lib/dataClient';
+import { assignTeamActionItemById, markTeamActionItemDoneById } from '@/lib/data/dataClient';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
 import { useTeamData } from '@/contexts/TeamDataContext';

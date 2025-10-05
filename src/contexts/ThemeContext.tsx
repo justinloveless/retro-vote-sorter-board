@@ -53,7 +53,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     // Save theme preference to user profile if authenticated
     if (user) {
       try {
-        await (await import('@/lib/dataClient')).upsertProfile(user.id, {
+        await (await import('@/lib/data/dataClient')).upsertProfile(user.id, {
           theme_preference: newTheme
         });
       } catch (error) {

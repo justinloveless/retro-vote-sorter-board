@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { Profile } from '@/hooks/useAuth';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
-import { uploadAvatarForUser } from '@/lib/dataClient';
+import { uploadAvatarForUser } from '@/lib/data/dataClient';
 
 interface AccountDetailsProps {
     user: any;

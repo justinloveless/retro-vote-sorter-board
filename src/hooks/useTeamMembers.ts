@@ -9,7 +9,7 @@ import {
   deleteTeamInvitation as dcDeleteTeamInvitation,
   TeamMemberRecord,
   getAuthUser
-} from '@/lib/dataClient';
+} from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 
 type TeamMember = TeamMemberRecord;
@@ -82,7 +82,7 @@ export const useTeamMembers = (teamId: string | null) => {
       const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
-      const profile = await (await import('@/lib/dataClient')).fetchProfile(currentUser.id);
+      const profile = await (await import('@/lib/data/dataClient')).fetchProfile(currentUser.id);
 
       const { data: team } = await supabase
         .from('teams')

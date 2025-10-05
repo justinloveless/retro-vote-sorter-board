@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { createRetroBoard } from '@/lib/dataClient';
+import { createRetroBoard } from '@/lib/data/dataClient';
 import { AuthForm } from '@/components/AuthForm';
 import { TeamHeader } from '@/components/team/TeamHeader';
 import { TeamBoardsList } from '@/components/team/TeamBoardsList';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAppConfigValue, upsertAppConfig } from '@/lib/dataClient';
+import { getAppConfigValue, upsertAppConfig } from '@/lib/data/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';

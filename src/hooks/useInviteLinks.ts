@@ -7,7 +7,7 @@ import {
   updateTeamInvitation as dcUpdateTeamInvitation,
   deleteTeamInvitation as dcDeleteTeamInvitation,
   getAuthUser
-} from '../lib/dataClient.ts';
+} from '../lib/data/dataClient.ts';
 
 interface InviteLink {
   id: string;

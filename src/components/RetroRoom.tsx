@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useSlackNotification } from '@/hooks/useSlackNotification';
-import { updateRetroBoardPrivacyByRoom } from '@/lib/dataClient';
+import { updateRetroBoardPrivacyByRoom } from '@/lib/data/dataClient';
 import { PasswordDialog } from './retro/PasswordDialog';
 import { ShareDialog } from './retro/ShareDialog';
 import { FloatingButtons } from './retro/FloatingButtons';

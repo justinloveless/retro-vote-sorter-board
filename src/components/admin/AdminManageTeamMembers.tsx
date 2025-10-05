@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { adminAddMember, adminListTeamMembers, adminListTeams, adminRemoveMember } from '@/lib/dataClient';
+import { adminAddMember, adminListTeamMembers, adminListTeams, adminRemoveMember } from '@/lib/data/dataClient';
 
 type Team = { id: string; name: string };
 type Member = { id: string; user_id: string; full_name: string | null; avatar_url: string | null; email: string | null; role: 'owner' | 'admin' | 'member' };

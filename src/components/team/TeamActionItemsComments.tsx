@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Send, Trash2, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { addRetroComment, deleteRetroComment } from '@/lib/dataClient';
+import { addRetroComment, deleteRetroComment } from '@/lib/data/dataClient';
 import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Dialog, DialogContent } from '@/components/ui/dialog';

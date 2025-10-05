@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { currentEnvironment } from '@/config/environment';
-import { getImpersonatedEmailIfAdmin, uploadAvatarForUser, adminSetAvatar, signInWithPassword, updateAuthUser } from '@/lib/dataClient';
+import { getImpersonatedEmailIfAdmin, uploadAvatarForUser, adminSetAvatar, signInWithPassword, updateAuthUser } from '@/lib/data/dataClient';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
 

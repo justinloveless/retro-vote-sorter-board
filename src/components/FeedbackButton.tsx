@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
-import { insertFeedbackReport, updateFeedbackReport, getAppConfigValue } from '@/lib/dataClient';
+import { insertFeedbackReport, updateFeedbackReport, getAppConfigValue } from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { Github } from 'lucide-react';
 

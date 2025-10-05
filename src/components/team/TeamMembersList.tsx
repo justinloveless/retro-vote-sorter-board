@@ -11,7 +11,7 @@ import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { cancelTeamInvitation as dcCancelInvitation, removeTeamMember as dcRemoveTeamMember, updateTeamMemberRole as dcUpdateTeamMemberRole, inviteMemberByEmail } from '@/lib/dataClient';
+import { cancelTeamInvitation as dcCancelInvitation, removeTeamMember as dcRemoveTeamMember, updateTeamMemberRole as dcUpdateTeamMemberRole, inviteMemberByEmail } from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface TeamMembersListProps {

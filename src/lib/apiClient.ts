@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/config/environment';
-import { getAuthSession } from './dataClient.ts';
+import { getAuthSession } from './data/dataClient.ts';
 
 /**
  * Gets the current Supabase access token from the session

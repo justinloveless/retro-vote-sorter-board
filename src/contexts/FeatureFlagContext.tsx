@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { shouldUseCSharpApi } from '@/config/environment';
-import { fetchFeatureFlags } from '@/lib/dataClient';
+import { fetchFeatureFlags } from '@/lib/data/dataClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type FeatureFlags = {

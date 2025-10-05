@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchRetroColumns, fetchRetroItems } from '@/lib/dataClient';
+import { fetchRetroColumns, fetchRetroItems } from '@/lib/data/dataClient';
 
 export const BackfillActionItems: React.FC = () => {
   const [running, setRunning] = useState(false);

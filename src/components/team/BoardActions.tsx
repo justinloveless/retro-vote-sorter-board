@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Archive, Trash2, MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthUser, updateRetroBoard } from '@/lib/dataClient';
+import { getAuthUser, updateRetroBoard } from '@/lib/data/dataClient';
 
 interface BoardActionsProps {
   boardId: string;

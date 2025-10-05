@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch, fetchRetroItems, createRetroItem, updateRetroItem, deleteRetroItem } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch, fetchRetroItems, createRetroItem, updateRetroItem, deleteRetroItem } from '@/lib/data/dataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type RetroStage = 'thinking' | 'voting' | 'discussing' | 'closed';
@@ -125,7 +125,7 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     try {
-      const data = await (await import('@/lib/dataClient')).fetchProfile(authorId);
+      const data = await (await import('@/lib/data/dataClient')).fetchProfile(authorId);
 
       if (!data) throw new Error('Profile not found');
 

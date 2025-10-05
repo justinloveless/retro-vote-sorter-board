@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { currentEnvironment } from '@/config/environment';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { getAuthSession } from '@/lib/dataClient';
+import { getAuthSession } from '@/lib/data/dataClient';
 
 
 const NARRATION_STYLES = [

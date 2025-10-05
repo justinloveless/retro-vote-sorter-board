@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchPokerRounds } from '@/lib/dataClient';
+import { fetchPokerRounds } from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { Selections } from './usePokerSession';
 import { GameState } from './usePokerSession';

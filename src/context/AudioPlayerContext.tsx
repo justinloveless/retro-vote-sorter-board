@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
 import { currentEnvironment } from '@/config/environment';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthSession } from '@/lib/dataClient';
+import { getAuthSession } from '@/lib/data/dataClient';
 
 export type AudioPlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 

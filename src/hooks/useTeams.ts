@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
-import { fetchTeams as dcFetchTeams, createTeam as dcCreateTeam, updateTeam as dcUpdateTeam, deleteTeam as dcDeleteTeam, TeamRecord } from '@/lib/dataClient';
+import { fetchTeams as dcFetchTeams, createTeam as dcCreateTeam, updateTeam as dcUpdateTeam, deleteTeam as dcDeleteTeam, TeamRecord } from '@/lib/data/dataClient';
 
 type Team = TeamRecord;
 

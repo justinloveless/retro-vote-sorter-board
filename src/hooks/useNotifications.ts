@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { shouldUseCSharpApi } from '@/config/environment';
-import { fetchNotifications as dcFetchNotifications, markNotificationRead as dcMarkRead, markAllNotificationsRead as dcMarkAllRead } from '@/lib/dataClient';
+import { fetchNotifications as dcFetchNotifications, markNotificationRead as dcMarkRead, markAllNotificationsRead as dcMarkAllRead } from '@/lib/data/dataClient';
 
 export type AppNotification = {
   id: string;

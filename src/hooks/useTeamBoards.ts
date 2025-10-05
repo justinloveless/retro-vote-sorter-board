@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getAuthUser, fetchRetroBoards, createRetroBoard, createRetroBoardConfig } from '../lib/dataClient.ts';
+import { getAuthUser, fetchRetroBoards, createRetroBoard, createRetroBoardConfig } from '../lib/data/dataClient.ts';
 
 interface TeamBoard {
   id: string;

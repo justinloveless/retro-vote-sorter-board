@@ -6,8 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { GlobalBackground } from './ui/GlobalBackground';
-import { resetPasswordForEmail, signInWithOAuth, signUpWithEmail } from '../lib/dataClient.ts';
-import { signInWithPassword } from '../lib/dataClient.ts';
+import { resetPasswordForEmail, signInWithOAuth, signUpWithEmail } from '../lib/data/dataClient.ts';
+import { signInWithPassword } from '../lib/data/dataClient.ts';
 
 interface AuthFormProps {
   onAuthSuccess: () => void;

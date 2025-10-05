@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getPokerSessionByRoom, createPokerSession, getPokerRound, createPokerRound, updatePokerRoundById, updatePokerSessionById, deletePokerSessionData } from '@/lib/dataClient';
+import { getPokerSessionByRoom, createPokerSession, getPokerRound, createPokerRound, updatePokerRoundById, updatePokerSessionById, deletePokerSessionData } from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { PokerSessionRound } from './usePokerSessionHistory';

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { fetchFeatureFlags, updateFeatureFlag } from '@/lib/dataClient';
+import { fetchFeatureFlags, updateFeatureFlag } from '@/lib/data/dataClient';
 
 interface FeatureFlag {
     flag_name: string;

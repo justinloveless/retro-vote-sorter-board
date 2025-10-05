@@ -143,7 +143,7 @@ export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (user) {
       try {
-        await (await import('@/lib/dataClient')).upsertProfile(user.id, {
+        await (await import('@/lib/data/dataClient')).upsertProfile(user.id, {
           background_preference: newPreference
         });
       } catch (error) {

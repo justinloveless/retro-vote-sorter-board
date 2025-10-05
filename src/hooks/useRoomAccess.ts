@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchRetroBoardSummary, createRetroBoardWithDefaults } from '@/lib/dataClient';
+import { fetchRetroBoardSummary, createRetroBoardWithDefaults } from '@/lib/data/dataClient';
 
 export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
 

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Calendar, FolderOpen, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchOpenTeamActionItems, markTeamActionItemDoneById, assignTeamActionItemById } from '@/lib/dataClient';
+import { fetchOpenTeamActionItems, markTeamActionItemDoneById, assignTeamActionItemById } from '@/lib/data/dataClient';
 import { Button } from '@/components/ui/button';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
