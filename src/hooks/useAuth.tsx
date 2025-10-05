@@ -124,17 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error("No user is logged in");
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
+      const data = await (await import('@/lib/dataClient')).updateProfile(user.id, updates);
 
-      if (error) throw error;
-
-      localStorage.setItem('profile', JSON.stringify(data));
-      setProfile(data);
+      if (data) {
+        localStorage.setItem('profile', JSON.stringify(data));
+        setProfile(data);
+      }
 
       return data;
     } catch (error) {

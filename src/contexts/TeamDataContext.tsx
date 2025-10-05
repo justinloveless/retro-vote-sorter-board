@@ -183,12 +183,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Then get profiles for those users
       const userIds = membersData?.map(member => member.user_id) || [];
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
+      const profilesData = await (await import('@/lib/dataClient')).fetchProfilesByIds(userIds);
 
       // Combine the data
       const typedMembers = (membersData || []).map(member => ({

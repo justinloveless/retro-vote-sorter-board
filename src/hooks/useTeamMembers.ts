@@ -82,11 +82,7 @@ export const useTeamMembers = (teamId: string | null) => {
       const currentUser = (await getAuthUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', currentUser.id)
-        .single();
+      const profile = await (await import('@/lib/dataClient')).fetchProfile(currentUser.id);
 
       const { data: team } = await supabase
         .from('teams')

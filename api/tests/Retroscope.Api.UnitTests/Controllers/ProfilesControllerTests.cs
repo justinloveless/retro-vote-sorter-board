@@ -134,5 +134,114 @@ public sealed class ProfilesControllerTests
             Times.Once
         );
     }
+
+    [Fact]
+    public async Task GetProfilesByIds_WithValidIds_ReturnsProfilesResponse()
+    {
+        // Arrange
+        var userIds = new List<string> { "user-1", "user-2" };
+        var expectedProfiles = new List<ProfileItem>
+        {
+            new() { Id = "user-1", FullName = "User One", AvatarUrl = null, Role = "user", ThemePreference = null, BackgroundPreference = null },
+            new() { Id = "user-2", FullName = "User Two", AvatarUrl = null, Role = "user", ThemePreference = null, BackgroundPreference = null }
+        };
+
+        _mockGateway
+            .Setup(g => g.GetProfilesByIdsAsync(userIds, "Bearer test-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedProfiles);
+
+        // Act
+        var result = await _controller.GetProfilesByIds(userIds, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        okResult.Value.Should().BeOfType<ProfilesResponse>();
+        var response = (ProfilesResponse)okResult.Value!;
+        response.Items.Should().BeEquivalentTo(expectedProfiles);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_WithValidRequest_ReturnsUpdatedProfile()
+    {
+        // Arrange
+        var userId = "test-user-id";
+        var request = new UpdateProfileRequest
+        {
+            FullName = "Updated Name",
+            ThemePreference = "light"
+        };
+        var expectedProfile = new ProfileItem
+        {
+            Id = userId,
+            FullName = "Updated Name",
+            AvatarUrl = "https://example.com/avatar.png",
+            Role = "user",
+            ThemePreference = "light",
+            BackgroundPreference = null
+        };
+
+        _mockGateway
+            .Setup(g => g.UpdateProfileAsync(userId, request, "Bearer test-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedProfile);
+
+        // Act
+        var result = await _controller.UpdateProfile(userId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = (ProfileResponse)okResult.Value!;
+        response.Profile.Should().BeEquivalentTo(expectedProfile);
+    }
+
+    [Fact]
+    public async Task UpsertProfile_WithValidRequest_ReturnsNoContent()
+    {
+        // Arrange
+        var userId = "test-user-id";
+        var request = new UpdateProfileRequest
+        {
+            ThemePreference = "dark"
+        };
+
+        _mockGateway
+            .Setup(g => g.UpsertProfileAsync(userId, request, "Bearer test-token", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.UpsertProfile(userId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task UpdateProfile_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        _controller.HttpContext.Request.Headers.Remove("Authorization");
+        var request = new UpdateProfileRequest { FullName = "Test" };
+
+        // Act
+        var result = await _controller.UpdateProfile("test-user-id", request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpsertProfile_WithMissingAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        _controller.HttpContext.Request.Headers.Remove("Authorization");
+        var request = new UpdateProfileRequest { ThemePreference = "dark" };
+
+        // Act
+        var result = await _controller.UpsertProfile("test-user-id", request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 }
 

@@ -125,13 +125,9 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('avatar_url, full_name')
-        .eq('id', authorId)
-        .single();
+      const data = await (await import('@/lib/dataClient')).fetchProfile(authorId);
 
-      if (error) throw error;
+      if (!data) throw new Error('Profile not found');
 
       if (data) {
         setProfileCache(prev => ({ ...prev, [authorId]: data }));

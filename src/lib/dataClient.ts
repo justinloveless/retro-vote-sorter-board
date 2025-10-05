@@ -158,6 +158,129 @@ export async function fetchProfile(userId: string): Promise<ProfileRecord | null
     }
 }
 
+export async function fetchProfilesByIds(userIds: string[]): Promise<ProfileRecord[]> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetProfilesByIds } = await import('@/lib/apiClient');
+        try {
+            const response = await apiGetProfilesByIds(userIds);
+            return response.items.map(item => ({
+                id: item.id,
+                full_name: item.fullName,
+                avatar_url: item.avatarUrl,
+                role: (item.role as 'user' | 'admin') || null,
+                theme_preference: item.themePreference,
+                background_preference: item.backgroundPreference
+            }));
+        } catch (error) {
+            console.error('Error fetching profiles from API:', error);
+            return [];
+        }
+    }
+
+    try {
+        const { data: profilesData, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+            .in('id', userIds);
+
+        if (error) {
+            throw error;
+        }
+
+        return (profilesData || []) as ProfileRecord[];
+    } catch (error) {
+        console.error('Error fetching profiles from Supabase:', error);
+        return [];
+    }
+}
+
+export async function updateProfile(userId: string, updates: {
+    full_name?: string;
+    avatar_url?: string;
+    theme_preference?: string;
+    background_preference?: any;
+}): Promise<ProfileRecord | null> {
+    if (shouldUseCSharpApi()) {
+        const { apiUpdateProfile } = await import('@/lib/apiClient');
+        try {
+            const response = await apiUpdateProfile(userId, {
+                fullName: updates.full_name,
+                avatarUrl: updates.avatar_url,
+                themePreference: updates.theme_preference,
+                backgroundPreference: updates.background_preference
+            });
+            return {
+                id: response.profile.id,
+                full_name: response.profile.fullName,
+                avatar_url: response.profile.avatarUrl,
+                role: (response.profile.role as 'user' | 'admin') || null,
+                theme_preference: response.profile.themePreference,
+                background_preference: response.profile.backgroundPreference
+            };
+        } catch (error) {
+            console.error('Error updating profile from API:', error);
+            throw error;
+        }
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        return data as ProfileRecord;
+    } catch (error) {
+        console.error('Error updating profile from Supabase:', error);
+        throw error;
+    }
+}
+
+export async function upsertProfile(userId: string, data: {
+    full_name?: string;
+    avatar_url?: string;
+    theme_preference?: string;
+    background_preference?: any;
+}): Promise<void> {
+    if (shouldUseCSharpApi()) {
+        const { apiUpsertProfile } = await import('@/lib/apiClient');
+        try {
+            await apiUpsertProfile(userId, {
+                fullName: data.full_name,
+                avatarUrl: data.avatar_url,
+                themePreference: data.theme_preference,
+                backgroundPreference: data.background_preference
+            });
+            return;
+        } catch (error) {
+            console.error('Error upserting profile from API:', error);
+            throw error;
+        }
+    }
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .upsert({
+                id: userId,
+                ...data
+            });
+
+        if (error) {
+            throw error;
+        }
+    } catch (error) {
+        console.error('Error upserting profile from Supabase:', error);
+        throw error;
+    }
+}
+
 // ====================
 // Admin
 // ====================
@@ -297,11 +420,10 @@ export async function fetchTeamMembers(teamId: string): Promise<TeamMemberRecord
         .order('joined_at', { ascending: true });
     if (membersError) throw membersError;
     const userIds = membersData?.map(member => member.user_id) || [];
-    const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
-    if (profilesError) throw profilesError;
+
+    // Use the new fetchProfilesByIds function
+    const profilesData = await fetchProfilesByIds(userIds);
+
     return (membersData || []).map(member => ({
         ...member,
         role: member.role as 'owner' | 'admin' | 'member',
@@ -493,11 +615,7 @@ export async function inviteMemberByEmail(teamId: string, email: string): Promis
     const currentUser = (await supabase.auth.getUser()).data.user;
     if (!currentUser) throw new Error('User not authenticated');
 
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', currentUser.id)
-        .single();
+    const profile = await fetchProfile(currentUser.id);
 
     const { data: team } = await supabase
         .from('teams')

@@ -143,12 +143,9 @@ export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (user) {
       try {
-        await supabase
-          .from('profiles')
-          .upsert({
-            id: user.id,
-            background_preference: newPreference,
-          });
+        await (await import('@/lib/dataClient')).upsertProfile(user.id, {
+          background_preference: newPreference
+        });
       } catch (error) {
         console.error('Error saving background preference:', error);
       }
