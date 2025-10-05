@@ -1,7 +1,12 @@
 import { getApiBaseUrl } from '@/config/environment';
 import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { TeamRecord } from '@/lib/data/types';
 
-export async function apiGetTeams(): Promise<{ items: Array<any> }> {
+export type TeamsResponse = {
+    items: Array<TeamRecord>;
+};
+
+export async function apiGetTeams(): Promise<TeamsResponse> {
     const base = getApiBaseUrl();
     const token = await getSupabaseAccessToken();
     const res = await fetch(`${base}/api/teams`, { headers: { Authorization: `Bearer ${token}` } });
