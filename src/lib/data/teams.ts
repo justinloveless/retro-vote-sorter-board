@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { shouldUseCSharpApi } from '@/config/environment';
 import { TeamRecord, TeamMemberRecord } from './types';
-import { getAuthUser } from './auth';
+import { getAuthUser } from '@/lib/data/auth';
 import { fetchProfilesByIds } from './profiles';
 
 export async function fetchTeams(): Promise<TeamRecord[]> {

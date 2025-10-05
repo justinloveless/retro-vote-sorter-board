@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { shouldUseCSharpApi } from '@/config/environment';
 import { RetroBoardRecord } from './types';
-import { createRetroBoardConfig } from './retroBoardConfig';
+import { createRetroBoardConfig } from '@/lib/data/retroBoardConfig';
 
 export async function fetchRetroBoardSummary(roomId: string): Promise<{ board: any; team?: { id: string; name: string; members: Array<{ userId: string; role: string }> } }> {
     if (shouldUseCSharpApi()) {
