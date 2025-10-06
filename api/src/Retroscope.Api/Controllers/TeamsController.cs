@@ -22,7 +22,7 @@ public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
         });
     }
 
-    [HttpGet("{teamId}/teamName")]
+    [HttpGet("{teamId}/name")]
     public async Task<ActionResult<TeamNameResponse>> GetTeamName(string teamId)
     {
         return await HandleGatewayRequest<TeamNameResponse>(async (authHeader, correlationId) =>
