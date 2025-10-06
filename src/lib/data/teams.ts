@@ -208,3 +208,19 @@ export async function updateTeamMemberRole(teamId: string, memberId: string, rol
         .eq('id', memberId);
     if (error) throw error;
 }
+
+export async function getTeamName(teamId: string): Promise<string> {
+    if (shouldUseCSharpApi()) {
+        const { apiGetTeamName } = await import('@/lib/data/csharpApi/apiClient');
+        const { name } = await apiGetTeamName(teamId);
+        return name || 'Team';
+    }
+    const { data, error } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', teamId)
+        .single();
+
+    if (error) throw error;
+    return data?.name || 'Team';
+}

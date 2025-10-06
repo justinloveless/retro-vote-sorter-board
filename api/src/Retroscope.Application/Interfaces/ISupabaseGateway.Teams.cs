@@ -10,6 +10,7 @@ public partial interface ISupabaseGateway
     Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default);
 
     // Teams (Phase 3)
+    Task<TeamNameResponse> GetTeamNameAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default);
     Task<TeamsResponse> GetTeamsAsync(string bearerToken, bool includeAll = false, string? correlationId = null, CancellationToken cancellationToken = default);
     Task<TeamDetailsResponse> GetTeamByIdAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default);
     Task<TeamItem> CreateTeamAsync(string bearerToken, CreateTeamRequest request, string? correlationId = null, CancellationToken cancellationToken = default);

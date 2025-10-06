@@ -1,6 +1,3 @@
-using System.Net;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Retroscope.Application.DTOs.TeamMembers;
@@ -10,6 +7,13 @@ namespace Retroscope.Infrastructure.Supabase;
 
 public partial class SupabaseGateway
 {
+    public async Task<TeamNameResponse> GetTeamNameAsync(string bearerToken, string teamId, string? correlationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var name = await GetSinglePostgrestAsync<TeamNameItem>($"teams?select=name&id=eq.{teamId}", cancellationToken);
+        return new TeamNameResponse { Name = name?.Name };
+    }
+
     public async Task<TeamMembersResponse> GetTeamMembersAsync(string bearerToken, string teamId, string? correlationId = null, CancellationToken cancellationToken = default)
     {
         try

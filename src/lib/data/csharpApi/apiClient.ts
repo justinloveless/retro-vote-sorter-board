@@ -38,7 +38,8 @@ export {
   apiGetTeamMembers,
   apiAddMember,
   apiUpdateMemberRole,
-  apiRemoveMember
+  apiRemoveMember,
+  apiGetTeamName
 } from './teams';
 
 // Team Invitations

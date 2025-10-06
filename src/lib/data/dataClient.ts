@@ -34,7 +34,8 @@ export {
     removeTeamMember,
     updateTeamMemberRole,
     invalidateTeamsCache,
-    isTeamsCacheValid
+    isTeamsCacheValid,
+    getTeamName
 } from './teams';
 
 // Team Invitations

@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from '@/config/environment';
-import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { fetchApi } from '@/lib/data/csharpApi/utils';
 
 export type ProfileItem = {
     id: string;
@@ -19,26 +18,14 @@ export type ProfilesResponse = {
 };
 
 export async function apiGetProfile(userId: string): Promise<ProfileResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/profiles/${encodeURIComponent(userId)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const res = await fetchApi(`/api/profiles/${userId}`);
     return res.json();
 }
 
 export async function apiGetProfilesByIds(userIds: string[]): Promise<ProfilesResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-
-    const params = new URLSearchParams();
-    userIds.forEach(id => params.append('userIds', id));
-
-    const res = await fetch(`${base}/api/profiles?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+    const res = await fetchApi(`/api/profiles`, {
+        params: { userIds: userIds.join(',') }
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -51,14 +38,10 @@ export async function apiUpdateProfile(
         backgroundPreference?: any;
     }
 ): Promise<ProfileResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/profiles/${encodeURIComponent(userId)}`, {
+    const res = await fetchApi(`/api/profiles/${userId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -71,12 +54,9 @@ export async function apiUpsertProfile(
         backgroundPreference?: any;
     }
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/profiles/${encodeURIComponent(userId)}`, {
+    const res = await fetchApi(`/api/profiles/${userId}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res.json();
 }

@@ -14,43 +14,29 @@ public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<TeamsResponse>> GetTeams([FromQuery] string? scope = null)
     {
-        try
+        return await HandleGatewayRequest<TeamsResponse>(async (authHeader, correlationId) =>
         {
-            var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
-
-            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                ?? Request.Headers["Request-Id"].FirstOrDefault();
-
             var includeAll = string.Equals(scope, "all", StringComparison.OrdinalIgnoreCase);
             var response = await supabaseGateway.GetTeamsAsync(authHeader, includeAll, correlationId);
             return Ok(response);
-        }
-        catch (UnauthorizedAccessException)
+        });
+    }
+
+    [HttpGet("{teamId}/teamName")]
+    public async Task<ActionResult<TeamNameResponse>> GetTeamName(string teamId)
+    {
+        return await HandleGatewayRequest<TeamNameResponse>(async (authHeader, correlationId) =>
         {
-            return Unauthorized();
-        }
-        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            return Unauthorized();
-        }
-        catch (Exception)
-        {
-            return StatusCode(502, new { error = "Downstream service error" });
-        }
+            var response = await supabaseGateway.GetTeamNameAsync(authHeader, teamId, correlationId);
+            return Ok(response);
+        });
     }
 
     [HttpGet("{teamId}")]
     public async Task<ActionResult<TeamDetailsResponse>> GetTeamById(string teamId)
     {
-        try
+        return await HandleGatewayRequest<TeamDetailsResponse>(async (authHeader, correlationId) =>
         {
-            var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
-
-            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                ?? Request.Headers["Request-Id"].FirstOrDefault();
-
             var response = await supabaseGateway.GetTeamByIdAsync(authHeader, teamId, correlationId);
             if (response.Team == null)
             {
@@ -58,83 +44,41 @@ public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
             }
 
             return Ok(response);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized();
-        }
-        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            return Unauthorized();
-        }
-        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.NotFound)
-        {
-            return NotFound();
-        }
-        catch (Exception)
-        {
-            return StatusCode(502, new { error = "Downstream service error" });
-        }
+        });
     }
 
     [HttpPost]
     public async Task<ActionResult<TeamItem>> CreateTeam([FromBody] CreateTeamRequest request)
     {
-        try
+        return await HandleGatewayRequest<TeamItem>(async (authHeader, correlationId) =>
         {
-            var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
-
-            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                ?? Request.Headers["Request-Id"].FirstOrDefault();
-
             var created = await supabaseGateway.CreateTeamAsync(authHeader, request, correlationId);
             return Created($"/api/teams/{created.Id}", created);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized();
-        }
-        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            return Unauthorized();
-        }
-        catch (Exception)
-        {
-            return StatusCode(502, new { error = "Downstream service error" });
-        }
+        });
     }
 
     [HttpPatch("{teamId}")]
     public async Task<ActionResult<TeamItem>> UpdateTeam(string teamId, [FromBody] UpdateTeamRequest request)
     {
-        try
+        return await HandleGatewayRequest<TeamItem>(async (authHeader, correlationId) =>
         {
-            var authHeader = Request.Headers.Authorization.ToString();
-            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
-
-            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                ?? Request.Headers["Request-Id"].FirstOrDefault();
-
             var updated = await supabaseGateway.UpdateTeamAsync(authHeader, teamId, request, correlationId);
             return Ok(updated);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized();
-        }
-        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            return Unauthorized();
-        }
-        catch (Exception)
-        {
-            return StatusCode(502, new { error = "Downstream service error" });
-        }
+        });
     }
 
     [HttpDelete("{teamId}")]
     public async Task<IActionResult> DeleteTeam(string teamId)
+    {
+        return await HandleGatewayRequest(async (authHeader, correlationId) =>
+        {
+            var ok = await supabaseGateway.DeleteTeamAsync(authHeader, teamId, correlationId);
+            if (!ok) return StatusCode(502, new { error = "Failed to delete team" });
+            return NoContent();
+        });
+    }
+
+    private async Task<IActionResult> HandleGatewayRequest(Func<string, string?, Task<IActionResult>> gatewayRequest)
     {
         try
         {
@@ -142,11 +86,10 @@ public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
             if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
 
             var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                ?? Request.Headers["Request-Id"].FirstOrDefault();
+                                ?? Request.Headers["Request-Id"].FirstOrDefault();
 
-            var ok = await supabaseGateway.DeleteTeamAsync(authHeader, teamId, correlationId);
-            if (!ok) return StatusCode(502, new { error = "Failed to delete team" });
-            return NoContent();
+            var result = await gatewayRequest(authHeader, correlationId);
+            return result;
         }
         catch (UnauthorizedAccessException)
         {
@@ -160,6 +103,35 @@ public class TeamsController(ISupabaseGateway supabaseGateway) : ControllerBase
         {
             return StatusCode(502, new { error = "Downstream service error" });
         }
+        
+    }
+    
+    private async Task<ActionResult<T>> HandleGatewayRequest<T>(Func<string, string?, Task<ActionResult<T>>> gatewayRequest)
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader)) return Unauthorized();
+
+            var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                                ?? Request.Headers["Request-Id"].FirstOrDefault();
+
+            var result = await gatewayRequest(authHeader, correlationId);
+            return result;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (Infrastructure.HttpException httpEx) when (httpEx.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return Unauthorized();
+        }
+        catch (Exception)
+        {
+            return StatusCode(502, new { error = "Downstream service error" });
+        }
+        
     }
 }
 

@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../../../config/environment.ts';
 import { getAuthSession } from '../dataClient';
 
 /**
@@ -17,4 +18,23 @@ export async function getSupabaseAccessToken(): Promise<string> {
     }
 
     return session.access_token;
+}
+
+export async function fetchApi(url: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<Response> {
+    const base = getApiBaseUrl();
+    const token = await getSupabaseAccessToken();
+    if (!url.startsWith('/')) {
+        url = `/${url}`;
+    }
+    if (options.params) {
+        url += `?${new URLSearchParams(options.params).toString()}`;
+    }
+    const res = await fetch(`${base}${url}`, {
+        ...options,
+        method: options.method || 'GET',
+        headers: { Authorization: `Bearer ${token}`, ...options.headers },
+        body: options.body
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res;
 }

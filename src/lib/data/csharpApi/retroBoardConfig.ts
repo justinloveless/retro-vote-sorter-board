@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from '@/config/environment';
-import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { fetchApi } from '@/lib/data/csharpApi/utils';
 
 export type RetroBoardConfigItem = {
     id: string;
@@ -21,12 +20,7 @@ export type RetroBoardConfigResponse = {
 };
 
 export async function apiGetRetroBoardConfig(boardId: string): Promise<RetroBoardConfigResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}/config`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const res = await fetchApi(`/api/retroboards/${boardId}/config`);
     return res.json();
 }
 
@@ -43,14 +37,10 @@ export async function apiCreateRetroBoardConfig(
         voteEmoji?: string;
     }
 ): Promise<RetroBoardConfigItem> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/config`, {
+    const res = await fetchApi(`/api/retroboards/config`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ boardId, ...config })
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -67,12 +57,8 @@ export async function apiUpdateRetroBoardConfig(
         voteEmoji?: string;
     }
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}/config`, {
+    await fetchApi(`/api/retroboards/${boardId}/config`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }

@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from '@/config/environment';
-import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { fetchApi } from '@/lib/data/csharpApi/utils';
 
 export type RetroItemItem = {
     id: string;
@@ -19,12 +18,7 @@ export type RetroItemsResponse = {
 };
 
 export async function apiGetRetroItems(boardId: string): Promise<RetroItemsResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}/items`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const res = await fetchApi(`/api/retroboards/${boardId}/items`);
     return res.json();
 }
 
@@ -36,14 +30,10 @@ export async function apiCreateRetroItem(
     authorId?: string,
     sessionId?: string
 ): Promise<RetroItemItem> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/items`, {
+    const res = await fetchApi(`/api/retroboards/items`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ boardId, columnId, text, author, authorId, sessionId })
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -54,22 +44,14 @@ export async function apiUpdateRetroItem(
         text?: string;
     }
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/items/${encodeURIComponent(itemId)}`, {
+    await fetchApi(`/api/retroboards/items/${itemId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
 export async function apiDeleteRetroItem(itemId: string): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/items/${encodeURIComponent(itemId)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+    await fetchApi(`/api/retroboards/items/${itemId}`, {
+        method: 'DELETE'
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }

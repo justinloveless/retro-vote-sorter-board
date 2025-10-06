@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from '@/config/environment';
-import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { fetchApi } from '@/lib/data/csharpApi/utils';
 
 export type RetroColumnItem = {
     id: string;
@@ -17,12 +16,7 @@ export type RetroColumnsResponse = {
 };
 
 export async function apiGetRetroColumns(boardId: string): Promise<RetroColumnsResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}/columns`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const res = await fetchApi(`/api/retroboards/${boardId}/columns`);
     return res.json();
 }
 
@@ -34,14 +28,10 @@ export async function apiCreateRetroColumn(
     isActionItems?: boolean,
     sortOrder?: number
 ): Promise<RetroColumnItem> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/columns`, {
+    const res = await fetchApi(`/api/retroboards/columns`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ boardId, title, color, position, isActionItems, sortOrder })
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -55,24 +45,16 @@ export async function apiUpdateRetroColumn(
         isActionItems?: boolean;
     }
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/columns/${encodeURIComponent(columnId)}`, {
+    await fetchApi(`/api/retroboards/columns/${columnId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
 export async function apiDeleteRetroColumn(columnId: string): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/columns/${encodeURIComponent(columnId)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+    await fetchApi(`/api/retroboards/columns/${columnId}`, {
+        method: 'DELETE'
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
 export async function apiUpdateRetroColumnsBatch(
@@ -85,12 +67,8 @@ export async function apiUpdateRetroColumnsBatch(
         isActionItems?: boolean;
     }>
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/columns/batch`, {
+    await fetchApi(`/api/retroboards/columns/batch`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }

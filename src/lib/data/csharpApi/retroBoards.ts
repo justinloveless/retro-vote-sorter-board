@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from '@/config/environment';
-import { getSupabaseAccessToken } from '@/lib/data/csharpApi/utils';
+import { fetchApi } from '@/lib/data/csharpApi/utils';
 
 export type RetroBoardItem = {
     id: string;
@@ -44,42 +43,23 @@ export async function apiGetRetroBoards(
     teamId: string,
     includeDeleted: boolean = false
 ): Promise<RetroBoardsResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const url = `${base}/api/retroboards/team/${encodeURIComponent(teamId)}?includeDeleted=${includeDeleted}`;
-
-    const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
+    const res = await fetchApi(`/api/retroboards/team/${teamId}`, {
+        params: { includeDeleted: includeDeleted.toString() }
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
 export async function apiGetRetroBoardSummary(roomId: string): Promise<RetroBoardSummaryResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/room/${encodeURIComponent(roomId)}/summary`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const res = await fetchApi(`/api/retroboards/room/${roomId}/summary`);
     return res.json();
 }
 
 export async function apiGetRetroBoardTitlesByIds(
     boardIds: string[]
 ): Promise<BoardTitlesResponse> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-
-    const params = new URLSearchParams();
-    boardIds.forEach(id => params.append('boardIds', id));
-
-    const url = `${base}/api/retroboards/by-ids?${params.toString()}`;
-
-    const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
+    const res = await fetchApi(`/api/retroboards/by-ids`, {
+        params: { boardIds: boardIds.join(',') }
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -90,14 +70,10 @@ export async function apiCreateRetroBoard(
     passwordHash?: string | null,
     teamId?: string | null
 ): Promise<RetroBoardItem> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards`, {
+    const res = await fetchApi(`/api/retroboards`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId, title, isPrivate, passwordHash, teamId })
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 }
 
@@ -114,22 +90,14 @@ export async function apiUpdateRetroBoard(
         retroStage?: string | null;
     }
 ): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}`, {
+    await fetchApi(`/api/retroboards/${boardId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
 export async function apiDeleteRetroBoard(boardId: string): Promise<void> {
-    const base = getApiBaseUrl();
-    const token = await getSupabaseAccessToken();
-    const res = await fetch(`${base}/api/retroboards/${encodeURIComponent(boardId)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+    await fetchApi(`/api/retroboards/${boardId}`, {
+        method: 'DELETE'
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
 }
