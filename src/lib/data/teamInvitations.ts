@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { shouldUseCSharpApi } from '@/config/environment';
 import { TeamInvitationRecord } from './types';
 import { fetchProfile } from './profiles';
+import { getTeamName } from './teams';
 
 export async function fetchTeamInvitations(
     teamId: string,
@@ -146,11 +147,7 @@ export async function inviteMemberByEmail(teamId: string, email: string): Promis
 
     const profile = await fetchProfile(currentUser.id);
 
-    const { data: team } = await supabase
-        .from('teams')
-        .select('name')
-        .eq('id', teamId)
-        .single();
+    const teamName = await getTeamName(teamId);
 
     const { data: invitation, error } = await supabase
         .from('team_invitations')
@@ -169,7 +166,7 @@ export async function inviteMemberByEmail(teamId: string, email: string): Promis
         body: {
             invitationId: invitation.id,
             email: email,
-            teamName: team?.name || 'Team',
+            teamName: teamName,
             inviterName: profile?.full_name || 'Someone',
             token: invitation.token
         }
