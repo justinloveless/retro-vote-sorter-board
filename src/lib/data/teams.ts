@@ -4,6 +4,7 @@ import { TeamRecord, TeamMemberRecord } from './types';
 import { getAuthUser } from '@/lib/data/auth';
 import { fetchProfilesByIds } from './profiles';
 import { apiGetTeams } from '@/lib/data/csharpApi/apiClient';
+import { client } from './dataClient.ts';
 
 // Cache for teams list
 interface TeamsCache {
@@ -210,12 +211,12 @@ export async function updateTeamMemberRole(teamId: string, memberId: string, rol
 }
 
 export async function getTeamName(teamId: string): Promise<string> {
-    if (shouldUseCSharpApi()) {
-        const { apiGetTeamName } = await import('@/lib/data/csharpApi/apiClient');
-        const { name } = await apiGetTeamName(teamId);
-        return name || 'Team';
-    }
-    const { data, error } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiGetTeamName } = await import('@/lib/data/csharpApi/apiClient');
+    //     const { name } = await apiGetTeamName(teamId);
+    //     return name || 'Team';
+    // }
+    const { data, error } = await client
         .from('teams')
         .select('name')
         .eq('id', teamId)

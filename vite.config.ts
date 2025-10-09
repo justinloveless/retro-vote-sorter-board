@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
-  
+
   const env = loadEnv(mode, process.cwd(), '')
 
   return ({
@@ -27,6 +27,9 @@ export default defineConfig(({ mode, command }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
+    },
+    build: {
+      target: 'esnext', // Support top-level await
     },
   });
 

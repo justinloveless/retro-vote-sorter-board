@@ -1,0 +1,25 @@
+meta {
+  name: Get notifications - proxy
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:5228/api/supabase/notifications?select=*&order=created_at.desc&limit=50
+  body: none
+  auth: inherit
+}
+
+params:query {
+  select: *
+  order: created_at.desc
+  limit: 50
+}
+
+headers {
+  Accept: application/json
+}
+
+settings {
+  encodeUrl: true
+}

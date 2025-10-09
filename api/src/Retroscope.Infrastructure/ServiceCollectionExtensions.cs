@@ -16,10 +16,19 @@ public static class ServiceCollectionExtensions
             var postgrestUrl = configuration["SUPABASE_POSTGREST_URL"];
             if (!string.IsNullOrEmpty(postgrestUrl))
             {
+                // Ensure trailing slash for proper relative URI concatenation
+                if (!postgrestUrl.EndsWith('/'))
+                {
+                    postgrestUrl += '/';
+                }
                 client.BaseAddress = new Uri(postgrestUrl);
             }
 
             client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.All
         })
         .AddPolicyHandler(GetRetryPolicy());
 
@@ -28,6 +37,11 @@ public static class ServiceCollectionExtensions
             var functionsUrl = configuration["SUPABASE_FUNCTIONS_URL"];
             if (!string.IsNullOrEmpty(functionsUrl))
             {
+                // Ensure trailing slash for proper relative URI concatenation
+                if (!functionsUrl.EndsWith('/'))
+                {
+                    functionsUrl += '/';
+                }
                 client.BaseAddress = new Uri(functionsUrl);
             }
 

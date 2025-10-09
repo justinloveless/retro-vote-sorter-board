@@ -91,3 +91,14 @@ export {
   apiCreateComment,
   apiDeleteComment
 } from './retroComments';
+
+// Supabase Proxy Client
+export {
+  SupabaseProxyClient,
+  createSupabaseProxyClient
+} from './supabaseProxyClient';
+
+export {
+  getAuthenticatedProxyClient,
+  createAuthenticatedProxyClient
+} from './supabaseProxyInstance';

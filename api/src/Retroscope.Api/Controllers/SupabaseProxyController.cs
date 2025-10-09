@@ -29,7 +29,7 @@ public class SupabaseProxyController : ControllerBase
     }
 
     /// <summary>
-    /// Forwards any HTTP request to Supabase PostgREST API.
+    /// Forwards any HTTP request to Supabase PostgREST API or Edge Functions.
     /// Supports GET, POST, PATCH, PUT, DELETE, and other HTTP methods.
     /// </summary>
     [HttpGet]
@@ -54,12 +54,22 @@ public class SupabaseProxyController : ControllerBase
                                 ?? Request.Headers["Request-Id"].FirstOrDefault()
                                 ?? Guid.NewGuid().ToString();
 
+            // Determine if this is a functions request or a database request
+            var isEdgeFunctionRequest = path?.StartsWith("functions/", StringComparison.OrdinalIgnoreCase) ?? false;
+            var clientName = isEdgeFunctionRequest ? "FunctionsClient" : "PostgrestClient";
+
             // Build the Supabase request
-            var supabaseRequest = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId);
+            var supabaseRequest = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId, isEdgeFunctionRequest);
 
             // Send the request to Supabase
-            var client = _httpClientFactory.CreateClient("PostgrestClient");
-            var response = await client.SendAsync(supabaseRequest, HttpCompletionOption.ResponseHeadersRead);
+            var client = _httpClientFactory.CreateClient(clientName);
+            _logger.LogInformation("Proxying {Method} request to: {BaseAddress}{RequestUri} (using {ClientName})", 
+                Request.Method, client.BaseAddress, supabaseRequest.RequestUri, clientName);
+            _logger.LogDebug("Request headers: Authorization={HasAuth}, apikey={HasApiKey}, Accept={Accept}", 
+                supabaseRequest.Headers.Authorization != null, 
+                supabaseRequest.Headers.Contains("apikey"),
+                supabaseRequest.Headers.Accept.ToString());
+            var response = await client.SendAsync(supabaseRequest);
 
             // Forward the response back to the client
             return await ForwardResponse(response);
@@ -74,9 +84,19 @@ public class SupabaseProxyController : ControllerBase
     /// <summary>
     /// Builds an HTTP request to forward to Supabase.
     /// </summary>
-    private async Task<HttpRequestMessage> BuildSupabaseRequest(string path, string authHeader, string correlationId)
+    private async Task<HttpRequestMessage> BuildSupabaseRequest(string path, string authHeader, string correlationId, bool isEdgeFunctionRequest)
     {
         var supabaseAnonKey = _configuration["SUPABASE_ANON_KEY"];
+
+        // Remove leading slash to ensure it's treated as a relative URI
+        // (HttpClient with BaseAddress requires relative URIs without leading slash)
+        path = path?.TrimStart('/') ?? string.Empty;
+
+        // For Edge Functions, strip the "functions/" prefix since the FunctionsClient base URL includes it
+        if (isEdgeFunctionRequest && path.StartsWith("functions/", StringComparison.OrdinalIgnoreCase))
+        {
+            path = path.Substring("functions/".Length);
+        }
 
         // Preserve query string
         var queryString = Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty;
@@ -84,10 +104,10 @@ public class SupabaseProxyController : ControllerBase
 
         var request = new HttpRequestMessage(new HttpMethod(Request.Method), requestUri);
 
-        // Forward the authorization header
+        // Forward the authorization header using the typed property
         if (!string.IsNullOrEmpty(authHeader))
         {
-            request.Headers.TryAddWithoutValidation("Authorization", authHeader);
+            request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(authHeader);
         }
 
         // Add Supabase API key
@@ -96,11 +116,14 @@ public class SupabaseProxyController : ControllerBase
             request.Headers.TryAddWithoutValidation("apikey", supabaseAnonKey);
         }
 
+        // Ensure Accept header is set
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+
         // Forward correlation ID
         request.Headers.TryAddWithoutValidation("X-Correlation-Id", correlationId);
 
         // Forward relevant headers from the original request
-        ForwardRequestHeaders(request);
+        ForwardRequestHeaders(request, isEdgeFunctionRequest);
 
         // Forward request body if present
         if (Request.ContentLength > 0 && Request.Body.CanRead)
@@ -124,18 +147,23 @@ public class SupabaseProxyController : ControllerBase
     /// <summary>
     /// Forwards relevant headers from the incoming request to the Supabase request.
     /// </summary>
-    private void ForwardRequestHeaders(HttpRequestMessage supabaseRequest)
+    private void ForwardRequestHeaders(HttpRequestMessage supabaseRequest, bool isEdgeFunctionRequest)
     {
         // Headers to forward (excluding those we handle separately)
-        var headersToForward = new[]
+        var headersToForward = new List<string>
         {
             "Accept",
-            "Accept-Encoding",
+            // Don't forward Accept-Encoding - let HttpClient handle compression automatically
             "Accept-Language",
-            "Prefer", // Important for PostgREST (return=representation, resolution=merge-duplicates, etc.)
-            "Range",
             "X-Tenant",
         };
+
+        // PostgREST-specific headers
+        if (!isEdgeFunctionRequest)
+        {
+            headersToForward.Add("Prefer"); // Important for PostgREST (return=representation, resolution=merge-duplicates, etc.)
+            headersToForward.Add("Range");
+        }
 
         foreach (var headerName in headersToForward)
         {
@@ -153,41 +181,30 @@ public class SupabaseProxyController : ControllerBase
     {
         // Read response content
         var content = await supabaseResponse.Content.ReadAsStringAsync();
+        _logger.LogInformation("Supabase response: Status={StatusCode}, ContentLength={Length}", 
+            supabaseResponse.StatusCode, content?.Length ?? 0);
 
-        // Create the result with the same status code
-        var result = new ContentResult
+        // Set response status code directly
+        Response.StatusCode = (int)supabaseResponse.StatusCode;
+
+        // Forward content type
+        if (supabaseResponse.Content.Headers.ContentType != null)
         {
-            StatusCode = (int)supabaseResponse.StatusCode,
-            Content = content,
-            ContentType = supabaseResponse.Content.Headers.ContentType?.ToString() ?? "application/json"
-        };
-
-        // Forward relevant response headers
-        foreach (var header in supabaseResponse.Headers)
+            Response.ContentType = supabaseResponse.Content.Headers.ContentType.ToString();
+        }
+        else
         {
-            // Skip headers that ASP.NET Core manages automatically
-            if (header.Key.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
-                header.Key.Equals("Connection", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            Response.Headers[header.Key] = header.Value.ToArray();
+            Response.ContentType = "application/json";
         }
 
-        // Forward content headers (like Content-Range, which is important for PostgREST pagination)
-        foreach (var header in supabaseResponse.Content.Headers)
+        // Forward Content-Range if present (important for PostgREST pagination)
+        if (supabaseResponse.Content.Headers.TryGetValues("Content-Range", out var contentRangeValues))
         {
-            if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) ||
-                header.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
-            {
-                continue; // Already handled by ASP.NET Core
-            }
-
-            Response.Headers[header.Key] = header.Value.ToArray();
+            Response.Headers["Content-Range"] = contentRangeValues.ToArray();
         }
 
-        return result;
+        // Return the content
+        return Content(content, Response.ContentType);
     }
 }
 

@@ -2,6 +2,10 @@
 // This file re-exports all functions from individual domain modules to maintain
 // backward compatibility while providing a clean, organized structure.
 
+import { shouldUseCSharpApi } from '../../config/environment.ts';
+import { supabase } from '../../integrations/supabase/client.ts';
+import { getAuthenticatedProxyClient } from './csharpApi/supabaseProxyInstance.ts';
+
 // Export all types from the types module
 export * from './types';
 
@@ -155,3 +159,14 @@ export {
     updateFeedbackReport,
     assignTeamActionItemById
 } from './other';
+
+async function getClient() {
+    if (shouldUseCSharpApi()) {
+        return await getAuthenticatedProxyClient();
+    }
+    return supabase;
+}
+
+const client = (await getClient()) as any;
+
+export { client, getClient };
