@@ -1,0 +1,41 @@
+---
+description: When writing tests
+alwaysApply: false
+---
+
+# Testing Requirements
+
+## Frontend (Vitest)
+
+MUST test BOTH feature flag paths:
+
+```typescript
+describe('useMyHook', () => {
+  describe('when shouldUseCSharpApi returns true', () => {
+    it('should call the C# API', async () => {
+      mockShouldUseCSharpApi.mockReturnValue(true);
+      // test C# API path
+    });
+  });
+
+  describe('when shouldUseCSharpApi returns false', () => {
+    it('should call Supabase directly', async () => {
+      mockShouldUseCSharpApi.mockReturnValue(false);
+      // test Supabase path
+    });
+  });
+});
+```
+
+## Backend (xUnit)
+
+- **Unit tests**: Mock `ISupabaseGateway`, test controllers
+- **Integration tests**: Use `WireMock.Net` to stub Supabase, test full HTTP pipeline
+
+## Test-First Development
+
+Write tests BEFORE implementation:
+
+1. Write failing test
+2. Implement to make it pass
+3. Refactor if needed

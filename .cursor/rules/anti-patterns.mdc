@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+
+# Anti-Patterns (DO NOT DO)
+
+## Frontend
+
+❌ Direct Supabase calls in NEW code (use C# API + feature flag)
+❌ `any` type without justification
+❌ Skipping realtime cleanup in useEffect return
+❌ Prop drilling beyond 2 levels
+
+## Backend
+
+❌ Controllers without `[Authorize]`
+❌ Returning 500 for downstream errors (use 502)
+❌ Catching exceptions without logging
+❌ Using service role key without admin role verification
+❌ Application layer importing from Infrastructure
+
+## General
+
+❌ Committing secrets/API keys
+❌ Skipping tests
+❌ Committing without running linters
+❌ Force-pushing to shared branches

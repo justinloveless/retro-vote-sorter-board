@@ -1,0 +1,27 @@
+---
+description: When modifying the Backend Controllers
+alwaysApply: false
+---
+
+# Security Rules (Non-Negotiable)
+
+## Backend Controllers
+
+- ALL controllers MUST have `[Authorize]` attribute (except health endpoints)
+- ALWAYS forward user's `Authorization` header to Supabase (preserves RLS)
+- NEVER bypass Row Level Security
+- Use service role key ONLY for admin operations AND verify caller's admin role first
+
+## Error Status Codes
+
+- `401`: Missing/invalid token
+- `403`: Insufficient permissions
+- `422`: Bad request payload
+- **`502`**: Downstream (Supabase) error - NOT 500!
+- `500`: Internal server error only
+
+## General Security
+
+- NEVER commit secrets/API keys
+- Use `.env.local` (gitignored) for local secrets
+- Always validate user permissions before operations

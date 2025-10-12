@@ -1,0 +1,33 @@
+---
+globs: *.tsx,*.cs
+alwaysApply: false
+---
+
+# Architecture Constraints
+
+## Dual-Path Migration
+
+This project is migrating from direct Supabase calls to a C# API gateway. ALL data access MUST support both paths via feature flag until migration completes.
+
+**Pattern**:
+
+```typescript
+import { shouldUseCSharpApi } from '@/config/environment';
+
+if (shouldUseCSharpApi()) {
+  // C# API path
+} else {
+  // Legacy Supabase path
+}
+```
+
+## Layer Separation
+
+Application layer must NEVER reference Infrastructure:
+
+- DTOs → `Retroscope.Application/`
+- Implementations → `Retroscope.Infrastructure/`
+
+## Test-Driven Development
+
+Write failing tests BEFORE implementation. No exceptions.

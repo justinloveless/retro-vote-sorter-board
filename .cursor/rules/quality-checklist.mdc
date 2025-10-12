@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+# Quality Checklist
+
+## Before Committing
+
+- [ ] Tests written FIRST and passing
+- [ ] Both feature flag paths tested (if applicable)
+- [ ] Linter passes (`npm run lint` or `dotnet build`)
+- [ ] All controllers have `[Authorize]`
+- [ ] Error responses use 502 for downstream errors
+- [ ] Task tracker updated
+- [ ] No secrets committed
+- [ ] `X-Correlation-Id` header propagated (backend)

@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+
+# Key File Locations
+
+## Documentation
+
+- **Development process**: `documentation/plans/development-process.md`
+- **API plan**: `documentation/plans/csharp-pass-through-api-plan.md`
+- **Coverage tracker**: `documentation/plans/csharp-api-coverage-tracker.md`
+
+## Configuration & Core Files
+
+- **Environment config**: `src/config/environment.ts`
+- **Data client**: `src/lib/data/dataClient.ts`
+- **Supabase gateway**: `api/src/Retroscope.Infrastructure/SupabaseGateway.cs`
+
+## Task Tracking
+
+- **Task tracker**: `tasks/tasks-csharp-pass-through-api.md`

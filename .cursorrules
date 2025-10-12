@@ -1,0 +1,13 @@
+# Retroscope Project Rules
+
+This project uses modular Cursor rules. See `.cursor/rules/` for detailed guidelines:
+
+- **Architecture** - Dual-path migration, layer separation, TDD
+- **Security** - Auth requirements, RLS, error codes
+- **Testing** - Vitest and xUnit patterns, dual-path testing
+- **Git Workflow** - Branch/commit conventions, PR checklist
+- **Anti-Patterns** - Common mistakes to avoid
+- **Quality Checklist** - Pre-commit validation
+- **File Locations** - Key documentation and code references
+
+All rules with `alwaysApply: true` are automatically loaded by Cursor.

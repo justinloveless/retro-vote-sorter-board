@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Branch Naming
+
+**Format**: `<type>/<area>-<short-desc>-<task-number>`
+
+- **Types**: `feature`, `fix`, `chore`, `docs`, `refactor`
+- **Areas**: `api`, `fe`, `retro`, `poker`, `slack`, `notifications`, `teams`, `storage`
+- **Example**: `feature/api-notifications-mark-read-22`
+
+## Commit Messages
+
+**Format**: `<type>(<scope>): <description>`
+
+- **Example**: `feat(api): add notifications controller (Task #22)`
+
+## Before Opening PR
+
+1. Update task tracker (`tasks/tasks-csharp-pass-through-api.md`) to "In progress"
+2. Run linters and tests (must pass 100%)
+3. Update coverage tracker (`documentation/plans/csharp-api-coverage-tracker.md`)
+4. Verify feature flag works in BOTH states
+
+## Commit Rules
+
+- NEVER force-push to shared branches
+- NEVER skip tests before committing
+- NEVER commit without running linters
