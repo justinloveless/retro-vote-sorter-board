@@ -1,0 +1,14 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "Local Retroscope DB",
+            "Group": "Servers",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "retroscope",
+            "Username": "postgres",
+            "SSLMode": "prefer",
+            "PassFile": "/tmp/pgpassfile"
+        }
+    }
+}
