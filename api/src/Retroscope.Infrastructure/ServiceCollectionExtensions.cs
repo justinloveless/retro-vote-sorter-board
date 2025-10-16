@@ -49,8 +49,41 @@ public static class ServiceCollectionExtensions
         })
         .AddPolicyHandler(GetRetryPolicy());
 
-        // Register the gateway
+        services.AddHttpClient("AuthClient", client =>
+        {
+            var authUrl = configuration["SUPABASE_AUTH_URL"];
+            if (!string.IsNullOrEmpty(authUrl))
+            {
+                if (!authUrl.EndsWith('/'))
+                {
+                    authUrl += '/';
+                }
+                client.BaseAddress = new Uri(authUrl);
+            }
+
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .AddPolicyHandler(GetRetryPolicy());
+
+        services.AddHttpClient("LocalPostgrestClient", client =>
+        {
+            var localPostgrestUrl = configuration["LOCAL_POSTGREST_URL"] ?? "http://postgrest:3000/";
+            if (!localPostgrestUrl.EndsWith('/'))
+            {
+                localPostgrestUrl += '/';
+            }
+            client.BaseAddress = new Uri(localPostgrestUrl);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.All
+        })
+        .AddPolicyHandler(GetRetryPolicy());
+
+        // Register gateway
         services.AddScoped<Application.Interfaces.ISupabaseGateway, SupabaseGateway>();
+
         services.AddHttpContextAccessor();
 
         return services;

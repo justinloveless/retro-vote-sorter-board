@@ -28,6 +28,32 @@ PGPASSWORD=retroscope_app_pass docker-compose exec postgres psql -U retroscope_a
 | **Postgres**  | `X-UseLocalPostgres: true`                       | → Local Postgres only |
 | **Dual-Path** | `X-UseLocalPostgres: true`<br>`X-DualPath: true` | → Both (logs diff)    |
 
+### SupabaseProxyController Routing
+
+The SupabaseProxyController (`/api/supabase/*`) now supports three routing modes for database requests:
+
+| Mode          | Headers                                          | Database           | Edge Functions |
+| ------------- | ------------------------------------------------ | ------------------ | -------------- |
+| **Supabase**  | _(none)_                                         | → Supabase         | → Supabase     |
+| **Postgres**  | `X-UseLocalPostgres: true`                       | → Local PostgREST  | → Supabase     |
+| **Dual-Path** | `X-UseLocalPostgres: true`<br>`X-DualPath: true` | → Both (logs diff) | → Supabase     |
+
+**Note**: Edge Functions (`/api/supabase/functions/*`) always route to Supabase regardless of headers, as no local equivalent exists yet.
+
+#### Example: Testing Database Dual-Path via Proxy
+
+```bash
+curl -X GET "http://localhost:5228/api/supabase/notifications?select=*&limit=5" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-UseLocalPostgres: true" \
+  -H "X-DualPath: true"
+
+# Check logs
+docker-compose logs -f api-dev | grep "DualPath"
+```
+
+**PostgREST**: A PostgREST instance runs on port `3000` (internal) providing the same REST API as Supabase PostgREST, with JWT authentication and automatic RLS enforcement.
+
 ## Common Commands
 
 ### Database Management

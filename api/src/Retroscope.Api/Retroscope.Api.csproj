@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Retroscope.Application\Retroscope.Application.csproj" />
     <ProjectReference Include="..\Retroscope.Infrastructure\Retroscope.Infrastructure.csproj" />
+    <ProjectReference Include="..\Retroscope.Auth\Retroscope.Auth.csproj" />
   </ItemGroup>
 
 </Project>

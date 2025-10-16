@@ -54,25 +54,32 @@ public class SupabaseProxyController : ControllerBase
                                 ?? Request.Headers["Request-Id"].FirstOrDefault()
                                 ?? Guid.NewGuid().ToString();
 
+            // Check routing headers
+            var useLocalPostgres = Request.Headers.ContainsKey("X-UseLocalPostgres");
+            var useDualPath = Request.Headers.ContainsKey("X-DualPath");
+
             // Determine if this is a functions request or a database request
             var isEdgeFunctionRequest = path?.StartsWith("functions/", StringComparison.OrdinalIgnoreCase) ?? false;
-            var clientName = isEdgeFunctionRequest ? "FunctionsClient" : "PostgrestClient";
 
-            // Build the Supabase request
-            var supabaseRequest = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId, isEdgeFunctionRequest);
+            // Edge Functions: Always route to Supabase (no local equivalent yet)
+            // Database: Support three modes based on headers
+            if (isEdgeFunctionRequest)
+            {
+                _logger.LogInformation("Edge Function request detected, routing to Supabase only");
+                return await ProxySingleRequest("FunctionsClient", path, authHeader, correlationId, isEdgeFunctionRequest);
+            }
 
-            // Send the request to Supabase
-            var client = _httpClientFactory.CreateClient(clientName);
-            _logger.LogInformation("Proxying {Method} request to: {BaseAddress}{RequestUri} (using {ClientName})", 
-                Request.Method, client.BaseAddress, supabaseRequest.RequestUri, clientName);
-            _logger.LogDebug("Request headers: Authorization={HasAuth}, apikey={HasApiKey}, Accept={Accept}", 
-                supabaseRequest.Headers.Authorization != null, 
-                supabaseRequest.Headers.Contains("apikey"),
-                supabaseRequest.Headers.Accept.ToString());
-            var response = await client.SendAsync(supabaseRequest);
+            // Database requests: Check for dual-path mode
+            if (useDualPath && useLocalPostgres)
+            {
+                _logger.LogInformation("Dual-path mode enabled (CorrelationId: {CorrelationId})", correlationId);
+                return await ProxyDualPath(path, authHeader, correlationId);
+            }
 
-            // Forward the response back to the client
-            return await ForwardResponse(response);
+            // Single path: Local Postgres or Supabase
+            var clientName = useLocalPostgres ? "LocalPostgrestClient" : "PostgrestClient";
+            _logger.LogInformation("Single-path mode using {ClientName} (CorrelationId: {CorrelationId})", clientName, correlationId);
+            return await ProxySingleRequest(clientName, path, authHeader, correlationId, isEdgeFunctionRequest);
         }
         catch (Exception ex)
         {
@@ -82,11 +89,17 @@ public class SupabaseProxyController : ControllerBase
     }
 
     /// <summary>
-    /// Builds an HTTP request to forward to Supabase.
+    /// Builds an HTTP request to forward to Supabase or local PostgREST.
     /// </summary>
-    private async Task<HttpRequestMessage> BuildSupabaseRequest(string path, string authHeader, string correlationId, bool isEdgeFunctionRequest)
+    private async Task<HttpRequestMessage> BuildSupabaseRequest(
+        string path, 
+        string authHeader, 
+        string correlationId, 
+        bool isEdgeFunctionRequest,
+        string clientName = "PostgrestClient")
     {
         var supabaseAnonKey = _configuration["SUPABASE_ANON_KEY"];
+        var isLocalPostgres = clientName == "LocalPostgrestClient";
 
         // Remove leading slash to ensure it's treated as a relative URI
         // (HttpClient with BaseAddress requires relative URIs without leading slash)
@@ -110,8 +123,8 @@ public class SupabaseProxyController : ControllerBase
             request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(authHeader);
         }
 
-        // Add Supabase API key
-        if (!string.IsNullOrEmpty(supabaseAnonKey))
+        // Add Supabase API key (only for Supabase, not for local PostgREST)
+        if (!isLocalPostgres && !string.IsNullOrEmpty(supabaseAnonKey))
         {
             request.Headers.TryAddWithoutValidation("apikey", supabaseAnonKey);
         }
@@ -205,6 +218,102 @@ public class SupabaseProxyController : ControllerBase
 
         // Return the content
         return Content(content, Response.ContentType);
+    }
+
+    /// <summary>
+    /// Proxies a request to a single backend (either Supabase or local PostgREST).
+    /// </summary>
+    private async Task<IActionResult> ProxySingleRequest(
+        string clientName,
+        string? path,
+        string authHeader,
+        string correlationId,
+        bool isEdgeFunctionRequest)
+    {
+        var request = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId, isEdgeFunctionRequest, clientName);
+        var client = _httpClientFactory.CreateClient(clientName);
+        
+        _logger.LogInformation("Proxying {Method} to: {BaseAddress}{RequestUri} (using {ClientName})", 
+            Request.Method, client.BaseAddress, request.RequestUri, clientName);
+        
+        var response = await client.SendAsync(request);
+        return await ForwardResponse(response);
+    }
+
+    /// <summary>
+    /// Proxies a request to both Supabase and local PostgREST, compares results, and returns Supabase response.
+    /// </summary>
+    private async Task<IActionResult> ProxyDualPath(
+        string? path,
+        string authHeader,
+        string correlationId)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        
+        // Build requests for both backends
+        var supabaseRequest = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId, false, "PostgrestClient");
+        var postgresRequest = await BuildSupabaseRequest(path ?? string.Empty, authHeader, correlationId, false, "LocalPostgrestClient");
+        
+        // Execute in parallel
+        var supabaseClient = _httpClientFactory.CreateClient("PostgrestClient");
+        var postgresClient = _httpClientFactory.CreateClient("LocalPostgrestClient");
+        
+        var supabaseTask = supabaseClient.SendAsync(supabaseRequest);
+        var postgresTask = postgresClient.SendAsync(postgresRequest);
+        
+        await Task.WhenAll(supabaseTask, postgresTask);
+        sw.Stop();
+        
+        var supabaseResponse = await supabaseTask;
+        var postgresResponse = await postgresTask;
+        
+        // Compare and log differences
+        await CompareResponses(supabaseResponse, postgresResponse, correlationId, sw.ElapsedMilliseconds);
+        
+        // Return Supabase response as primary
+        return await ForwardResponse(supabaseResponse);
+    }
+
+    /// <summary>
+    /// Compares responses from Supabase and local PostgREST and logs any differences.
+    /// </summary>
+    private async Task CompareResponses(
+        HttpResponseMessage supabaseResponse,
+        HttpResponseMessage postgresResponse,
+        string correlationId,
+        long totalMs)
+    {
+        var supabaseContent = await supabaseResponse.Content.ReadAsStringAsync();
+        var postgresContent = await postgresResponse.Content.ReadAsStringAsync();
+        
+        var statusMatch = supabaseResponse.StatusCode == postgresResponse.StatusCode;
+        var contentMatch = supabaseContent == postgresContent;
+        
+        if (statusMatch && contentMatch)
+        {
+            _logger.LogInformation(
+                "DualPath: Results MATCH (CorrelationId: {CorrelationId}, Duration: {Duration}ms, Status: {Status})",
+                correlationId, totalMs, supabaseResponse.StatusCode);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "DualPath: Results DIFFER (CorrelationId: {CorrelationId}, Duration: {Duration}ms) " +
+                "StatusMatch: {StatusMatch}, ContentMatch: {ContentMatch}, " +
+                "Supabase: {SupabaseStatus} ({SupabaseLength} chars), " +
+                "Postgres: {PostgresStatus} ({PostgresLength} chars)",
+                correlationId, totalMs, statusMatch, contentMatch,
+                supabaseResponse.StatusCode, supabaseContent.Length,
+                postgresResponse.StatusCode, postgresContent.Length);
+            
+            if (!contentMatch && supabaseContent.Length < 5000 && postgresContent.Length < 5000)
+            {
+                _logger.LogDebug(
+                    "DualPath Content Diff (CorrelationId: {CorrelationId}): " +
+                    "Supabase: {SupabaseContent}, Postgres: {PostgresContent}",
+                    correlationId, supabaseContent, postgresContent);
+            }
+        }
     }
 }
 
