@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Retroscope.Auth.DTOs;
 using Retroscope.Auth.Services;
 using System.Security.Claims;

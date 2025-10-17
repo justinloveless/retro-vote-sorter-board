@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.VisualStudio.TestPlatform.TestHost;
 using Retroscope.Infrastructure.Supabase;
 using WireMock.Server;
 

@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for Retroscope API
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy all source files
@@ -17,7 +17,7 @@ RUN dotnet publish src/Retroscope.Api/Retroscope.Api.csproj \
     --output /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
 # Create a non-root user for security

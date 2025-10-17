@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
+using Retroscope.Auth.Authentication;
 using Retroscope.Auth.Data;
 using Retroscope.Auth.Services;
 using System.Text;
@@ -30,7 +32,7 @@ public static class ServiceCollectionExtensions
         {
             // In development, use a more permissive auth handler that supports both Supabase and local
             services.AddAuthentication("DualPath")
-                .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, Retroscope.Api.DevelopmentAuthHandler>(
+                .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DevelopmentAuthHandler>(
                     "DualPath", options => { });
         }
         else

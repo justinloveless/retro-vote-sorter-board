@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
-namespace Retroscope.Api;
+namespace Retroscope.Auth.Authentication;
 
 public class DevelopmentAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder,
-    ISystemClock clock)
-    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder, clock)
+    UrlEncoder encoder)
+    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -42,5 +42,4 @@ public class DevelopmentAuthHandler(
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
-
 

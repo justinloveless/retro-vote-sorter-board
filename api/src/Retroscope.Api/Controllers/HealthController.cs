@@ -9,7 +9,7 @@ public class HealthController(IConfiguration configuration, HttpClient httpClien
 {
     private static DateTime? _lastJwksCheck;
     private static bool _jwksHealthy;
-    private static readonly Lock JwksLock = new();
+    private static readonly object JwksLock = new();
 
     [HttpGet("healthz")]
     [AllowAnonymous]
