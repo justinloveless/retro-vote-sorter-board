@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { client as supabase } from '@/lib/data/dataClient';  
 import {
   fetchTeamMembers as dcFetchTeamMembers,
   updateTeamMemberRole as dcUpdateMemberRole,
