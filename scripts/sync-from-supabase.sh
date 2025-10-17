@@ -64,9 +64,22 @@ check_dependencies() {
     # Check for PostgreSQL 15 first (matches Supabase version)
     if [ -f "/opt/homebrew/opt/postgresql@15/bin/pg_dump" ]; then
         export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
-        print_status "Using PostgreSQL 15 client tools (matches Supabase version)"
-    elif ! command -v pg_dump &> /dev/null; then
-        missing_tools+=("pg_dump (PostgreSQL client tools)")
+        print_success "Using PostgreSQL 15 client tools (matches Supabase version)"
+    elif [ -f "/usr/local/opt/postgresql@15/bin/pg_dump" ]; then
+        export PATH="/usr/local/opt/postgresql@15/bin:$PATH"
+        print_success "Using PostgreSQL 15 client tools (matches Supabase version)"
+    else
+        # Check if pg_dump exists but is wrong version
+        if command -v pg_dump &> /dev/null; then
+            local pg_version=$(pg_dump --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
+            print_error "Found pg_dump version $pg_version, but Supabase requires version 15.x"
+            print_error "Please install PostgreSQL 15 client tools:"
+            print_error "  brew install postgresql@15"
+            print_error "  brew link postgresql@15"
+            exit 1
+        else
+            missing_tools+=("pg_dump (PostgreSQL 15 client tools)")
+        fi
     fi
     
     if ! command -v psql &> /dev/null; then
@@ -79,7 +92,16 @@ check_dependencies() {
         exit 1
     fi
     
-    print_success "All dependencies found"
+    # Verify pg_dump version is compatible
+    local pg_dump_version=$(pg_dump --version | grep -oE '[0-9]+' | head -1)
+    if [ "$pg_dump_version" -lt 15 ]; then
+        print_error "pg_dump version $pg_dump_version is too old for Supabase (requires 15+)"
+        print_error "Please install PostgreSQL 15 client tools:"
+        print_error "  brew install postgresql@15"
+        exit 1
+    fi
+    
+    print_success "All dependencies found and versions verified"
 }
 
 # Function to load environment variables
@@ -148,9 +170,21 @@ check_docker() {
         exit 1
     fi
     
-    if ! $docker_cmd ps postgres | grep -q "running"; then
+    # Check if postgres container exists and is running
+    # Look for "Up" or "healthy" in the status column
+    local postgres_status=$($docker_cmd ps postgres 2>/dev/null)
+    
+    if [ -z "$postgres_status" ]; then
+        print_error "PostgreSQL container not found!"
+        print_error "Please start the database with: $docker_cmd up -d postgres"
+        exit 1
+    fi
+    
+    if ! echo "$postgres_status" | grep -qE "(Up|healthy)"; then
         print_error "PostgreSQL container is not running!"
         print_error "Please start the database with: $docker_cmd up -d postgres"
+        print_error "Container status:"
+        echo "$postgres_status"
         exit 1
     fi
     
@@ -167,9 +201,11 @@ test_supabase_connection() {
     local supabase_host=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*@\([^:]*\):.*/\1/p')
     local supabase_port=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
     
-    if ! PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
+    # Disable GSSAPI to avoid negotiation errors with Supabase pooler
+    if ! PGPASSWORD="$supabase_password" PGGSSENCMODE=disable psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
         print_error "Cannot connect to Supabase database!"
         print_error "Please check your SUPABASE_DB_URL in .env.sync"
+        print_error "Connection details: $supabase_username@$supabase_host:$supabase_port"
         exit 1
     fi
     
@@ -180,9 +216,22 @@ test_supabase_connection() {
 test_local_connection() {
     print_status "Testing local PostgreSQL connection..."
     
-    if ! PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SELECT 1;" >/dev/null 2>&1; then
+    # Use default values if not set
+    local db_host="${LOCAL_DB_HOST:-localhost}"
+    local db_port="${LOCAL_DB_PORT:-5433}"
+    local db_user="${LOCAL_DB_USER:-postgres}"
+    local db_name="${LOCAL_DB_NAME:-retroscope}"
+    local db_password="${LOCAL_DB_PASSWORD:-postgres}"
+    
+    print_status "Connecting to: $db_user@$db_host:$db_port/$db_name"
+    
+    if ! PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SELECT 1;" >/dev/null 2>&1; then
         print_error "Cannot connect to local PostgreSQL database!"
-        print_error "Please ensure the database is running and credentials are correct."
+        print_error "Connection details: $db_user@$db_host:$db_port/$db_name"
+        print_error "Please ensure:"
+        print_error "  1. The database is running: docker compose ps postgres"
+        print_error "  2. The port is correct (check docker-compose.yml)"
+        print_error "  3. Your .env.sync has: LOCAL_DB_PORT=$db_port"
         exit 1
     fi
     
@@ -224,7 +273,8 @@ dump_supabase_data() {
             fi
             
             # Dump data only (no schema)
-            if PGPASSWORD="$supabase_password" pg_dump \
+            # Run pg_dump and capture both stdout and stderr
+            PGPASSWORD="$supabase_password" PGGSSENCMODE=disable pg_dump \
                 --host="$supabase_host" \
                 --port="$supabase_port" \
                 --username="$supabase_username" \
@@ -235,14 +285,26 @@ dump_supabase_data() {
                 --no-owner \
                 --no-privileges \
                 $tables_arg \
-                --file="$dump_file" 2>/dev/null; then
-                print_success "Dumped $schema schema to $dump_file"
+                --file="$dump_file" 2>&1
+            
+            local dump_exit_code=$?
+            
+            # Verify the dump file was created and has content
+            if [ $dump_exit_code -eq 0 ] && [ -f "$dump_file" ] && [ -s "$dump_file" ]; then
+                print_success "Dumped $schema schema to $dump_file ($(wc -l < "$dump_file" | tr -d ' ') lines)"
             else
-                print_warning "Failed to dump $schema schema - checking if tables exist..."
+                print_warning "Failed to dump $schema schema (exit code: $dump_exit_code)"
+                if [ -f "$dump_file" ]; then
+                    local file_size=$(wc -l < "$dump_file" | tr -d ' ')
+                    print_warning "File exists but may be empty: $file_size lines"
+                else
+                    print_warning "Dump file was not created"
+                fi
+                print_status "Checking if tables exist..."
                 # Check if any of the specified tables exist
                 local tables_exist=false
                 if [ "$schema" = "public" ]; then
-                    if PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' LIMIT 1;" >/dev/null 2>&1; then
+                    if PGPASSWORD="$supabase_password" PGGSSENCMODE=disable psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' LIMIT 1;" >/dev/null 2>&1; then
                         tables_exist=true
                     fi
                 fi
@@ -289,7 +351,7 @@ EOF
 
     # Dump users data (only compatible columns)
     print_status "Dumping users data..."
-    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+    PGPASSWORD="$supabase_password" PGGSSENCMODE=disable psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
         COPY (
             SELECT id, email, created_at, encrypted_password, email_confirmed_at, 
                    last_sign_in_at, raw_app_meta_data, raw_user_meta_data, updated_at
@@ -309,7 +371,7 @@ EOF
 
     # Dump identities data (only compatible columns)
     print_status "Dumping identities data..."
-    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+    PGPASSWORD="$supabase_password" PGGSSENCMODE=disable psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
         COPY (
             SELECT id, user_id, provider, provider_id as provider_user_id, identity_data as provider_data, created_at, updated_at
             FROM auth.identities
@@ -328,7 +390,7 @@ EOF
 
     # Dump refresh_tokens data (only compatible columns)
     print_status "Dumping refresh_tokens data..."
-    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+    PGPASSWORD="$supabase_password" PGGSSENCMODE=disable psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
         COPY (
             SELECT id, token, user_id, parent, revoked, created_at, updated_at
             FROM auth.refresh_tokens
@@ -356,8 +418,15 @@ EOF
 clear_local_data() {
     print_status "Clearing local data..."
     
+    # Use default values if not set
+    local db_host="${LOCAL_DB_HOST:-localhost}"
+    local db_port="${LOCAL_DB_PORT:-5433}"
+    local db_user="${LOCAL_DB_USER:-postgres}"
+    local db_name="${LOCAL_DB_NAME:-retroscope}"
+    local db_password="${LOCAL_DB_PASSWORD:-postgres}"
+    
     # Disable triggers temporarily
-    PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SET session_replication_role = replica;"
+    PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SET session_replication_role = replica;"
     
     for schema in "${SCHEMAS[@]}"; do
         if [ "$schema" = "auth" ]; then
@@ -368,7 +437,7 @@ clear_local_data() {
         print_status "Clearing $schema schema..."
         
         # Get list of tables in the schema
-        local tables=$(PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -t -c "
+        local tables=$(PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -t -c "
             SELECT tablename 
             FROM pg_tables 
             WHERE schemaname = '$schema'
@@ -378,7 +447,7 @@ clear_local_data() {
         if [ -n "$tables" ]; then
             # Truncate all tables in the schema
             for table in $tables; do
-                PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "TRUNCATE TABLE $schema.$table CASCADE;"
+                PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "TRUNCATE TABLE $schema.$table CASCADE;"
             done
             print_success "Cleared $schema schema ($(echo $tables | wc -w) tables)"
         else
@@ -387,7 +456,7 @@ clear_local_data() {
     done
     
     # Re-enable triggers
-    PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SET session_replication_role = DEFAULT;"
+    PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SET session_replication_role = DEFAULT;"
     
     print_success "Local data cleared"
 }
@@ -396,29 +465,48 @@ clear_local_data() {
 load_local_data() {
     print_status "Loading data into local database..."
     
+    # Use default values if not set
+    local db_host="${LOCAL_DB_HOST:-localhost}"
+    local db_port="${LOCAL_DB_PORT:-5433}"
+    local db_user="${LOCAL_DB_USER:-postgres}"
+    local db_name="${LOCAL_DB_NAME:-retroscope}"
+    local db_password="${LOCAL_DB_PASSWORD:-postgres}"
+    
     for schema in "${SCHEMAS[@]}"; do
         local dump_file="$TEMP_DIR/${schema}_data.sql"
         
+        print_status "Checking for dump file: $dump_file"
+        
         if [ -f "$dump_file" ]; then
+            # Check if file has content
+            if [ ! -s "$dump_file" ]; then
+                print_warning "Dump file for $schema schema is empty, skipping"
+                continue
+            fi
+            
             print_status "Loading $schema schema..."
             
             # Disable triggers during load
-            PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SET session_replication_role = replica;"
+            PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SET session_replication_role = replica;"
             
-            # Load the data
-            PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -f "$dump_file"
-            
-            # Re-enable triggers
-            PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SET session_replication_role = DEFAULT;"
-            
-            if [ $? -eq 0 ]; then
+            # Load the data and capture exit status
+            if PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -f "$dump_file"; then
+                # Re-enable triggers
+                PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SET session_replication_role = DEFAULT;"
                 print_success "Loaded $schema schema"
             else
+                # Re-enable triggers even on failure
+                PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SET session_replication_role = DEFAULT;"
                 print_error "Failed to load $schema schema"
                 exit 1
             fi
         else
-            print_warning "No dump file found for $schema schema"
+            print_warning "No dump file found for $schema schema at: $dump_file"
+            # List what files do exist in temp dir
+            if [ -d "$TEMP_DIR" ]; then
+                print_status "Files in temp directory:"
+                ls -la "$TEMP_DIR" | tail -n +4
+            fi
         fi
     done
 }
@@ -440,7 +528,7 @@ show_summary() {
     print_status "Summary:"
     print_status "========="
     print_status "• Source: Supabase ($SUPABASE_PROJECT_REF)"
-    print_status "• Target: Local PostgreSQL (localhost:5432/retroscope)"
+    print_status "• Target: Local PostgreSQL (${LOCAL_DB_HOST:-localhost}:${LOCAL_DB_PORT:-5433}/$LOCAL_DB_NAME)"
     print_status "• Schemas synced: ${SCHEMAS[*]}"
     print_status "• Log file: $LOG_FILE"
     print_status ""
