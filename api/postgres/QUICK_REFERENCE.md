@@ -236,4 +236,105 @@ curl http://localhost:5228/healthz
 - **Implementation Summary**: `IMPLEMENTATION_COMPLETE.md`
 - **Architecture Details**: `POSTGRES_MIGRATION_SUMMARY.md`
 
+## Database Sync from Supabase
+
+### Overview
+
+The database sync script allows you to synchronize your local PostgreSQL database with your Supabase remote database. This is useful for:
+
+- Getting the latest production data for local development
+- Syncing auth data (users, identities, tokens) from Supabase
+- Syncing all public schema data from Supabase
+- Ensuring your local database matches the remote state
+
+### Setup
+
+1. **Create credentials file:**
+
+   ```bash
+   # Copy the template
+   cp scripts/.env.sync.example .env.sync
+
+   # Edit with your actual Supabase credentials
+   nano .env.sync
+   ```
+
+2. **Get Supabase credentials:**
+
+   - **Service Role Key**: Supabase Dashboard > Settings > API > service_role key
+   - **Database URL**: Supabase Dashboard > Settings > Database > Connection string > URI
+   - **Project Ref**: From your Supabase project URL (e.g., `nwfwbjmzbwuyxehindpv`)
+
+3. **Example .env.sync:**
+   ```bash
+   SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   SUPABASE_DB_URL=postgresql://postgres:your-password@db.nwfwbjmzbwuyxehindpv.supabase.co:5432/postgres
+   SUPABASE_PROJECT_REF=nwfwbjmzbwuyxehindpv
+   ```
+
+### Usage
+
+```bash
+# Run the sync script
+./scripts/sync-from-supabase.sh
+```
+
+**What happens during sync:**
+
+1. Validates all credentials and connections
+2. Dumps data from Supabase (auth + public schemas)
+3. **Clears all local data** in target schemas
+4. Loads fresh data from Supabase
+5. Provides completion summary
+
+### Configuration
+
+Edit the script to customize what gets synced:
+
+```bash
+# In scripts/sync-from-supabase.sh
+SCHEMAS=("auth" "public")  # Add more schemas here
+AUTH_TABLES=("users" "identities" "refresh_tokens" "verification_codes")
+PUBLIC_TABLES=()  # Empty = sync all tables
+```
+
+### Troubleshooting
+
+**Connection issues:**
+
+```bash
+# Test Supabase connection manually
+PGPASSWORD=your-password psql -h db.nwfwbjmzbwuyxehindpv.supabase.co -p 5432 -U postgres -d postgres -c "SELECT 1;"
+
+# Test local connection
+PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d retroscope -c "SELECT 1;"
+```
+
+**Docker not running:**
+
+```bash
+docker-compose up -d postgres
+```
+
+**Check logs:**
+
+```bash
+tail -f scripts/sync-from-supabase.log
+```
+
+**Reset and retry:**
+
+```bash
+# If sync fails, reset local database
+./scripts/reset-database.sh
+./scripts/sync-from-supabase.sh
+```
+
+### Security Notes
+
+- `.env.sync` is gitignored and never committed
+- Service role key has admin access - keep it secure
+- Script validates credentials before proceeding
+- All operations are logged for audit trail
+
 **You're all set! Happy developing! 🚀**

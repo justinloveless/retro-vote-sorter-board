@@ -34,3 +34,7 @@ api/**/Properties/*
 api/**/*.csproj.user
 api/**/*.csproj.vspscc
 api/**/*.csproj.vssscc
+
+# Database sync credentials
+.env.sync
+scripts/.env.sync
