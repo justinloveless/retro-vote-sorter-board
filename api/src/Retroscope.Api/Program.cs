@@ -37,24 +37,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure Local Auth System
+// Configure Dual-Path Authentication (Supabase + Local Auth)
+// Similar to dual-path data proxy, supports routing based on headers
 var isDevelopment = builder.Environment.IsDevelopment();
-
-if (isDevelopment)
-{
-    // Use development auth handler for local development
-    builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = "Dev";
-        options.DefaultChallengeScheme = "Dev";
-    })
-    .AddScheme<AuthenticationSchemeOptions, Retroscope.Api.DevelopmentAuthHandler>("Dev", options => { });
-}
-else
-{
-    // Use local auth system for production
-    builder.Services.AddRetroscopeAuth(builder.Configuration);
-}
+builder.Services.AddRetroscopeAuth(builder.Configuration, isDevelopment);
 
 // Register services
 // Use real Supabase gateway by default; tests can override with a mock via WebApplicationFactory
@@ -79,6 +65,16 @@ if (!app.Environment.IsDevelopment())
 
 // Use CORS before authentication
 app.UseCors();
+
+// Add auth routing header middleware (for debugging and monitoring)
+app.Use(async (context, next) =>
+{
+    // Check which auth system is being used
+    var useLocalAuth = context.Request.Headers["X-UseLocalAuth"].FirstOrDefault() == "true";
+    context.Response.Headers["X-Auth-System"] = useLocalAuth ? "Local" : "Supabase";
+    
+    await next();
+});
 
 // Add correlation ID middleware
 app.Use(async (context, next) =>

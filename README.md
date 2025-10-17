@@ -1,5 +1,24 @@
 # Welcome to your Lovable project
-test
+
+## 🔄 Dual-Path Architecture
+
+This project uses a **dual-path architecture** for both authentication and data access, allowing seamless migration from Supabase to local implementations.
+
+### Quick Links
+
+- 📖 **[Dual-Path Quick Reference](DUAL_PATH_QUICK_REFERENCE.md)** - Start here!
+- 🏗️ **[Architecture Overview](ARCHITECTURE_OVERVIEW.md)** - System diagrams and flow charts
+- 🔐 **[Dual-Path Authentication](DUAL_PATH_AUTH_IMPLEMENTATION.md)** - Auth routing details
+- 💾 **[Dual-Path Data Proxy](DUAL_PATH_PROXY_IMPLEMENTATION.md)** - Data routing details
+- 🚀 **[Local Auth Setup](LOCAL_AUTH_IMPLEMENTATION.md)** - Local auth implementation
+- 🔧 **[OAuth Setup](OAUTH_SETUP_GUIDE.md)** - OAuth provider configuration
+- ✅ **[Implementation Complete](IMPLEMENTATION_COMPLETE_DUAL_PATH_AUTH.md)** - What was done
+
+### Database Scripts
+
+- `./scripts/reset-database-complete.sh` - Complete database reset
+- `./scripts/reset-database.sh` - Simple database reset
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/321ef3d9-3afa-40d2-ae7f-3b5e17f2818c

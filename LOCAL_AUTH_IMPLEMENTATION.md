@@ -2,6 +2,8 @@
 
 This document describes the implementation of a local authentication system similar to Supabase Auth, built using ASP.NET Core Identity and JWT tokens.
 
+> **⚠️ Dual-Path System**: This local auth system runs **in parallel** with Supabase Auth. See `DUAL_PATH_AUTH_IMPLEMENTATION.md` for routing details and migration strategy.
+
 ## Overview
 
 The local auth system provides:
