@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { client } from '@/lib/data/dataClient';  
 import { getPokerSessionByRoom, createPokerSession, getPokerRound, createPokerRound, updatePokerRoundById, updatePokerSessionById, deletePokerSessionData } from '@/lib/data/dataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -279,7 +280,7 @@ export const usePokerSession = (
         const title = `Poker session started`;
         const roomId = session.room_id;
         // Use admin-send-notification for consistency and future flexibility
-        await supabase.functions.invoke('admin-send-notification', {
+        await client.functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map(id => ({ userId: id })),
             type: 'poker_session',

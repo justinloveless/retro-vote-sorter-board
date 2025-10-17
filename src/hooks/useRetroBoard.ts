@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { client } from '@/lib/data/dataClient';  
 import { useToast } from '@/hooks/use-toast';
 import { fetchRetroBoardSummary, createRetroBoardWithDefaults, getUserVotes, addVote, removeVote, fetchCommentsForItems, addRetroComment, deleteRetroComment, updateRetroBoard, fetchRetroBoardConfig, createRetroBoardConfig, updateRetroBoardConfig, fetchRetroColumns, createRetroColumn, updateRetroColumn, deleteRetroColumn, updateRetroColumnsBatch, fetchRetroItems, createRetroItem, updateRetroItem, deleteRetroItem } from '@/lib/data/dataClient';
 import { useAuth } from '@/hooks/useAuth';
@@ -260,7 +261,7 @@ export const useRetroBoard = (roomId: string) => {
 
         // Load open team action items for this board's team, excluding items from the current board
         if (boardData.team_id) {
-          const { data: openActions, error: actionsError } = await supabase
+          const { data: openActions, error: actionsError } = await client
             .from('team_action_items')
             .select('*')
             .eq('team_id', boardData.team_id)
@@ -271,7 +272,7 @@ export const useRetroBoard = (roomId: string) => {
           if (actionsError) throw actionsError;
           setTeamActionItems(openActions || []);
           // Also load status mapping for items on this board (done may be true)
-          const { data: boardActions } = await supabase
+          const { data: boardActions } = await client
             .from('team_action_items')
             .select('id, source_item_id, done, assigned_to')
             .eq('team_id', boardData.team_id)
@@ -556,7 +557,7 @@ export const useRetroBoard = (roomId: string) => {
       try {
         const targetColumn = columns.find(c => c.id === columnId);
         if (newItem && targetColumn?.is_action_items && board.team_id) {
-          await supabase
+          await client
             .from('team_action_items')
             .insert([{
               team_id: board.team_id,
@@ -584,7 +585,7 @@ export const useRetroBoard = (roomId: string) => {
     const prevOpen = teamActionItems;
     setTeamActionItems(prev => prev.filter(a => a.id !== actionItemId));
 
-    const { error } = await supabase
+    const { error } = await client
       .from('team_action_items')
       .update({ done: true, done_at: new Date().toISOString(), done_by: profile?.id || null })
       .eq('id', actionItemId);
@@ -604,7 +605,7 @@ export const useRetroBoard = (roomId: string) => {
       // If no action record exists but toggling to done from board, create one linked to this item
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('team_action_items')
           .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, done: true, done_at: new Date().toISOString(), done_by: profile?.id || null }])
           .select('id')
@@ -621,7 +622,7 @@ export const useRetroBoard = (roomId: string) => {
 
     // Optimistic update
     setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: nextDone } }));
-    const { error } = await supabase
+    const { error } = await client
       .from('team_action_items')
       .update({ done: nextDone, done_at: nextDone ? new Date().toISOString() : null, done_by: nextDone ? (profile?.id || null) : null })
       .eq('id', actionId);
@@ -635,7 +636,7 @@ export const useRetroBoard = (roomId: string) => {
   const assignTeamActionItem = async (actionItemId: string, userId: string | null) => {
     // Optimistic update for Open Action Items list
     setTeamActionItems(prev => prev.map(a => a.id === actionItemId ? { ...a, assigned_to: userId } : a));
-    const { error } = await supabase
+    const { error } = await client
       .from('team_action_items')
       .update({ assigned_to: userId })
       .eq('id', actionItemId);
@@ -649,7 +650,7 @@ export const useRetroBoard = (roomId: string) => {
     if (!link) {
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('team_action_items')
           .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, assigned_to: userId ?? null }])
           .select('id')
@@ -661,7 +662,7 @@ export const useRetroBoard = (roomId: string) => {
       return;
     }
     setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { ...prev[sourceItemId], assigned_to: userId ?? null } }));
-    await supabase
+    await client
       .from('team_action_items')
       .update({ assigned_to: userId ?? null })
       .eq('id', link.id);
@@ -880,7 +881,7 @@ export const useRetroBoard = (roomId: string) => {
         const updatedItem = items.find(i => i.id === itemId);
         const actionColumn = updatedItem ? columns.find(c => c.id === updatedItem.column_id)?.is_action_items : false;
         if (board?.team_id && actionColumn) {
-          await supabase
+          await client
             .from('team_action_items')
             .update({ text })
             .eq('source_item_id', itemId);
@@ -990,7 +991,7 @@ export const useRetroBoard = (roomId: string) => {
             .map(u => u.id)
             .filter(Boolean);
           if (userIds.length > 0) {
-            await supabase.functions.invoke('notify-retro-start', {
+            await client.functions.invoke('notify-retro-start', {
               body: {
                 roomId: board.room_id,
                 title: board.title || 'Retrospective',

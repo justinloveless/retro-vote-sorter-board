@@ -1,9 +1,9 @@
-import { supabase } from '@/integrations/supabase/client';
+import { client } from './dataClient';
 
 // Poker Sessions
 
 export async function getPokerSessionByRoom(roomId: string): Promise<any | null> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_sessions')
         .select('*')
         .eq('room_id', roomId)
@@ -14,7 +14,7 @@ export async function getPokerSessionByRoom(roomId: string): Promise<any | null>
 }
 
 export async function createPokerSession(roomId: string): Promise<any> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_sessions')
         .insert({ room_id: roomId, current_round_number: 1 })
         .select()
@@ -24,7 +24,7 @@ export async function createPokerSession(roomId: string): Promise<any> {
 }
 
 export async function getPokerRound(sessionId: string, roundNumber: number): Promise<any | null> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_rounds')
         .select('*')
         .eq('session_id', sessionId)
@@ -36,7 +36,7 @@ export async function getPokerRound(sessionId: string, roundNumber: number): Pro
 }
 
 export async function createPokerRound(sessionId: string, roundNumber: number, selections: any, ticketNumber?: string): Promise<any> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_rounds')
         .insert({ session_id: sessionId, round_number: roundNumber, selections, ticket_number: ticketNumber || '' })
         .select()
@@ -46,7 +46,7 @@ export async function createPokerRound(sessionId: string, roundNumber: number, s
 }
 
 export async function updatePokerRoundById(roundId: string, fields: any): Promise<any> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_rounds')
         .update(fields)
         .eq('id', roundId)
@@ -56,7 +56,7 @@ export async function updatePokerRoundById(roundId: string, fields: any): Promis
 }
 
 export async function updatePokerSessionById(sessionId: string, fields: any): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('poker_sessions')
         .update(fields)
         .eq('id', sessionId);
@@ -64,12 +64,12 @@ export async function updatePokerSessionById(sessionId: string, fields: any): Pr
 }
 
 export async function deletePokerSessionData(sessionId: string): Promise<void> {
-    const { error } = await supabase.functions.invoke('delete-session-data', { body: { session_id: sessionId } });
+    const { error } = await client.functions.invoke('delete-session-data', { body: { session_id: sessionId } });
     if (error) throw new Error(`Function invocation failed: ${error.message}`);
 }
 
 export async function fetchPokerRounds(sessionId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_rounds')
         .select('*')
         .eq('session_id', sessionId)
@@ -81,7 +81,7 @@ export async function fetchPokerRounds(sessionId: string): Promise<any[]> {
 // Poker Session Chat
 
 export async function fetchPokerChatMessages(sessionId: string, roundNumber: number): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_chat_with_details')
         .select('*')
         .eq('session_id', sessionId)
@@ -92,7 +92,7 @@ export async function fetchPokerChatMessages(sessionId: string, roundNumber: num
 }
 
 export async function sendPokerChatMessage(params: { sessionId: string; roundNumber: number; userId: string; userName: string; messageText: string; replyToMessageId?: string }): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('poker_session_chat')
         .insert({
             session_id: params.sessionId,
@@ -106,7 +106,7 @@ export async function sendPokerChatMessage(params: { sessionId: string; roundNum
 }
 
 export async function addPokerChatReaction(params: { sessionId: string; messageId: string; userId: string; userName: string; emoji: string }): Promise<void> {
-    const { error } = await supabase.from('poker_session_chat_message_reactions').insert({
+    const { error } = await client.from('poker_session_chat_message_reactions').insert({
         message_id: params.messageId,
         user_id: params.userId,
         user_name: params.userName,
@@ -117,7 +117,7 @@ export async function addPokerChatReaction(params: { sessionId: string; messageI
 }
 
 export async function removePokerChatReaction(params: { messageId: string; userId: string; emoji: string }): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('poker_session_chat_message_reactions')
         .delete()
         .eq('message_id', params.messageId)
@@ -132,7 +132,7 @@ export async function uploadPokerChatImage(sessionId: string, roundNumber: numbe
     const filePath = `${sessionId}/${roundNumber}/${fileName}`;
     const bucketName = 'poker-session-chat-images';
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await client.storage
         .from(bucketName)
         .upload(filePath, file, {
             cacheControl: '3600',
@@ -140,14 +140,14 @@ export async function uploadPokerChatImage(sessionId: string, roundNumber: numbe
         });
     if (uploadError) throw uploadError;
 
-    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+    const { data } = client.storage.from(bucketName).getPublicUrl(filePath);
     if (!data.publicUrl) throw new Error('Failed to get public URL');
     return data.publicUrl;
 }
 
 export const fetchChatMessagesForRound = async (sessionId: string, roundNumber: number) => {
     if (!sessionId) return [];
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('poker_session_chat')
         .select('user_name, message')
         .eq('session_id', sessionId)

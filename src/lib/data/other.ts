@@ -1,9 +1,9 @@
-import { supabase } from '@/integrations/supabase/client';
+import { client } from './dataClient';
 
 // Team Action Items (non-realtime helpers)
 
 export async function fetchOpenTeamActionItems(teamId: string): Promise<Array<{ id: string; text: string; assigned_to?: string | null }>> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('team_action_items')
         .select('id, text, assigned_to')
         .eq('team_id', teamId)
@@ -14,7 +14,7 @@ export async function fetchOpenTeamActionItems(teamId: string): Promise<Array<{ 
 }
 
 export async function markTeamActionItemDoneById(id: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('team_action_items')
         .update({ done: true, done_at: new Date().toISOString() })
         .eq('id', id);
@@ -24,7 +24,7 @@ export async function markTeamActionItemDoneById(id: string): Promise<void> {
 // App Config & Feedback Reports
 
 export async function getAppConfigValue(key: string): Promise<string | ''> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('app_config')
         .select('value')
         .eq('key', key)
@@ -34,7 +34,7 @@ export async function getAppConfigValue(key: string): Promise<string | ''> {
 }
 
 export async function upsertAppConfig(entries: Array<{ key: string; value: string }>): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('app_config')
         .upsert(entries, { onConflict: 'key' });
     if (error) throw error;
@@ -48,7 +48,7 @@ export async function insertFeedbackReport(params: {
     description: string;
     pageUrl: string;
 }): Promise<{ id: string }> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('feedback_reports')
         .insert({
             user_id: params.userId ?? null,
@@ -65,7 +65,7 @@ export async function insertFeedbackReport(params: {
 }
 
 export async function updateFeedbackReport(id: string, fields: { github_issue_url?: string }): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('feedback_reports')
         .update(fields)
         .eq('id', id);
@@ -73,7 +73,7 @@ export async function updateFeedbackReport(id: string, fields: { github_issue_ur
 }
 
 export async function assignTeamActionItemById(id: string, userId: string | null): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
         .from('team_action_items')
         .update({ assigned_to: userId })
         .eq('id', id);

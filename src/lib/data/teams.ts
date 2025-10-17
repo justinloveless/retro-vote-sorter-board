@@ -1,9 +1,7 @@
-import { supabase } from '@/integrations/supabase/client';
-import { shouldUseCSharpApi } from '@/config/environment';
 import { TeamRecord, TeamMemberRecord } from './types';
 import { getAuthUser } from '@/lib/data/auth';
 import { fetchProfilesByIds } from './profiles';
-import { apiGetTeams } from '@/lib/data/csharpApi/apiClient';
+// import { apiGetTeams } from '@/lib/data/csharpApi/apiClient';
 import { client } from './dataClient.ts';
 
 // Cache for teams list
@@ -59,15 +57,15 @@ export async function fetchTeams(): Promise<TeamRecord[]> {
     try {
         let teams: TeamRecord[];
 
-        if (shouldUseCSharpApi()) {
-            const { items } = await apiGetTeams();
-            teams = items || [];
-        } else {
+        // if (shouldUseCSharpApi()) {
+        //     const { items } = await apiGetTeams();
+        //     teams = items || [];
+        // } else {
             const currentUser = (await getAuthUser()).data.user;
             if (!currentUser) {
                 teams = [];
             } else {
-                const { data, error } = await supabase
+                const { data, error } = await client
                     .from('teams')
                     .select(`*, team_members!inner( role, user_id )`)
                     .eq('team_members.user_id', currentUser.id)
@@ -86,7 +84,7 @@ export async function fetchTeams(): Promise<TeamRecord[]> {
                     } as TeamRecord;
                 });
             }
-        }
+        // }
 
         // Update cache
         teamsCache = {
@@ -105,68 +103,69 @@ export async function fetchTeams(): Promise<TeamRecord[]> {
 }
 
 export async function createTeam(name: string, description?: string): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiCreateTeam } = await import('@/lib/data/csharpApi/apiClient');
-        await apiCreateTeam(name);
-    } else {
-        const currentUser = (await supabase.auth.getUser()).data.user;
+    // if (shouldUseCSharpApi()) {
+    //     const { apiCreateTeam } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiCreateTeam(name);
+    // } else {
+        const currentUser = (await client.auth.getUser()).data.user;
         if (!currentUser) throw new Error('User not authenticated');
-        const { error } = await supabase
+        const { error } = await client
             .from('teams')
             .insert([{ name, description, creator_id: currentUser.id }]);
         if (error) throw error;
-    }
+    // }
 
     // Invalidate cache after creating a team
     invalidateTeamsCache();
 }
 
 export async function updateTeam(teamId: string, updates: { name?: string; description?: string }): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiUpdateTeam } = await import('@/lib/data/csharpApi/apiClient');
-        await apiUpdateTeam(teamId, { name: updates.name });
-    } else {
-        const { error } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiUpdateTeam } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiUpdateTeam(teamId, { name: updates.name });
+    // } else {
+        const { error } = await client
             .from('teams')
             .update(updates)
             .eq('id', teamId);
         if (error) throw error;
-    }
+    // }
 
     // Invalidate cache after updating a team
     invalidateTeamsCache();
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiDeleteTeam } = await import('@/lib/data/csharpApi/apiClient');
-        await apiDeleteTeam(teamId);
-    } else {
-        const { error } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiDeleteTeam } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiDeleteTeam(teamId);
+    // } 
+    // else {
+        const { error } = await client
             .from('teams')
             .delete()
             .eq('id', teamId);
         if (error) throw error;
-    }
+    // }
 
     // Invalidate cache after deleting a team
     invalidateTeamsCache();
 }
 
 export async function fetchTeamMembers(teamId: string): Promise<TeamMemberRecord[]> {
-    if (shouldUseCSharpApi()) {
-        const { apiGetTeamMembers } = await import('@/lib/data/csharpApi/apiClient');
-        const { items } = await apiGetTeamMembers(teamId);
-        return (items || []).map((m: any) => ({
-            id: m.userId,
-            team_id: m.teamId,
-            user_id: m.userId,
-            role: (m.role || 'member') as 'owner' | 'admin' | 'member',
-            joined_at: '',
-            profiles: { full_name: m.displayName ?? null }
-        }));
-    }
-    const { data: membersData, error: membersError } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiGetTeamMembers } = await import('@/lib/data/csharpApi/apiClient');
+    //     const { items } = await apiGetTeamMembers(teamId);
+    //     return (items || []).map((m: any) => ({
+    //         id: m.userId,
+    //         team_id: m.teamId,
+    //         user_id: m.userId,
+    //         role: (m.role || 'member') as 'owner' | 'admin' | 'member',
+    //         joined_at: '',
+    //         profiles: { full_name: m.displayName ?? null }
+    //     }));
+    // }
+    const { data: membersData, error: membersError } = await client
         .from('team_members')
         .select('*')
         .eq('team_id', teamId)
@@ -185,12 +184,12 @@ export async function fetchTeamMembers(teamId: string): Promise<TeamMemberRecord
 }
 
 export async function removeTeamMember(teamId: string, memberId: string): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiRemoveMember } = await import('@/lib/data/csharpApi/apiClient');
-        await apiRemoveMember(teamId, memberId);
-        return;
-    }
-    const { error } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiRemoveMember } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiRemoveMember(teamId, memberId);
+    //     return;
+    // }
+    const { error } = await client
         .from('team_members')
         .delete()
         .eq('id', memberId);
@@ -198,12 +197,12 @@ export async function removeTeamMember(teamId: string, memberId: string): Promis
 }
 
 export async function updateTeamMemberRole(teamId: string, memberId: string, role: 'owner' | 'admin' | 'member'): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiUpdateMemberRole } = await import('@/lib/data/csharpApi/apiClient');
-        await apiUpdateMemberRole(teamId, memberId, role);
-        return;
-    }
-    const { error } = await supabase
+    // if (shouldUseCSharpApi()) {
+    //     const { apiUpdateMemberRole } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiUpdateMemberRole(teamId, memberId, role);
+    //     return;
+    // }
+    const { error } = await client
         .from('team_members')
         .update({ role })
         .eq('id', memberId);

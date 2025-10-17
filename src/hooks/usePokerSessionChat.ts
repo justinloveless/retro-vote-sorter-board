@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { client } from '@/lib/data/dataClient';  
 import { supabase } from '@/integrations/supabase/client';
 import {
   fetchPokerChatMessages,
@@ -97,7 +98,7 @@ export const usePokerSessionChat = (
 
         // If it's a reply, we need to fetch the original message content
         if (newMessage.reply_to_message_id) {
-          const { data: repliedToMessage, error } = await supabase
+          const { data: repliedToMessage, error } = await client
             .from('poker_session_chat')
             .select('user_name, message')
             .eq('id', newMessage.reply_to_message_id)

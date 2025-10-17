@@ -1,5 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
-import { shouldUseCSharpApi } from '@/config/environment';
+import { client } from './dataClient';
 import { TeamInvitationRecord } from './types';
 import { fetchProfile } from './profiles';
 import { getTeamName } from './teams';
@@ -9,24 +8,24 @@ export async function fetchTeamInvitations(
     inviteType?: 'email' | 'link',
     status?: 'pending' | 'accepted' | 'declined'
 ): Promise<TeamInvitationRecord[]> {
-    if (shouldUseCSharpApi()) {
-        const { apiGetTeamInvitations } = await import('@/lib/data/csharpApi/apiClient');
-        const response = await apiGetTeamInvitations(teamId, inviteType, status);
-        return response.items.map(item => ({
-            id: item.id,
-            team_id: item.teamId,
-            email: item.email,
-            invited_by: item.invitedBy,
-            token: item.token,
-            status: item.status as 'pending' | 'accepted' | 'declined',
-            invite_type: item.inviteType as 'email' | 'link',
-            is_active: item.isActive,
-            expires_at: item.expiresAt,
-            created_at: item.createdAt
-        }));
-    }
+    // if (shouldUseCSharpApi()) {
+    //     const { apiGetTeamInvitations } = await import('@/lib/data/csharpApi/apiClient');
+    //     const response = await apiGetTeamInvitations(teamId, inviteType, status);
+    //     return response.items.map(item => ({
+    //         id: item.id,
+    //         team_id: item.teamId,
+    //         email: item.email,
+    //         invited_by: item.invitedBy,
+    //         token: item.token,
+    //         status: item.status as 'pending' | 'accepted' | 'declined',
+    //         invite_type: item.inviteType as 'email' | 'link',
+    //         is_active: item.isActive,
+    //         expires_at: item.expiresAt,
+    //         created_at: item.createdAt
+    //     }));
+    // }
 
-    const query = supabase
+    const query = client
         .from('team_invitations')
         .select('*')
         .eq('team_id', teamId)
@@ -55,24 +54,24 @@ export async function createTeamInvitation(
     inviteType: 'email' | 'link',
     userId: string
 ): Promise<TeamInvitationRecord> {
-    if (shouldUseCSharpApi()) {
-        const { apiCreateTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
-        const item = await apiCreateTeamInvitation(teamId, email, inviteType);
-        return {
-            id: item.id,
-            team_id: item.teamId,
-            email: item.email,
-            invited_by: item.invitedBy,
-            token: item.token,
-            status: item.status as 'pending' | 'accepted' | 'declined',
-            invite_type: item.inviteType as 'email' | 'link',
-            is_active: item.isActive,
-            expires_at: item.expiresAt,
-            created_at: item.createdAt
-        };
-    }
+    // if (shouldUseCSharpApi()) {
+    //     const { apiCreateTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
+    //     const item = await apiCreateTeamInvitation(teamId, email, inviteType);
+    //     return {
+    //         id: item.id,
+    //         team_id: item.teamId,
+    //         email: item.email,
+    //         invited_by: item.invitedBy,
+    //         token: item.token,
+    //         status: item.status as 'pending' | 'accepted' | 'declined',
+    //         invite_type: item.inviteType as 'email' | 'link',
+    //         is_active: item.isActive,
+    //         expires_at: item.expiresAt,
+    //         created_at: item.createdAt
+    //     };
+    // }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('team_invitations')
         .insert([{
             team_id: teamId,
@@ -97,13 +96,13 @@ export async function updateTeamInvitation(
     invitationId: string,
     isActive: boolean
 ): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiUpdateTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
-        await apiUpdateTeamInvitation(teamId, invitationId, isActive);
-        return;
-    }
+    // if (shouldUseCSharpApi()) {
+    //     const { apiUpdateTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiUpdateTeamInvitation(teamId, invitationId, isActive);
+    //     return;
+    // }
 
-    const { error } = await supabase
+    const { error } = await client
         .from('team_invitations')
         .update({ is_active: isActive })
         .eq('id', invitationId);
@@ -115,13 +114,13 @@ export async function deleteTeamInvitation(
     teamId: string,
     invitationId: string
 ): Promise<void> {
-    if (shouldUseCSharpApi()) {
-        const { apiDeleteTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
-        await apiDeleteTeamInvitation(teamId, invitationId);
-        return;
-    }
+    // if (shouldUseCSharpApi()) {
+    //     const { apiDeleteTeamInvitation } = await import('@/lib/data/csharpApi/apiClient');
+    //     await apiDeleteTeamInvitation(teamId, invitationId);
+    //     return;
+    // }
 
-    const { error } = await supabase
+    const { error } = await client
         .from('team_invitations')
         .delete()
         .eq('id', invitationId);
@@ -133,7 +132,7 @@ export async function deleteTeamInvitation(
 export async function cancelTeamInvitation(invitationId: string): Promise<void> {
     // This method doesn't have team_id, so we can't use the C# API easily
     // Keep direct Supabase for now until we can refactor callers
-    const { error } = await supabase
+    const { error } = await client
         .from('team_invitations')
         .delete()
         .eq('id', invitationId);
@@ -142,14 +141,14 @@ export async function cancelTeamInvitation(invitationId: string): Promise<void> 
 
 export async function inviteMemberByEmail(teamId: string, email: string): Promise<{ emailSent: boolean; notifOk: boolean; invitationId: string }> {
     // Exact behavior mirrored from components using direct Supabase
-    const currentUser = (await supabase.auth.getUser()).data.user;
+    const currentUser = (await client.auth.getUser()).data.user;
     if (!currentUser) throw new Error('User not authenticated');
 
     const profile = await fetchProfile(currentUser.id);
 
     const teamName = await getTeamName(teamId);
 
-    const { data: invitation, error } = await supabase
+    const { data: invitation, error } = await client
         .from('team_invitations')
         .insert([{
             team_id: teamId,
@@ -162,7 +161,7 @@ export async function inviteMemberByEmail(teamId: string, email: string): Promis
 
     if (error) throw error;
 
-    const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+    const { error: emailError } = await client.functions.invoke('send-invitation-email', {
         body: {
             invitationId: invitation.id,
             email: email,
@@ -172,7 +171,7 @@ export async function inviteMemberByEmail(teamId: string, email: string): Promis
         }
     });
 
-    const { error: notifError } = await supabase.functions.invoke('notify-team-invite', {
+    const { error: notifError } = await client.functions.invoke('notify-team-invite', {
         body: { invitationId: invitation.id }
     });
 

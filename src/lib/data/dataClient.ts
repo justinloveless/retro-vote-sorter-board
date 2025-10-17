@@ -5,6 +5,7 @@
 import { shouldUseCSharpApi } from '../../config/environment.ts';
 import { supabase } from '../../integrations/supabase/client.ts';
 import { getAuthenticatedProxyClient } from './csharpApi/supabaseProxyInstance.ts';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Export all types from the types module
 export * from './types';
@@ -162,11 +163,11 @@ export {
 
 async function getClient() {
     if (shouldUseCSharpApi()) {
-        return await getAuthenticatedProxyClient();
+        return await getAuthenticatedProxyClient() as unknown as SupabaseClient;
     }
     return supabase;
 }
 
-const client = (await getClient()) as any;
+const client = (await getClient()) as SupabaseClient;
 
 export { client, getClient };

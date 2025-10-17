@@ -1,11 +1,3 @@
-// import { supabase } from '@/integrations/supabase/client';
-import { shouldUseCSharpApi } from '@/config/environment';
-import {
-    apiGetNotifications,
-    apiMarkNotificationRead,
-    apiMarkAllNotificationsRead,
-    apiAdminSendNotification
-} from '@/lib/data/csharpApi/apiClient';
 import { AppNotification } from './types';
 import { getAuthUser } from '@/lib/data/auth';
 import { client } from './dataClient.ts';

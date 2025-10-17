@@ -49,11 +49,34 @@ public static class ServiceCollectionExtensions
         })
         .AddPolicyHandler(GetRetryPolicy());
 
+        services.AddHttpClient("StorageClient", client =>
+        {
+            var storageUrl = configuration["SUPABASE_STORAGE_URL"];
+            if (!string.IsNullOrEmpty(storageUrl))
+            {
+                // Ensure trailing slash for proper relative URI concatenation
+                if (!storageUrl.EndsWith('/'))
+                {
+                    storageUrl += '/';
+                }
+                client.BaseAddress = new Uri(storageUrl);
+            }
+
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.All
+        })
+        .AddPolicyHandler(GetRetryPolicy());
+
+
         services.AddHttpClient("AuthClient", client =>
         {
             var authUrl = configuration["SUPABASE_AUTH_URL"];
             if (!string.IsNullOrEmpty(authUrl))
             {
+                // Ensure trailing slash for proper relative URI concatenation
                 if (!authUrl.EndsWith('/'))
                 {
                     authUrl += '/';
@@ -81,7 +104,7 @@ public static class ServiceCollectionExtensions
         })
         .AddPolicyHandler(GetRetryPolicy());
 
-        // Register gateway
+        // Register the gateway
         services.AddScoped<Application.Interfaces.ISupabaseGateway, SupabaseGateway>();
 
         services.AddHttpContextAccessor();

@@ -42,8 +42,9 @@ class SupabaseProxyQueryBuilder<T = any> {
      * Select columns to return.
      */
     select(columns: string = '*'): this {
-        // Clean up whitespace and newlines from template literals
-        const cleanColumns = columns.replace(/\s+/g, ' ').trim();
+        // Remove ALL whitespace - PostgREST is strict about format
+        // *,teams(id,name) not *, teams( id, name )
+        const cleanColumns = columns.replace(/\s+/g, '');
         this.queryParams.set('select', cleanColumns);
         return this;
     }
@@ -555,7 +556,7 @@ export class SupabaseProxyAuthClient {
     }): Promise<SupabaseResponse<{ user: any; session: any }>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/signin`;
+            const url = `${baseUrl}/api/supabase/auth/v1/token?grant_type=password`;
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -570,16 +571,29 @@ export class SupabaseProxyAuthClient {
                 return {
                     data: null,
                     error: {
-                        message: errorData.message || `Sign in failed with status ${response.status}`,
+                        message: errorData.message || errorData.error_description || `Sign in failed with status ${response.status}`,
                         details: errorData.details,
-                        code: errorData.code || String(response.status),
+                        code: errorData.code || errorData.error || String(response.status),
                     },
                 };
             }
 
             const data = await response.json();
-            if (data.session?.access_token) {
-                this.setAccessToken(data.session.access_token);
+            if (data.access_token) {
+                this.setAccessToken(data.access_token);
+                return { 
+                    data: { 
+                        user: data.user, 
+                        session: { 
+                            access_token: data.access_token,
+                            refresh_token: data.refresh_token,
+                            expires_in: data.expires_in,
+                            token_type: data.token_type,
+                            user: data.user
+                        } 
+                    }, 
+                    error: null 
+                };
             }
             return { data, error: null };
         } catch (error) {
@@ -605,14 +619,25 @@ export class SupabaseProxyAuthClient {
     }): Promise<SupabaseResponse<{ user: any; session: any }>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/signup`;
+            const url = `${baseUrl}/api/supabase/auth/v1/signup`;
+
+            const body: any = {
+                email: credentials.email,
+                password: credentials.password,
+            };
+            if (credentials.options?.data) {
+                body.data = credentials.options.data;
+            }
+            if (credentials.options?.emailRedirectTo) {
+                body.options = { emailRedirectTo: credentials.options.emailRedirectTo };
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(credentials),
+                body: JSON.stringify(body),
             });
 
             if (!response.ok) {
@@ -620,7 +645,7 @@ export class SupabaseProxyAuthClient {
                 return {
                     data: null,
                     error: {
-                        message: errorData.message || `Sign up failed with status ${response.status}`,
+                        message: errorData.message || errorData.msg || `Sign up failed with status ${response.status}`,
                         details: errorData.details,
                         code: errorData.code || String(response.status),
                     },
@@ -628,10 +653,22 @@ export class SupabaseProxyAuthClient {
             }
 
             const data = await response.json();
-            if (data.session?.access_token) {
-                this.setAccessToken(data.session.access_token);
+            if (data.access_token) {
+                this.setAccessToken(data.access_token);
             }
-            return { data, error: null };
+            return { 
+                data: { 
+                    user: data.user, 
+                    session: data.access_token ? {
+                        access_token: data.access_token,
+                        refresh_token: data.refresh_token,
+                        expires_in: data.expires_in,
+                        token_type: data.token_type,
+                        user: data.user
+                    } : null
+                }, 
+                error: null 
+            };
         } catch (error) {
             return {
                 data: null,
@@ -648,7 +685,7 @@ export class SupabaseProxyAuthClient {
     async signOut(): Promise<SupabaseResponse<void>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/signout`;
+            const url = `${baseUrl}/api/supabase/auth/v1/logout`;
 
             const headers: Record<string, string> = {};
             if (this.accessToken) {
@@ -688,42 +725,23 @@ export class SupabaseProxyAuthClient {
      * Get the current session.
      */
     async getSession(): Promise<SupabaseResponse<{ session: any }>> {
-        try {
-            const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/session`;
-
-            const headers: Record<string, string> = {};
-            if (this.accessToken) {
-                headers['Authorization'] = `Bearer ${this.accessToken}`;
-            }
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                return {
-                    data: null,
-                    error: {
-                        message: errorData.message || `Get session failed with status ${response.status}`,
-                        details: errorData.details,
-                        code: errorData.code || String(response.status),
-                    },
-                };
-            }
-
-            const data = await response.json();
-            return { data, error: null };
-        } catch (error) {
+        // Note: Supabase auth API doesn't have a direct session endpoint
+        // Session state is typically managed client-side
+        // This returns the current session if we have an access token
+        if (this.accessToken) {
             return {
-                data: null,
-                error: {
-                    message: error instanceof Error ? error.message : 'Unknown error',
+                data: {
+                    session: {
+                        access_token: this.accessToken,
+                    }
                 },
+                error: null
             };
         }
+        return {
+            data: { session: null },
+            error: null
+        };
     }
 
     /**
@@ -732,7 +750,7 @@ export class SupabaseProxyAuthClient {
     async getUser(): Promise<SupabaseResponse<{ user: any }>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/user`;
+            const url = `${baseUrl}/api/supabase/auth/v1/user`;
 
             const headers: Record<string, string> = {};
             if (this.accessToken) {
@@ -757,7 +775,7 @@ export class SupabaseProxyAuthClient {
             }
 
             const data = await response.json();
-            return { data, error: null };
+            return { data: { user: data }, error: null };
         } catch (error) {
             return {
                 data: null,
@@ -777,14 +795,20 @@ export class SupabaseProxyAuthClient {
     ): Promise<SupabaseResponse<void>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/reset-password`;
+            const url = `${baseUrl}/api/supabase/auth/v1/recover`;
+
+            const body: any = { email };
+            if (options?.redirectTo) {
+                body.gotrue_meta_security = { captcha_token: null };
+                body.redirect_to = options.redirectTo;
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, ...options }),
+                body: JSON.stringify(body),
             });
 
             if (!response.ok) {
@@ -820,7 +844,7 @@ export class SupabaseProxyAuthClient {
     }): Promise<SupabaseResponse<{ user: any }>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/user`;
+            const url = `${baseUrl}/api/supabase/auth/v1/user`;
 
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
@@ -848,7 +872,7 @@ export class SupabaseProxyAuthClient {
             }
 
             const data = await response.json();
-            return { data, error: null };
+            return { data: { user: data }, error: null };
         } catch (error) {
             return {
                 data: null,
@@ -865,14 +889,11 @@ export class SupabaseProxyAuthClient {
     async refreshSession(refreshToken?: string): Promise<SupabaseResponse<{ session: any; user: any }>> {
         try {
             const baseUrl = getApiBaseUrl();
-            const url = `${baseUrl}/api/supabase/auth/refresh`;
+            const url = `${baseUrl}/api/supabase/auth/v1/token?grant_type=refresh_token`;
 
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
             };
-            if (this.accessToken) {
-                headers['Authorization'] = `Bearer ${this.accessToken}`;
-            }
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -893,9 +914,663 @@ export class SupabaseProxyAuthClient {
             }
 
             const data = await response.json();
-            if (data.session?.access_token) {
-                this.setAccessToken(data.session.access_token);
+            if (data.access_token) {
+                this.setAccessToken(data.access_token);
+                return {
+                    data: {
+                        session: {
+                            access_token: data.access_token,
+                            refresh_token: data.refresh_token,
+                            expires_in: data.expires_in,
+                            token_type: data.token_type,
+                            user: data.user
+                        },
+                        user: data.user
+                    },
+                    error: null
+                };
             }
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Listen to auth state changes.
+     * Note: This is a simplified implementation that doesn't provide real-time updates.
+     * It returns immediately with the current session state.
+     */
+    onAuthStateChange(callback: (event: string, session: any) => void): {
+        data: { subscription: { unsubscribe: () => void } };
+    } {
+        // Immediately call with current session if we have a token
+        if (this.accessToken) {
+            // Fetch user data to include in the session
+            this.getUser().then((result) => {
+                if (result.data?.user) {
+                    callback('SIGNED_IN', {
+                        access_token: this.accessToken,
+                        user: result.data.user,
+                    });
+                } else {
+                    // If we can't get user, still call with minimal session
+                    callback('SIGNED_IN', {
+                        access_token: this.accessToken,
+                        user: null,
+                    });
+                }
+            }).catch(() => {
+                // On error, call with minimal session
+                callback('SIGNED_IN', {
+                    access_token: this.accessToken,
+                    user: null,
+                });
+            });
+        } else {
+            setTimeout(() => {
+                callback('SIGNED_OUT', null);
+            }, 0);
+        }
+
+        // Return a subscription object that can be unsubscribed
+        return {
+            data: {
+                subscription: {
+                    unsubscribe: () => {
+                        // Cleanup if needed
+                    },
+                },
+            },
+        };
+    }
+
+    /**
+     * Sign in with OAuth provider.
+     */
+    async signInWithOAuth(params: {
+        provider: string;
+        options?: {
+            redirectTo?: string;
+            scopes?: string;
+        };
+    }): Promise<SupabaseResponse<{ url: string }>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/auth/v1/authorize?provider=${params.provider}${params.options?.redirectTo ? `&redirect_to=${encodeURIComponent(params.options.redirectTo)}` : ''}${params.options?.scopes ? `&scopes=${encodeURIComponent(params.options.scopes)}` : ''}`;
+
+            // For OAuth, we need to redirect the browser
+            return {
+                data: { url },
+                error: null,
+            };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Set a new session (from access token and refresh token).
+     */
+    async setSession(params: {
+        access_token: string;
+        refresh_token: string;
+    }): Promise<SupabaseResponse<{ session: any; user: any }>> {
+        try {
+            // Use the refresh token to get a new session
+            const result = await this.refreshSession(params.refresh_token);
+            if (result.error) {
+                return result;
+            }
+
+            // If successful, set the access token
+            if (result.data?.session?.access_token) {
+                this.setAccessToken(result.data.session.access_token);
+            } else {
+                // If no session from refresh, just set the provided token
+                this.setAccessToken(params.access_token);
+                
+                // Try to get user info
+                const userResult = await this.getUser();
+                return {
+                    data: {
+                        session: {
+                            access_token: params.access_token,
+                            refresh_token: params.refresh_token,
+                        },
+                        user: userResult.data?.user || null,
+                    },
+                    error: null,
+                };
+            }
+
+            return result;
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+}
+
+/**
+ * Storage client for file operations.
+ */
+export class SupabaseProxyStorageClient {
+    constructor(private accessToken: string | null) { }
+
+    /**
+     * Get a bucket client to perform operations on a specific bucket.
+     */
+    from(bucketName: string): SupabaseProxyStorageBucket {
+        return new SupabaseProxyStorageBucket(bucketName, this.accessToken);
+    }
+
+    /**
+     * List all buckets.
+     */
+    async listBuckets(): Promise<SupabaseResponse<any[]>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/bucket`;
+
+            const headers: Record<string, string> = {};
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `List buckets failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Create a new bucket.
+     */
+    async createBucket(id: string, options?: { public?: boolean }): Promise<SupabaseResponse<any>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/bucket`;
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ id, public: options?.public ?? false }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Create bucket failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Delete a bucket.
+     */
+    async deleteBucket(id: string): Promise<SupabaseResponse<void>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/bucket/${id}`;
+
+            const headers: Record<string, string> = {};
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Delete bucket failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            return { data: null, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Empty a bucket (delete all files).
+     */
+    async emptyBucket(id: string): Promise<SupabaseResponse<void>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/bucket/${id}/empty`;
+
+            const headers: Record<string, string> = {};
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Empty bucket failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            return { data: null, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+}
+
+/**
+ * Bucket-specific storage operations.
+ */
+export class SupabaseProxyStorageBucket {
+    constructor(private bucketName: string, private accessToken: string | null) { }
+
+    /**
+     * Upload a file to the bucket.
+     */
+    async upload(
+        path: string,
+        fileBody: File | Blob | ArrayBuffer | string,
+        options?: {
+            contentType?: string;
+            cacheControl?: string;
+            upsert?: boolean;
+        }
+    ): Promise<SupabaseResponse<{ path: string }>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/${this.bucketName}/${path}`;
+
+            const headers: Record<string, string> = {};
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            if (options?.contentType) {
+                headers['Content-Type'] = options.contentType;
+            }
+
+            if (options?.cacheControl) {
+                headers['Cache-Control'] = options.cacheControl;
+            }
+
+            if (options?.upsert) {
+                headers['x-upsert'] = 'true';
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: fileBody instanceof Blob || fileBody instanceof File
+                    ? fileBody
+                    : typeof fileBody === 'string'
+                        ? fileBody
+                        : new Blob([fileBody]),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Upload failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Download a file from the bucket.
+     */
+    async download(path: string): Promise<SupabaseResponse<Blob>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/${this.bucketName}/${path}`;
+
+            const headers: Record<string, string> = {};
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Download failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const blob = await response.blob();
+            return { data: blob, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * List files in the bucket.
+     */
+    async list(path?: string, options?: {
+        limit?: number;
+        offset?: number;
+        sortBy?: { column: string; order: 'asc' | 'desc' };
+    }): Promise<SupabaseResponse<any[]>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/list/${this.bucketName}`;
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const body: any = {};
+            if (path !== undefined) {
+                body.prefix = path;
+            }
+            if (options?.limit !== undefined) {
+                body.limit = options.limit;
+            }
+            if (options?.offset !== undefined) {
+                body.offset = options.offset;
+            }
+            if (options?.sortBy) {
+                body.sortBy = options.sortBy;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `List failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Remove files from the bucket.
+     */
+    async remove(paths: string[]): Promise<SupabaseResponse<any[]>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/${this.bucketName}`;
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers,
+                body: JSON.stringify({ prefixes: paths }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Remove failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Move a file within the bucket.
+     */
+    async move(fromPath: string, toPath: string): Promise<SupabaseResponse<{ message: string }>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/move`;
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    bucketId: this.bucketName,
+                    sourceKey: fromPath,
+                    destinationKey: toPath,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Move failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
+            return { data, error: null };
+        } catch (error) {
+            return {
+                data: null,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                },
+            };
+        }
+    }
+
+    /**
+     * Get the public URL for a file.
+     */
+    getPublicUrl(path: string): { data: { publicUrl: string } } {
+        const baseUrl = getApiBaseUrl();
+        const publicUrl = `${baseUrl}/api/supabase/storage/v1/object/public/${this.bucketName}/${path}`;
+        return {
+            data: {
+                publicUrl,
+            },
+        };
+    }
+
+    /**
+     * Create a signed URL for temporary access to a private file.
+     */
+    async createSignedUrl(
+        path: string,
+        expiresIn: number
+    ): Promise<SupabaseResponse<{ signedUrl: string }>> {
+        try {
+            const baseUrl = getApiBaseUrl();
+            const url = `${baseUrl}/api/supabase/storage/v1/object/sign/${this.bucketName}/${path}`;
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (this.accessToken) {
+                headers['Authorization'] = `Bearer ${this.accessToken}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ expiresIn }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    data: null,
+                    error: {
+                        message: errorData.message || `Create signed URL failed with status ${response.status}`,
+                        details: errorData.details,
+                        code: errorData.code || String(response.status),
+                    },
+                };
+            }
+
+            const data = await response.json();
             return { data, error: null };
         } catch (error) {
             return {
@@ -915,6 +1590,7 @@ export class SupabaseProxyClient {
     private accessToken: string | null = null;
     public readonly functions: SupabaseProxyFunctionsClient;
     public readonly auth: SupabaseProxyAuthClient;
+    public readonly storage: SupabaseProxyStorageClient;
 
     constructor(accessToken?: string | null) {
         this.accessToken = accessToken || null;
@@ -923,6 +1599,7 @@ export class SupabaseProxyClient {
             this.accessToken,
             (token) => this.setAccessToken(token)
         );
+        this.storage = new SupabaseProxyStorageClient(this.accessToken);
     }
 
     /**
@@ -933,6 +1610,7 @@ export class SupabaseProxyClient {
         // Update the token in the sub-clients as well
         (this.functions as any).accessToken = token;
         (this.auth as any).accessToken = token;
+        (this.storage as any).accessToken = token;
     }
 
     /**
