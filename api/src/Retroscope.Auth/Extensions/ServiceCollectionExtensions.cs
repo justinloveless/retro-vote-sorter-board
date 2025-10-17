@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
 using Retroscope.Auth.Authentication;
 using Retroscope.Auth.Data;
+using Retroscope.Auth.Handlers;
 using Retroscope.Auth.Services;
 using System.Text;
 using System.Text.Json;
