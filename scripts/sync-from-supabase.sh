@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration - easily modify these arrays to add more schemas/tables
 SCHEMAS=("auth" "public")
-AUTH_TABLES=("users" "identities" "refresh_tokens" "verification_codes")
+AUTH_TABLES=("users" "identities" "refresh_tokens")
 PUBLIC_TABLES=()  # Empty = sync all tables in public schema
 
 # Script configuration
@@ -61,7 +61,11 @@ check_dependencies() {
         missing_tools+=("docker-compose")
     fi
     
-    if ! command -v pg_dump &> /dev/null; then
+    # Check for PostgreSQL 15 first (matches Supabase version)
+    if [ -f "/opt/homebrew/opt/postgresql@15/bin/pg_dump" ]; then
+        export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
+        print_status "Using PostgreSQL 15 client tools (matches Supabase version)"
+    elif ! command -v pg_dump &> /dev/null; then
         missing_tools+=("pg_dump (PostgreSQL client tools)")
     fi
     
@@ -71,7 +75,7 @@ check_dependencies() {
     
     if [ ${#missing_tools[@]} -ne 0 ]; then
         print_error "Missing required tools: ${missing_tools[*]}"
-        print_error "Please install the missing tools and try again."
+        print_error "Please install PostgreSQL 15: brew install postgresql@15"
         exit 1
     fi
     
@@ -133,9 +137,20 @@ load_env() {
 check_docker() {
     print_status "Checking Docker container status..."
     
-    if ! docker-compose ps postgres | grep -q "Up"; then
+    # Try docker compose first (newer format), then docker-compose (legacy)
+    local docker_cmd=""
+    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        docker_cmd="docker compose"
+    elif command -v docker-compose &> /dev/null; then
+        docker_cmd="docker-compose"
+    else
+        print_error "Neither 'docker compose' nor 'docker-compose' found!"
+        exit 1
+    fi
+    
+    if ! $docker_cmd ps postgres | grep -q "running"; then
         print_error "PostgreSQL container is not running!"
-        print_error "Please start the database with: docker-compose up -d postgres"
+        print_error "Please start the database with: $docker_cmd up -d postgres"
         exit 1
     fi
     
@@ -146,12 +161,13 @@ check_docker() {
 test_supabase_connection() {
     print_status "Testing Supabase connection..."
     
-    # Extract password from SUPABASE_DB_URL
-    local supabase_password=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([^@]*\)@.*/\1/p')
+    # Extract password and username from SUPABASE_DB_URL and URL decode it
+    local supabase_password=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([^@]*\)@.*/\1/p' | sed 's/%25/%/g; s/%5E/^/g; s/%40/@/g')
+    local supabase_username=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
     local supabase_host=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*@\([^:]*\):.*/\1/p')
     local supabase_port=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
     
-    if ! PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U postgres -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
+    if ! PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
         print_error "Cannot connect to Supabase database!"
         print_error "Please check your SUPABASE_DB_URL in .env.sync"
         exit 1
@@ -185,7 +201,8 @@ setup_temp_dir() {
 dump_supabase_data() {
     print_status "Dumping data from Supabase..."
     
-    local supabase_password=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([^@]*\)@.*/\1/p')
+    local supabase_password=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([^@]*\)@.*/\1/p' | sed 's/%25/%/g; s/%5E/^/g; s/%40/@/g')
+    local supabase_username=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
     local supabase_host=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*@\([^:]*\):.*/\1/p')
     local supabase_port=$(echo "$SUPABASE_DB_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
     
@@ -193,36 +210,146 @@ dump_supabase_data() {
         print_status "Dumping $schema schema..."
         
         local dump_file="$TEMP_DIR/${schema}_data.sql"
-        local tables_arg=""
         
-        # Build table list if specified
-        if [ "$schema" = "auth" ] && [ ${#AUTH_TABLES[@]} -gt 0 ]; then
-            tables_arg="--table=${AUTH_TABLES[*]}"
-        elif [ "$schema" = "public" ] && [ ${#PUBLIC_TABLES[@]} -gt 0 ]; then
-            tables_arg="--table=${PUBLIC_TABLES[*]}"
-        fi
-        
-        # Dump data only (no schema)
-        PGPASSWORD="$supabase_password" pg_dump \
-            --host="$supabase_host" \
-            --port="$supabase_port" \
-            --username=postgres \
-            --dbname=postgres \
-            --schema="$schema" \
-            --data-only \
-            --disable-triggers \
-            --no-owner \
-            --no-privileges \
-            $tables_arg \
-            --file="$dump_file"
-        
-        if [ $? -eq 0 ]; then
-            print_success "Dumped $schema schema to $dump_file"
+        if [ "$schema" = "auth" ]; then
+            # Special handling for auth schema - only sync compatible columns
+            dump_auth_data "$supabase_password" "$supabase_username" "$supabase_host" "$supabase_port" "$dump_file"
         else
-            print_error "Failed to dump $schema schema"
-            exit 1
+            # Standard pg_dump for public schema
+            local tables_arg=""
+            if [ "$schema" = "public" ] && [ ${#PUBLIC_TABLES[@]} -gt 0 ]; then
+                for table in "${PUBLIC_TABLES[@]}"; do
+                    tables_arg="$tables_arg --table=$schema.$table"
+                done
+            fi
+            
+            # Dump data only (no schema)
+            if PGPASSWORD="$supabase_password" pg_dump \
+                --host="$supabase_host" \
+                --port="$supabase_port" \
+                --username="$supabase_username" \
+                --dbname=postgres \
+                --schema="$schema" \
+                --data-only \
+                --disable-triggers \
+                --no-owner \
+                --no-privileges \
+                $tables_arg \
+                --file="$dump_file" 2>/dev/null; then
+                print_success "Dumped $schema schema to $dump_file"
+            else
+                print_warning "Failed to dump $schema schema - checking if tables exist..."
+                # Check if any of the specified tables exist
+                local tables_exist=false
+                if [ "$schema" = "public" ]; then
+                    if PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' LIMIT 1;" >/dev/null 2>&1; then
+                        tables_exist=true
+                    fi
+                fi
+                
+                if [ "$tables_exist" = true ]; then
+                    print_error "Failed to dump $schema schema despite tables existing"
+                    exit 1
+                else
+                    print_warning "No tables found in $schema schema - skipping"
+                    continue
+                fi
+            fi
         fi
     done
+}
+
+# Function to dump auth data with column compatibility
+dump_auth_data() {
+    local supabase_password="$1"
+    local supabase_username="$2"
+    local supabase_host="$3"
+    local supabase_port="$4"
+    local dump_file="$5"
+    
+    print_status "Creating compatible auth data dump..."
+    
+    # Create a temporary SQL file with INSERT statements for compatible columns only
+    cat > "$dump_file" << 'EOF'
+-- Auth data dump with column compatibility
+-- Disable triggers during load
+SET session_replication_role = replica;
+
+-- Clear existing data
+TRUNCATE TABLE auth.users CASCADE;
+TRUNCATE TABLE auth.identities CASCADE;
+TRUNCATE TABLE auth.refresh_tokens CASCADE;
+
+-- Reset sequences
+SELECT setval('auth.users_id_seq', 1, false);
+SELECT setval('auth.identities_id_seq', 1, false);
+SELECT setval('auth.refresh_tokens_id_seq', 1, false);
+
+EOF
+
+    # Dump users data (only compatible columns)
+    print_status "Dumping users data..."
+    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+        COPY (
+            SELECT id, email, created_at, encrypted_password, email_confirmed_at, 
+                   last_sign_in_at, raw_app_meta_data, raw_user_meta_data, updated_at
+            FROM auth.users
+        ) TO STDOUT WITH CSV HEADER
+    " >> "$dump_file.tmp"
+
+    # Convert CSV to INSERT statements for users
+    if [ -s "$dump_file.tmp" ]; then
+        echo "-- Users data" >> "$dump_file"
+        echo "COPY auth.users (id, email, created_at, encrypted_password, email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, updated_at) FROM STDIN WITH CSV HEADER;" >> "$dump_file"
+        cat "$dump_file.tmp" >> "$dump_file"
+        echo "\\." >> "$dump_file"
+        echo "" >> "$dump_file"
+        rm "$dump_file.tmp"
+    fi
+
+    # Dump identities data (only compatible columns)
+    print_status "Dumping identities data..."
+    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+        COPY (
+            SELECT id, user_id, provider, provider_id as provider_user_id, identity_data as provider_data, created_at, updated_at
+            FROM auth.identities
+        ) TO STDOUT WITH CSV HEADER
+    " >> "$dump_file.tmp"
+
+    # Convert CSV to INSERT statements for identities
+    if [ -s "$dump_file.tmp" ]; then
+        echo "-- Identities data" >> "$dump_file"
+        echo "COPY auth.identities (id, user_id, provider, provider_user_id, provider_data, created_at, updated_at) FROM STDIN WITH CSV HEADER;" >> "$dump_file"
+        cat "$dump_file.tmp" >> "$dump_file"
+        echo "\\." >> "$dump_file"
+        echo "" >> "$dump_file"
+        rm "$dump_file.tmp"
+    fi
+
+    # Dump refresh_tokens data (only compatible columns)
+    print_status "Dumping refresh_tokens data..."
+    PGPASSWORD="$supabase_password" psql -h "$supabase_host" -p "$supabase_port" -U "$supabase_username" -d postgres -c "
+        COPY (
+            SELECT id, token, user_id, parent, revoked, created_at, updated_at
+            FROM auth.refresh_tokens
+        ) TO STDOUT WITH CSV HEADER
+    " >> "$dump_file.tmp"
+
+    # Convert CSV to INSERT statements for refresh_tokens
+    if [ -s "$dump_file.tmp" ]; then
+        echo "-- Refresh tokens data" >> "$dump_file"
+        echo "COPY auth.refresh_tokens (id, token, user_id, parent, revoked, created_at, updated_at) FROM STDIN WITH CSV HEADER;" >> "$dump_file"
+        cat "$dump_file.tmp" >> "$dump_file"
+        echo "\\." >> "$dump_file"
+        echo "" >> "$dump_file"
+        rm "$dump_file.tmp"
+    fi
+
+    # Re-enable triggers
+    echo "-- Re-enable triggers" >> "$dump_file"
+    echo "SET session_replication_role = DEFAULT;" >> "$dump_file"
+    
+    print_success "Created compatible auth data dump at $dump_file"
 }
 
 # Function to clear local data
@@ -233,6 +360,11 @@ clear_local_data() {
     PGPASSWORD="$LOCAL_DB_PASSWORD" psql -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -c "SET session_replication_role = replica;"
     
     for schema in "${SCHEMAS[@]}"; do
+        if [ "$schema" = "auth" ]; then
+            print_status "Auth schema will be cleared by the auth dump process"
+            continue
+        fi
+        
         print_status "Clearing $schema schema..."
         
         # Get list of tables in the schema
