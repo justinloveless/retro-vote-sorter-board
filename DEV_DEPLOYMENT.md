@@ -9,9 +9,11 @@ The development environment now uses **built Docker images** instead of volume m
 ### New Files Created
 
 1. **`Dockerfile.app-dev`** - Frontend dev server image
-2. **`api/Dockerfile.dev`** - Backend dev server image with hot reload
+2. **`api/Dockerfile.dev`** - Backend dev server image with hot reload (excludes tests)
 3. **`api/postgres/Dockerfile`** - Custom Postgres with init scripts
 4. **`docker-compose.dev.yml`** - Dev-specific compose file
+
+**Note**: The API dev image excludes test projects since they're outside the build context (`./api`). Tests should be run locally or in CI/CD pipelines.
 
 ## Quick Start
 

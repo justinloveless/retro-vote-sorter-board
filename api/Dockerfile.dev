@@ -2,21 +2,19 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0
 
 WORKDIR /src
 
-# Copy solution and project files
+# Copy solution and project files (tests excluded - outside build context)
 COPY *.sln ./
 COPY global.json ./
 COPY src/Retroscope.Api/*.csproj ./src/Retroscope.Api/
 COPY src/Retroscope.Application/*.csproj ./src/Retroscope.Application/
 COPY src/Retroscope.Auth/*.csproj ./src/Retroscope.Auth/
 COPY src/Retroscope.Infrastructure/*.csproj ./src/Retroscope.Infrastructure/
-COPY tests/Retroscope.Api.UnitTests/*.csproj ./tests/Retroscope.Api.UnitTests/
-COPY tests/Retroscope.Api.IntegrationTests/*.csproj ./tests/Retroscope.Api.IntegrationTests/
 
 # Restore dependencies
 RUN dotnet restore src/Retroscope.Api/Retroscope.Api.csproj
 
-# Copy everything else
-COPY . .
+# Copy all source code
+COPY src/ ./src/
 
 # Expose API port
 EXPOSE 8080
