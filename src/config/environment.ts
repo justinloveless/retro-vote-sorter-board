@@ -58,10 +58,20 @@ const getEnvironment = (): 'development' | 'production' => {
 const getEnvConfig = () => {
   const rawUse = (import.meta as any)?.env?.VITE_USE_CSHARP_API;
   const rawBase = (import.meta as any)?.env?.VITE_API_BASE_URL;
+  const rawSupabaseUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL;
+  const rawSupabaseKey = (import.meta as any)?.env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
   return {
     useCSharpApi: typeof rawUse === 'string' ? rawUse === 'true' : undefined,
     apiBaseUrl: typeof rawBase === 'string' && rawBase.length > 0 ? rawBase : '',
-  } as { useCSharpApi: boolean | undefined; apiBaseUrl: string };
+    supabaseUrl: typeof rawSupabaseUrl === 'string' && rawSupabaseUrl.length > 0 ? rawSupabaseUrl : '',
+    supabaseAnonKey: typeof rawSupabaseKey === 'string' && rawSupabaseKey.length > 0 ? rawSupabaseKey : '',
+  } as { 
+    useCSharpApi: boolean | undefined; 
+    apiBaseUrl: string;
+    supabaseUrl: string;
+    supabaseAnonKey: string;
+  };
 };
 
 // Runtime override (for dev toggling)
@@ -180,6 +190,12 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   }
   if (envConfig.apiBaseUrl) {
     config.apiBaseUrl = envConfig.apiBaseUrl;
+  }
+  if (envConfig.supabaseUrl) {
+    config.supabaseUrl = envConfig.supabaseUrl;
+  }
+  if (envConfig.supabaseAnonKey) {
+    config.supabaseAnonKey = envConfig.supabaseAnonKey;
   }
   // Apply runtime override in development only
   if (config.environment === 'development') {
