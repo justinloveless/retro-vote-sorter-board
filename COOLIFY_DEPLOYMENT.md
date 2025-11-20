@@ -72,15 +72,17 @@ OAUTH_GOOGLE_REDIRECT_URI=https://api.your-domain.com/auth/v1/callback
 
 ### 3. Configure Domains
 
-In Coolify, set up domains for your services:
+In Coolify, set up domains for your services. Coolify's proxy will handle the routing.
 
 1. **app service**: 
    - Domain: `your-domain.com`
-   - Port: `80`
+   - Container exposes port: `80` (Coolify will detect automatically)
 
 2. **api service**: 
    - Domain: `api.your-domain.com`
-   - Port: `8080`
+   - Container exposes port: `8080` (Coolify will detect automatically)
+
+> **Note**: The docker-compose.yml uses `expose` instead of `ports` to avoid host port conflicts. Coolify's proxy handles external access.
 
 ### 4. Deploy
 
@@ -98,6 +100,13 @@ Check the following:
 - [ ] Can authenticate via Supabase
 
 ## Troubleshooting
+
+### "Bind for 0.0.0.0:8080 failed: port is already allocated"
+
+This means a port conflict on the host. The fix:
+1. Use `expose` instead of `ports` in docker-compose.yml (already done)
+2. Let Coolify's proxy handle port mapping
+3. If you need direct port access locally, use different ports or stop conflicting services
 
 ### "password authentication failed for user retroscope_app"
 

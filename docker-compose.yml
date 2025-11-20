@@ -10,8 +10,8 @@ services:
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
         VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID}
         VITE_PUBLIC_BASE_PATH: ${VITE_PUBLIC_BASE_PATH:-/}
-    ports:
-      - '80:80'
+    expose:
+      - 80
     environment:
       - NODE_ENV=production
     depends_on:
@@ -55,8 +55,8 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    ports:
-      - '8080:8080'
+    expose:
+      - 8080
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ASPNETCORE_URLS=http://+:8080
