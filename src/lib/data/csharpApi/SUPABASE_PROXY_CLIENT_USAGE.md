@@ -408,3 +408,4 @@ const query = client
 - [PostgREST API Reference](https://postgrest.org/en/stable/references/api.html)
 - [C# Proxy Controller Docs](../../../../api/docs/SUPABASE_PROXY.md)
 
+

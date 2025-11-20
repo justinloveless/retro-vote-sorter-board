@@ -291,3 +291,4 @@ A: Yes, fully typed with generic support.
 **Q: What if the C# API is down?**  
 A: Requests will fail. Consider fallback to direct Supabase or error handling.
 
+

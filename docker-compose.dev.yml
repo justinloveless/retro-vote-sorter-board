@@ -1,20 +1,17 @@
 services:
   app-dev:
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.git
-      - /app/dist
-      - /app/api
-    command: sh -c "npm install && npm run dev -- --host"
+    build:
+      context: .
+      dockerfile: Dockerfile.app-dev
     expose:
       - 8081
     environment:
       - NODE_ENV=development
-      - VITE_USE_CSHARP_API=true
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:5228}
+      - VITE_USE_CSHARP_API=${VITE_USE_CSHARP_API:-true}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+      - VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - api-dev
@@ -24,16 +21,16 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   api-dev:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
-    working_dir: /src
-    volumes:
-      - ./api:/src
-      - api-dev-packages:/root/.nuget/packages
-    command: >
-      sh -c "dotnet restore src/Retroscope.Api/Retroscope.Api.csproj &&
-             dotnet watch run --project src/Retroscope.Api/Retroscope.Api.csproj --no-restore --no-launch-profile"
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
     expose:
       - 8080
     environment:
@@ -68,14 +65,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   postgres:
-    image: postgres:15
+    build:
+      context: ./api/postgres
+      dockerfile: Dockerfile
     expose:
       - 5432
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./api/postgres/init:/docker-entrypoint-initdb.d
     environment:
       - POSTGRES_DB=retroscope
       - POSTGRES_USER=postgres
@@ -86,6 +89,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -98,11 +106,15 @@ services:
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     volumes:
       - pgadmin-data:/var/lib/pgadmin
-      - ./api/postgres/pgadmin-servers.json:/pgadmin4/servers.json
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   postgrest:
     image: postgrest/postgrest:v12.2.3
@@ -124,9 +136,13 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
 
 volumes:
-  api-dev-packages:
   postgres-data:
   pgadmin-data:
 
