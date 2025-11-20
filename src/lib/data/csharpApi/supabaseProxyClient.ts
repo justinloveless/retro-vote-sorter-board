@@ -299,7 +299,6 @@ class SupabaseProxyQueryBuilder<T = any> {
     if (preferParts.length > 0) {
       this.headers['Prefer'] = preferParts.join(',');
     }
-    }
     return this;
   }
 
