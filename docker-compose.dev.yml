@@ -107,7 +107,7 @@ services:
     command: >
       bash -c "
         psql -h postgres -U postgres -d retroscope -c \"
-        DO \$\$dollar\$\$
+        DO \$\$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'retroscope_app') THEN
                 CREATE ROLE retroscope_app WITH LOGIN PASSWORD 'retroscope_app_pass';
@@ -117,10 +117,10 @@ services:
                 RAISE NOTICE 'Role retroscope_app already exists, password updated';
             END IF;
         END
-        \$\$dollar\$\$;
+        \$\$;
         \" &&
         psql -h postgres -U postgres -d retroscope -c \"
-        DO \$\$dollar\$\$
+        DO \$\$
         BEGIN
             IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
                 GRANT authenticated TO retroscope_app;
@@ -131,7 +131,7 @@ services:
         EXCEPTION WHEN OTHERS THEN
             RAISE NOTICE 'Could not grant Supabase roles (may not exist in local setup)';
         END
-        \$\$dollar\$\$;
+        \$\$;
         \" &&
         psql -h postgres -U postgres -d retroscope -c \"
         ALTER ROLE retroscope_app SET ROLE authenticated;
