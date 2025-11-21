@@ -102,48 +102,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./api/postgres/init:/docker-entrypoint-initdb.d:ro
     environment:
       - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
     command: >
       bash -c "
-        psql -h postgres -U postgres -d retroscope -c \"
-        DO \$\$
-        BEGIN
-            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'retroscope_app') THEN
-                CREATE ROLE retroscope_app WITH LOGIN PASSWORD 'retroscope_app_pass';
-                RAISE NOTICE 'Created role retroscope_app';
-            ELSE
-                ALTER ROLE retroscope_app WITH PASSWORD 'retroscope_app_pass';
-                RAISE NOTICE 'Role retroscope_app already exists, password updated';
-            END IF;
-        END
-        \$\$;
-        \" &&
-        psql -h postgres -U postgres -d retroscope -c \"
-        DO \$\$
-        BEGIN
-            IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-                GRANT authenticated TO retroscope_app;
-            END IF;
-            IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-                GRANT anon TO retroscope_app;
-            END IF;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE NOTICE 'Could not grant Supabase roles (may not exist in local setup)';
-        END
-        \$\$;
-        \" &&
-        psql -h postgres -U postgres -d retroscope -c \"
-        ALTER ROLE retroscope_app SET ROLE authenticated;
-        GRANT USAGE ON SCHEMA public TO retroscope_app;
-        GRANT ALL ON ALL TABLES IN SCHEMA public TO retroscope_app;
-        GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO retroscope_app;
-        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO retroscope_app;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO retroscope_app;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO retroscope_app;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO retroscope_app;
-        \" &&
-        echo 'User retroscope_app ensured successfully'
+        echo 'Running initialization scripts...' &&
+        for f in /docker-entrypoint-initdb.d/*.sql; do
+          echo \"Executing $$f\" &&
+          psql -h postgres -U postgres -d retroscope -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1
+        done &&
+        echo 'Database initialization completed successfully'
       "
     restart: "no"
     deploy:

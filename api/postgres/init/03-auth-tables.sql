@@ -56,13 +56,27 @@ CREATE INDEX IF NOT EXISTS idx_auth_verification_codes_user_id ON auth.verificat
 GRANT ALL ON TABLE auth.identities TO retroscope_app;
 GRANT ALL ON TABLE auth.refresh_tokens TO retroscope_app;
 GRANT ALL ON TABLE auth.verification_codes TO retroscope_app;
-GRANT ALL ON SEQUENCE auth.identities_id_seq TO retroscope_app;
-GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO retroscope_app;
-GRANT ALL ON SEQUENCE auth.verification_codes_id_seq TO retroscope_app;
+
+-- Grant sequence permissions (sequences may or may not exist depending on column defaults)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'identities_id_seq' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth')) THEN
+        GRANT ALL ON SEQUENCE auth.identities_id_seq TO retroscope_app;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'refresh_tokens_id_seq' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth')) THEN
+        GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO retroscope_app;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'verification_codes_id_seq' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth')) THEN
+        GRANT ALL ON SEQUENCE auth.verification_codes_id_seq TO retroscope_app;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'users_id_seq' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth')) THEN
+        GRANT ALL ON SEQUENCE auth.users_id_seq TO retroscope_app;
+    END IF;
+END
+$$;
 
 -- Update existing auth.users permissions
 GRANT ALL ON TABLE auth.users TO retroscope_app;
-GRANT ALL ON SEQUENCE auth.users_id_seq TO retroscope_app;
 
 -- Add RLS policies for auth tables
 ALTER TABLE auth.identities ENABLE ROW LEVEL SECURITY;
