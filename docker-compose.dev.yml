@@ -109,9 +109,12 @@ services:
     command: >
       bash -c "
         echo 'Running initialization scripts...' &&
-        for f in /docker-entrypoint-initdb.d/*.sql; do
-          echo \"Executing $$f\" &&
-          psql -h postgres -U postgres -d retroscope -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1
+        cd /docker-entrypoint-initdb.d &&
+        for f in *.sql; do
+          if [ -f \"$$f\" ]; then
+            echo \"Executing $$f\" &&
+            psql -h postgres -U postgres -d retroscope -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1
+          fi
         done &&
         echo 'Database initialization completed successfully'
       "
