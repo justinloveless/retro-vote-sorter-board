@@ -113,6 +113,7 @@ export const useRetroBoard = (roomId: string) => {
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [audioSummaryState, setAudioSummaryState] = useState<AudioSummaryState | null>(null);
   const [audioUrlToPlay, setAudioUrlToPlay] = useState<string | null>(null);
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [profileCache, setProfileCache] = useState<Record<string, { avatar_url: string; full_name: string }>>({});
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -157,6 +158,17 @@ export const useRetroBoard = (roomId: string) => {
   const clearAudioUrlToPlay = useCallback(() => {
     setAudioUrlToPlay(null);
   }, []);
+
+  // Broadcast focus card to all connected users
+  const focusItem = useCallback(async (itemId: string | null) => {
+    setFocusedItemId(itemId);
+    if (!presenceChannel) return;
+    await presenceChannel.send({
+      type: 'broadcast',
+      event: 'focus-card',
+      payload: { itemId }
+    });
+  }, [presenceChannel]);
 
   // Broadcast readiness changes to all connected users
   const broadcastReadinessChange = useCallback(async (readinessData: {
@@ -405,6 +417,9 @@ export const useRetroBoard = (roomId: string) => {
         detail: payload
       });
       window.dispatchEvent(readinessChangeEvent);
+    })
+    .on('broadcast', { event: 'focus-card' }, ({ payload }) => {
+      setFocusedItemId(payload?.itemId ?? null);
     });
 
     // Database changes
@@ -1114,6 +1129,8 @@ export const useRetroBoard = (roomId: string) => {
     updateAudioSummaryState,
     audioUrlToPlay,
     clearAudioUrlToPlay,
+    focusedItemId,
+    focusItem,
     updatePresence,
     broadcastReadinessChange,
     updateBoardTitle,
