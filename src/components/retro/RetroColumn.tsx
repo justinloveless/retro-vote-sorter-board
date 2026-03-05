@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -86,6 +86,8 @@ interface RetroColumnProps {
   actionStatusMap?: Record<string, { id: string; done: boolean; assigned_to?: string | null }>;
   onToggleActionItemDone?: (sourceItemId: string, nextDone: boolean) => void;
   onAssignActionItem?: (sourceItemId: string, userId: string | null) => void;
+  focusedItemId?: string | null;
+  onFocusItem?: ((itemId: string | null) => void) | undefined;
 }
 
 // Helper functions for retro stages
@@ -244,6 +246,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   actionStatusMap,
   onToggleActionItemDone,
   onAssignActionItem,
+  focusedItemId,
+  onFocusItem,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -361,7 +365,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           )}
 
           {sortedItems.map(item => (
-            <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow">
+            <Card key={item.id} className={`bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow ${focusedItemId === item.id ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''}`}>
               <CardContent className={`p-4 ${isActionItemsColumn(column) && (actionStatusMap?.[item.id]?.done ?? false) ? 'opacity-60' : ''}`}>
                 {editingItem === item.id ? (
                   <div className="space-y-2">
@@ -424,6 +428,17 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 
                       {/* Row 2: Buttons */}
                       <div className="flex flex-wrap justify-end gap-1">
+                        {onFocusItem && !isArchived && (
+                          <Button
+                            size="sm"
+                            variant={focusedItemId === item.id ? 'default' : 'outline'}
+                            onClick={() => onFocusItem(focusedItemId === item.id ? null : item.id)}
+                            className="h-8 w-8 p-0"
+                            title={focusedItemId === item.id ? 'Unfocus card' : 'Focus card for discussion'}
+                          >
+                            <Crosshair className="h-3 w-3" />
+                          </Button>
+                        )}
                         {!isArchived &&
                           canEditItems(board?.retro_stage, boardConfig, column) &&
                           ((user?.id && item.author_id === user.id) ||

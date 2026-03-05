@@ -12,6 +12,7 @@ import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
 import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
+import { FocusedCardBanner } from './retro/FocusedCardBanner';
 import { AppHeader } from './AppHeader';
 
 interface RetroBoardProps {
@@ -64,6 +65,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     updateAudioSummaryState,
     audioUrlToPlay,
     clearAudioUrlToPlay,
+    focusedItemId,
+    focusItem,
     markTeamActionItemDone,
     toggleBoardActionItemDone,
     assignTeamActionItem,
@@ -262,6 +265,23 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           </span>
         </div>
 
+        {/* Focused Card Banner */}
+        {focusedItemId && (() => {
+          const focusedItem = items.find(i => i.id === focusedItemId);
+          const focusedColumn = focusedItem ? columns.find(c => c.id === focusedItem.column_id) : null;
+          if (!focusedItem) return null;
+          return (
+            <FocusedCardBanner
+              itemText={focusedItem.text}
+              itemAuthor={focusedItem.author}
+              columnTitle={focusedColumn?.title || ''}
+              voteCount={focusedItem.votes}
+              voteEmoji={boardConfig?.vote_emoji}
+              onDismiss={() => focusItem(null)}
+            />
+          );
+        })()}
+
         {/* Columns */}
         <div className="overflow-x-auto pb-6">
           <div className="flex gap-6 min-w-max">
@@ -318,6 +338,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 presenceChannel={presenceChannel}
                 actionStatusMap={boardActionStatus}
                 onToggleActionItemDone={isArchived ? undefined : toggleBoardActionItemDone}
+                focusedItemId={focusedItemId}
+                onFocusItem={isArchived ? undefined : focusItem}
               />
             ))}
 
