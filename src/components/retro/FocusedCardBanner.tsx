@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
 import { RetroItemComments } from '../RetroItemComments';
 
 interface RetroComment {
@@ -83,7 +84,7 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
             </div>
             <div
               className="text-sm text-gray-800 dark:text-gray-200 prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: itemText }}
+              dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(itemText) }}
             />
             {/* Comments section */}
             {onAddComment && onDeleteComment && (
