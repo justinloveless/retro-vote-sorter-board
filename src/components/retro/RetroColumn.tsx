@@ -352,6 +352,14 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
         </div>
 
         <div className="space-y-3 min-h-[200px]">
+          {canAddItems(board?.retro_stage, boardConfig, column) && (
+            <AddItemCard
+              onAddItem={onAddItem}
+              allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
+              teamMembers={teamMembers}
+            />
+          )}
+
           {sortedItems.map(item => (
             <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardContent className={`p-4 ${isActionItemsColumn(column) && (actionStatusMap?.[item.id]?.done ?? false) ? 'opacity-60' : ''}`}>
@@ -510,13 +518,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
             </Card>
           ))}
 
-          {canAddItems(board?.retro_stage, boardConfig, column) && (
-            <AddItemCard
-              onAddItem={onAddItem}
-              allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
-              teamMembers={teamMembers}
-            />
-          )}
         </div>
       </div>
 

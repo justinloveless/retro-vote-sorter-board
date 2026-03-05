@@ -187,6 +187,77 @@ export type Database = {
         }
         Relationships: []
       }
+      github_installations: {
+        Row: {
+          account_avatar_url: string | null
+          account_login: string
+          account_type: string
+          created_at: string
+          id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_avatar_url?: string | null
+          account_login: string
+          account_type: string
+          created_at?: string
+          id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_avatar_url?: string | null
+          account_login?: string
+          account_type?: string
+          created_at?: string
+          id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string | null
+          title: string
+          type: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          title: string
+          type: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          title?: string
+          type?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poker_session_chat: {
         Row: {
           created_at: string
@@ -1245,22 +1316,13 @@ export type Database = {
         Args: { invitation_token: string }
         Returns: Json
       }
-      cleanup_stale_poker_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_stale_poker_sessions: { Args: never; Returns: undefined }
       create_columns_from_template: {
         Args: { board_id: string; template_id: string }
         Returns: undefined
       }
-      create_default_columns: {
-        Args: { board_id: string }
-        Returns: undefined
-      }
-      get_current_tenant_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      create_default_columns: { Args: { board_id: string }; Returns: undefined }
+      get_current_tenant_id: { Args: never; Returns: string }
       get_readiness_summary: {
         Args: { board_id_param: string; stage_param: string }
         Returns: Json
