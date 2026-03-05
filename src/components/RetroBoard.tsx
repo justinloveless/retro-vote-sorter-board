@@ -272,12 +272,23 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           if (!focusedItem) return null;
           return (
             <FocusedCardBanner
+              itemId={focusedItem.id}
               itemText={focusedItem.text}
               itemAuthor={focusedItem.author}
               columnTitle={focusedColumn?.title || ''}
               voteCount={focusedItem.votes}
               voteEmoji={boardConfig?.vote_emoji}
+              comments={getCommentsForItem(focusedItem.id)}
+              userName={userName}
+              currentUserId={user?.id}
+              showAuthor={boardConfig?.show_author_names}
+              sessionId={sessionId}
+              isAnonymousUser={isAnonymousUser}
+              isArchived={isArchived}
+              teamMembers={teamMembers}
               onDismiss={() => focusItem(null)}
+              onAddComment={isArchived ? undefined : handleAddComment}
+              onDeleteComment={isArchived ? undefined : deleteComment}
             />
           );
         })()}
