@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Crosshair } from 'lucide-react';
+import { X, Crosshair, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
 import { RetroItemComments } from '../RetroItemComments';
@@ -31,6 +31,7 @@ interface FocusedCardBannerProps {
   itemText: string;
   itemAuthor: string;
   columnTitle: string;
+  columnColor: string;
   voteCount: number;
   voteEmoji?: string | null;
   comments: RetroComment[];
@@ -41,6 +42,10 @@ interface FocusedCardBannerProps {
   isAnonymousUser?: boolean;
   isArchived?: boolean;
   teamMembers?: TeamMember[];
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
   onDismiss: () => void;
   onAddComment?: (itemId: string, text: string, author: string) => void;
   onDeleteComment?: (commentId: string) => void;
@@ -51,6 +56,7 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
   itemText,
   itemAuthor,
   columnTitle,
+  columnColor,
   voteCount,
   voteEmoji,
   comments,
@@ -61,34 +67,60 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
   isAnonymousUser,
   isArchived,
   teamMembers,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
   onDismiss,
   onAddComment,
   onDeleteComment,
 }) => {
   return (
-    <div className="mb-4 p-4 rounded-lg border-2 border-amber-400 dark:border-amber-500 bg-amber-50/90 dark:bg-amber-900/30 backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <Crosshair className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+    <div className="mb-4 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300">
+      <div
+        className="w-full max-w-2xl p-4 rounded-lg border-2 backdrop-blur-sm shadow-lg"
+        style={{
+          borderColor: columnColor,
+          backgroundColor: `${columnColor}18`,
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onPrev}
+            disabled={!hasPrev}
+            className="h-8 w-8 flex-shrink-0 mt-0.5"
+            style={{ color: columnColor }}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-200/60 dark:bg-amber-800/50 px-2 py-0.5 rounded">
+              <Crosshair className="h-4 w-4 flex-shrink-0" style={{ color: columnColor }} />
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded"
+                style={{ color: columnColor, backgroundColor: `${columnColor}30` }}
+              >
                 {columnTitle}
               </span>
-              <span className="text-xs text-amber-600 dark:text-amber-400">
+              <span className="text-xs text-muted-foreground">
                 by {itemAuthor}
               </span>
-              <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 {voteEmoji || '👍'} {voteCount}
               </span>
             </div>
             <div
-              className="text-sm text-gray-800 dark:text-gray-200 prose dark:prose-invert max-w-none"
+              className="text-sm text-foreground prose dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(itemText) }}
             />
             {/* Comments section */}
             {onAddComment && onDeleteComment && (
-              <div className="mt-3 border-t border-amber-300/50 dark:border-amber-600/50 pt-3">
+              <div
+                className="mt-3 border-t pt-3"
+                style={{ borderColor: `${columnColor}40` }}
+              >
                 <RetroItemComments
                   itemId={itemId}
                   comments={comments}
@@ -105,15 +137,28 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
               </div>
             )}
           </div>
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNext}
+              disabled={!hasNext}
+              className="h-8 w-8"
+              style={{ color: columnColor }}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDismiss}
+              className="h-7 w-7"
+              style={{ color: columnColor }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onDismiss}
-          className="h-7 w-7 flex-shrink-0 text-amber-600 dark:text-amber-400 hover:bg-amber-200/50 dark:hover:bg-amber-800/50"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   );
