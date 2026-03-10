@@ -269,13 +269,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         {focusedItemId && (() => {
           const focusedItem = items.find(i => i.id === focusedItemId);
           const focusedColumn = focusedItem ? columns.find(c => c.id === focusedItem.column_id) : null;
-          if (!focusedItem) return null;
+          if (!focusedItem || !focusedColumn) return null;
+          const columnItems = items.filter(i => i.column_id === focusedColumn.id);
+          const currentIndex = columnItems.findIndex(i => i.id === focusedItem.id);
           return (
             <FocusedCardBanner
               itemId={focusedItem.id}
               itemText={focusedItem.text}
               itemAuthor={focusedItem.author}
-              columnTitle={focusedColumn?.title || ''}
+              columnTitle={focusedColumn.title}
+              columnColor={focusedColumn.color}
               voteCount={focusedItem.votes}
               voteEmoji={boardConfig?.vote_emoji}
               comments={getCommentsForItem(focusedItem.id)}
@@ -286,6 +289,10 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               isAnonymousUser={isAnonymousUser}
               isArchived={isArchived}
               teamMembers={teamMembers}
+              hasPrev={currentIndex > 0}
+              hasNext={currentIndex < columnItems.length - 1}
+              onPrev={() => currentIndex > 0 && focusItem(columnItems[currentIndex - 1].id)}
+              onNext={() => currentIndex < columnItems.length - 1 && focusItem(columnItems[currentIndex + 1].id)}
               onDismiss={() => focusItem(null)}
               onAddComment={isArchived ? undefined : handleAddComment}
               onDeleteComment={isArchived ? undefined : deleteComment}
