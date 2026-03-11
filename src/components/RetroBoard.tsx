@@ -431,6 +431,20 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         </div>
 
       </div>
+
+      {/* Endorsement Panel - floating drawer, only for team boards with authenticated users */}
+      {board?.team_id && !isAnonymousUser && (
+        <EndorsementPanel
+          endorsements={endorsements}
+          endorsementTypes={endorsementTypes}
+          settings={endorsementSettings}
+          members={teamMembers}
+          currentUserId={user?.id}
+          myEndorsementCount={getMyEndorsementCount()}
+          onGiveEndorsement={giveEndorsement}
+          isArchived={isArchived}
+        />
+      )}
     </div>
   );
 };
