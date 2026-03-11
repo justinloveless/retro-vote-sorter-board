@@ -25,7 +25,9 @@ const Account = () => {
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -36,10 +38,9 @@ const Account = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (profile?.full_name) {
-      setFullName(profile.full_name);
-    }
-  }, [profile?.full_name]);
+    if (profile?.full_name) setFullName(profile.full_name);
+    setNickname((profile as any)?.nickname || '');
+  }, [profile?.full_name, (profile as any)?.nickname]);
 
   useEffect(() => {
     const loadEmail = async () => {
@@ -246,6 +247,43 @@ const Account = () => {
                         <Button variant="ghost" size="icon" onClick={() => {
                           setIsEditingName(false);
                           setFullName(profile?.full_name || '');
+                        }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Nickname</span>
+                    {!isEditingNickname ? (
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-900 dark:text-gray-100">{(profile as any)?.nickname || <span className="text-muted-foreground italic">Not set</span>}</p>
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingNickname(true)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={nickname}
+                          onChange={(e) => setNickname(e.target.value)}
+                          placeholder="e.g. JD"
+                          className="flex-grow"
+                        />
+                        <Button variant="ghost" size="icon" onClick={async () => {
+                          try {
+                            await updateProfile({ nickname } as any);
+                            toast({ title: 'Nickname updated' });
+                            setIsEditingNickname(false);
+                          } catch (error: any) {
+                            toast({ title: 'Failed to update nickname', description: error.message, variant: 'destructive' });
+                          }
+                        }}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setIsEditingNickname(false);
+                          setNickname((profile as any)?.nickname || '');
                         }}>
                           <X className="h-4 w-4" />
                         </Button>
