@@ -186,7 +186,8 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                 <TooltipContent>
                                   <p className="font-medium">{type.name}</p>
                                   <p className="text-xs text-muted-foreground">{type.description}</p>
-                                  {alreadyGiven && <p className="text-xs text-primary mt-1">✓ You endorsed this</p>}
+                                  {isThisType && <p className="text-xs text-primary mt-1">✓ You endorsed this (click to remove)</p>}
+                                  {!!existingForUser && !isThisType && <p className="text-xs text-muted-foreground mt-1">Already endorsed with different type</p>}
                                 </TooltipContent>
                               </Tooltip>
                             );
