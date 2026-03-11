@@ -448,7 +448,9 @@ const Account = () => {
               </CardContent>
             </Card>
 
-            <EndorsementsReceived userId={profile?.id || user.id} />
+            <div className="mt-4">
+              <EndorsementsReceived userId={profile?.id || user.id} />
+            </div>
           </div>
         </div>
         <div className="mt-6">
