@@ -252,7 +252,11 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  const sortChronologically = boardConfig?.sort_chronologically === true;
   const sortedItems = [...items].sort((a, b) => {
+    if (sortChronologically) {
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }
     if (b.votes !== a.votes) {
       return b.votes - a.votes;
     }
