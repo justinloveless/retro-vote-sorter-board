@@ -12,7 +12,7 @@ interface AccountDetailsProps {
     profile: Profile | null;
     editing: boolean;
     onSetEditing: (editing: boolean) => void;
-    onUpdateProfile: (updates: { full_name: string; avatar_url: string; }) => Promise<void>;
+    onUpdateProfile: (updates: { full_name: string; avatar_url: string; nickname?: string }) => Promise<void>;
 }
 
 export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateProfile }: AccountDetailsProps) => {
