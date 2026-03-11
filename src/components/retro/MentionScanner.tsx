@@ -25,10 +25,12 @@ interface RetroItem {
 interface MentionMatch {
   itemId: string;
   itemText: string;
-  memberName: string;
+  memberName: string;       // the text found in the item
+  matchedAgainst: string;   // the team member term it matched against
   memberId: string;
-  displayName: string; // nickname or full_name used in the mention tag
+  displayName: string;
   columnTitle: string;
+  fuzzy: boolean;           // whether this was a fuzzy (non-exact) match
 }
 
 interface MentionScannerProps {
