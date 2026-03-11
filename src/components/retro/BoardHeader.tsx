@@ -46,8 +46,11 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   anonymousName,
   isAnonymousUser,
   items,
+  columns,
+  teamMembers,
   onUpdateBoardTitle,
   onUpdateBoardConfig,
+  onUpdateItem,
   onSignOut,
   updateRetroStage,
   broadcastReadinessChange
