@@ -89,6 +89,7 @@ interface RetroColumnProps {
   onAssignActionItem?: (sourceItemId: string, userId: string | null) => void;
   focusedItemId?: string | null;
   onFocusItem?: ((itemId: string | null) => void) | undefined;
+  adminEditMode?: boolean;
 }
 
 // Helper functions for retro stages
