@@ -35,6 +35,8 @@ interface BoardHeaderProps {
     isReady: boolean;
     userName?: string;
   }) => Promise<void>;
+  adminEditMode?: boolean;
+  onToggleAdminEditMode?: () => void;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
