@@ -311,7 +311,10 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           const focusedItem = items.find(i => i.id === focusedItemId);
           const focusedColumn = focusedItem ? columns.find(c => c.id === focusedItem.column_id) : null;
           if (!focusedItem || !focusedColumn) return null;
-          const columnItems = items.filter(i => i.column_id === focusedColumn.id);
+          const columnItems = sortItems(
+            items.filter(i => i.column_id === focusedColumn.id) as any[],
+            getColumnSortKey(focusedColumn.id)
+          );
           const currentIndex = columnItems.findIndex(i => i.id === focusedItem.id);
           return (
             <FocusedCardBanner
