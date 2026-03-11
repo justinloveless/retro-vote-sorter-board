@@ -107,14 +107,18 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   }, [boardId, teamId, user, toast]);
 
   const revokeEndorsement = useCallback(async (endorsementId: string) => {
+    // Optimistic update
+    setEndorsements(prev => prev.filter(e => e.id !== endorsementId));
     const { error } = await supabase
       .from('endorsements')
       .delete()
       .eq('id', endorsementId);
     if (error) {
       toast({ title: 'Error revoking endorsement', variant: 'destructive' });
+      // Revert on error
+      fetchEndorsements();
     }
-  }, [toast]);
+  }, [toast, fetchEndorsements]);
 
   const clearCelebration = useCallback(() => {
     setPendingCelebration(null);
