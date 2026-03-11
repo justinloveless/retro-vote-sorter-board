@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Award, Trophy, Crown, Filter, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,11 +46,37 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
   const [memberMap, setMemberMap] = useState<Map<string, { fullName: string; avatarUrl: string | null }>>(new Map());
   const [boards, setBoards] = useState<BoardOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Filters
-  const [selectedBoard, setSelectedBoard] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  // Filters synced with URL
+  const selectedBoard = searchParams.get('board') || 'all';
+  const selectedType = searchParams.get('type') || 'all';
+  const dateFromParam = searchParams.get('dateFrom');
+  const dateToParam = searchParams.get('dateTo');
+  const dateRange: DateRange | undefined = (dateFromParam || dateToParam) 
+    ? { from: dateFromParam ? new Date(dateFromParam) : undefined, to: dateToParam ? new Date(dateToParam) : undefined }
+    : undefined;
+
+  const updateFilter = (key: string, value: string, defaultValue: string = 'all') => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === defaultValue) next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  };
+  const setSelectedBoard = (v: string) => updateFilter('board', v);
+  const setSelectedType = (v: string) => updateFilter('type', v);
+  const setDateRange = (range: DateRange | undefined) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (range?.from) next.set('dateFrom', format(range.from, 'yyyy-MM-dd'));
+      else next.delete('dateFrom');
+      if (range?.to) next.set('dateTo', format(range.to, 'yyyy-MM-dd'));
+      else next.delete('dateTo');
+      return next;
+    }, { replace: true });
+  };
 
   // Mentions dialog
   const [mentionsDialogOpen, setMentionsDialogOpen] = useState(false);

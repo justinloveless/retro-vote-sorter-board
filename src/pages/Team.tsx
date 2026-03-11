@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,25 @@ const Team = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
+  const tabParam = searchParams.get('tab');
+  const activeTab = validTabs.includes(tabParam || '') ? tabParam! : 'boards';
+
+  const handleTabChange = (value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === 'boards') {
+        next.delete('tab');
+      } else {
+        next.set('tab', value);
+      }
+      // Clear filters from other tabs
+      ['archived', 'status', 'assignee', 'sort', 'board', 'type', 'dateFrom', 'dateTo'].forEach(k => next.delete(k));
+      return next;
+    }, { replace: true });
+  };
 
   // Use cached data
   const { data: team, loading: teamLoading } = teamData.getTeamInfo(teamId || '');
@@ -148,7 +167,7 @@ const Team = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
-              <Tabs defaultValue="boards" className="space-y-4">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
                 <TabsList >
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
