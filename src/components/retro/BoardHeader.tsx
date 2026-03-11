@@ -20,15 +20,18 @@ interface BoardHeaderProps {
   anonymousName: string;
   isAnonymousUser: boolean;
   items: any[];
+  columns: any[];
+  teamMembers: any[];
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardConfig: (config: any) => void;
+  onUpdateItem: (itemId: string, text: string) => void;
   onSignOut: () => void;
   updateRetroStage?: (stage: 'thinking' | 'voting' | 'discussing' | 'closed') => void;
   broadcastReadinessChange?: (readinessData: {
     boardId: string;
     stage: string;
-    userId: string;  // Now always present (auth user ID or session ID)
-    sessionId?: string;  // Kept for backward compatibility but not used
+    userId: string;
+    sessionId?: string;
     isReady: boolean;
     userName?: string;
   }) => Promise<void>;
