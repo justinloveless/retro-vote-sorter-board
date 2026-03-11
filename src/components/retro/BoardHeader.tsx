@@ -10,6 +10,8 @@ import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
 import { CompactStageControls } from './CompactStageControls';
 import { MentionScanner } from './MentionScanner';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface BoardHeaderProps {
   board: any;
