@@ -452,6 +452,10 @@ const Account = () => {
             <div className="mt-4">
               <EndorsementsReceived userId={profile?.id || user.id} />
             </div>
+
+            <div className="mt-4">
+              <MentionsReceived userId={profile?.id || user.id} />
+            </div>
           </div>
         </div>
         <div className="mt-6">
