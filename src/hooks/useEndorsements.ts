@@ -46,7 +46,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
 
   // Realtime subscription for new endorsements
   useEffect(() => {
-    if (!boardId || !teamId || !user) return;
+    if (!boardId || !teamId || !effectiveUserId) return;
 
     const channel = supabase
       .channel(`endorsements-${boardId}`)
@@ -61,8 +61,8 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
         (payload) => {
           const newEndorsement = payload.new as Endorsement;
           setEndorsements(prev => [...prev, newEndorsement]);
-          // Trigger celebration if current user received the endorsement
-          if (newEndorsement.to_user_id === user.id) {
+          // Trigger celebration if the effective user received the endorsement
+          if (newEndorsement.to_user_id === effectiveUserId) {
             setPendingCelebration(newEndorsement);
           }
         }
