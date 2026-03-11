@@ -36,6 +36,7 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
   currentUserId,
   myEndorsementCount,
   onGiveEndorsement,
+  onRevokeEndorsement,
   isArchived,
 }) => {
   const [open, setOpen] = useState(false);
