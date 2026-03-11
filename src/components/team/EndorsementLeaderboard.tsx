@@ -242,6 +242,18 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                       <UserAvatar avatarUrl={entry.avatarUrl} name={entry.fullName} className={`${size} border-2 border-background shadow-lg`} />
                       <span className="text-xs font-medium mt-1 truncate max-w-[80px] text-center">{entry.fullName}</span>
                       <span className={`text-lg font-bold ${textColor}`}>{entry.total}</span>
+                      {/* Endorsement type breakdown */}
+                      <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                        {types.map(t => {
+                          const count = entry.counts[t.id] || 0;
+                          if (count === 0) return null;
+                          return (
+                            <span key={t.id} className="text-xs" title={`${t.name}: ${count}`}>
+                              {t.icon_url || '🏆'}{count}
+                            </span>
+                          );
+                        })}
+                      </div>
                       {/* Pedestal */}
                       <div className={`w-20 sm:w-24 ${pedestalHeight} ${pedestalColor} rounded-t-lg flex items-center justify-center shadow-md`}>
                         <span className="text-2xl font-bold text-white/90">{rank}</span>
