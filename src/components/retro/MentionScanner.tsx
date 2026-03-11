@@ -162,7 +162,9 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
   // Select all by default when matches change
   React.useEffect(() => {
     if (open && matches.length > 0) {
-      setSelectedMatches(new Set(matches.map(m => `${m.itemId}:${m.memberId}`)));
+      // Auto-select only exact matches; fuzzy matches are unchecked by default for review
+      const exactKeys = matches.filter(m => !m.fuzzy).map(m => `${m.itemId}:${m.memberId}`);
+      setSelectedMatches(new Set(exactKeys));
     }
   }, [open, matches]);
 
