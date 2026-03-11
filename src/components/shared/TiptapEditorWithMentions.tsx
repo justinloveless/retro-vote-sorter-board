@@ -194,18 +194,42 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             const { state } = editor;
             const { from } = state.selection;
             const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\n');
+            
+            // First check for explicit @ trigger
             const mentionMatch = textBefore.match(/@(\w*)$/);
-
             if (mentionMatch && teamMembers.length > 0) {
-                if (!showMentions) {
-                    // Start showing mentions
+                if (!showMentions || mentionTrigger !== '@') {
                     const coords = editor.view.coordsAtPos(from);
                     setMentionPos({ x: coords.left, y: coords.bottom });
                     setShowMentions(true);
+                    setMentionTrigger('@');
                 }
                 setMentionQuery(mentionMatch[1]);
-            } else if (showMentions) {
-                // Hide mentions
+                return;
+            }
+
+            // Then check if the current word matches a team member name (min 2 chars)
+            const wordMatch = textBefore.match(/(?:^|\s)(\w{2,})$/);
+            if (wordMatch && teamMembers.length > 0) {
+                const typed = wordMatch[1].toLowerCase();
+                const hasMatch = teamMembers.some(m => {
+                    const name = m.profiles?.full_name?.toLowerCase() || '';
+                    // Check if any part of the name starts with what was typed
+                    return name.split(/\s+/).some(part => part.startsWith(typed));
+                });
+                if (hasMatch) {
+                    if (!showMentions || mentionTrigger !== 'name') {
+                        const coords = editor.view.coordsAtPos(from);
+                        setMentionPos({ x: coords.left, y: coords.bottom });
+                        setShowMentions(true);
+                        setMentionTrigger('name');
+                    }
+                    setMentionQuery(wordMatch[1]);
+                    return;
+                }
+            }
+
+            if (showMentions) {
                 setShowMentions(false);
             }
         },
