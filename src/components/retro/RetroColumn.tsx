@@ -288,6 +288,12 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
     });
   };
 
+const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing';
+};
+
 
 
   // Function to generate JIRA ticket creation URL
