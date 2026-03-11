@@ -294,6 +294,12 @@ const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
   return stage === 'discussing';
 };
 
+const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing';
+};
+
 
 
   // Function to generate JIRA ticket creation URL
