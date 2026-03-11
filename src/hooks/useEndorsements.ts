@@ -128,9 +128,9 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   }, []);
 
   const getMyEndorsementCount = useCallback(() => {
-    if (!user) return 0;
-    return endorsements.filter(e => e.from_user_id === user.id).length;
-  }, [endorsements, user]);
+    if (!effectiveUserId) return 0;
+    return endorsements.filter(e => e.from_user_id === effectiveUserId).length;
+  }, [endorsements, effectiveUserId]);
 
   return {
     endorsements,
