@@ -113,7 +113,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const isAdmin = profile?.role === 'admin';
 
   const getColumnSortKey = (columnId: string): SortKey => {
-    return columnSortKeys[columnId] ?? (boardConfig?.sort_chronologically === true ? 'time-asc' : 'votes-desc');
+    return columnSortKeys[columnId] ?? ((boardConfig as any)?.sort_chronologically === true ? 'time-asc' : 'votes-desc');
   };
 
   const setColumnSortKey = (columnId: string, key: SortKey) => {
