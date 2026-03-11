@@ -260,7 +260,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 rounded-lg">
           <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
             <span className="font-medium">📁 This board is archived</span>
-            <span className="text-sm">- It's now read-only and cannot be edited</span>
+            <span className="text-sm">
+              {adminEditMode ? '- Admin edit mode is active' : '- It\'s now read-only and cannot be edited'}
+            </span>
           </div>
         </div>
       )}
