@@ -92,30 +92,66 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
     for (const item of items) {
       // Strip existing mentions from text before scanning
       const textWithoutMentions = item.text.replace(/\[\[mention:[^\]]+\]\]/g, '');
-      // Also strip mention spans (HTML format)
-      const cleanText = textWithoutMentions.replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '')
-        // Strip remaining HTML tags for matching
+      const cleanText = textWithoutMentions
+        .replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '')
         .replace(/<[^>]+>/g, '');
 
       if (!cleanText.trim()) continue;
 
+      // Extract words from the clean text (3+ chars)
+      const textWords = cleanText.match(/[a-zA-ZÀ-ÿ]{3,}/g) || [];
+
       for (const { term, memberId, displayName, fullName } of memberSearchTerms) {
-        // Case-insensitive search — no word boundary requirement so partial names match within strings
-        const regex = new RegExp(escapeRegex(term), 'gi');
-        if (regex.test(cleanText)) {
-          // Avoid duplicate item+member combos for the same matched term
-          const existingMatch = found.find(f => f.itemId === item.id && f.memberId === memberId);
-          if (!existingMatch) {
-            const col = columns.find(c => c.id === item.column_id);
-            found.push({
-              itemId: item.id,
-              itemText: item.text,
-              memberName: term,
-              memberId,
-              displayName,
-              columnTitle: col?.title || 'Unknown',
-            });
+        if (found.some(f => f.itemId === item.id && f.memberId === memberId)) continue;
+
+        // 1) Exact substring match (case-insensitive)
+        const exactRegex = new RegExp(escapeRegex(term), 'gi');
+        if (exactRegex.test(cleanText)) {
+          const col = columns.find(c => c.id === item.column_id);
+          found.push({
+            itemId: item.id,
+            itemText: item.text,
+            memberName: term,
+            matchedAgainst: term,
+            memberId,
+            displayName,
+            columnTitle: col?.title || 'Unknown',
+            fuzzy: false,
+          });
+          continue;
+        }
+
+        // 2) Fuzzy match: check each word in the text against each name part
+        const nameParts = term.split(/\s+/).filter(p => p.length >= 3);
+        let fuzzyMatch: string | null = null;
+
+        for (const word of textWords) {
+          for (const namePart of nameParts) {
+            const w = word.toLowerCase();
+            const n = namePart.toLowerCase();
+            // Prefix match (at least 3 chars): "Phil" matches "Philip"
+            if (w.length >= 3 && n.startsWith(w)) { fuzzyMatch = word; break; }
+            if (n.length >= 3 && w.startsWith(n)) { fuzzyMatch = word; break; }
+            // Levenshtein distance ≤ 1 for similar-length words
+            if (Math.abs(w.length - n.length) <= 2 && w.length >= 3 && levenshtein(w, n) <= 1) {
+              fuzzyMatch = word; break;
+            }
           }
+          if (fuzzyMatch) break;
+        }
+
+        if (fuzzyMatch) {
+          const col = columns.find(c => c.id === item.column_id);
+          found.push({
+            itemId: item.id,
+            itemText: item.text,
+            memberName: fuzzyMatch,
+            matchedAgainst: term,
+            memberId,
+            displayName,
+            columnTitle: col?.title || 'Unknown',
+            fuzzy: true,
+          });
         }
       }
     }
