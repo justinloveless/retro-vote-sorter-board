@@ -27,6 +27,25 @@ const Team = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
+  const tabParam = searchParams.get('tab');
+  const activeTab = validTabs.includes(tabParam || '') ? tabParam! : 'boards';
+
+  const handleTabChange = (value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === 'boards') {
+        next.delete('tab');
+      } else {
+        next.set('tab', value);
+      }
+      // Clear filters from other tabs
+      ['archived', 'status', 'assignee', 'sort', 'board', 'type', 'dateFrom', 'dateTo'].forEach(k => next.delete(k));
+      return next;
+    }, { replace: true });
+  };
 
   // Use cached data
   const { data: team, loading: teamLoading } = teamData.getTeamInfo(teamId || '');
