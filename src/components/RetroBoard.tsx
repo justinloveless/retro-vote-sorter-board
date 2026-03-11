@@ -80,6 +80,24 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   // Get team members for @ mentions
   const { members: teamMembers } = useTeamMembers(board?.team_id || null);
 
+  // Endorsements
+  const { types: endorsementTypes, settings: endorsementSettings } = useEndorsementTypes(board?.team_id || null);
+  const {
+    endorsements,
+    giveEndorsement,
+    pendingCelebration,
+    clearCelebration,
+    getMyEndorsementCount,
+  } = useEndorsements(boardId, board?.team_id || null);
+
+  const memberNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    teamMembers.forEach((m: any) => {
+      map[m.user_id] = m.profiles?.full_name || m.profiles?.nickname || 'Unknown';
+    });
+    return map;
+  }, [teamMembers]);
+
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [userName, setUserName] = useState(() => {
     if (isAnonymousUser) return anonymousName;
