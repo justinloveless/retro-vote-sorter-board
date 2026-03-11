@@ -317,6 +317,16 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                           );
                         })}
                       </div>
+                      {/* Mentions button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => openMentionsDialog(entry.userId, entry.fullName)}
+                        title={`See what people said about ${entry.fullName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
                       {/* Pedestal */}
                       <div className={`w-20 sm:w-24 ${pedestalHeight} ${pedestalColor} rounded-t-lg flex items-center justify-center shadow-md`}>
                         <span className="text-2xl font-bold text-white/90">{tieRank}</span>
