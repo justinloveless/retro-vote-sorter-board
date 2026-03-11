@@ -276,7 +276,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           teamMembers={teamMembers}
           onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
           onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
-          onUpdateItem={isArchived ? () => {} : updateItem}
+          onUpdateItem={(isArchived && profile?.role !== 'admin') ? () => {} : updateItem}
           onSignOut={signOut}
           updateRetroStage={isArchived ? undefined : updateRetroStage}
           broadcastReadinessChange={isArchived ? undefined : broadcastReadinessChange}
