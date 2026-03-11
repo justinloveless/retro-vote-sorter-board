@@ -197,15 +197,16 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       byItem.get(match.itemId)!.push(match);
     }
 
+    const originals = new Map<string, string>();
     let replacedCount = 0;
     for (const [itemId, itemMatches] of byItem) {
       const item = items.find(i => i.id === itemId);
       if (!item) continue;
 
+      originals.set(itemId, item.text);
       let newText = item.text;
       for (const match of itemMatches) {
         const mentionTag = `[[mention:${match.memberId}:${match.displayName}]]`;
-        // Replace the matched name occurrence (case-insensitive)
         const regex = new RegExp(escapeRegex(match.memberName), 'gi');
         newText = newText.replace(regex, mentionTag);
         replacedCount++;
@@ -216,11 +217,25 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       }
     }
 
+    lastReplacements.current = originals;
+
     toast({
       title: 'Mentions replaced',
       description: `Replaced ${replacedCount} name${replacedCount !== 1 ? 's' : ''} with mention tags.`,
     });
     setOpen(false);
+  };
+
+  const handleUndo = () => {
+    if (!lastReplacements.current || lastReplacements.current.size === 0) return;
+    for (const [itemId, originalText] of lastReplacements.current) {
+      onUpdateItem(itemId, originalText);
+    }
+    toast({
+      title: 'Undo complete',
+      description: `Reverted ${lastReplacements.current.size} item${lastReplacements.current.size !== 1 ? 's' : ''} to their original text.`,
+    });
+    lastReplacements.current = null;
   };
 
   // Highlight the matched name in the item text for preview
