@@ -126,18 +126,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) throw new Error("No user is logged in");
 
+    // When impersonating, update the impersonated user's profile
+    const targetId = impersonatedProfile?.id || user.id;
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', user.id)
+        .eq('id', targetId)
         .select()
         .single();
 
       if (error) throw error;
 
-      localStorage.setItem('profile', JSON.stringify(data));
-      setProfile(data);
+      if (impersonatedProfile) {
+        localStorage.setItem('impersonated_profile', JSON.stringify(data));
+        setImpersonatedProfile(data);
+      } else {
+        localStorage.setItem('profile', JSON.stringify(data));
+        setProfile(data);
+      }
 
       return data;
     } catch (error) {
