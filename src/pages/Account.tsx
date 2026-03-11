@@ -10,6 +10,7 @@ import { AuthForm } from '@/components/AuthForm';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { BackgroundSettings } from '@/components/account/BackgroundSettings';
+import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
 import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -446,6 +447,8 @@ const Account = () => {
                 )}
               </CardContent>
             </Card>
+
+            <EndorsementsReceived userId={profile?.id || user.id} />
           </div>
         </div>
         <div className="mt-6">
