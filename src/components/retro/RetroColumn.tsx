@@ -225,6 +225,12 @@ const canShowSummary = (stage: RetroStage | null, boardConfig: any): boolean => 
   }
 };
 
+const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing';
+};
+
 export const RetroColumn: React.FC<RetroColumnProps> = ({
   board,
   column,
@@ -287,13 +293,6 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
       reader.readAsDataURL(file);
     });
   };
-
-
-const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
-  if (!isRetroStagesEnabled(boardConfig)) return true;
-  if (!stage) return true;
-  return stage === 'discussing';
-};
 
 
 
