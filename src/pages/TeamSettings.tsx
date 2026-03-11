@@ -8,6 +8,7 @@ import { AuthForm } from '@/components/AuthForm';
 import { TeamSettingsForm, TeamSettings } from '@/components/team/TeamSettingsForm';
 import { BoardTemplatesSettings } from '@/components/team/BoardTemplatesSettings';
 import { DangerZone } from '@/components/team/DangerZone';
+import { EndorsementSettings } from '@/components/team/EndorsementSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { JiraSettingsForm, JiraSettings } from '@/components/team/JiraSettingsForm';
 import { AppHeader } from '@/components/AppHeader';
