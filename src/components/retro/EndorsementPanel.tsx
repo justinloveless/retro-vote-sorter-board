@@ -141,7 +141,7 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                         className="h-14 w-14 text-lg"
                       />
                       <span className="text-sm font-medium text-center truncate w-full">{name}</span>
-                      <div className="flex flex-col gap-1.5 w-full mt-1">
+                      <div className="flex gap-1.5 mt-1">
                         <TooltipProvider>
                           {endorsementTypes.map(type => {
                             const alreadyGiven = hasEndorsed(member.user_id, type.id);
@@ -151,8 +151,8 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                 <TooltipTrigger asChild>
                                   <Button
                                     variant={alreadyGiven ? 'default' : 'outline'}
-                                    size="sm"
-                                    className="w-full h-8 text-xs justify-start gap-2"
+                                    size="icon"
+                                    className="h-8 w-8 text-base relative"
                                     disabled={isArchived || (!alreadyGiven && remaining <= 0)}
                                     onClick={() => {
                                       if (!alreadyGiven) {
@@ -161,11 +161,10 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                     }}
                                   >
                                     <span>{type.icon_url || '🏆'}</span>
-                                    <span className="truncate">{type.name}</span>
                                     {count > 0 && (
-                                      <Badge variant="secondary" className="ml-auto text-[10px] h-4 px-1">
+                                      <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full text-[9px] h-3.5 w-3.5 flex items-center justify-center font-bold">
                                         {count}
-                                      </Badge>
+                                      </span>
                                     )}
                                   </Button>
                                 </TooltipTrigger>
