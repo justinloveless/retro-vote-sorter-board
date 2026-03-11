@@ -88,7 +88,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     pendingCelebration,
     clearCelebration,
     getMyEndorsementCount,
-  } = useEndorsements(boardId, board?.team_id || null);
+  } = useEndorsements(board?.id || null, board?.team_id || null);
 
   const memberNameMap = useMemo(() => {
     const map: Record<string, string> = {};
