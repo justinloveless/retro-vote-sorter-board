@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair, ArrowUpDown } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -253,19 +253,19 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const [sortMode, setSortMode] = useState<'votes' | 'time' | 'author'>(
-    boardConfig?.sort_chronologically === true ? 'time' : 'votes'
+  type SortKey = 'votes-desc' | 'votes-asc' | 'time-asc' | 'time-desc' | 'author-asc' | 'author-desc';
+  const [sortKey, setSortKey] = useState<SortKey>(
+    boardConfig?.sort_chronologically === true ? 'time-asc' : 'votes-desc'
   );
   const sortedItems = [...items].sort((a, b) => {
-    switch (sortMode) {
-      case 'time':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'author':
-        return (a.author || '').localeCompare(b.author || '');
-      case 'votes':
-      default:
-        if (b.votes !== a.votes) return b.votes - a.votes;
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    switch (sortKey) {
+      case 'votes-desc': return b.votes !== a.votes ? b.votes - a.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'votes-asc': return a.votes !== b.votes ? a.votes - b.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-desc': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'author-asc': return (a.author || '').localeCompare(b.author || '');
+      case 'author-desc': return (b.author || '').localeCompare(a.author || '');
+      default: return 0;
     }
   });
 
@@ -351,19 +351,33 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={`Sorted by ${sortMode}`}>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Sort cards">
                   <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSortMode('votes')} className={sortMode === 'votes' ? 'font-semibold' : ''}>
-                  {sortMode === 'votes' && '✓ '}Sort by Votes
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Votes</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('votes-desc')} className={sortKey === 'votes-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'votes-desc' ? '✓ ' : '\u2003'}Votes - High to Low
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode('time')} className={sortMode === 'time' ? 'font-semibold' : ''}>
-                  {sortMode === 'time' && '✓ '}Sort by Time
+                <DropdownMenuItem onClick={() => setSortKey('votes-asc')} className={sortKey === 'votes-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'votes-asc' ? '✓ ' : '\u2003'}Votes - Low to High
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode('author')} className={sortMode === 'author' ? 'font-semibold' : ''}>
-                  {sortMode === 'author' && '✓ '}Sort by Author
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Time</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('time-asc')} className={sortKey === 'time-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'time-asc' ? '✓ ' : '\u2003'}Time - Oldest First
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortKey('time-desc')} className={sortKey === 'time-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'time-desc' ? '✓ ' : '\u2003'}Time - Newest First
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Author</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('author-asc')} className={sortKey === 'author-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'author-asc' ? '✓ ' : '\u2003'}Author - A to Z
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortKey('author-desc')} className={sortKey === 'author-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'author-desc' ? '✓ ' : '\u2003'}Author - Z to A
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
