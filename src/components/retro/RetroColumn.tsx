@@ -225,6 +225,12 @@ const canShowSummary = (stage: RetroStage | null, boardConfig: any): boolean => 
   }
 };
 
+const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing';
+};
+
 export const RetroColumn: React.FC<RetroColumnProps> = ({
   board,
   column,
@@ -478,7 +484,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 
                       {/* Row 2: Buttons */}
                       <div className="flex flex-wrap justify-end gap-1">
-                        {onFocusItem && !isArchived && (
+                        {onFocusItem && !isArchived && canFocusItem(board?.retro_stage, boardConfig) && (
                           <Button
                             size="sm"
                             variant={focusedItemId === item.id ? 'default' : 'outline'}
