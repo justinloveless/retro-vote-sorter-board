@@ -76,16 +76,26 @@ export const EndorsementSettings: React.FC<EndorsementSettingsProps> = ({ teamId
             <div className="space-y-2">
               {types.map(type => (
                 <div key={type.id} className="flex items-center gap-2 p-2 rounded-md border bg-muted/50">
-                  <span className="text-lg">{type.icon_url || '🏆'}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{type.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{type.description}</div>
+                  <Input
+                    value={type.icon_url || '🏆'}
+                    onChange={e => updateType(type.id, { icon_url: e.target.value })}
+                    className="w-14 h-8 text-center text-lg p-0"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Input
+                      value={type.name}
+                      onChange={e => updateType(type.id, { name: e.target.value })}
+                      className="h-7 text-sm font-medium"
+                    />
+                    <Input
+                      value={type.description}
+                      onChange={e => updateType(type.id, { description: e.target.value })}
+                      className="h-7 text-xs"
+                    />
                   </div>
-                  {!type.is_default && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteType(type.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteType(type.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>

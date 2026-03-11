@@ -24,6 +24,7 @@ interface EndorsementPanelProps {
   currentUserId: string | undefined;
   myEndorsementCount: number;
   onGiveEndorsement: (toUserId: string, typeId: string) => void;
+  onRevokeEndorsement: (endorsementId: string) => void;
   isArchived?: boolean;
 }
 
@@ -35,13 +36,20 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
   currentUserId,
   myEndorsementCount,
   onGiveEndorsement,
+  onRevokeEndorsement,
   isArchived,
 }) => {
   const [open, setOpen] = useState(false);
   const maxEndorsements = settings?.max_endorsements_per_user_per_board ?? 3;
   const remaining = Math.max(0, maxEndorsements - myEndorsementCount);
 
-  const hasEndorsed = (toUserId: string, typeId: string) => {
+  const hasEndorsedUser = (toUserId: string) => {
+    return endorsements.find(
+      e => e.from_user_id === currentUserId && e.to_user_id === toUserId
+    );
+  };
+
+  const hasEndorsedWithType = (toUserId: string, typeId: string) => {
     return endorsements.some(
       e => e.from_user_id === currentUserId && e.to_user_id === toUserId && e.endorsement_type_id === typeId
     );
@@ -144,18 +152,25 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                       <div className="flex gap-1.5 mt-1">
                         <TooltipProvider>
                           {endorsementTypes.map(type => {
-                            const alreadyGiven = hasEndorsed(member.user_id, type.id);
+                            const existingForUser = hasEndorsedUser(member.user_id);
+                            const isThisType = hasEndorsedWithType(member.user_id, type.id);
                             const count = getEndorsementCountForUser(member.user_id, type.id);
+                            // Disabled if: archived, or already endorsed this person with a different type, or no remaining and haven't endorsed this person yet
+                            const disabled = isArchived || (!!existingForUser && !isThisType) || (!existingForUser && remaining <= 0);
                             return (
                               <Tooltip key={type.id}>
                                 <TooltipTrigger asChild>
                                   <Button
-                                    variant={alreadyGiven ? 'default' : 'outline'}
+                                    variant={isThisType ? 'default' : 'outline'}
                                     size="icon"
                                     className="h-8 w-8 text-base relative"
-                                    disabled={isArchived || (!alreadyGiven && remaining <= 0)}
+                                    disabled={disabled}
                                     onClick={() => {
-                                      if (!alreadyGiven) {
+                                      if (isThisType) {
+                                        // Revoke existing endorsement
+                                        onRevokeEndorsement(existingForUser!.id);
+                                      } else if (!existingForUser) {
+                                        // Give new endorsement
                                         onGiveEndorsement(member.user_id, type.id);
                                       }
                                     }}
@@ -171,7 +186,8 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                 <TooltipContent>
                                   <p className="font-medium">{type.name}</p>
                                   <p className="text-xs text-muted-foreground">{type.description}</p>
-                                  {alreadyGiven && <p className="text-xs text-primary mt-1">✓ You endorsed this</p>}
+                                  {isThisType && <p className="text-xs text-primary mt-1">✓ You endorsed this (click to remove)</p>}
+                                  {!!existingForUser && !isThisType && <p className="text-xs text-muted-foreground mt-1">Already endorsed with different type</p>}
                                 </TooltipContent>
                               </Tooltip>
                             );
