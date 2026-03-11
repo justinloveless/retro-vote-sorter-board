@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { BackgroundSettings } from '@/components/account/BackgroundSettings';
 import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
+import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -450,6 +451,10 @@ const Account = () => {
 
             <div className="mt-4">
               <EndorsementsReceived userId={profile?.id || user.id} />
+            </div>
+
+            <div className="mt-4">
+              <MentionsReceived userId={profile?.id || user.id} />
             </div>
           </div>
         </div>
