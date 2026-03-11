@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ScanSearch } from 'lucide-react';
+import { ScanSearch, Undo2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface TeamMember {
@@ -48,6 +48,7 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
+  const [lastReplacements, setLastReplacements] = useState<Map<string, string> | null>(null);
   const { toast } = useToast();
 
   // Build search terms for each member: full name, first name, nickname
@@ -196,15 +197,16 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       byItem.get(match.itemId)!.push(match);
     }
 
+    const originals = new Map<string, string>();
     let replacedCount = 0;
     for (const [itemId, itemMatches] of byItem) {
       const item = items.find(i => i.id === itemId);
       if (!item) continue;
 
+      originals.set(itemId, item.text);
       let newText = item.text;
       for (const match of itemMatches) {
         const mentionTag = `[[mention:${match.memberId}:${match.displayName}]]`;
-        // Replace the matched name occurrence (case-insensitive)
         const regex = new RegExp(escapeRegex(match.memberName), 'gi');
         newText = newText.replace(regex, mentionTag);
         replacedCount++;
@@ -215,11 +217,25 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       }
     }
 
+    setLastReplacements(originals);
+
     toast({
       title: 'Mentions replaced',
       description: `Replaced ${replacedCount} name${replacedCount !== 1 ? 's' : ''} with mention tags.`,
     });
     setOpen(false);
+  };
+
+  const handleUndo = () => {
+    if (!lastReplacements || lastReplacements.size === 0) return;
+    for (const [itemId, originalText] of lastReplacements) {
+      onUpdateItem(itemId, originalText);
+    }
+    toast({
+      title: 'Undo complete',
+      description: `Reverted ${lastReplacements.size} item${lastReplacements.size !== 1 ? 's' : ''} to their original text.`,
+    });
+    setLastReplacements(null);
   };
 
   // Highlight the matched name in the item text for preview
@@ -244,82 +260,89 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" title="Scan for names to convert to mentions">
-          <ScanSearch className="h-4 w-4" />
+    <div className="flex items-center gap-1">
+      {lastReplacements && lastReplacements.size > 0 && (
+        <Button variant="outline" size="sm" onClick={handleUndo} title="Undo last mention scan replacements">
+          <Undo2 className="h-4 w-4" />
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Replace Names with Mentions</DialogTitle>
-        </DialogHeader>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" title="Scan for names to convert to mentions">
+            <ScanSearch className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Replace Names with Mentions</DialogTitle>
+          </DialogHeader>
 
-        {matches.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">
-            No unlinked team member names found in retro items.
-          </p>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 mb-2">
-              <Checkbox
-                checked={selectedMatches.size === matches.length}
-                onCheckedChange={toggleAll}
-                id="select-all"
-              />
-              <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                Select all ({matches.length} match{matches.length !== 1 ? 'es' : ''})
-              </label>
-            </div>
-            <ScrollArea className="max-h-[400px]">
-              <div className="space-y-3">
-                {matches.map((match) => {
-                  const key = `${match.itemId}:${match.memberId}`;
-                  return (
-                    <div key={key} className="flex gap-2 items-start p-2 rounded-md border bg-card">
-                      <Checkbox
-                        checked={selectedMatches.has(key)}
-                        onCheckedChange={() => toggleMatch(key)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-muted-foreground mb-1">
-                          <span className="font-medium">{match.columnTitle}</span>
-                          {' · '}
-                          <span className="text-primary font-medium">"{match.memberName}"</span>
-                          {match.fuzzy && (
-                            <span className="text-muted-foreground italic"> ≈ {match.matchedAgainst}</span>
-                          )}
-                          {' → '}
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
-                            @{match.displayName}
-                          </span>
-                          {match.fuzzy && (
-                            <span className="ml-1 text-[10px] italic text-muted-foreground">(fuzzy)</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-foreground/80 truncate">
-                          {highlightMatch(match.itemText, match.memberName)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+          {matches.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4">
+              No unlinked team member names found in retro items.
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  checked={selectedMatches.size === matches.length}
+                  onCheckedChange={toggleAll}
+                  id="select-all"
+                />
+                <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                  Select all ({matches.length} match{matches.length !== 1 ? 'es' : ''})
+                </label>
               </div>
-            </ScrollArea>
-          </>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          {matches.length > 0 && (
-            <Button onClick={handleReplace} disabled={selectedMatches.size === 0}>
-              Replace {selectedMatches.size} match{selectedMatches.size !== 1 ? 'es' : ''}
-            </Button>
+              <ScrollArea className="max-h-[400px]">
+                <div className="space-y-3">
+                  {matches.map((match) => {
+                    const key = `${match.itemId}:${match.memberId}`;
+                    return (
+                      <div key={key} className="flex gap-2 items-start p-2 rounded-md border bg-card">
+                        <Checkbox
+                          checked={selectedMatches.has(key)}
+                          onCheckedChange={() => toggleMatch(key)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground mb-1">
+                            <span className="font-medium">{match.columnTitle}</span>
+                            {' · '}
+                            <span className="text-primary font-medium">"{match.memberName}"</span>
+                            {match.fuzzy && (
+                              <span className="text-muted-foreground italic"> ≈ {match.matchedAgainst}</span>
+                            )}
+                            {' → '}
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
+                              @{match.displayName}
+                            </span>
+                            {match.fuzzy && (
+                              <span className="ml-1 text-[10px] italic text-muted-foreground">(fuzzy)</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-foreground/80 truncate">
+                            {highlightMatch(match.itemText, match.memberName)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            {matches.length > 0 && (
+              <Button onClick={handleReplace} disabled={selectedMatches.size === 0}>
+                Replace {selectedMatches.size} match{selectedMatches.size !== 1 ? 'es' : ''}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
