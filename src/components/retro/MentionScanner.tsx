@@ -48,6 +48,40 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
   const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
+  // Build search terms for each member: full name, first name, nickname
+  const memberSearchTerms = useMemo(() => {
+    const terms: { term: string; memberId: string; displayName: string; fullName: string }[] = [];
+    for (const member of teamMembers) {
+      const fullName = member.profiles?.full_name;
+      const nickname = member.profiles?.nickname;
+      if (!fullName) continue;
+
+      const addedTerms = new Set<string>();
+
+      // Full name (highest priority)
+      addedTerms.add(fullName.toLowerCase());
+      terms.push({ term: fullName, memberId: member.user_id, displayName: nickname || fullName, fullName });
+
+      // Individual name parts (first name, last name, etc.) — only if 2+ chars
+      const nameParts = fullName.split(/\s+/).filter(p => p.length >= 2);
+      for (const part of nameParts) {
+        if (!addedTerms.has(part.toLowerCase())) {
+          addedTerms.add(part.toLowerCase());
+          terms.push({ term: part, memberId: member.user_id, displayName: nickname || fullName, fullName });
+        }
+      }
+
+      // Nickname
+      if (nickname && !addedTerms.has(nickname.toLowerCase())) {
+        addedTerms.add(nickname.toLowerCase());
+        terms.push({ term: nickname, memberId: member.user_id, displayName: nickname, fullName });
+      }
+    }
+    // Sort by term length descending so longer matches are found first
+    terms.sort((a, b) => b.term.length - a.term.length);
+    return terms;
+  }, [teamMembers]);
+
   // Scan items for raw name strings that aren't already mentions
   const matches = useMemo(() => {
     if (!open) return [];
@@ -57,52 +91,35 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       // Strip existing mentions from text before scanning
       const textWithoutMentions = item.text.replace(/\[\[mention:[^\]]+\]\]/g, '');
       // Also strip mention spans (HTML format)
-      const cleanText = textWithoutMentions.replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '');
+      const cleanText = textWithoutMentions.replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '')
+        // Strip remaining HTML tags for matching
+        .replace(/<[^>]+>/g, '');
 
-      for (const member of teamMembers) {
-        const fullName = member.profiles?.full_name;
-        const nickname = member.profiles?.nickname;
-        if (!fullName) continue;
+      if (!cleanText.trim()) continue;
 
-        // Check for full name (case-insensitive, word boundary)
-        const nameRegex = new RegExp(`(?<![\\w@])${escapeRegex(fullName)}(?![\\w])`, 'gi');
-        if (nameRegex.test(cleanText)) {
-          const col = columns.find(c => c.id === item.column_id);
-          const key = `${item.id}:${member.user_id}:name`;
-          if (!found.some(f => f.itemId === item.id && f.memberId === member.user_id)) {
+      for (const { term, memberId, displayName, fullName } of memberSearchTerms) {
+        // Case-insensitive search — no word boundary requirement so partial names match within strings
+        const regex = new RegExp(escapeRegex(term), 'gi');
+        if (regex.test(cleanText)) {
+          // Avoid duplicate item+member combos for the same matched term
+          const existingMatch = found.find(f => f.itemId === item.id && f.memberId === memberId);
+          if (!existingMatch) {
+            const col = columns.find(c => c.id === item.column_id);
             found.push({
               itemId: item.id,
               itemText: item.text,
-              memberName: fullName,
-              memberId: member.user_id,
-              displayName: nickname || fullName,
+              memberName: term,
+              memberId,
+              displayName,
               columnTitle: col?.title || 'Unknown',
             });
-          }
-        }
-
-        // Also check nickname if different from full name
-        if (nickname && nickname.toLowerCase() !== fullName.toLowerCase()) {
-          const nickRegex = new RegExp(`(?<![\\w@])${escapeRegex(nickname)}(?![\\w])`, 'gi');
-          if (nickRegex.test(cleanText)) {
-            const col = columns.find(c => c.id === item.column_id);
-            if (!found.some(f => f.itemId === item.id && f.memberId === member.user_id)) {
-              found.push({
-                itemId: item.id,
-                itemText: item.text,
-                memberName: nickname,
-                memberId: member.user_id,
-                displayName: nickname,
-                columnTitle: col?.title || 'Unknown',
-              });
-            }
           }
         }
       }
     }
 
     return found;
-  }, [open, items, teamMembers, columns]);
+  }, [open, items, memberSearchTerms, columns]);
 
   // Select all by default when matches change
   React.useEffect(() => {
@@ -146,8 +163,8 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       let newText = item.text;
       for (const match of itemMatches) {
         const mentionTag = `[[mention:${match.memberId}:${match.displayName}]]`;
-        // Replace the raw name with the mention tag (case-insensitive, first occurrence not already in a mention)
-        const regex = new RegExp(`(?<![\\w@])${escapeRegex(match.memberName)}(?![\\w])`, 'gi');
+        // Replace the matched name occurrence (case-insensitive)
+        const regex = new RegExp(escapeRegex(match.memberName), 'gi');
         newText = newText.replace(regex, mentionTag);
         replacedCount++;
       }
