@@ -146,6 +146,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
 }) => {
     const [showMentions, setShowMentions] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionTrigger, setMentionTrigger] = useState<'@' | 'name'>('@');
     const [mentionPos, setMentionPos] = useState({ x: 0, y: 0 });
     const mentionSuggestionsRef = useRef<MentionSuggestionsRef>(null);
     const editorRef = useRef<any>(null);
@@ -193,18 +194,42 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             const { state } = editor;
             const { from } = state.selection;
             const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\n');
+            
+            // First check for explicit @ trigger
             const mentionMatch = textBefore.match(/@(\w*)$/);
-
             if (mentionMatch && teamMembers.length > 0) {
-                if (!showMentions) {
-                    // Start showing mentions
+                if (!showMentions || mentionTrigger !== '@') {
                     const coords = editor.view.coordsAtPos(from);
                     setMentionPos({ x: coords.left, y: coords.bottom });
                     setShowMentions(true);
+                    setMentionTrigger('@');
                 }
                 setMentionQuery(mentionMatch[1]);
-            } else if (showMentions) {
-                // Hide mentions
+                return;
+            }
+
+            // Then check if the current word matches a team member name (min 2 chars)
+            const wordMatch = textBefore.match(/(?:^|\s)(\w{2,})$/);
+            if (wordMatch && teamMembers.length > 0) {
+                const typed = wordMatch[1].toLowerCase();
+                const hasMatch = teamMembers.some(m => {
+                    const name = m.profiles?.full_name?.toLowerCase() || '';
+                    // Check if any part of the name starts with what was typed
+                    return name.split(/\s+/).some(part => part.startsWith(typed));
+                });
+                if (hasMatch) {
+                    if (!showMentions || mentionTrigger !== 'name') {
+                        const coords = editor.view.coordsAtPos(from);
+                        setMentionPos({ x: coords.left, y: coords.bottom });
+                        setShowMentions(true);
+                        setMentionTrigger('name');
+                    }
+                    setMentionQuery(wordMatch[1]);
+                    return;
+                }
+            }
+
+            if (showMentions) {
                 setShowMentions(false);
             }
         },
@@ -289,30 +314,37 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
         const { state } = editor;
         const { from } = state.selection;
 
-        // Find the @ symbol position
         const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\n');
-        const mentionMatch = textBefore.match(/@(\w*)$/);
+        
+        let mentionStart: number;
+        let mentionEnd: number = from;
 
-        if (mentionMatch) {
-            const mentionStart = from - mentionMatch[1].length - 1; // -1 for the @ symbol
-            const mentionEnd = from;
-
-            // Replace the @query with the mention using the standard insertContent
-            const memberName = member.profiles?.full_name || 'Unknown User';
-
-            editor.chain()
-                .deleteRange({ from: mentionStart, to: mentionEnd })
-                .insertContent({
-                    type: 'mention',
-                    attrs: { userId: member.user_id, name: memberName },
-                })
-                .insertContent(' ')
-                .focus()
-                .run();
+        if (mentionTrigger === '@') {
+            // Find the @ symbol position
+            const mentionMatch = textBefore.match(/@(\w*)$/);
+            if (!mentionMatch) { setShowMentions(false); return; }
+            mentionStart = from - mentionMatch[1].length - 1; // -1 for @
+        } else {
+            // Find the word start position
+            const wordMatch = textBefore.match(/(?:^|\s)(\w{2,})$/);
+            if (!wordMatch) { setShowMentions(false); return; }
+            mentionStart = from - wordMatch[1].length;
         }
 
+        const memberName = member.profiles?.full_name || 'Unknown User';
+
+        editor.chain()
+            .deleteRange({ from: mentionStart, to: mentionEnd })
+            .insertContent({
+                type: 'mention',
+                attrs: { userId: member.user_id, name: memberName },
+            })
+            .insertContent(' ')
+            .focus()
+            .run();
+
         setShowMentions(false);
-    }, [editor]);
+    }, [editor, mentionTrigger]);
 
     // Click outside to close mentions
     useEffect(() => {
