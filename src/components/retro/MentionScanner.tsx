@@ -217,7 +217,7 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       }
     }
 
-    lastReplacements.current = originals;
+    setLastReplacements(originals);
 
     toast({
       title: 'Mentions replaced',
@@ -227,15 +227,15 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
   };
 
   const handleUndo = () => {
-    if (!lastReplacements.current || lastReplacements.current.size === 0) return;
-    for (const [itemId, originalText] of lastReplacements.current) {
+    if (!lastReplacements || lastReplacements.size === 0) return;
+    for (const [itemId, originalText] of lastReplacements) {
       onUpdateItem(itemId, originalText);
     }
     toast({
       title: 'Undo complete',
-      description: `Reverted ${lastReplacements.current.size} item${lastReplacements.current.size !== 1 ? 's' : ''} to their original text.`,
+      description: `Reverted ${lastReplacements.size} item${lastReplacements.size !== 1 ? 's' : ''} to their original text.`,
     });
-    lastReplacements.current = null;
+    setLastReplacements(null);
   };
 
   // Highlight the matched name in the item text for preview
