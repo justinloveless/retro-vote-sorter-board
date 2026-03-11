@@ -7,6 +7,7 @@ interface TeamMember {
     user_id: string;
     profiles?: {
         full_name: string | null;
+        nickname?: string | null;
     } | null;
 }
 
@@ -26,10 +27,11 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
         const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
 
         useEffect(() => {
-            // Filter team members based on query
             const filtered = teamMembers.filter(member => {
                 const name = member.profiles?.full_name || 'Unknown User';
-                return name.toLowerCase().includes(query.toLowerCase());
+                const nickname = member.profiles?.nickname || '';
+                const q = query.toLowerCase();
+                return name.toLowerCase().includes(q) || nickname.toLowerCase().includes(q);
             });
             setFilteredMembers(filtered);
             setSelectedIndex(0);
@@ -89,6 +91,9 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
                             />
                             <span className="text-sm font-medium">
                                 {member.profiles?.full_name || 'Unknown User'}
+                                {member.profiles?.nickname && (
+                                    <span className="text-muted-foreground ml-1">({member.profiles.nickname})</span>
+                                )}
                             </span>
                         </div>
                     ))}

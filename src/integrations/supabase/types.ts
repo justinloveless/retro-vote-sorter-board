@@ -476,6 +476,7 @@ export type Database = {
           created_at: string | null
           full_name: string | null
           id: string
+          nickname: string | null
           role: string
           tenant_id: string | null
           theme_preference: string | null
@@ -487,6 +488,7 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id: string
+          nickname?: string | null
           role?: string
           tenant_id?: string | null
           theme_preference?: string | null
@@ -498,6 +500,7 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id?: string
+          nickname?: string | null
           role?: string
           tenant_id?: string | null
           theme_preference?: string | null

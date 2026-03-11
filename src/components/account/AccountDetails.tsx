@@ -12,7 +12,7 @@ interface AccountDetailsProps {
     profile: Profile | null;
     editing: boolean;
     onSetEditing: (editing: boolean) => void;
-    onUpdateProfile: (updates: { full_name: string; avatar_url: string; }) => Promise<void>;
+    onUpdateProfile: (updates: { full_name: string; avatar_url: string; nickname?: string }) => Promise<void>;
 }
 
 export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateProfile }: AccountDetailsProps) => {
@@ -22,8 +22,9 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
         const formData = new FormData(form);
         const fullName = formData.get('fullName') as string;
         const avatarUrl = formData.get('avatarUrl') as string;
+        const nickname = formData.get('nickname') as string;
 
-        await onUpdateProfile({ full_name: fullName, avatar_url: avatarUrl });
+        await onUpdateProfile({ full_name: fullName, avatar_url: avatarUrl, nickname: nickname || undefined });
         onSetEditing(false);
     };
 
@@ -37,7 +38,10 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                     </AvatarFallback>
                 </Avatar>
                 <div>
-                    <h2 className="text-2xl font-semibold">{profile?.full_name || 'New User'}</h2>
+                    <h2 className="text-2xl font-semibold">
+                        {profile?.full_name || 'New User'}
+                        {profile?.nickname && <span className="text-muted-foreground text-lg ml-2">({profile.nickname})</span>}
+                    </h2>
                     <p className="text-muted-foreground">{user.email}</p>
                 </div>
             </div>
@@ -47,6 +51,10 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                     <div>
                         <Label htmlFor="fullName">Full Name</Label>
                         <Input id="fullName" name="fullName" defaultValue={profile?.full_name || ''} />
+                    </div>
+                    <div>
+                        <Label htmlFor="nickname">Nickname</Label>
+                        <Input id="nickname" name="nickname" defaultValue={profile?.nickname || ''} placeholder="e.g. JD" />
                     </div>
                     <div>
                         <Label>Profile Picture</Label>

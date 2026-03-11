@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Profile {
   id: string;
   full_name: string | null;
+  nickname: string | null;
   avatar_url: string | null;
   role: 'user' | 'admin' | null;
   theme_preference: string | null;
@@ -74,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data: profileData, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
         .eq('id', userId)
         .single();
 
@@ -150,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
         .eq('id', impersonatedProfile.id)
         .single();
       if (error) throw error;
@@ -167,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role, theme_preference, background_preference')
+        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
         .eq('id', userId)
         .single();
       if (error) throw error;
