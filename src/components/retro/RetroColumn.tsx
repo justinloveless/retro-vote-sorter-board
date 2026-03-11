@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair, ArrowUpDown, Clock, TrendingDown } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair, ArrowUpDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -252,15 +253,20 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const [sortChronologically, setSortChronologically] = useState(boardConfig?.sort_chronologically === true);
+  const [sortMode, setSortMode] = useState<'votes' | 'time' | 'author'>(
+    boardConfig?.sort_chronologically === true ? 'time' : 'votes'
+  );
   const sortedItems = [...items].sort((a, b) => {
-    if (sortChronologically) {
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    switch (sortMode) {
+      case 'time':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'author':
+        return (a.author || '').localeCompare(b.author || '');
+      case 'votes':
+      default:
+        if (b.votes !== a.votes) return b.votes - a.votes;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     }
-    if (b.votes !== a.votes) {
-      return b.votes - a.votes;
-    }
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -343,15 +349,24 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSortChronologically(prev => !prev)}
-              className="h-8 w-8 p-0"
-              title={sortChronologically ? 'Sorted by time (click for votes)' : 'Sorted by votes (click for time)'}
-            >
-              {sortChronologically ? <Clock className="h-4 w-4 text-muted-foreground" /> : <TrendingDown className="h-4 w-4 text-muted-foreground" />}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={`Sorted by ${sortMode}`}>
+                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSortMode('votes')} className={sortMode === 'votes' ? 'font-semibold' : ''}>
+                  {sortMode === 'votes' && '✓ '}Sort by Votes
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortMode('time')} className={sortMode === 'time' ? 'font-semibold' : ''}>
+                  {sortMode === 'time' && '✓ '}Sort by Time
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortMode('author')} className={sortMode === 'author' ? 'font-semibold' : ''}>
+                  {sortMode === 'author' && '✓ '}Sort by Author
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && canShowSummary(board?.retro_stage, boardConfig) && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
