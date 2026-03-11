@@ -269,25 +269,13 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   focusedItemId,
   onFocusItem,
   adminEditMode,
+  sortKey,
+  onSortKeyChange,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  type SortKey = 'votes-desc' | 'votes-asc' | 'time-asc' | 'time-desc' | 'author-asc' | 'author-desc';
-  const [sortKey, setSortKey] = useState<SortKey>(
-    boardConfig?.sort_chronologically === true ? 'time-asc' : 'votes-desc'
-  );
-  const sortedItems = [...items].sort((a, b) => {
-    switch (sortKey) {
-      case 'votes-desc': return b.votes !== a.votes ? b.votes - a.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'votes-asc': return a.votes !== b.votes ? a.votes - b.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'time-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'time-desc': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      case 'author-asc': return (a.author || '').localeCompare(b.author || '');
-      case 'author-desc': return (b.author || '').localeCompare(a.author || '');
-      default: return 0;
-    }
-  });
+  const sortedItems = sortItems(items, sortKey);
 
   const uploadImage = async (file: File): Promise<string | null> => {
     // For now, convert to base64 for inline display
