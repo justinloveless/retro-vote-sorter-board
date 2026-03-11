@@ -54,7 +54,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
   // Mentions dialog
   const [mentionsDialogOpen, setMentionsDialogOpen] = useState(false);
   const [mentionsUser, setMentionsUser] = useState<{ userId: string; fullName: string } | null>(null);
-  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; createdAt: string; author: string }>>([]);
+  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; columnTitle: string; createdAt: string; author: string }>>([]);
   const [mentionsLoading, setMentionsLoading] = useState(false);
 
   const openMentionsDialog = useCallback(async (userId: string, fullName: string) => {
@@ -76,7 +76,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
       // Search retro items that mention this user
       const { data: items } = await supabase
         .from('retro_items')
-        .select('id, text, board_id, created_at, author')
+        .select('id, text, board_id, column_id, created_at, author')
         .in('board_id', boardIds)
         .like('text', `%[[mention:${userId}:%`)
         .order('created_at', { ascending: false });
@@ -86,12 +86,24 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
         return;
       }
 
+      // Fetch column names for the items
+      const columnIds = [...new Set(items.map(i => i.column_id).filter(Boolean))] as string[];
+      let columnMap = new Map<string, string>();
+      if (columnIds.length > 0) {
+        const { data: columns } = await supabase
+          .from('retro_columns')
+          .select('id, title')
+          .in('id', columnIds);
+        columnMap = new Map((columns || []).map(c => [c.id, c.title]));
+      }
+
       // Map board titles
       const boardMap = new Map(boards.map(b => [b.id, b.title]));
       setMentionItems(items.map(item => ({
         id: item.id,
         text: item.text,
         boardTitle: boardMap.get(item.board_id || '') || 'Unknown board',
+        columnTitle: columnMap.get(item.column_id || '') || '',
         createdAt: item.created_at || '',
         author: item.author,
       })));
@@ -410,7 +422,8 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                       className="text-sm prose dark:prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(item.text) }}
                     />
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      {item.columnTitle && <><span>{item.columnTitle}</span><span>·</span></>}
                       <span>by {item.author}</span>
                       <span>·</span>
                       <span>{item.boardTitle}</span>
