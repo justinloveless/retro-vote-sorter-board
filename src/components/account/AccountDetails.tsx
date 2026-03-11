@@ -22,8 +22,9 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
         const formData = new FormData(form);
         const fullName = formData.get('fullName') as string;
         const avatarUrl = formData.get('avatarUrl') as string;
+        const nickname = formData.get('nickname') as string;
 
-        await onUpdateProfile({ full_name: fullName, avatar_url: avatarUrl });
+        await onUpdateProfile({ full_name: fullName, avatar_url: avatarUrl, nickname: nickname || undefined });
         onSetEditing(false);
     };
 
