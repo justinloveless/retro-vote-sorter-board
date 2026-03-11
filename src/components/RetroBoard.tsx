@@ -12,7 +12,7 @@ import { useEndorsements } from '@/hooks/useEndorsements';
 import { useEndorsementTypes } from '@/hooks/useEndorsementTypes';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
-import { RetroColumn } from './retro/RetroColumn';
+import { RetroColumn, SortKey, sortItems } from './retro/RetroColumn';
 import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
 import { FocusedCardBanner } from './retro/FocusedCardBanner';
 import { EndorsementPanel } from './retro/EndorsementPanel';
