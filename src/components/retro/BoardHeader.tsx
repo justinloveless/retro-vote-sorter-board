@@ -9,6 +9,7 @@ import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
 import { CompactStageControls } from './CompactStageControls';
+import { MentionScanner } from './MentionScanner';
 
 interface BoardHeaderProps {
   board: any;
@@ -19,15 +20,18 @@ interface BoardHeaderProps {
   anonymousName: string;
   isAnonymousUser: boolean;
   items: any[];
+  columns: any[];
+  teamMembers: any[];
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardConfig: (config: any) => void;
+  onUpdateItem: (itemId: string, text: string) => void;
   onSignOut: () => void;
   updateRetroStage?: (stage: 'thinking' | 'voting' | 'discussing' | 'closed') => void;
   broadcastReadinessChange?: (readinessData: {
     boardId: string;
     stage: string;
-    userId: string;  // Now always present (auth user ID or session ID)
-    sessionId?: string;  // Kept for backward compatibility but not used
+    userId: string;
+    sessionId?: string;
     isReady: boolean;
     userName?: string;
   }) => Promise<void>;
@@ -42,8 +46,11 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   anonymousName,
   isAnonymousUser,
   items,
+  columns,
+  teamMembers,
   onUpdateBoardTitle,
   onUpdateBoardConfig,
+  onUpdateItem,
   onSignOut,
   updateRetroStage,
   broadcastReadinessChange
@@ -106,6 +113,14 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           {!isAnonymousUser && (
             <div className="flex items-center gap-2">
               <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
+              {profile?.role === 'admin' && teamMembers.length > 0 && (
+                <MentionScanner
+                  items={items}
+                  columns={columns}
+                  teamMembers={teamMembers}
+                  onUpdateItem={onUpdateItem}
+                />
+              )}
               {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
               <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">
                 <Bell className="h-4 w-4" />
