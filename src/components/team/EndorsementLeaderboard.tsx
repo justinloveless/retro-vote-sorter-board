@@ -56,7 +56,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
         const [endorsementsRes, membersRes, boardsRes] = await Promise.all([
           supabase.from('endorsements').select('id, board_id, endorsement_type_id, to_user_id, created_at').eq('team_id', teamId),
           supabase.from('team_members').select('user_id, profiles(full_name, avatar_url)').eq('team_id', teamId),
-          supabase.from('retro_boards').select('id, title').eq('team_id', teamId).order('created_at', { ascending: false }),
+          supabase.from('retro_boards').select('id, title').eq('team_id', teamId).or('deleted.is.null,deleted.eq.false').order('created_at', { ascending: false }),
         ]);
 
         if (endorsementsRes.error) throw endorsementsRes.error;
