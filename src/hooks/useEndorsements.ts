@@ -85,7 +85,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [boardId, teamId, user]);
+  }, [boardId, teamId, effectiveUserId]);
 
   const giveEndorsement = useCallback(async (toUserId: string, endorsementTypeId: string) => {
     if (!boardId || !teamId || !user) return;
