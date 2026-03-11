@@ -25,7 +25,9 @@ const Account = () => {
   const { teams, loading: teamsLoading } = useTeams();
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
