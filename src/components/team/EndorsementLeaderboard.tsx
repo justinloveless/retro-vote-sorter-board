@@ -359,6 +359,15 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <UserAvatar avatarUrl={entry.avatarUrl} name={entry.fullName} className="h-6 w-6" />
                       <span className="text-sm font-medium truncate">{entry.fullName}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() => openMentionsDialog(entry.userId, entry.fullName)}
+                        title={`See what people said about ${entry.fullName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                     {types.map(t => (
                       <div key={t.id} className="w-16 text-center">
@@ -378,6 +387,41 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
             )}
           </>
         )}
+
+        {/* Mentions dialog */}
+        <Dialog open={mentionsDialogOpen} onOpenChange={setMentionsDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                What people said about {mentionsUser?.fullName}
+              </DialogTitle>
+            </DialogHeader>
+            {mentionsLoading ? (
+              <p className="text-sm text-muted-foreground py-4">Loading...</p>
+            ) : mentionItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No mentions found for this person.</p>
+            ) : (
+              <div className="space-y-3">
+                {mentionItems.map(item => (
+                  <div key={item.id} className="p-3 rounded-lg bg-muted/50 space-y-1">
+                    <div
+                      className="text-sm prose dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(item.text) }}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>by {item.author}</span>
+                      <span>·</span>
+                      <span>{item.boardTitle}</span>
+                      <span>·</span>
+                      <span>{item.createdAt ? format(new Date(item.createdAt), 'MMM d, yyyy') : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
