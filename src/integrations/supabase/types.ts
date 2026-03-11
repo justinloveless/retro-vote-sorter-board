@@ -130,6 +130,134 @@ export type Database = {
           },
         ]
       }
+      endorsement_settings: {
+        Row: {
+          created_at: string
+          id: string
+          max_endorsements_per_user_per_board: number
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_endorsements_per_user_per_board?: number
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_endorsements_per_user_per_board?: number
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "endorsement_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      endorsement_types: {
+        Row: {
+          created_at: string
+          description: string
+          icon_url: string | null
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          icon_url?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon_url?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "endorsement_types_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      endorsements: {
+        Row: {
+          board_id: string
+          created_at: string
+          endorsement_type_id: string
+          from_user_id: string
+          id: string
+          team_id: string
+          to_user_id: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          endorsement_type_id: string
+          from_user_id: string
+          id?: string
+          team_id: string
+          to_user_id: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          endorsement_type_id?: string
+          from_user_id?: string
+          id?: string
+          team_id?: string
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "endorsements_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "retro_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "endorsements_endorsement_type_id_fkey"
+            columns: ["endorsement_type_id"]
+            isOneToOne: false
+            referencedRelation: "endorsement_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "endorsements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           description: string | null
@@ -1348,6 +1476,10 @@ export type Database = {
       is_team_member: {
         Args: { team_id: string; user_id: string }
         Returns: boolean
+      }
+      seed_default_endorsement_types: {
+        Args: { p_team_id: string }
+        Returns: undefined
       }
     }
     Enums: {
