@@ -54,8 +54,9 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   onUpdateBoardConfig,
   onUpdateItem,
   onSignOut,
-  updateRetroStage,
-  broadcastReadinessChange
+  broadcastReadinessChange,
+  adminEditMode,
+  onToggleAdminEditMode,
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
