@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair, ArrowUpDown, Clock, TrendingDown } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
@@ -252,7 +252,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const sortChronologically = boardConfig?.sort_chronologically === true;
+  const [sortChronologically, setSortChronologically] = useState(boardConfig?.sort_chronologically === true);
   const sortedItems = [...items].sort((a, b) => {
     if (sortChronologically) {
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -343,6 +343,15 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSortChronologically(prev => !prev)}
+              className="h-8 w-8 p-0"
+              title={sortChronologically ? 'Sorted by time (click for votes)' : 'Sorted by votes (click for time)'}
+            >
+              {sortChronologically ? <Clock className="h-4 w-4 text-muted-foreground" /> : <TrendingDown className="h-4 w-4 text-muted-foreground" />}
+            </Button>
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && canShowSummary(board?.retro_stage, boardConfig) && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
