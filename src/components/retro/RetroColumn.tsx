@@ -253,19 +253,19 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const [sortMode, setSortMode] = useState<'votes' | 'time' | 'author'>(
-    boardConfig?.sort_chronologically === true ? 'time' : 'votes'
+  type SortKey = 'votes-desc' | 'votes-asc' | 'time-asc' | 'time-desc' | 'author-asc' | 'author-desc';
+  const [sortKey, setSortKey] = useState<SortKey>(
+    boardConfig?.sort_chronologically === true ? 'time-asc' : 'votes-desc'
   );
   const sortedItems = [...items].sort((a, b) => {
-    switch (sortMode) {
-      case 'time':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'author':
-        return (a.author || '').localeCompare(b.author || '');
-      case 'votes':
-      default:
-        if (b.votes !== a.votes) return b.votes - a.votes;
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    switch (sortKey) {
+      case 'votes-desc': return b.votes !== a.votes ? b.votes - a.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'votes-asc': return a.votes !== b.votes ? a.votes - b.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-desc': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'author-asc': return (a.author || '').localeCompare(b.author || '');
+      case 'author-desc': return (b.author || '').localeCompare(a.author || '');
+      default: return 0;
     }
   });
 
