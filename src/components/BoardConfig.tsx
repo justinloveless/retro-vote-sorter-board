@@ -130,6 +130,27 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-lg">Display Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="sort-chronologically">Sort Cards Chronologically</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Sort cards by creation time instead of by highest votes
+                  </p>
+                </div>
+                <Switch
+                  id="sort-chronologically"
+                  checked={localConfig.sort_chronologically ?? false}
+                  onCheckedChange={(checked) => handleConfigChange('sort_chronologically', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-lg">Retro Stages</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
