@@ -478,7 +478,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
 
                       {/* Row 2: Buttons */}
                       <div className="flex flex-wrap justify-end gap-1">
-                        {onFocusItem && !isArchived && (
+                        {onFocusItem && !isArchived && canFocusItem(board?.retro_stage, boardConfig) && (
                           <Button
                             size="sm"
                             variant={focusedItemId === item.id ? 'default' : 'outline'}
