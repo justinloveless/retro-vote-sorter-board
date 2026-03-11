@@ -54,7 +54,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
   // Mentions dialog
   const [mentionsDialogOpen, setMentionsDialogOpen] = useState(false);
   const [mentionsUser, setMentionsUser] = useState<{ userId: string; fullName: string } | null>(null);
-  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; createdAt: string; author: string }>>([]);
+  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; columnTitle: string; createdAt: string; author: string }>>([]);
   const [mentionsLoading, setMentionsLoading] = useState(false);
 
   const openMentionsDialog = useCallback(async (userId: string, fullName: string) => {
