@@ -91,6 +91,9 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
                             />
                             <span className="text-sm font-medium">
                                 {member.profiles?.full_name || 'Unknown User'}
+                                {member.profiles?.nickname && (
+                                    <span className="text-muted-foreground ml-1">({member.profiles.nickname})</span>
+                                )}
                             </span>
                         </div>
                     ))}

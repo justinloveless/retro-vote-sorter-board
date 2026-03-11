@@ -53,6 +53,10 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                         <Input id="fullName" name="fullName" defaultValue={profile?.full_name || ''} />
                     </div>
                     <div>
+                        <Label htmlFor="nickname">Nickname</Label>
+                        <Input id="nickname" name="nickname" defaultValue={profile?.nickname || ''} placeholder="e.g. JD" />
+                    </div>
+                    <div>
                         <Label>Profile Picture</Label>
                         <AvatarUploader
                             initialUrl={profile?.avatar_url}
