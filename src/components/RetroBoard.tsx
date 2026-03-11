@@ -108,6 +108,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [editText, setEditText] = useState('');
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [adminEditMode, setAdminEditMode] = useState(false);
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     if (audioUrlToPlay) {
