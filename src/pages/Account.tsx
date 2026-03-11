@@ -289,6 +289,7 @@ const Account = () => {
                         </Button>
                       </div>
                     )}
+                  </div>
                   <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Email</span>
                     <p className="text-gray-900 dark:text-gray-100">{impersonatedEmail || user.email}</p>
