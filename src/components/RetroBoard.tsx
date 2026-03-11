@@ -399,6 +399,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 onToggleActionItemDone={isArchived ? undefined : toggleBoardActionItemDone}
                 focusedItemId={focusedItemId}
                 onFocusItem={isArchived ? undefined : focusItem}
+                adminEditMode={adminEditMode}
               />
             ))}
 
