@@ -14,6 +14,7 @@ interface TeamMember {
     user_id: string;
     profiles?: {
         full_name: string | null;
+        nickname?: string | null;
     } | null;
 }
 
