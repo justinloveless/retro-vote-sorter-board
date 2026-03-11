@@ -89,6 +89,7 @@ interface RetroColumnProps {
   onAssignActionItem?: (sourceItemId: string, userId: string | null) => void;
   focusedItemId?: string | null;
   onFocusItem?: ((itemId: string | null) => void) | undefined;
+  adminEditMode?: boolean;
 }
 
 // Helper functions for retro stages
@@ -249,6 +250,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   onAssignActionItem,
   focusedItemId,
   onFocusItem,
+  adminEditMode,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -481,10 +483,12 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             <Crosshair className="h-3 w-3" />
                           </Button>
                         )}
-                        {!isArchived &&
+                        {(adminEditMode || (
+                          !isArchived &&
                           canEditItems(board?.retro_stage, boardConfig, column) &&
                           ((user?.id && item.author_id === user.id) ||
-                            (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (
+                            (isAnonymousUser && item.session_id && item.session_id === sessionId))
+                        )) && (
                             <>
                               <Button
                                 size="sm"

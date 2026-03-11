@@ -10,6 +10,8 @@ import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
 import { CompactStageControls } from './CompactStageControls';
 import { MentionScanner } from './MentionScanner';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface BoardHeaderProps {
   board: any;
@@ -35,6 +37,8 @@ interface BoardHeaderProps {
     isReady: boolean;
     userName?: string;
   }) => Promise<void>;
+  adminEditMode?: boolean;
+  onToggleAdminEditMode?: () => void;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -53,7 +57,9 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   onUpdateItem,
   onSignOut,
   updateRetroStage,
-  broadcastReadinessChange
+  broadcastReadinessChange,
+  adminEditMode,
+  onToggleAdminEditMode,
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -120,6 +126,19 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   teamMembers={teamMembers}
                   onUpdateItem={onUpdateItem}
                 />
+              )}
+              {onToggleAdminEditMode && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <Switch
+                    id="admin-edit-mode"
+                    checked={adminEditMode}
+                    onCheckedChange={onToggleAdminEditMode}
+                  />
+                  <Label htmlFor="admin-edit-mode" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Edit className="h-3 w-3" />
+                    Edit All
+                  </Label>
+                </div>
               )}
               {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
               <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">

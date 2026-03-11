@@ -108,6 +108,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [editText, setEditText] = useState('');
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [adminEditMode, setAdminEditMode] = useState(false);
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     if (audioUrlToPlay) {
@@ -176,13 +178,13 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   };
 
   const startEdit = (itemId: string, currentText: string) => {
-    if (isArchived) return; // Prevent editing in archived boards
+    if (isArchived && !adminEditMode) return;
     setEditingItem(itemId);
     setEditText(currentText);
   };
 
   const saveEdit = () => {
-    if (!editText.trim() || !editingItem || isArchived) return;
+    if (!editText.trim() || !editingItem || (isArchived && !adminEditMode)) return;
 
     updateItem(editingItem, editText);
     setEditingItem(null);
@@ -258,7 +260,9 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 rounded-lg">
           <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
             <span className="font-medium">📁 This board is archived</span>
-            <span className="text-sm">- It's now read-only and cannot be edited</span>
+            <span className="text-sm">
+              {adminEditMode ? '- Admin edit mode is active' : '- It\'s now read-only and cannot be edited'}
+            </span>
           </div>
         </div>
       )}
@@ -276,10 +280,12 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           teamMembers={teamMembers}
           onUpdateBoardTitle={isArchived ? undefined : updateBoardTitle}
           onUpdateBoardConfig={isArchived ? undefined : updateBoardConfig}
-          onUpdateItem={(isArchived && profile?.role !== 'admin') ? () => {} : updateItem}
+          onUpdateItem={(isArchived && !adminEditMode) ? () => {} : updateItem}
           onSignOut={signOut}
           updateRetroStage={isArchived ? undefined : updateRetroStage}
           broadcastReadinessChange={isArchived ? undefined : broadcastReadinessChange}
+          adminEditMode={adminEditMode}
+          onToggleAdminEditMode={isAdmin ? () => setAdminEditMode(prev => !prev) : undefined}
         />
 
         {/* User Name Display */}
@@ -374,8 +380,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 onUpdateColumn={isArchived ? undefined : updateColumn}
                 onDeleteColumn={isArchived ? undefined : deleteColumn}
                 onUpvoteItem={isArchived ? undefined : upvoteItem}
-                onUpdateItem={isArchived ? undefined : updateItem}
-                onDeleteItem={isArchived ? undefined : deleteItem}
+                onUpdateItem={(isArchived && !adminEditMode) ? undefined : updateItem}
+                onDeleteItem={(isArchived && !adminEditMode) ? undefined : deleteItem}
                 onStartEdit={startEdit}
                 onSaveEdit={saveEdit}
                 onCancelEdit={cancelEdit}
@@ -393,6 +399,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 onToggleActionItemDone={isArchived ? undefined : toggleBoardActionItemDone}
                 focusedItemId={focusedItemId}
                 onFocusItem={isArchived ? undefined : focusItem}
+                adminEditMode={adminEditMode}
               />
             ))}
 
