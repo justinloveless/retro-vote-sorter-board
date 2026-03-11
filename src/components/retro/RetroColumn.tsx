@@ -250,6 +250,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   onAssignActionItem,
   focusedItemId,
   onFocusItem,
+  adminEditMode,
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
