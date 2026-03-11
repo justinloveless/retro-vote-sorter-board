@@ -113,6 +113,14 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           {!isAnonymousUser && (
             <div className="flex items-center gap-2">
               <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
+              {profile?.role === 'admin' && teamMembers.length > 0 && (
+                <MentionScanner
+                  items={items}
+                  columns={columns}
+                  teamMembers={teamMembers}
+                  onUpdateItem={onUpdateItem}
+                />
+              )}
               {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
               <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">
                 <Bell className="h-4 w-4" />
