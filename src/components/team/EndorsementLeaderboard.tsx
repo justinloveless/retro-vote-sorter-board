@@ -422,7 +422,8 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                       className="text-sm prose dark:prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(item.text) }}
                     />
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      {item.columnTitle && <><span>{item.columnTitle}</span><span>·</span></>}
                       <span>by {item.author}</span>
                       <span>·</span>
                       <span>{item.boardTitle}</span>
