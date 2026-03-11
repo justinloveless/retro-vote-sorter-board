@@ -254,6 +254,42 @@ const Account = () => {
                     )}
                   </div>
                   <div>
+                    <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Nickname</span>
+                    {!isEditingNickname ? (
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-900 dark:text-gray-100">{(profile as any)?.nickname || <span className="text-muted-foreground italic">Not set</span>}</p>
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingNickname(true)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={nickname}
+                          onChange={(e) => setNickname(e.target.value)}
+                          placeholder="e.g. JD"
+                          className="flex-grow"
+                        />
+                        <Button variant="ghost" size="icon" onClick={async () => {
+                          try {
+                            await updateProfile({ nickname } as any);
+                            toast({ title: 'Nickname updated' });
+                            setIsEditingNickname(false);
+                          } catch (error: any) {
+                            toast({ title: 'Failed to update nickname', description: error.message, variant: 'destructive' });
+                          }
+                        }}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setIsEditingNickname(false);
+                          setNickname((profile as any)?.nickname || '');
+                        }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  <div>
                     <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Email</span>
                     <p className="text-gray-900 dark:text-gray-100">{impersonatedEmail || user.email}</p>
                   </div>
