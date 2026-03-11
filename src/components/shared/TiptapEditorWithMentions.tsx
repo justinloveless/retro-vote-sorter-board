@@ -146,6 +146,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
 }) => {
     const [showMentions, setShowMentions] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionTrigger, setMentionTrigger] = useState<'@' | 'name'>('@');
     const [mentionPos, setMentionPos] = useState({ x: 0, y: 0 });
     const mentionSuggestionsRef = useRef<MentionSuggestionsRef>(null);
     const editorRef = useRef<any>(null);
