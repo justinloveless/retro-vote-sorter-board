@@ -153,6 +153,7 @@ const Team = () => {
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
                   <TabsTrigger value="action-items">Action Items</TabsTrigger>
+                  <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
