@@ -342,7 +342,15 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSortChronologically(prev => !prev)}
+              className="h-8 w-8 p-0"
+              title={sortChronologically ? 'Sorted by time (click for votes)' : 'Sorted by votes (click for time)'}
+            >
+              {sortChronologically ? <Clock className="h-4 w-4 text-muted-foreground" /> : <TrendingDown className="h-4 w-4 text-muted-foreground" />}
+            </Button>
             {isFeatureEnabled('text_to_speech_enabled') && !isAnonymousUser && board && canShowSummary(board?.retro_stage, boardConfig) && (
               <SummaryButton items={items} columnTitle={column.title} boardId={board.id} />
             )}
