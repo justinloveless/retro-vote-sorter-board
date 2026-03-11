@@ -12,7 +12,7 @@ import { useEndorsements } from '@/hooks/useEndorsements';
 import { useEndorsementTypes } from '@/hooks/useEndorsementTypes';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
-import { RetroColumn } from './retro/RetroColumn';
+import { RetroColumn, SortKey, sortItems } from './retro/RetroColumn';
 import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
 import { FocusedCardBanner } from './retro/FocusedCardBanner';
 import { EndorsementPanel } from './retro/EndorsementPanel';
@@ -109,7 +109,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [adminEditMode, setAdminEditMode] = useState(false);
+  const [columnSortKeys, setColumnSortKeys] = useState<Record<string, SortKey>>({});
   const isAdmin = profile?.role === 'admin';
+
+  const getColumnSortKey = (columnId: string): SortKey => {
+    return columnSortKeys[columnId] ?? ((boardConfig as any)?.sort_chronologically === true ? 'time-asc' : 'votes-desc');
+  };
+
+  const setColumnSortKey = (columnId: string, key: SortKey) => {
+    setColumnSortKeys(prev => ({ ...prev, [columnId]: key }));
+  };
 
   useEffect(() => {
     if (audioUrlToPlay) {
@@ -302,7 +311,10 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           const focusedItem = items.find(i => i.id === focusedItemId);
           const focusedColumn = focusedItem ? columns.find(c => c.id === focusedItem.column_id) : null;
           if (!focusedItem || !focusedColumn) return null;
-          const columnItems = items.filter(i => i.column_id === focusedColumn.id);
+          const columnItems = sortItems(
+            items.filter(i => i.column_id === focusedColumn.id) as any[],
+            getColumnSortKey(focusedColumn.id)
+          );
           const currentIndex = columnItems.findIndex(i => i.id === focusedItem.id);
           return (
             <FocusedCardBanner
@@ -400,6 +412,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 focusedItemId={focusedItemId}
                 onFocusItem={isArchived ? undefined : focusItem}
                 adminEditMode={adminEditMode}
+                sortKey={getColumnSortKey(column.id)}
+                onSortKeyChange={(key) => setColumnSortKey(column.id, key)}
               />
             ))}
 
