@@ -8,11 +8,15 @@ import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useEndorsements } from '@/hooks/useEndorsements';
+import { useEndorsementTypes } from '@/hooks/useEndorsementTypes';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
 import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
 import { FocusedCardBanner } from './retro/FocusedCardBanner';
+import { EndorsementPanel } from './retro/EndorsementPanel';
+import { EndorsementCelebration } from './retro/EndorsementCelebration';
 import { AppHeader } from './AppHeader';
 
 interface RetroBoardProps {
@@ -75,6 +79,24 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
 
   // Get team members for @ mentions
   const { members: teamMembers } = useTeamMembers(board?.team_id || null);
+
+  // Endorsements
+  const { types: endorsementTypes, settings: endorsementSettings } = useEndorsementTypes(board?.team_id || null);
+  const {
+    endorsements,
+    giveEndorsement,
+    pendingCelebration,
+    clearCelebration,
+    getMyEndorsementCount,
+  } = useEndorsements(boardId, board?.team_id || null);
+
+  const memberNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    teamMembers.forEach((m: any) => {
+      map[m.user_id] = m.profiles?.full_name || m.profiles?.nickname || 'Unknown';
+    });
+    return map;
+  }, [teamMembers]);
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [userName, setUserName] = useState(() => {
@@ -302,6 +324,28 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
             />
           );
         })()}
+
+        {/* Endorsement Panel - only show for team boards with authenticated users */}
+        {board?.team_id && !isAnonymousUser && (
+          <EndorsementPanel
+            endorsements={endorsements}
+            endorsementTypes={endorsementTypes}
+            settings={endorsementSettings}
+            members={teamMembers}
+            currentUserId={user?.id}
+            myEndorsementCount={getMyEndorsementCount()}
+            onGiveEndorsement={giveEndorsement}
+            isArchived={isArchived}
+          />
+        )}
+
+        {/* Endorsement Celebration */}
+        <EndorsementCelebration
+          pendingCelebration={pendingCelebration}
+          endorsementTypes={endorsementTypes}
+          memberNames={memberNameMap}
+          onClear={clearCelebration}
+        />
 
         {/* Columns */}
         <div className="overflow-x-auto pb-6">

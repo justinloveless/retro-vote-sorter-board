@@ -1,86 +1,43 @@
 
 
-## Endorsement Feature Plan
+## Focus Card Feature for Retro Board
 
 ### Overview
-Add a peer endorsement system to retro boards where team members can endorse each other with configurable endorsement types. Includes confetti/sound on receiving endorsements and a leaderboard on the team page.
+Add a "Focus" button to each retro card that broadcasts the focused card to all connected users via the existing Supabase realtime channel. A focused card appears as a prominent banner at the top of the board, visible to everyone.
 
-### Database Schema (3 new tables, 1 migration)
+### Technical Approach
 
-**`endorsement_types`** — configurable per team
-- `id` uuid PK
-- `team_id` uuid FK → teams
-- `name` text (e.g. "Tech Excellence")
-- `description` text
-- `icon_url` text (logo/image URL)
-- `position` integer (ordering)
-- `is_default` boolean (seeded defaults)
-- `created_at`, `updated_at` timestamps
+Use the existing `presenceChannel` broadcast mechanism (already used for readiness changes and audio summaries) to send/receive focus events -- no new database tables or columns needed.
 
-**`endorsement_settings`** — per-team config
-- `id` uuid PK
-- `team_id` uuid FK → teams (unique)
-- `max_endorsements_per_user_per_board` integer (default 3)
-- `created_at`, `updated_at` timestamps
+### Changes
 
-**`endorsements`** — actual endorsements given
-- `id` uuid PK
-- `board_id` uuid FK → retro_boards
-- `team_id` uuid FK → teams
-- `endorsement_type_id` uuid FK → endorsement_types
-- `from_user_id` uuid (giver)
-- `to_user_id` uuid (receiver)
-- `created_at` timestamp
-- Unique constraint on (board_id, from_user_id, to_user_id, endorsement_type_id)
+**1. `src/hooks/useRetroBoard.ts`**
+- Add `focusedItemId` state (string | null)
+- Add `focusItem(itemId: string | null)` function that broadcasts a `focus-card` event via `presenceChannel`
+- Listen for `focus-card` broadcast events and update `focusedItemId` state
+- Return `focusedItemId` and `focusItem` from the hook
 
-**3 default endorsement types** seeded per team on creation:
-1. "Problem Solver" — Tackles tough technical challenges head-on
-2. "Team Player" — Goes above and beyond to help teammates
-3. "Innovator" — Brings creative ideas and fresh perspectives
+**2. `src/components/RetroBoard.tsx`**
+- Consume `focusedItemId` and `focusItem` from the hook
+- Find the focused item and its column from the items/columns arrays
+- Render a `FocusedCardBanner` component above the columns when a card is focused
+- Pass `focusItem` down to `RetroColumn`
 
-RLS policies: team members can SELECT/INSERT endorsements for their teams; team admins can manage endorsement_types and endorsement_settings.
+**3. `src/components/retro/FocusedCardBanner.tsx` (new file)**
+- Displays the focused card content prominently at the top of the board
+- Shows the card text, author, column name, and vote count
+- Has a "Dismiss" button (which broadcasts unfocus to all users)
+- Styled with a highlight border and slight animation to draw attention
 
-### Frontend Components
+**4. `src/components/retro/RetroColumn.tsx`**
+- Add a "Focus" button (crosshair/eye icon) to each card's action buttons
+- Calls `onFocusItem(itemId)` when clicked
+- Highlight the card that is currently focused with a ring/border
+- Add `onFocusItem` and `focusedItemId` to the component props
 
-**Retro Board — Endorsement Panel**
-- New tab/section or floating button on the retro board (visible during any stage)
-- Shows team members with buttons for each endorsement type
-- Displays remaining endorsement budget
-- Uses Supabase Realtime to detect incoming endorsements
-
-**Confetti & Sound on Endorsement**
-- Use `canvas-confetti` npm package for confetti animation
-- Play a short celebratory sound via `useAudioPlayer` (a bundled sound file or hosted URL)
-- Triggered via Realtime subscription when current user receives an endorsement
-
-**Team Page — Endorsements Leaderboard**
-- New "Endorsements" tab alongside Boards/Members/Action Items
-- Table/cards showing each member's endorsement counts grouped by type
-- Each type displays its icon, name, and count
-- Sortable by total or per-type
-
-**Team Settings — Endorsement Configuration**
-- New section in TeamSettings page
-- CRUD for endorsement types (name, description, icon upload)
-- Setting for max endorsements per user per board
-- Seed defaults button if team has none
-
-### Technical Details
-
-- **New npm dependency**: `canvas-confetti` for the celebration effect
-- **New hook**: `useEndorsements(boardId, teamId)` — manages endorsement data, Realtime subscriptions, and the give/revoke actions
-- **New hook**: `useEndorsementTypes(teamId)` — CRUD for endorsement types
-- **Realtime**: Subscribe to `endorsements` table inserts filtered by `to_user_id = currentUser.id` to trigger confetti/sound
-- **Sound**: Bundle a short MP3 celebration sound in `src/assets/` or use a hosted URL played via `playAudioUrl`
-
-### File Changes Summary
-
-| Area | Files |
-|------|-------|
-| Migration | 1 new migration (3 tables + seed trigger + RLS) |
-| Hooks | `useEndorsements.ts`, `useEndorsementTypes.ts` |
-| Retro Board | `EndorsementPanel.tsx` (new), `RetroBoard.tsx` (integrate panel) |
-| Team Page | `EndorsementLeaderboard.tsx` (new), `Team.tsx` (add tab) |
-| Team Settings | `EndorsementSettings.tsx` (new), `TeamSettings.tsx` (add section) |
-| Celebrations | `EndorsementCelebration.tsx` (confetti + sound component) |
+### User Experience
+- Any user clicks the focus icon on a card
+- All users instantly see the card displayed prominently at the top of the board
+- Clicking "Dismiss" or focusing a different card clears/replaces the focus
+- The focused card in its column gets a visual highlight ring
 

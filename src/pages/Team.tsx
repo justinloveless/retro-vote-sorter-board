@@ -17,6 +17,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { TeamActionItems } from '@/components/team/TeamActionItems';
+import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -152,6 +153,7 @@ const Team = () => {
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
                   <TabsTrigger value="action-items">Action Items</TabsTrigger>
+                  <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
@@ -174,6 +176,10 @@ const Team = () => {
 
                 <TabsContent value="action-items" className="space-y-4">
                   <TeamActionItems teamId={teamId!} />
+                </TabsContent>
+
+                <TabsContent value="endorsements" className="space-y-4">
+                  <EndorsementLeaderboard teamId={teamId!} />
                 </TabsContent>
               </Tabs>
             </div>
