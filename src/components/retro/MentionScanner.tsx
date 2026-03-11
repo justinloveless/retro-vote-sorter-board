@@ -48,7 +48,7 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
-  const lastReplacements = useRef<Map<string, string> | null>(null); // itemId -> originalText
+  const [lastReplacements, setLastReplacements] = useState<Map<string, string> | null>(null);
   const { toast } = useToast();
 
   // Build search terms for each member: full name, first name, nickname
