@@ -24,6 +24,7 @@ interface EndorsementPanelProps {
   currentUserId: string | undefined;
   myEndorsementCount: number;
   onGiveEndorsement: (toUserId: string, typeId: string) => void;
+  onRevokeEndorsement: (endorsementId: string) => void;
   isArchived?: boolean;
 }
 
