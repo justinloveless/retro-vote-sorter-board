@@ -8,11 +8,15 @@ import { useRetroBoard } from '@/hooks/useRetroBoard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useEndorsements } from '@/hooks/useEndorsements';
+import { useEndorsementTypes } from '@/hooks/useEndorsementTypes';
 import { EnvironmentIndicator } from './EnvironmentIndicator';
 import { BoardHeader } from './retro/BoardHeader';
 import { RetroColumn } from './retro/RetroColumn';
 import { PreviousActionItemsColumn } from './retro/PreviousActionItemsColumn';
 import { FocusedCardBanner } from './retro/FocusedCardBanner';
+import { EndorsementPanel } from './retro/EndorsementPanel';
+import { EndorsementCelebration } from './retro/EndorsementCelebration';
 import { AppHeader } from './AppHeader';
 
 interface RetroBoardProps {
