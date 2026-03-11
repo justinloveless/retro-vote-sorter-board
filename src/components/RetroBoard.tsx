@@ -178,13 +178,13 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   };
 
   const startEdit = (itemId: string, currentText: string) => {
-    if (isArchived) return; // Prevent editing in archived boards
+    if (isArchived && !adminEditMode) return;
     setEditingItem(itemId);
     setEditText(currentText);
   };
 
   const saveEdit = () => {
-    if (!editText.trim() || !editingItem || isArchived) return;
+    if (!editText.trim() || !editingItem || (isArchived && !adminEditMode)) return;
 
     updateItem(editingItem, editText);
     setEditingItem(null);
