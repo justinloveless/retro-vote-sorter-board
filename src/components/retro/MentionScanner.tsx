@@ -283,11 +283,17 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
                         <div className="text-xs text-muted-foreground mb-1">
                           <span className="font-medium">{match.columnTitle}</span>
                           {' · '}
-                          <span className="text-primary font-medium">{match.memberName}</span>
+                          <span className="text-primary font-medium">"{match.memberName}"</span>
+                          {match.fuzzy && (
+                            <span className="text-muted-foreground italic"> ≈ {match.matchedAgainst}</span>
+                          )}
                           {' → '}
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
                             @{match.displayName}
                           </span>
+                          {match.fuzzy && (
+                            <span className="ml-1 text-[10px] italic text-muted-foreground">(fuzzy)</span>
+                          )}
                         </div>
                         <p className="text-sm text-foreground/80 truncate">
                           {highlightMatch(match.itemText, match.memberName)}
