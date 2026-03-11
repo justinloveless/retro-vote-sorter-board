@@ -215,8 +215,9 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                 const typed = wordMatch[1].toLowerCase();
                 const hasMatch = teamMembers.some(m => {
                     const name = m.profiles?.full_name?.toLowerCase() || '';
-                    // Check if any part of the name starts with what was typed
-                    return name.split(/\s+/).some(part => part.startsWith(typed));
+                    const nickname = m.profiles?.nickname?.toLowerCase() || '';
+                    return name.split(/\s+/).some(part => part.startsWith(typed)) || 
+                           (nickname && nickname.startsWith(typed));
                 });
                 if (hasMatch) {
                     if (!showMentions || mentionTrigger !== 'name') {
