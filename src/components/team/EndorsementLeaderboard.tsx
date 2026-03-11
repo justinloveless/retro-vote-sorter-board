@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Award, Trophy, Crown, Filter } from 'lucide-react';
+import { Award, Trophy, Crown, Filter, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/UserAvatar';
@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 
 interface EndorsementLeaderboardProps {
   teamId: string;
@@ -48,6 +50,58 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
   const [selectedBoard, setSelectedBoard] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+
+  // Mentions dialog
+  const [mentionsDialogOpen, setMentionsDialogOpen] = useState(false);
+  const [mentionsUser, setMentionsUser] = useState<{ userId: string; fullName: string } | null>(null);
+  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; createdAt: string; author: string }>>([]);
+  const [mentionsLoading, setMentionsLoading] = useState(false);
+
+  const openMentionsDialog = useCallback(async (userId: string, fullName: string) => {
+    setMentionsUser({ userId, fullName });
+    setMentionsDialogOpen(true);
+    setMentionsLoading(true);
+    try {
+      // Get all board IDs for this team
+      const { data: teamBoards } = await supabase
+        .from('retro_boards')
+        .select('id')
+        .eq('team_id', teamId);
+      const boardIds = (teamBoards || []).map(b => b.id);
+      if (boardIds.length === 0) {
+        setMentionItems([]);
+        return;
+      }
+
+      // Search retro items that mention this user
+      const { data: items } = await supabase
+        .from('retro_items')
+        .select('id, text, board_id, created_at, author')
+        .in('board_id', boardIds)
+        .like('text', `%[[mention:${userId}:%`)
+        .order('created_at', { ascending: false });
+
+      if (!items?.length) {
+        setMentionItems([]);
+        return;
+      }
+
+      // Map board titles
+      const boardMap = new Map(boards.map(b => [b.id, b.title]));
+      setMentionItems(items.map(item => ({
+        id: item.id,
+        text: item.text,
+        boardTitle: boardMap.get(item.board_id || '') || 'Unknown board',
+        createdAt: item.created_at || '',
+        author: item.author,
+      })));
+    } catch (e) {
+      console.error('Error fetching mentions:', e);
+      setMentionItems([]);
+    } finally {
+      setMentionsLoading(false);
+    }
+  }, [teamId, boards]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -263,6 +317,16 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                           );
                         })}
                       </div>
+                      {/* Mentions button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => openMentionsDialog(entry.userId, entry.fullName)}
+                        title={`See what people said about ${entry.fullName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
                       {/* Pedestal */}
                       <div className={`w-20 sm:w-24 ${pedestalHeight} ${pedestalColor} rounded-t-lg flex items-center justify-center shadow-md`}>
                         <span className="text-2xl font-bold text-white/90">{tieRank}</span>
@@ -295,6 +359,15 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <UserAvatar avatarUrl={entry.avatarUrl} name={entry.fullName} className="h-6 w-6" />
                       <span className="text-sm font-medium truncate">{entry.fullName}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() => openMentionsDialog(entry.userId, entry.fullName)}
+                        title={`See what people said about ${entry.fullName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                     {types.map(t => (
                       <div key={t.id} className="w-16 text-center">
@@ -314,6 +387,41 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
             )}
           </>
         )}
+
+        {/* Mentions dialog */}
+        <Dialog open={mentionsDialogOpen} onOpenChange={setMentionsDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                What people said about {mentionsUser?.fullName}
+              </DialogTitle>
+            </DialogHeader>
+            {mentionsLoading ? (
+              <p className="text-sm text-muted-foreground py-4">Loading...</p>
+            ) : mentionItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No mentions found for this person.</p>
+            ) : (
+              <div className="space-y-3">
+                {mentionItems.map(item => (
+                  <div key={item.id} className="p-3 rounded-lg bg-muted/50 space-y-1">
+                    <div
+                      className="text-sm prose dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(item.text) }}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>by {item.author}</span>
+                      <span>·</span>
+                      <span>{item.boardTitle}</span>
+                      <span>·</span>
+                      <span>{item.createdAt ? format(new Date(item.createdAt), 'MMM d, yyyy') : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
