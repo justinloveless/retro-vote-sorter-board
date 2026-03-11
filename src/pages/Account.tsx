@@ -38,10 +38,9 @@ const Account = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (profile?.full_name) {
-      setFullName(profile.full_name);
-    }
-  }, [profile?.full_name]);
+    if (profile?.full_name) setFullName(profile.full_name);
+    setNickname((profile as any)?.nickname || '');
+  }, [profile?.full_name, (profile as any)?.nickname]);
 
   useEffect(() => {
     const loadEmail = async () => {
