@@ -198,6 +198,8 @@ const TeamSettingsPage = () => {
           />
 
           <BoardTemplatesSettings teamId={teamId!} />
+
+          <EndorsementSettings teamId={teamId!} />
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

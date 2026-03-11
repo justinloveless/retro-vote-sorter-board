@@ -177,6 +177,10 @@ const Team = () => {
                 <TabsContent value="action-items" className="space-y-4">
                   <TeamActionItems teamId={teamId!} />
                 </TabsContent>
+
+                <TabsContent value="endorsements" className="space-y-4">
+                  <EndorsementLeaderboard teamId={teamId!} />
+                </TabsContent>
               </Tabs>
             </div>
 
