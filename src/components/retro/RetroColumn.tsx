@@ -483,10 +483,12 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             <Crosshair className="h-3 w-3" />
                           </Button>
                         )}
-                        {!isArchived &&
+                        {(adminEditMode || (
+                          !isArchived &&
                           canEditItems(board?.retro_stage, boardConfig, column) &&
                           ((user?.id && item.author_id === user.id) ||
-                            (isAnonymousUser && item.session_id && item.session_id === sessionId)) && (
+                            (isAnonymousUser && item.session_id && item.session_id === sessionId))
+                        )) && (
                             <>
                               <Button
                                 size="sm"
