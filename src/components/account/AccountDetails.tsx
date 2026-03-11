@@ -38,7 +38,10 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                     </AvatarFallback>
                 </Avatar>
                 <div>
-                    <h2 className="text-2xl font-semibold">{profile?.full_name || 'New User'}</h2>
+                    <h2 className="text-2xl font-semibold">
+                        {profile?.full_name || 'New User'}
+                        {profile?.nickname && <span className="text-muted-foreground text-lg ml-2">({profile.nickname})</span>}
+                    </h2>
                     <p className="text-muted-foreground">{user.email}</p>
                 </div>
             </div>
