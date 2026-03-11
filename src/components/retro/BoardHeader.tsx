@@ -9,6 +9,7 @@ import { BoardConfig } from '../BoardConfig';
 import { SentimentDisplay } from './SentimentDisplay';
 import { RetroTimer } from './RetroTimer';
 import { CompactStageControls } from './CompactStageControls';
+import { MentionScanner } from './MentionScanner';
 
 interface BoardHeaderProps {
   board: any;
