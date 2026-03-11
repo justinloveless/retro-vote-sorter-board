@@ -351,19 +351,33 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={`Sorted by ${sortMode}`}>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Sort cards">
                   <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSortMode('votes')} className={sortMode === 'votes' ? 'font-semibold' : ''}>
-                  {sortMode === 'votes' && '✓ '}Sort by Votes
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Votes</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('votes-desc')} className={sortKey === 'votes-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'votes-desc' ? '✓ ' : '\u2003'}Votes - High to Low
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode('time')} className={sortMode === 'time' ? 'font-semibold' : ''}>
-                  {sortMode === 'time' && '✓ '}Sort by Time
+                <DropdownMenuItem onClick={() => setSortKey('votes-asc')} className={sortKey === 'votes-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'votes-asc' ? '✓ ' : '\u2003'}Votes - Low to High
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode('author')} className={sortMode === 'author' ? 'font-semibold' : ''}>
-                  {sortMode === 'author' && '✓ '}Sort by Author
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Time</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('time-asc')} className={sortKey === 'time-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'time-asc' ? '✓ ' : '\u2003'}Time - Oldest First
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortKey('time-desc')} className={sortKey === 'time-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'time-desc' ? '✓ ' : '\u2003'}Time - Newest First
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Author</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortKey('author-asc')} className={sortKey === 'author-asc' ? 'font-semibold' : ''}>
+                  {sortKey === 'author-asc' ? '✓ ' : '\u2003'}Author - A to Z
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortKey('author-desc')} className={sortKey === 'author-desc' ? 'font-semibold' : ''}>
+                  {sortKey === 'author-desc' ? '✓ ' : '\u2003'}Author - Z to A
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
