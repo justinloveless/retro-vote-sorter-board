@@ -19,6 +19,7 @@ interface RetroBoardConfig {
   enforce_stage_readiness: boolean | null;
   allow_self_votes?: boolean | null;
   vote_emoji?: string | null;
+  sort_chronologically?: boolean | null;
 }
 
 interface BoardConfigProps {
