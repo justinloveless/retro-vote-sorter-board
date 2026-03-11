@@ -107,7 +107,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
       return;
     }
     // Realtime will update the list
-  }, [boardId, teamId, user, toast]);
+  }, [boardId, teamId, effectiveUserId, toast]);
 
   const revokeEndorsement = useCallback(async (endorsementId: string) => {
     // Optimistic update
