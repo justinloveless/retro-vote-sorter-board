@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update(updates)
         .eq('id', targetId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
