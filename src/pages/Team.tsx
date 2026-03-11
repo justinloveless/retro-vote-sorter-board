@@ -148,7 +148,7 @@ const Team = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
-              <Tabs defaultValue="boards" className="space-y-4">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
                 <TabsList >
                   <TabsTrigger value="boards">Retro Boards</TabsTrigger>
                   <TabsTrigger value="members">Team Members</TabsTrigger>
