@@ -132,8 +132,9 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
             // Prefix match (at least 3 chars): "Phil" matches "Philip"
             if (w.length >= 3 && n.startsWith(w)) { fuzzyMatch = word; break; }
             if (n.length >= 3 && w.startsWith(n)) { fuzzyMatch = word; break; }
-            // Levenshtein distance ≤ 1 for similar-length words
-            if (Math.abs(w.length - n.length) <= 2 && w.length >= 3 && levenshtein(w, n) <= 1) {
+            // Levenshtein distance: allow 1 for short words, 2 for longer words
+            const maxDist = Math.min(w.length, n.length) >= 5 ? 2 : 1;
+            if (Math.abs(w.length - n.length) <= 2 && w.length >= 3 && levenshtein(w, n) <= maxDist) {
               fuzzyMatch = word; break;
             }
           }
