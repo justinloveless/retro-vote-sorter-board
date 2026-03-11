@@ -253,15 +253,20 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   const { isFeatureEnabled } = useFeatureFlags();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const [sortChronologically, setSortChronologically] = useState(boardConfig?.sort_chronologically === true);
+  const [sortMode, setSortMode] = useState<'votes' | 'time' | 'author'>(
+    boardConfig?.sort_chronologically === true ? 'time' : 'votes'
+  );
   const sortedItems = [...items].sort((a, b) => {
-    if (sortChronologically) {
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    switch (sortMode) {
+      case 'time':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'author':
+        return (a.author || '').localeCompare(b.author || '');
+      case 'votes':
+      default:
+        if (b.votes !== a.votes) return b.votes - a.votes;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     }
-    if (b.votes !== a.votes) {
-      return b.votes - a.votes;
-    }
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
   const uploadImage = async (file: File): Promise<string | null> => {
