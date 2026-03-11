@@ -54,6 +54,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   onUpdateBoardConfig,
   onUpdateItem,
   onSignOut,
+  updateRetroStage,
   broadcastReadinessChange,
   adminEditMode,
   onToggleAdminEditMode,
