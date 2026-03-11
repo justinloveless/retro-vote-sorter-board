@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair } from 'lucide-react';
+import { ThumbsUp, Edit2, Trash2, ExternalLink, GripVertical, ClipboardList, Check, Crosshair, ArrowUpDown, Clock, TrendingDown } from 'lucide-react';
 import { AddItemCard } from '../AddItemCard';
 import { ColumnManager } from '../ColumnManager';
 import { RetroItemComments } from '../RetroItemComments';
