@@ -261,7 +261,7 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
 
   return (
     <div className="flex items-center gap-1">
-      {lastReplacements.current && lastReplacements.current.size > 0 && (
+      {lastReplacements && lastReplacements.size > 0 && (
         <Button variant="outline" size="sm" onClick={handleUndo} title="Undo last mention scan replacements">
           <Undo2 className="h-4 w-4" />
         </Button>
