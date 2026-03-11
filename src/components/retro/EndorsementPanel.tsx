@@ -43,9 +43,9 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
   const maxEndorsements = settings?.max_endorsements_per_user_per_board ?? 3;
   const remaining = Math.max(0, maxEndorsements - myEndorsementCount);
 
-  const hasEndorsedUser = (toUserId: string) => {
+  const getMyEndorsementForType = (toUserId: string, typeId: string) => {
     return endorsements.find(
-      e => e.from_user_id === currentUserId && e.to_user_id === toUserId
+      e => e.from_user_id === currentUserId && e.to_user_id === toUserId && e.endorsement_type_id === typeId
     );
   };
 
@@ -152,11 +152,11 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                       <div className="flex gap-1.5 mt-1">
                         <TooltipProvider>
                           {endorsementTypes.map(type => {
-                            const existingForUser = hasEndorsedUser(member.user_id);
-                            const isThisType = hasEndorsedWithType(member.user_id, type.id);
+                            const existingForType = getMyEndorsementForType(member.user_id, type.id);
+                            const isThisType = !!existingForType;
                             const count = getEndorsementCountForUser(member.user_id, type.id);
-                            // Disabled if: archived, or already endorsed this person with a different type, or no remaining and haven't endorsed this person yet
-                            const disabled = isArchived || (!!existingForUser && !isThisType) || (!existingForUser && remaining <= 0);
+                            // Disabled if: archived, or already endorsed with this type, or no remaining and haven't endorsed with this type
+                            const disabled = isArchived || (!isThisType && remaining <= 0);
                             return (
                               <Tooltip key={type.id}>
                                 <TooltipTrigger asChild>
@@ -167,10 +167,8 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                     disabled={disabled}
                                     onClick={() => {
                                       if (isThisType) {
-                                        // Revoke existing endorsement
-                                        onRevokeEndorsement(existingForUser!.id);
-                                      } else if (!existingForUser) {
-                                        // Give new endorsement
+                                        onRevokeEndorsement(existingForType!.id);
+                                      } else {
                                         onGiveEndorsement(member.user_id, type.id);
                                       }
                                     }}
@@ -187,7 +185,6 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                                   <p className="font-medium">{type.name}</p>
                                   <p className="text-xs text-muted-foreground">{type.description}</p>
                                   {isThisType && <p className="text-xs text-primary mt-1">✓ You endorsed this (click to remove)</p>}
-                                  {!!existingForUser && !isThisType && <p className="text-xs text-muted-foreground mt-1">Already endorsed with different type</p>}
                                 </TooltipContent>
                               </Tooltip>
                             );
