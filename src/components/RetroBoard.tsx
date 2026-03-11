@@ -325,20 +325,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           );
         })()}
 
-        {/* Endorsement Panel - only show for team boards with authenticated users */}
-        {board?.team_id && !isAnonymousUser && (
-          <EndorsementPanel
-            endorsements={endorsements}
-            endorsementTypes={endorsementTypes}
-            settings={endorsementSettings}
-            members={teamMembers}
-            currentUserId={user?.id}
-            myEndorsementCount={getMyEndorsementCount()}
-            onGiveEndorsement={giveEndorsement}
-            isArchived={isArchived}
-          />
-        )}
-
         {/* Endorsement Celebration */}
         <EndorsementCelebration
           pendingCelebration={pendingCelebration}
@@ -346,6 +332,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           memberNames={memberNameMap}
           onClear={clearCelebration}
         />
+
 
         {/* Columns */}
         <div className="overflow-x-auto pb-6">
@@ -444,6 +431,20 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
         </div>
 
       </div>
+
+      {/* Endorsement Panel - floating drawer, only for team boards with authenticated users */}
+      {board?.team_id && !isAnonymousUser && (
+        <EndorsementPanel
+          endorsements={endorsements}
+          endorsementTypes={endorsementTypes}
+          settings={endorsementSettings}
+          members={teamMembers}
+          currentUserId={user?.id}
+          myEndorsementCount={getMyEndorsementCount()}
+          onGiveEndorsement={giveEndorsement}
+          isArchived={isArchived}
+        />
+      )}
     </div>
   );
 };
