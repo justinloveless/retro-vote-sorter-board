@@ -27,10 +27,11 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
         const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
 
         useEffect(() => {
-            // Filter team members based on query
             const filtered = teamMembers.filter(member => {
                 const name = member.profiles?.full_name || 'Unknown User';
-                return name.toLowerCase().includes(query.toLowerCase());
+                const nickname = member.profiles?.nickname || '';
+                const q = query.toLowerCase();
+                return name.toLowerCase().includes(q) || nickname.toLowerCase().includes(q);
             });
             setFilteredMembers(filtered);
             setSelectedIndex(0);
