@@ -25,10 +25,12 @@ interface RetroItem {
 interface MentionMatch {
   itemId: string;
   itemText: string;
-  memberName: string;
+  memberName: string;       // the text found in the item
+  matchedAgainst: string;   // the team member term it matched against
   memberId: string;
-  displayName: string; // nickname or full_name used in the mention tag
+  displayName: string;
   columnTitle: string;
+  fuzzy: boolean;           // whether this was a fuzzy (non-exact) match
 }
 
 interface MentionScannerProps {
@@ -90,30 +92,66 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
     for (const item of items) {
       // Strip existing mentions from text before scanning
       const textWithoutMentions = item.text.replace(/\[\[mention:[^\]]+\]\]/g, '');
-      // Also strip mention spans (HTML format)
-      const cleanText = textWithoutMentions.replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '')
-        // Strip remaining HTML tags for matching
+      const cleanText = textWithoutMentions
+        .replace(/<span[^>]*data-mention-id="[^"]*"[^>]*>[^<]*<\/span>/g, '')
         .replace(/<[^>]+>/g, '');
 
       if (!cleanText.trim()) continue;
 
+      // Extract words from the clean text (3+ chars)
+      const textWords = cleanText.match(/[a-zA-ZÀ-ÿ]{3,}/g) || [];
+
       for (const { term, memberId, displayName, fullName } of memberSearchTerms) {
-        // Case-insensitive search — no word boundary requirement so partial names match within strings
-        const regex = new RegExp(escapeRegex(term), 'gi');
-        if (regex.test(cleanText)) {
-          // Avoid duplicate item+member combos for the same matched term
-          const existingMatch = found.find(f => f.itemId === item.id && f.memberId === memberId);
-          if (!existingMatch) {
-            const col = columns.find(c => c.id === item.column_id);
-            found.push({
-              itemId: item.id,
-              itemText: item.text,
-              memberName: term,
-              memberId,
-              displayName,
-              columnTitle: col?.title || 'Unknown',
-            });
+        if (found.some(f => f.itemId === item.id && f.memberId === memberId)) continue;
+
+        // 1) Exact substring match (case-insensitive)
+        const exactRegex = new RegExp(escapeRegex(term), 'gi');
+        if (exactRegex.test(cleanText)) {
+          const col = columns.find(c => c.id === item.column_id);
+          found.push({
+            itemId: item.id,
+            itemText: item.text,
+            memberName: term,
+            matchedAgainst: term,
+            memberId,
+            displayName,
+            columnTitle: col?.title || 'Unknown',
+            fuzzy: false,
+          });
+          continue;
+        }
+
+        // 2) Fuzzy match: check each word in the text against each name part
+        const nameParts = term.split(/\s+/).filter(p => p.length >= 3);
+        let fuzzyMatch: string | null = null;
+
+        for (const word of textWords) {
+          for (const namePart of nameParts) {
+            const w = word.toLowerCase();
+            const n = namePart.toLowerCase();
+            // Prefix match (at least 3 chars): "Phil" matches "Philip"
+            if (w.length >= 3 && n.startsWith(w)) { fuzzyMatch = word; break; }
+            if (n.length >= 3 && w.startsWith(n)) { fuzzyMatch = word; break; }
+            // Levenshtein distance ≤ 1 for similar-length words
+            if (Math.abs(w.length - n.length) <= 2 && w.length >= 3 && levenshtein(w, n) <= 1) {
+              fuzzyMatch = word; break;
+            }
           }
+          if (fuzzyMatch) break;
+        }
+
+        if (fuzzyMatch) {
+          const col = columns.find(c => c.id === item.column_id);
+          found.push({
+            itemId: item.id,
+            itemText: item.text,
+            memberName: fuzzyMatch,
+            matchedAgainst: term,
+            memberId,
+            displayName,
+            columnTitle: col?.title || 'Unknown',
+            fuzzy: true,
+          });
         }
       }
     }
@@ -124,7 +162,9 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
   // Select all by default when matches change
   React.useEffect(() => {
     if (open && matches.length > 0) {
-      setSelectedMatches(new Set(matches.map(m => `${m.itemId}:${m.memberId}`)));
+      // Auto-select only exact matches; fuzzy matches are unchecked by default for review
+      const exactKeys = matches.filter(m => !m.fuzzy).map(m => `${m.itemId}:${m.memberId}`);
+      setSelectedMatches(new Set(exactKeys));
     }
   }, [open, matches]);
 
@@ -245,11 +285,17 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
                         <div className="text-xs text-muted-foreground mb-1">
                           <span className="font-medium">{match.columnTitle}</span>
                           {' · '}
-                          <span className="text-primary font-medium">{match.memberName}</span>
+                          <span className="text-primary font-medium">"{match.memberName}"</span>
+                          {match.fuzzy && (
+                            <span className="text-muted-foreground italic"> ≈ {match.matchedAgainst}</span>
+                          )}
                           {' → '}
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
                             @{match.displayName}
                           </span>
+                          {match.fuzzy && (
+                            <span className="ml-1 text-[10px] italic text-muted-foreground">(fuzzy)</span>
+                          )}
                         </div>
                         <p className="text-sm text-foreground/80 truncate">
                           {highlightMatch(match.itemText, match.memberName)}
@@ -278,4 +324,19 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
 }
