@@ -163,8 +163,8 @@ export const MentionScanner: React.FC<MentionScannerProps> = ({
       let newText = item.text;
       for (const match of itemMatches) {
         const mentionTag = `[[mention:${match.memberId}:${match.displayName}]]`;
-        // Replace the raw name with the mention tag (case-insensitive, first occurrence not already in a mention)
-        const regex = new RegExp(`(?<![\\w@])${escapeRegex(match.memberName)}(?![\\w])`, 'gi');
+        // Replace the matched name occurrence (case-insensitive)
+        const regex = new RegExp(escapeRegex(match.memberName), 'gi');
         newText = newText.replace(regex, mentionTag);
         replacedCount++;
       }
