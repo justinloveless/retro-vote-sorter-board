@@ -88,14 +88,14 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   }, [boardId, teamId, effectiveUserId]);
 
   const giveEndorsement = useCallback(async (toUserId: string, endorsementTypeId: string) => {
-    if (!boardId || !teamId || !user) return;
+    if (!boardId || !teamId || !effectiveUserId) return;
     const { error } = await supabase
       .from('endorsements')
       .insert({
         board_id: boardId,
         team_id: teamId,
         endorsement_type_id: endorsementTypeId,
-        from_user_id: user.id,
+        from_user_id: effectiveUserId,
         to_user_id: toUserId,
       } as any);
     if (error) {
