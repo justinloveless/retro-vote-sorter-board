@@ -109,7 +109,16 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [adminEditMode, setAdminEditMode] = useState(false);
+  const [columnSortKeys, setColumnSortKeys] = useState<Record<string, SortKey>>({});
   const isAdmin = profile?.role === 'admin';
+
+  const getColumnSortKey = (columnId: string): SortKey => {
+    return columnSortKeys[columnId] ?? (boardConfig?.sort_chronologically === true ? 'time-asc' : 'votes-desc');
+  };
+
+  const setColumnSortKey = (columnId: string, key: SortKey) => {
+    setColumnSortKeys(prev => ({ ...prev, [columnId]: key }));
+  };
 
   useEffect(() => {
     if (audioUrlToPlay) {
