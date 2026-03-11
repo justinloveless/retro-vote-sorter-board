@@ -85,6 +85,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
   const {
     endorsements,
     giveEndorsement,
+    revokeEndorsement,
     pendingCelebration,
     clearCelebration,
     getMyEndorsementCount,

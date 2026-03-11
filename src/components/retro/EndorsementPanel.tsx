@@ -152,18 +152,25 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                       <div className="flex gap-1.5 mt-1">
                         <TooltipProvider>
                           {endorsementTypes.map(type => {
-                            const alreadyGiven = hasEndorsed(member.user_id, type.id);
+                            const existingForUser = hasEndorsedUser(member.user_id);
+                            const isThisType = hasEndorsedWithType(member.user_id, type.id);
                             const count = getEndorsementCountForUser(member.user_id, type.id);
+                            // Disabled if: archived, or already endorsed this person with a different type, or no remaining and haven't endorsed this person yet
+                            const disabled = isArchived || (!!existingForUser && !isThisType) || (!existingForUser && remaining <= 0);
                             return (
                               <Tooltip key={type.id}>
                                 <TooltipTrigger asChild>
                                   <Button
-                                    variant={alreadyGiven ? 'default' : 'outline'}
+                                    variant={isThisType ? 'default' : 'outline'}
                                     size="icon"
                                     className="h-8 w-8 text-base relative"
-                                    disabled={isArchived || (!alreadyGiven && remaining <= 0)}
+                                    disabled={disabled}
                                     onClick={() => {
-                                      if (!alreadyGiven) {
+                                      if (isThisType) {
+                                        // Revoke existing endorsement
+                                        onRevokeEndorsement(existingForUser!.id);
+                                      } else if (!existingForUser) {
+                                        // Give new endorsement
                                         onGiveEndorsement(member.user_id, type.id);
                                       }
                                     }}
