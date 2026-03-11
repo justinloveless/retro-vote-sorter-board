@@ -35,8 +35,17 @@ export const TeamBoardsList: React.FC<TeamBoardsListProps> = ({
   onBoardUpdated
 }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
-  const [showArchived, setShowArchived] = useState(false);
+  const showArchived = searchParams.get('archived') === 'true';
+  const setShowArchived = (value: boolean) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set('archived', 'true');
+      else next.delete('archived');
+      return next;
+    }, { replace: true });
+  };
   const isMobile = useIsMobile();
 
   const canManageBoards = currentUserRole === 'admin' || currentUserRole === 'owner';

@@ -13,9 +13,24 @@ interface TeamActionItemsProps {
 }
 
 export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
-  const [filterDone, setFilterDone] = useState<'open' | 'done' | 'all'>('open');
-  const [assignee, setAssignee] = useState<string | 'all'>('all');
-  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  const filterDone = (['open', 'done', 'all'].includes(searchParams.get('status') || '') ? searchParams.get('status') : 'open') as 'open' | 'done' | 'all';
+  const assignee = searchParams.get('assignee') || 'all';
+  const sort = (['newest', 'oldest'].includes(searchParams.get('sort') || '') ? searchParams.get('sort') : 'newest') as 'newest' | 'oldest';
+  
+  const updateParam = (key: string, value: string, defaultValue: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === defaultValue) next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  };
+  const setFilterDone = (v: 'open' | 'done' | 'all') => updateParam('status', v, 'open');
+  const setAssignee = (v: string) => updateParam('assignee', v, 'all');
+  const setSort = (v: 'newest' | 'oldest') => updateParam('sort', v, 'newest');
+
   const teamData = useTeamData();
   
   // Use cached data
