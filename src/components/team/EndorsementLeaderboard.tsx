@@ -51,6 +51,58 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
   const [selectedType, setSelectedType] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
+  // Mentions dialog
+  const [mentionsDialogOpen, setMentionsDialogOpen] = useState(false);
+  const [mentionsUser, setMentionsUser] = useState<{ userId: string; fullName: string } | null>(null);
+  const [mentionItems, setMentionItems] = useState<Array<{ id: string; text: string; boardTitle: string; createdAt: string; author: string }>>([]);
+  const [mentionsLoading, setMentionsLoading] = useState(false);
+
+  const openMentionsDialog = useCallback(async (userId: string, fullName: string) => {
+    setMentionsUser({ userId, fullName });
+    setMentionsDialogOpen(true);
+    setMentionsLoading(true);
+    try {
+      // Get all board IDs for this team
+      const { data: teamBoards } = await supabase
+        .from('retro_boards')
+        .select('id')
+        .eq('team_id', teamId);
+      const boardIds = (teamBoards || []).map(b => b.id);
+      if (boardIds.length === 0) {
+        setMentionItems([]);
+        return;
+      }
+
+      // Search retro items that mention this user
+      const { data: items } = await supabase
+        .from('retro_items')
+        .select('id, text, board_id, created_at, author')
+        .in('board_id', boardIds)
+        .like('text', `%[[mention:${userId}:%`)
+        .order('created_at', { ascending: false });
+
+      if (!items?.length) {
+        setMentionItems([]);
+        return;
+      }
+
+      // Map board titles
+      const boardMap = new Map(boards.map(b => [b.id, b.title]));
+      setMentionItems(items.map(item => ({
+        id: item.id,
+        text: item.text,
+        boardTitle: boardMap.get(item.board_id || '') || 'Unknown board',
+        createdAt: item.created_at || '',
+        author: item.author,
+      })));
+    } catch (e) {
+      console.error('Error fetching mentions:', e);
+      setMentionItems([]);
+    } finally {
+      setMentionsLoading(false);
+    }
+  }, [teamId, boards]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
