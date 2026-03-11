@@ -121,7 +121,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           {!isAnonymousUser && (
             <div className="flex items-center gap-2">
               <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
-              {profile?.role === 'admin' && teamMembers.length > 0 && (
+              {isFeatureEnabled('admin_mention_scanner') && profile?.role === 'admin' && teamMembers.length > 0 && (
                 <MentionScanner
                   items={items}
                   columns={columns}
@@ -129,7 +129,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   onUpdateItem={onUpdateItem}
                 />
               )}
-              {onToggleAdminEditMode && (
+              {isFeatureEnabled('admin_edit_all') && onToggleAdminEditMode && (
                 <div className="flex items-center gap-1.5 ml-1">
                   <Switch
                     id="admin-edit-mode"
