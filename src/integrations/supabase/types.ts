@@ -542,6 +542,7 @@ export type Database = {
           max_votes_per_user: number | null
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
+          sort_chronologically: boolean | null
           updated_at: string
           vote_emoji: string | null
           voting_enabled: boolean | null
@@ -556,6 +557,7 @@ export type Database = {
           max_votes_per_user?: number | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
+          sort_chronologically?: boolean | null
           updated_at?: string
           vote_emoji?: string | null
           voting_enabled?: boolean | null
@@ -570,6 +572,7 @@ export type Database = {
           max_votes_per_user?: number | null
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
+          sort_chronologically?: boolean | null
           updated_at?: string
           vote_emoji?: string | null
           voting_enabled?: boolean | null
