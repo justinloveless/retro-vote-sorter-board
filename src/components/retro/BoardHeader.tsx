@@ -12,6 +12,7 @@ import { CompactStageControls } from './CompactStageControls';
 import { MentionScanner } from './MentionScanner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 interface BoardHeaderProps {
   board: any;
