@@ -12,6 +12,7 @@ import { CompactStageControls } from './CompactStageControls';
 import { MentionScanner } from './MentionScanner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 interface BoardHeaderProps {
   board: any;
@@ -63,6 +64,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState(board?.title || 'RetroScope Session');
 
@@ -119,7 +121,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           {!isAnonymousUser && (
             <div className="flex items-center gap-2">
               <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
-              {profile?.role === 'admin' && teamMembers.length > 0 && (
+              {isFeatureEnabled('admin_mention_scanner') && profile?.role === 'admin' && teamMembers.length > 0 && (
                 <MentionScanner
                   items={items}
                   columns={columns}
@@ -127,7 +129,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   onUpdateItem={onUpdateItem}
                 />
               )}
-              {onToggleAdminEditMode && (
+              {isFeatureEnabled('admin_edit_all') && onToggleAdminEditMode && (
                 <div className="flex items-center gap-1.5 ml-1">
                   <Switch
                     id="admin-edit-mode"
