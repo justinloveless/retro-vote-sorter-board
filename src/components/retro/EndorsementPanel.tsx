@@ -43,9 +43,9 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
   const maxEndorsements = settings?.max_endorsements_per_user_per_board ?? 3;
   const remaining = Math.max(0, maxEndorsements - myEndorsementCount);
 
-  const hasEndorsedUser = (toUserId: string) => {
+  const getMyEndorsementForType = (toUserId: string, typeId: string) => {
     return endorsements.find(
-      e => e.from_user_id === currentUserId && e.to_user_id === toUserId
+      e => e.from_user_id === currentUserId && e.to_user_id === toUserId && e.endorsement_type_id === typeId
     );
   };
 
