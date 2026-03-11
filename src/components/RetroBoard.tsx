@@ -412,6 +412,8 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 focusedItemId={focusedItemId}
                 onFocusItem={isArchived ? undefined : focusItem}
                 adminEditMode={adminEditMode}
+                sortKey={getColumnSortKey(column.id)}
+                onSortKeyChange={(key) => setColumnSortKey(column.id, key)}
               />
             ))}
 
