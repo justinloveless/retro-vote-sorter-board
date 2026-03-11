@@ -333,7 +333,8 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             mentionStart = from - wordMatch[1].length;
         }
 
-        const memberName = member.profiles?.full_name || 'Unknown User';
+        const nickname = member.profiles?.nickname;
+        const memberName = nickname || member.profiles?.full_name || 'Unknown User';
 
         editor.chain()
             .deleteRange({ from: mentionStart, to: mentionEnd })
