@@ -342,6 +342,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
               </div>
             )}
           </div>
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
