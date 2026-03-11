@@ -125,6 +125,19 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   onUpdateItem={onUpdateItem}
                 />
               )}
+              {onToggleAdminEditMode && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <Switch
+                    id="admin-edit-mode"
+                    checked={adminEditMode}
+                    onCheckedChange={onToggleAdminEditMode}
+                  />
+                  <Label htmlFor="admin-edit-mode" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Edit className="h-3 w-3" />
+                    Edit All
+                  </Label>
+                </div>
+              )}
               {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
               <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">
                 <Bell className="h-4 w-4" />
