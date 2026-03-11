@@ -220,24 +220,33 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
             {/* Podium for top 3 */}
             {top3.length > 0 && (
               <div className="flex items-end justify-center gap-2 sm:gap-4 pt-4 pb-2">
-                {podiumOrder.map((entry, i) => {
-                  // Determine actual rank
-                  const rank = top3.indexOf(entry) + 1;
-                  const isFirst = rank === 1;
-                  const isSecond = rank === 2;
-                  const pedestalHeight = isFirst ? 'h-24' : isSecond ? 'h-16' : 'h-12';
-                  const pedestalColor = isFirst
+                {podiumOrder.map((entry) => {
+                  // Determine tie-aware rank based on scores
+                  const idx = top3.indexOf(entry);
+                  let tieRank: number;
+                  if (idx === 0) {
+                    tieRank = 1;
+                  } else if (idx === 1) {
+                    tieRank = entry.total === top3[0].total ? 1 : 2;
+                  } else {
+                    tieRank = entry.total === top3[0].total ? 1 : entry.total === top3[1].total ? (top3[1].total === top3[0].total ? 1 : 2) : 3;
+                  }
+
+                  const isGold = tieRank === 1;
+                  const isSilver = tieRank === 2;
+                  const pedestalHeight = isGold ? 'h-24' : isSilver ? 'h-16' : 'h-12';
+                  const pedestalColor = isGold
                     ? 'bg-gradient-to-t from-amber-500 to-amber-400'
-                    : isSecond
+                    : isSilver
                     ? 'bg-gradient-to-t from-slate-400 to-slate-300'
                     : 'bg-gradient-to-t from-orange-600 to-orange-500';
-                  const textColor = isFirst ? 'text-amber-500' : isSecond ? 'text-slate-400' : 'text-orange-600';
-                  const size = isFirst ? 'h-16 w-16' : 'h-12 w-12';
+                  const textColor = isGold ? 'text-amber-500' : isSilver ? 'text-slate-400' : 'text-orange-600';
+                  const size = isGold ? 'h-16 w-16' : 'h-12 w-12';
 
                   return (
                     <div key={entry.userId} className="flex flex-col items-center" style={{ minWidth: 80 }}>
-                      {/* Crown for 1st */}
-                      {isFirst && <Crown className="h-6 w-6 text-amber-500 mb-1" />}
+                      {/* Crown for gold */}
+                      {isGold && <Crown className="h-6 w-6 text-amber-500 mb-1" />}
                       {/* Avatar */}
                       <UserAvatar avatarUrl={entry.avatarUrl} name={entry.fullName} className={`${size} border-2 border-background shadow-lg`} />
                       <span className="text-xs font-medium mt-1 truncate max-w-[80px] text-center">{entry.fullName}</span>
@@ -256,7 +265,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                       </div>
                       {/* Pedestal */}
                       <div className={`w-20 sm:w-24 ${pedestalHeight} ${pedestalColor} rounded-t-lg flex items-center justify-center shadow-md`}>
-                        <span className="text-2xl font-bold text-white/90">{rank}</span>
+                        <span className="text-2xl font-bold text-white/90">{tieRank}</span>
                       </div>
                     </div>
                   );
