@@ -16,9 +16,12 @@ export interface Endorsement {
 export function useEndorsements(boardId: string | null, teamId: string | null) {
   const [endorsements, setEndorsements] = useState<Endorsement[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [pendingCelebration, setPendingCelebration] = useState<Endorsement | null>(null);
+
+  // Use impersonated profile id when impersonating, otherwise real user id
+  const effectiveUserId = profile?.id || user?.id;
 
   const fetchEndorsements = useCallback(async () => {
     if (!boardId || !teamId) return;
@@ -43,7 +46,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
 
   // Realtime subscription for new endorsements
   useEffect(() => {
-    if (!boardId || !teamId || !user) return;
+    if (!boardId || !teamId || !effectiveUserId) return;
 
     const channel = supabase
       .channel(`endorsements-${boardId}`)
@@ -58,8 +61,8 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
         (payload) => {
           const newEndorsement = payload.new as Endorsement;
           setEndorsements(prev => [...prev, newEndorsement]);
-          // Trigger celebration if current user received the endorsement
-          if (newEndorsement.to_user_id === user.id) {
+          // Trigger celebration if the effective user received the endorsement
+          if (newEndorsement.to_user_id === effectiveUserId) {
             setPendingCelebration(newEndorsement);
           }
         }
@@ -82,17 +85,17 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [boardId, teamId, user]);
+  }, [boardId, teamId, effectiveUserId]);
 
   const giveEndorsement = useCallback(async (toUserId: string, endorsementTypeId: string) => {
-    if (!boardId || !teamId || !user) return;
+    if (!boardId || !teamId || !effectiveUserId) return;
     const { error } = await supabase
       .from('endorsements')
       .insert({
         board_id: boardId,
         team_id: teamId,
         endorsement_type_id: endorsementTypeId,
-        from_user_id: user.id,
+        from_user_id: effectiveUserId,
         to_user_id: toUserId,
       } as any);
     if (error) {
@@ -104,7 +107,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
       return;
     }
     // Realtime will update the list
-  }, [boardId, teamId, user, toast]);
+  }, [boardId, teamId, effectiveUserId, toast]);
 
   const revokeEndorsement = useCallback(async (endorsementId: string) => {
     // Optimistic update
@@ -125,9 +128,9 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   }, []);
 
   const getMyEndorsementCount = useCallback(() => {
-    if (!user) return 0;
-    return endorsements.filter(e => e.from_user_id === user.id).length;
-  }, [endorsements, user]);
+    if (!effectiveUserId) return 0;
+    return endorsements.filter(e => e.from_user_id === effectiveUserId).length;
+  }, [endorsements, effectiveUserId]);
 
   return {
     endorsements,
