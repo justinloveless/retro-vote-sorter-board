@@ -82,7 +82,7 @@ export const EndorsementPanel: React.FC<EndorsementPanelProps> = ({
                   <div key={member.user_id} className="flex items-center gap-3">
                     <UserAvatar
                       avatarUrl={member.profiles?.avatar_url}
-                      fullName={name}
+                      name={name}
                       className="h-7 w-7"
                     />
                     <span className="text-sm font-medium flex-1 truncate">{name}</span>

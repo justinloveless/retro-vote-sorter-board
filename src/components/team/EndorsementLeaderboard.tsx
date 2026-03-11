@@ -121,7 +121,7 @@ export const EndorsementLeaderboard: React.FC<EndorsementLeaderboardProps> = ({ 
                 {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
               </div>
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <UserAvatar avatarUrl={entry.avatarUrl} fullName={entry.fullName} className="h-6 w-6" />
+                <UserAvatar avatarUrl={entry.avatarUrl} name={entry.fullName} className="h-6 w-6" />
                 <span className="text-sm font-medium truncate">{entry.fullName}</span>
               </div>
               {types.map(t => (
