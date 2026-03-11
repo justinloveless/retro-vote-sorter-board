@@ -64,6 +64,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState(board?.title || 'RetroScope Session');
 
