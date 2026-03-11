@@ -16,9 +16,12 @@ export interface Endorsement {
 export function useEndorsements(boardId: string | null, teamId: string | null) {
   const [endorsements, setEndorsements] = useState<Endorsement[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [pendingCelebration, setPendingCelebration] = useState<Endorsement | null>(null);
+
+  // Use impersonated profile id when impersonating, otherwise real user id
+  const effectiveUserId = profile?.id || user?.id;
 
   const fetchEndorsements = useCallback(async () => {
     if (!boardId || !teamId) return;
