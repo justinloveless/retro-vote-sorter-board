@@ -44,6 +44,22 @@ interface TeamMember {
   } | null;
 }
 
+export type SortKey = 'votes-desc' | 'votes-asc' | 'time-asc' | 'time-desc' | 'author-asc' | 'author-desc';
+
+export const sortItems = (items: RetroItem[], sortKey: SortKey): RetroItem[] => {
+  return [...items].sort((a, b) => {
+    switch (sortKey) {
+      case 'votes-desc': return b.votes !== a.votes ? b.votes - a.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'votes-asc': return a.votes !== b.votes ? a.votes - b.votes : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'time-desc': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'author-asc': return (a.author || '').localeCompare(b.author || '');
+      case 'author-desc': return (b.author || '').localeCompare(a.author || '');
+      default: return 0;
+    }
+  });
+};
+
 interface RetroColumnProps {
   board: RetroBoard | null;
   column: any;
@@ -90,6 +106,8 @@ interface RetroColumnProps {
   focusedItemId?: string | null;
   onFocusItem?: ((itemId: string | null) => void) | undefined;
   adminEditMode?: boolean;
+  sortKey: SortKey;
+  onSortKeyChange: (key: SortKey) => void;
 }
 
 // Helper functions for retro stages
