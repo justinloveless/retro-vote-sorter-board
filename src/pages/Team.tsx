@@ -168,11 +168,11 @@ const Team = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-                <TabsList >
-                  <TabsTrigger value="boards">Retro Boards</TabsTrigger>
-                  <TabsTrigger value="members">Team Members</TabsTrigger>
-                  <TabsTrigger value="action-items">Action Items</TabsTrigger>
-                  <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
+                <TabsList className="w-full flex">
+                  <TabsTrigger value="boards" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Boards</TabsTrigger>
+                  <TabsTrigger value="members" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Members</TabsTrigger>
+                  <TabsTrigger value="action-items" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Actions</TabsTrigger>
+                  <TabsTrigger value="endorsements" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Kudos</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="boards" className="space-y-4">
