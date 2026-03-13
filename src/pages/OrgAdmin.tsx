@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Building2, Users, Settings, Loader2, Crown, Shield, User,
-  Mail, Trash2, UserPlus, Link2, Unlink, Save
+  Mail, Trash2, UserPlus, Unlink, Save, Copy, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
