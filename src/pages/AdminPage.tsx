@@ -30,6 +30,7 @@ const AdminPage: React.FC = () => {
                     <GithubIssueSettings />
                     <ImpersonateUser />
                     <AdminManageTeamMembers />
+                    <TierLimitsManager />
                     <Card>
                         <CardHeader>
                             <CardTitle>Feature Flags</CardTitle>
@@ -44,7 +45,6 @@ const AdminPage: React.FC = () => {
                 </div>
                 <div className="lg:col-span-1 space-y-8">
                     <AdminSendNotification />
-                    <TierLimitsManager />
                     <Card>
                         <CardHeader>
                             <CardTitle>Data Backfill</CardTitle>
