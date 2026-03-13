@@ -33,7 +33,7 @@ export const useTeamMembers = (teamId: string | null) => {
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { checkMemberLimit, tier } = useSubscriptionLimits();
+  const { checkMemberLimit } = useSubscriptionLimits();
 
   const loadMembers = async () => {
     if (!teamId) {

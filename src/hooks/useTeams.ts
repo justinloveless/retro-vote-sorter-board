@@ -19,7 +19,7 @@ export const useTeams = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { checkTeamLimit, tier } = useSubscriptionLimits();
+  const { checkTeamLimit } = useSubscriptionLimits();
 
   const loadTeams = useCallback(async () => {
     if (!profile) {
