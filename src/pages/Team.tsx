@@ -77,6 +77,16 @@ const Team = () => {
     if (!teamId) return null;
 
     try {
+      const { allowed, current, max, tier: currentTier } = await checkBoardLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Board limit reached",
+          description: `Your ${currentTier} plan allows up to ${max} active board${max === 1 ? '' : 's'} per team. You currently have ${current}. Archive existing boards or upgrade your plan.`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       let passwordHash = null;
 
