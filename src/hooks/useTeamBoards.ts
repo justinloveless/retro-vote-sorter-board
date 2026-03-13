@@ -21,7 +21,7 @@ export const useTeamBoards = (teamId: string | null) => {
   const [boards, setBoards] = useState<TeamBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { checkBoardLimit, tier } = useSubscriptionLimits();
+  const { checkBoardLimit } = useSubscriptionLimits();
 
   const loadBoards = async () => {
     if (!teamId) {

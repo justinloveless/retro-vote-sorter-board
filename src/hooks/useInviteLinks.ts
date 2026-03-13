@@ -18,7 +18,7 @@ export const useInviteLinks = (teamId: string | null) => {
   const [inviteLinks, setInviteLinks] = useState<InviteLink[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { checkMemberLimit, tier } = useSubscriptionLimits();
+  const { checkMemberLimit } = useSubscriptionLimits();
 
   const loadInviteLinks = async () => {
     if (!teamId) {
