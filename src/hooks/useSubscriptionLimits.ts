@@ -82,7 +82,7 @@ export function useSubscriptionLimits() {
   const limits = allLimits[tier];
 
   const checkTeamLimit = useCallback(async (userId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
     const max = normalizeLimit(dynamicLimits[currentTier]?.maxTeams, DEFAULT_LIMITS[currentTier].maxTeams);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
