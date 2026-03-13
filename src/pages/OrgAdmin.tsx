@@ -105,36 +105,48 @@ const OrgAdmin = () => {
     }
   };
 
-  const handleLinkTeam = async (teamId: string) => {
+  const handleGenerateCode = async () => {
+    if (!organization || !user) return;
+    setGeneratingCode(true);
     try {
-      await linkTeam(teamId);
-      toast.success('Team linked to organization');
-      refetch();
-      // Refresh team lists
-      const [unlinked, linked] = await Promise.all([
-        supabase.from('teams').select('id, name, organization_id').is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id').eq('organization_id', organization!.id),
-      ]);
-      setUserTeams(unlinked.data || []);
-      setOrgTeams(linked.data || []);
+      const { data, error } = await supabase
+        .from('org_team_invite_codes')
+        .insert({
+          organization_id: organization.id,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setInviteCodes((prev) => [data as any, ...prev]);
+      toast.success('Invite code generated');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to link team');
+      toast.error(err.message || 'Failed to generate code');
+    } finally {
+      setGeneratingCode(false);
     }
   };
 
-  const handleUnlinkTeam = async (teamId: string) => {
+  const handleDeactivateCode = async (codeId: string) => {
     try {
-      await unlinkTeam(teamId);
-      toast.success('Team unlinked from organization');
-      const [unlinked, linked] = await Promise.all([
-        supabase.from('teams').select('id, name, organization_id').is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id').eq('organization_id', organization!.id),
-      ]);
-      setUserTeams(unlinked.data || []);
-      setOrgTeams(linked.data || []);
+      const { error } = await supabase
+        .from('org_team_invite_codes')
+        .update({ is_active: false })
+        .eq('id', codeId);
+
+      if (error) throw error;
+      setInviteCodes((prev) => prev.filter((c) => c.id !== codeId));
+      toast.success('Invite code deactivated');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to unlink team');
+      toast.error(err.message || 'Failed to deactivate');
     }
+  };
+
+  const handleCopyInviteLink = (inviteCode: string) => {
+    const link = `${window.location.origin}/join-org/${inviteCode}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Invite link copied to clipboard');
   };
 
   const roleIcons: Record<string, any> = { owner: Crown, admin: Shield, member: User };
