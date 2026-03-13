@@ -183,6 +183,13 @@ export function useOrganization(orgSlug: string | undefined) {
   const inviteMember = useCallback(async (email: string, role: 'admin' | 'member' = 'member') => {
     if (!organization || !user) throw new Error('Not ready');
 
+    // Get inviter profile and org name for the email
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
     const { data, error } = await supabase
       .from('organization_invitations')
       .insert({
@@ -195,8 +202,35 @@ export function useOrganization(orgSlug: string | undefined) {
       .single();
 
     if (error) throw error;
+
+    const invitation = data as OrgInvitation;
+
+    // Send invitation email (same edge function as team invites)
+    try {
+      await supabase.functions.invoke('send-invitation-email', {
+        body: {
+          invitationId: invitation.id,
+          email,
+          teamName: organization.name,
+          inviterName: profile?.full_name || 'Someone',
+          token: invitation.token,
+        }
+      });
+    } catch (emailErr) {
+      console.error('Error sending org invitation email:', emailErr);
+    }
+
+    // Send in-app notification
+    try {
+      await supabase.functions.invoke('notify-org-invite', {
+        body: { invitationId: invitation.id }
+      });
+    } catch (notifErr) {
+      console.error('Error sending org invite notification:', notifErr);
+    }
+
     await fetchOrganization();
-    return data as OrgInvitation;
+    return invitation;
   }, [organization, user, fetchOrganization]);
 
   const updateMemberRole = useCallback(async (memberId: string, newRole: 'admin' | 'member') => {
