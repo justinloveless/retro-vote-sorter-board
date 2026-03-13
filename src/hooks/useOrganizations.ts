@@ -70,6 +70,18 @@ export function useOrganizations() {
   const createOrganization = useCallback(async (name: string, slug: string, description?: string) => {
     if (!user) throw new Error('Not authenticated');
 
+    // Enforce one org per user
+    const { data: existingOrgs, error: checkError } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('owner_id', user.id)
+      .limit(1);
+
+    if (checkError) throw checkError;
+    if (existingOrgs && existingOrgs.length > 0) {
+      throw new Error('You can only create one organization per subscription.');
+    }
+
     const { data, error } = await supabase
       .from('organizations')
       .insert({

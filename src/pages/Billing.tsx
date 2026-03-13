@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription, SUBSCRIPTION_TIERS, FREE_TIER_FEATURES, SubscriptionTier } from '@/hooks/useSubscription';
+import { useOrganizations } from '@/hooks/useOrganizations';
 import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Check, Crown, Zap, Building2, Loader2, ExternalLink, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,11 +20,20 @@ const Billing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
+  const { organizations, createOrganization, refetch: refetchOrgs } = useOrganizations();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const [dynamicFeatures, setDynamicFeatures] = useState<Record<string, string[]> | null>(null);
   const [seatCount, setSeatCount] = useState(5);
+  const [showOrgSetup, setShowOrgSetup] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [orgSlug, setOrgSlug] = useState('');
+  const [orgDescription, setOrgDescription] = useState('');
+  const [creatingOrg, setCreatingOrg] = useState(false);
+
+  // Check if user already owns an org
+  const ownsOrg = organizations.some(o => o.owner_id === user?.id);
 
   useEffect(() => {
     supabase
@@ -47,11 +59,36 @@ const Billing = () => {
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
       toast.success('Subscription activated! Refreshing your plan...');
-      checkSubscription();
+      checkSubscription().then(async () => {
+        // After refresh, check if this is an enterprise subscription and user has no org yet
+        await refetchOrgs();
+      });
     } else if (searchParams.get('canceled') === 'true') {
       toast.info('Checkout canceled.');
     }
-  }, [searchParams, checkSubscription]);
+  }, [searchParams, checkSubscription, refetchOrgs]);
+
+  // Show org setup prompt when enterprise is active and user hasn't created an org
+  useEffect(() => {
+    if (tier === 'enterprise' && !ownsOrg && searchParams.get('success') === 'true') {
+      setShowOrgSetup(true);
+    }
+  }, [tier, ownsOrg, searchParams]);
+
+  const handleCreateOrg = async () => {
+    if (!orgName.trim() || !orgSlug.trim()) return;
+    setCreatingOrg(true);
+    try {
+      const org = await createOrganization(orgName.trim(), orgSlug.trim(), orgDescription.trim() || undefined);
+      toast.success('Organization created!');
+      setShowOrgSetup(false);
+      navigate(`/org/${org.slug}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create organization');
+    } finally {
+      setCreatingOrg(false);
+    }
+  };
 
   const handleCheckout = async (planTier: 'pro' | 'business') => {
     if (!user) {
@@ -355,6 +392,76 @@ const Billing = () => {
               </>
             )}
           </p>
+        )}
+        {/* Enterprise Org Setup Dialog */}
+        <Dialog open={showOrgSetup} onOpenChange={setShowOrgSetup}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Up Your Organization</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Your Enterprise plan includes an organization. Set it up now to manage your teams under one umbrella.
+            </p>
+            <div className="space-y-4 mt-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Organization Name</label>
+                <Input
+                  value={orgName}
+                  onChange={(e) => {
+                    setOrgName(e.target.value);
+                    if (!orgSlug || orgSlug === orgName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')) {
+                      setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'));
+                    }
+                  }}
+                  placeholder="Acme Corp"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">URL Slug</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">/org/</span>
+                  <Input
+                    value={orgSlug}
+                    onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                    placeholder="acme-corp"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Description (optional)</label>
+                <Textarea
+                  value={orgDescription}
+                  onChange={(e) => setOrgDescription(e.target.value)}
+                  placeholder="Brief description of your organization"
+                  rows={2}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleCreateOrg} className="flex-1" disabled={!orgName.trim() || !orgSlug.trim() || creatingOrg}>
+                  {creatingOrg ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Building2 className="h-4 w-4 mr-2" />}
+                  Create Organization
+                </Button>
+                <Button variant="outline" onClick={() => setShowOrgSetup(false)}>
+                  Later
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Prompt for enterprise users who haven't created their org yet */}
+        {tier === 'enterprise' && !ownsOrg && !showOrgSetup && (
+          <Card className="max-w-2xl mx-auto mt-6 border-primary/50">
+            <CardContent className="py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-primary" />
+                <p className="text-sm text-foreground">You haven't set up your organization yet.</p>
+              </div>
+              <Button size="sm" onClick={() => setShowOrgSetup(true)}>
+                Set Up Organization
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
