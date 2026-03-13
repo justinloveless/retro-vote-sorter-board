@@ -24,7 +24,7 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
 
-    const { priceId } = await req.json();
+    const { priceId, quantity } = await req.json();
     if (!priceId) throw new Error("Price ID is required");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
@@ -57,6 +57,7 @@ serve(async (req) => {
           items: [{
             id: currentSub.items.data[0].id,
             price: priceId,
+            ...(quantity ? { quantity } : {}),
           }],
           proration_behavior: "always_invoice",
         });
@@ -74,11 +75,10 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: quantity || 1 }],
       mode: "subscription",
       success_url: `${origin}/billing?success=true`,
       cancel_url: `${origin}/billing?canceled=true`,
-      // Don't collect payment method if customer already has one
       ...(customerId ? { payment_method_collection: "if_required" } : {}),
     });
 

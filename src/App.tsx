@@ -21,6 +21,9 @@ import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import Billing from "./pages/Billing";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
+import OrgDashboard from "./pages/OrgDashboard";
+import OrgAdmin from "./pages/OrgAdmin";
+import OrgInviteAccept from "./pages/OrgInviteAccept";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
 import { AuthProvider } from "./hooks/useAuth";
 import { TeamDataProvider } from "./contexts/TeamDataContext";
@@ -52,6 +55,11 @@ const App = () => (
                   <Route path="/invite/:token" element={<InviteAccept />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/billing" element={<Billing />} />
+
+                  {/* Organization Routes */}
+                  <Route path="/org/:slug" element={<OrgDashboard />} />
+                  <Route path="/org/:slug/admin" element={<OrgAdmin />} />
+                  <Route path="/org-invite/:token" element={<OrgInviteAccept />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>

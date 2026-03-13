@@ -41,6 +41,7 @@ serve(async (req) => {
 
     // Check if a target_user_id was provided (for admin impersonation)
     let emailToCheck = callerUser.email;
+    let userIdToCheck = callerUser.id;
     let body: any = {};
     try {
       body = await req.json();
@@ -49,7 +50,6 @@ serve(async (req) => {
     }
 
     if (body?.target_user_id && body.target_user_id !== callerUser.id) {
-      // Verify the caller is an admin
       const { data: callerProfile } = await supabaseClient
         .from("profiles")
         .select("role")
@@ -60,65 +60,101 @@ serve(async (req) => {
         throw new Error("Only admins can check subscription for other users");
       }
 
-      // Look up the target user's email
       const { data: targetUser, error: targetError } = await supabaseClient.auth.admin.getUserById(body.target_user_id);
       if (targetError || !targetUser?.user?.email) {
         throw new Error("Target user not found or has no email");
       }
       emailToCheck = targetUser.user.email;
+      userIdToCheck = body.target_user_id;
       logStep("Admin impersonation: checking subscription for target user", { targetUserId: body.target_user_id, targetEmail: emailToCheck });
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: emailToCheck, limit: 1 });
 
-    if (customers.data.length === 0) {
-      logStep("No customer found");
-      return new Response(JSON.stringify({ subscribed: false, tier: "free" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
-
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 10,
-    });
-
-    const hasActiveSub = subscriptions.data.length > 0;
     let tier = "free";
+    let hasActiveSub = false;
     let subscriptionEnd = null;
     let productId = null;
     let cancelAtPeriodEnd = false;
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
-      
-      const firstItem = subscription.items.data[0];
-      productId = firstItem?.price?.product;
-      
-      const periodEnd = (firstItem as any).current_period_end;
-      logStep("Raw period end from item", { periodEnd, type: typeof periodEnd });
-      
-      if (periodEnd) {
-        subscriptionEnd = new Date(Number(periodEnd) * 1000).toISOString();
+    if (customers.data.length > 0) {
+      const customerId = customers.data[0].id;
+      logStep("Found Stripe customer", { customerId });
+
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 10,
+      });
+
+      hasActiveSub = subscriptions.data.length > 0;
+
+      if (hasActiveSub) {
+        const subscription = subscriptions.data[0];
+        cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
+        
+        const firstItem = subscription.items.data[0];
+        productId = firstItem?.price?.product;
+        
+        const periodEnd = (firstItem as any).current_period_end;
+        if (periodEnd) {
+          subscriptionEnd = new Date(Number(periodEnd) * 1000).toISOString();
+        }
+        
+        const proProducts = ["prod_U8bHBCeWeliSGZ", "prod_U8bHzSN1wed3Ss"];
+        const businessProducts = ["prod_U8bHNNAcQOswB3", "prod_U8bIEG4qNUUCUG"];
+        const enterpriseProducts = ["prod_U8dn6YKgJqEmRh"];
+        
+        if (proProducts.includes(productId as string)) {
+          tier = "pro";
+        } else if (businessProducts.includes(productId as string)) {
+          tier = "business";
+        } else if (enterpriseProducts.includes(productId as string)) {
+          tier = "enterprise";
+        }
+        
+        logStep("Active subscription found", { tier, subscriptionEnd, productId, cancelAtPeriodEnd });
       }
-      
-      const proProducts = ["prod_U8bHBCeWeliSGZ", "prod_U8bHzSN1wed3Ss"];
-      const businessProducts = ["prod_U8bHNNAcQOswB3", "prod_U8bIEG4qNUUCUG"];
-      
-      if (proProducts.includes(productId as string)) {
-        tier = "pro";
-      } else if (businessProducts.includes(productId as string)) {
-        tier = "business";
+    }
+
+    // If no direct subscription, check if user belongs to an Enterprise org
+    if (tier === "free") {
+      const { data: orgMemberships } = await supabaseClient
+        .from("organization_members")
+        .select("organization_id, organizations!inner(owner_id)")
+        .eq("user_id", userIdToCheck);
+
+      if (orgMemberships && orgMemberships.length > 0) {
+        // Check if any org owner has an enterprise subscription
+        for (const membership of orgMemberships) {
+          const orgOwner = (membership as any).organizations?.owner_id;
+          if (!orgOwner) continue;
+
+          const { data: ownerUser } = await supabaseClient.auth.admin.getUserById(orgOwner);
+          if (!ownerUser?.user?.email) continue;
+
+          const ownerCustomers = await stripe.customers.list({ email: ownerUser.user.email, limit: 1 });
+          if (ownerCustomers.data.length === 0) continue;
+
+          const ownerSubs = await stripe.subscriptions.list({
+            customer: ownerCustomers.data[0].id,
+            status: "active",
+            limit: 10,
+          });
+
+          for (const sub of ownerSubs.data) {
+            const subProductId = sub.items.data[0]?.price?.product;
+            if (["prod_U8dn6YKgJqEmRh"].includes(subProductId as string)) {
+              tier = "enterprise";
+              hasActiveSub = true;
+              logStep("User inherits enterprise tier from org membership", { orgId: membership.organization_id });
+              break;
+            }
+          }
+          if (tier === "enterprise") break;
+        }
       }
-      
-      logStep("Active subscription found", { tier, subscriptionEnd, productId, cancelAtPeriodEnd });
     }
 
     return new Response(JSON.stringify({
