@@ -8,6 +8,7 @@ interface SubscriptionState {
   tier: SubscriptionTier;
   subscribed: boolean;
   subscriptionEnd: string | null;
+  cancelAtPeriodEnd: boolean;
   loading: boolean;
 }
 
