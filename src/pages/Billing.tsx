@@ -108,7 +108,7 @@ const Billing = () => {
       icon: Building2,
       monthlyPrice: SUBSCRIPTION_TIERS.business.monthlyPrice,
       yearlyPrice: SUBSCRIPTION_TIERS.business.yearlyPrice,
-      features: SUBSCRIPTION_TIERS.business.features,
+      features: dynamicFeatures?.business || SUBSCRIPTION_TIERS.business.features,
       accent: 'border-accent',
     },
   ];
