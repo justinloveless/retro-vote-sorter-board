@@ -19,7 +19,7 @@ export const useTeams = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { checkTeamLimit, tier } = useSubscriptionLimits();
+  const { checkTeamLimit } = useSubscriptionLimits();
 
   const loadTeams = useCallback(async () => {
     if (!profile) {
@@ -70,11 +70,11 @@ export const useTeams = () => {
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check team creation limit
-      const { allowed, current, max } = await checkTeamLimit(currentUser.id);
+      const { allowed, current, max, tier: currentTier } = await checkTeamLimit(currentUser.id);
       if (!allowed) {
         toast({
           title: "Team limit reached",
-          description: `Your ${tier} plan allows up to ${max} team${max === 1 ? '' : 's'}. You currently own ${current}. Upgrade your plan to create more teams.`,
+          description: `Your ${currentTier} plan allows up to ${max} team${max === 1 ? '' : 's'}. You currently own ${current}. Upgrade your plan to create more teams.`,
           variant: "destructive",
         });
         return;

@@ -14,13 +14,28 @@ const LIMITS: Record<SubscriptionTier, TierLimits> = {
   business: { maxTeams: Infinity, maxMembersPerTeam: Infinity, maxActiveBoards: Infinity },
 };
 
+/** Fetch the current subscription tier directly from the edge function */
+async function fetchCurrentTier(): Promise<SubscriptionTier> {
+  try {
+    const { data, error } = await supabase.functions.invoke('check-subscription');
+    if (error) {
+      console.error('Error fetching subscription tier for limit check:', error);
+      return 'free';
+    }
+    return (data?.tier as SubscriptionTier) || 'free';
+  } catch {
+    return 'free';
+  }
+}
+
 export function useSubscriptionLimits() {
   const { tier, loading } = useSubscription();
   const limits = LIMITS[tier];
 
-  const checkTeamLimit = useCallback(async (userId: string): Promise<{ allowed: boolean; current: number; max: number }> => {
-    const max = LIMITS[tier].maxTeams;
-    if (max === Infinity) return { allowed: true, current: 0, max };
+  const checkTeamLimit = useCallback(async (userId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
+    const currentTier = await fetchCurrentTier();
+    const max = LIMITS[currentTier].maxTeams;
+    if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const { count, error } = await supabase
       .from('team_members')
@@ -29,27 +44,29 @@ export function useSubscriptionLimits() {
       .eq('role', 'owner');
 
     const current = error ? 0 : (count ?? 0);
-    return { allowed: current < max, current, max };
-  }, [tier]);
+    return { allowed: current < max, current, max, tier: currentTier };
+  }, []);
 
-  const checkBoardLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number }> => {
-    const max = LIMITS[tier].maxActiveBoards;
-    if (max === Infinity) return { allowed: true, current: 0, max };
+  const checkBoardLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
+    const currentTier = await fetchCurrentTier();
+    const max = LIMITS[currentTier].maxActiveBoards;
+    if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const { count, error } = await supabase
       .from('retro_boards')
       .select('*', { count: 'exact', head: true })
       .eq('team_id', teamId)
-      .neq('deleted', true)
-      .neq('archived', true);
+      .is('deleted', false)
+      .is('archived', false);
 
     const current = error ? 0 : (count ?? 0);
-    return { allowed: current < max, current, max };
-  }, [tier]);
+    return { allowed: current < max, current, max, tier: currentTier };
+  }, []);
 
-  const checkMemberLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number }> => {
-    const max = LIMITS[tier].maxMembersPerTeam;
-    if (max === Infinity) return { allowed: true, current: 0, max };
+  const checkMemberLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
+    const currentTier = await fetchCurrentTier();
+    const max = LIMITS[currentTier].maxMembersPerTeam;
+    if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const { count, error } = await supabase
       .from('team_members')
@@ -57,8 +74,8 @@ export function useSubscriptionLimits() {
       .eq('team_id', teamId);
 
     const current = error ? 0 : (count ?? 0);
-    return { allowed: current < max, current, max };
-  }, [tier]);
+    return { allowed: current < max, current, max, tier: currentTier };
+  }, []);
 
   return {
     tier,

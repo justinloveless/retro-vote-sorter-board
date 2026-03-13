@@ -33,7 +33,7 @@ export const useTeamMembers = (teamId: string | null) => {
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { checkMemberLimit, tier } = useSubscriptionLimits();
+  const { checkMemberLimit } = useSubscriptionLimits();
 
   const loadMembers = async () => {
     if (!teamId) {
@@ -120,11 +120,11 @@ export const useTeamMembers = (teamId: string | null) => {
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check member limit before inviting
-      const { allowed, current, max } = await checkMemberLimit(teamId);
+      const { allowed, current, max, tier: currentTier } = await checkMemberLimit(teamId);
       if (!allowed) {
         toast({
           title: "Member limit reached",
-          description: `Your ${tier} plan allows up to ${max} team member${max === 1 ? '' : 's'}. You currently have ${current}. Upgrade your plan to add more members.`,
+          description: `Your ${currentTier} plan allows up to ${max} team member${max === 1 ? '' : 's'}. You currently have ${current}. Upgrade your plan to add more members.`,
           variant: "destructive",
         });
         return;
