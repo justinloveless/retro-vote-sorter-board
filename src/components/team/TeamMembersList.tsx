@@ -27,6 +27,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const { checkMemberLimit } = useSubscriptionLimits();
 
   const inviteMember = async (email: string) => {
