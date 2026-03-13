@@ -11,6 +11,7 @@ import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
 import { AdminSendNotification } from '@/components/admin/AdminSendNotification';
 import { AdminManageTeamMembers } from '@/components/admin/AdminManageTeamMembers';
 import { TierLimitsManager } from '@/components/admin/TierLimitsManager';
+import { AdminSubscriptionManager } from '@/components/admin/AdminSubscriptionManager';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -26,6 +27,7 @@ const AdminPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
+                    <AdminSubscriptionManager />
                     <TtsUrlManager />
                     <GithubIssueSettings />
                     <ImpersonateUser />
