@@ -60,6 +60,7 @@ export function useSubscription() {
     tier: 'free',
     subscribed: false,
     subscriptionEnd: null,
+    cancelAtPeriodEnd: false,
     loading: true,
   });
 
