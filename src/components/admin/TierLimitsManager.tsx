@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Zap, Crown, Building2, Sparkles } from 'lucide-react';
@@ -12,6 +13,7 @@ interface TierConfig {
   maxMembersPerTeam: number | null;
   maxActiveBoards: number | null;
   features: string[];
+  featureFlags?: Record<string, boolean>;
 }
 
 interface AllTierLimits {
@@ -21,11 +23,17 @@ interface AllTierLimits {
   enterprise: TierConfig;
 }
 
+interface FeatureFlag {
+  flag_name: string;
+  description: string | null;
+  is_enabled: boolean;
+}
+
 const DEFAULT_LIMITS: AllTierLimits = {
-  free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3, features: ['Up to 5 team members', '1 team', '3 active boards', 'Basic retro & poker', 'Community support'] },
-  pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: null, features: ['Up to 25 team members', 'Up to 5 teams', 'AI sentiment analysis', 'Audio summaries', 'Admin features', 'Unlimited boards'] },
-  business: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['Unlimited team members', 'Unlimited teams', 'All AI features', 'Advanced admin features', 'Priority support', 'Custom branding (coming soon)'] },
-  enterprise: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['All Business features', 'Organizations', 'Per-seat billing ($5/seat/month)', 'VIP support', 'Org-wide team management', 'Shared resources across org'] },
+  free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3, features: ['Up to 5 team members', '1 team', '3 active boards', 'Basic retro & poker', 'Community support'], featureFlags: {} },
+  pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: null, features: ['Up to 25 team members', 'Up to 5 teams', 'AI sentiment analysis', 'Audio summaries', 'Admin features', 'Unlimited boards'], featureFlags: {} },
+  business: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['Unlimited team members', 'Unlimited teams', 'All AI features', 'Advanced admin features', 'Priority support', 'Custom branding (coming soon)'], featureFlags: {} },
+  enterprise: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['All Business features', 'Organizations', 'Per-seat billing ($5/seat/month)', 'VIP support', 'Org-wide team management', 'Shared resources across org'], featureFlags: {} },
 };
 
 const TIER_ICONS = { free: Zap, pro: Crown, business: Building2, enterprise: Sparkles };
@@ -33,25 +41,31 @@ const TIER_LABELS = { free: 'Free', pro: 'Pro', business: 'Business', enterprise
 
 export const TierLimitsManager: React.FC = () => {
   const [limits, setLimits] = useState<AllTierLimits>(DEFAULT_LIMITS);
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadLimits();
+    loadData();
   }, []);
 
-  const loadLimits = async () => {
+  const loadData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('app_config')
-        .select('value')
-        .eq('key', 'tier_limits')
-        .maybeSingle();
-      if (error) throw error;
-      if (data?.value) {
-        const parsed = JSON.parse(data.value);
-        // Merge with defaults to ensure enterprise exists
-        setLimits({ ...DEFAULT_LIMITS, ...parsed });
+      const [limitsRes, flagsRes] = await Promise.all([
+        supabase.from('app_config').select('value').eq('key', 'tier_limits').maybeSingle(),
+        supabase.from('feature_flags').select('*'),
+      ]);
+      if (limitsRes.data?.value) {
+        const parsed = JSON.parse(limitsRes.data.value);
+        setLimits({
+          free: { ...DEFAULT_LIMITS.free, ...parsed.free },
+          pro: { ...DEFAULT_LIMITS.pro, ...parsed.pro },
+          business: { ...DEFAULT_LIMITS.business, ...parsed.business },
+          enterprise: { ...DEFAULT_LIMITS.enterprise, ...parsed.enterprise },
+        });
+      }
+      if (flagsRes.data) {
+        setFlags(flagsRes.data);
       }
     } catch (err) {
       console.error('Failed to load tier limits:', err);
@@ -75,7 +89,7 @@ export const TierLimitsManager: React.FC = () => {
     }
   };
 
-  const updateLimit = (tier: keyof AllTierLimits, field: keyof Omit<TierConfig, 'features'>, value: string) => {
+  const updateLimit = (tier: keyof AllTierLimits, field: keyof Omit<TierConfig, 'features' | 'featureFlags'>, value: string) => {
     setLimits(prev => ({
       ...prev,
       [tier]: {
@@ -95,6 +109,19 @@ export const TierLimitsManager: React.FC = () => {
     }));
   };
 
+  const toggleFeatureFlag = (tier: keyof AllTierLimits, flagName: string, checked: boolean) => {
+    setLimits(prev => ({
+      ...prev,
+      [tier]: {
+        ...prev[tier],
+        featureFlags: {
+          ...(prev[tier].featureFlags || {}),
+          [flagName]: checked,
+        },
+      },
+    }));
+  };
+
   if (loading) {
     return (
       <Card>
@@ -109,12 +136,13 @@ export const TierLimitsManager: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Plan Tier Limits</CardTitle>
-        <CardDescription>Configure features and limits for each subscription tier. Use blank or 0 for unlimited.</CardDescription>
+        <CardDescription>Configure features, limits, and feature flag access for each subscription tier. Use blank or 0 for unlimited.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {(['free', 'pro', 'business', 'enterprise'] as const).map((tier) => {
           const Icon = TIER_ICONS[tier];
           const config = limits[tier] || DEFAULT_LIMITS[tier];
+          const tierFlags = config.featureFlags || {};
           return (
             <div key={tier} className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2">
@@ -153,6 +181,28 @@ export const TierLimitsManager: React.FC = () => {
                   />
                 </div>
               </div>
+              {flags.length > 0 && (
+                <div>
+                  <Label className="text-xs mb-2 block">Feature Flags Access</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {flags.map(flag => (
+                      <label
+                        key={flag.flag_name}
+                        className="flex items-center gap-2 p-2 rounded border border-border hover:bg-muted/50 cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={tierFlags[flag.flag_name] ?? false}
+                          onCheckedChange={(checked) => toggleFeatureFlag(tier, flag.flag_name, !!checked)}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">{flag.flag_name}</span>
+                          {flag.description && <span className="text-xs text-muted-foreground">{flag.description}</span>}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <Label className="text-xs">Features (one per line)</Label>
                 <textarea

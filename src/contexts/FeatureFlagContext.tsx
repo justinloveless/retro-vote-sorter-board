@@ -1,10 +1,13 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { useSubscription, SubscriptionTier } from '@/hooks/useSubscription';
 
 type FeatureFlags = {
     [key: string]: boolean;
 };
+
+type TierFeatureFlags = Record<string, Record<string, boolean>>;
 
 interface FeatureFlagContextType {
     flags: FeatureFlags;
@@ -16,7 +19,9 @@ const FeatureFlagContext = createContext<FeatureFlagContextType | undefined>(und
 
 export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [flags, setFlags] = useState<FeatureFlags>({});
+    const [tierFeatureFlags, setTierFeatureFlags] = useState<TierFeatureFlags>({});
     const [loading, setLoading] = useState(true);
+    const { tier } = useSubscription();
 
     useEffect(() => {
         let channel: RealtimeChannel;
@@ -24,14 +29,32 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const setupFlags = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase.from('feature_flags').select('flag_name, is_enabled');
-                if (error) throw error;
+                const [flagsRes, configRes] = await Promise.all([
+                    supabase.from('feature_flags').select('flag_name, is_enabled'),
+                    supabase.from('app_config').select('value').eq('key', 'tier_limits').maybeSingle(),
+                ]);
 
-                const flagsObject = (data || []).reduce((acc, flag) => {
+                if (flagsRes.error) throw flagsRes.error;
+
+                const flagsObject = (flagsRes.data || []).reduce((acc, flag) => {
                     acc[flag.flag_name] = flag.is_enabled;
                     return acc;
                 }, {} as FeatureFlags);
                 setFlags(flagsObject);
+
+                // Extract per-tier featureFlags from tier_limits config
+                if (configRes.data?.value) {
+                    try {
+                        const parsed = JSON.parse(configRes.data.value);
+                        const tierFlags: TierFeatureFlags = {};
+                        for (const t of ['free', 'pro', 'business', 'enterprise']) {
+                            if (parsed[t]?.featureFlags) {
+                                tierFlags[t] = parsed[t].featureFlags;
+                            }
+                        }
+                        setTierFeatureFlags(tierFlags);
+                    } catch { /* ignore parse errors */ }
+                }
             } catch (error) {
                 console.error("Error fetching initial feature flags:", error);
             } finally {
@@ -46,20 +69,15 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     (payload) => {
                         switch (payload.eventType) {
                             case 'INSERT':
-                                const newFlag = payload.new as { flag_name: string; is_enabled: boolean };
+                            case 'UPDATE': {
+                                const flag = payload.new as { flag_name: string; is_enabled: boolean };
                                 setFlags(currentFlags => ({
                                     ...currentFlags,
-                                    [newFlag.flag_name]: newFlag.is_enabled
+                                    [flag.flag_name]: flag.is_enabled
                                 }));
                                 break;
-                            case 'UPDATE':
-                                const updatedFlag = payload.new as { flag_name: string; is_enabled: boolean };
-                                setFlags(currentFlags => ({
-                                    ...currentFlags,
-                                    [updatedFlag.flag_name]: updatedFlag.is_enabled
-                                }));
-                                break;
-                            case 'DELETE':
+                            }
+                            case 'DELETE': {
                                 const deletedFlag = payload.old as { flag_name: string };
                                 setFlags(currentFlags => {
                                     const newFlags = { ...currentFlags };
@@ -67,9 +85,25 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
                                     return newFlags;
                                 });
                                 break;
-                            default:
-                                break;
+                            }
                         }
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'app_config', filter: 'key=eq.tier_limits' },
+                    (payload) => {
+                        const row = payload.new as { value: string };
+                        try {
+                            const parsed = JSON.parse(row.value);
+                            const tierFlags: TierFeatureFlags = {};
+                            for (const t of ['free', 'pro', 'business', 'enterprise']) {
+                                if (parsed[t]?.featureFlags) {
+                                    tierFlags[t] = parsed[t].featureFlags;
+                                }
+                            }
+                            setTierFeatureFlags(tierFlags);
+                        } catch { /* ignore */ }
                     }
                 )
                 .subscribe();
@@ -85,7 +119,19 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, []);
 
     const isFeatureEnabled = (flagName: string) => {
-        return flags[flagName] ?? false;
+        // Global toggle must be on
+        const globalEnabled = flags[flagName] ?? false;
+        if (!globalEnabled) return false;
+
+        // If there are tier-specific settings for this flag, check user's tier
+        const hasTierConfig = Object.values(tierFeatureFlags).some(
+            tf => flagName in tf
+        );
+        if (!hasTierConfig) return true; // No tier restrictions → available to all
+
+        // Check if the user's current tier has access
+        const userTierFlags = tierFeatureFlags[tier];
+        return userTierFlags?.[flagName] ?? false;
     };
 
     return (
@@ -101,4 +147,4 @@ export const useFeatureFlags = () => {
         throw new Error('useFeatureFlags must be used within a FeatureFlagProvider');
     }
     return context;
-}; 
+};
