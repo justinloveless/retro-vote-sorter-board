@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 const Billing = () => {
   const { user } = useAuth();
-  const { tier, subscribed, subscriptionEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
+  const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
