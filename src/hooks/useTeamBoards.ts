@@ -64,11 +64,11 @@ export const useTeamBoards = (teamId: string | null) => {
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check board creation limit
-      const { allowed, current, max } = await checkBoardLimit(teamId);
+      const { allowed, current, max, tier: currentTier } = await checkBoardLimit(teamId);
       if (!allowed) {
         toast({
           title: "Board limit reached",
-          description: `Your ${tier} plan allows up to ${max} active board${max === 1 ? '' : 's'} per team. You currently have ${current}. Archive existing boards or upgrade your plan.`,
+          description: `Your ${currentTier} plan allows up to ${max} active board${max === 1 ? '' : 's'} per team. You currently have ${current}. Archive existing boards or upgrade your plan.`,
           variant: "destructive",
         });
         return null;
