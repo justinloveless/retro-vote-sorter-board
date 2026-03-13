@@ -9,8 +9,6 @@ import { AuthForm } from '@/components/AuthForm';
 import { AppearanceSettings } from '@/components/account/AppearanceSettings';
 import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
 import { MentionsReceived } from '@/components/account/MentionsReceived';
-import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
-import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
