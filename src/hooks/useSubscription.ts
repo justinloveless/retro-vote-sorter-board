@@ -78,6 +78,7 @@ export function useSubscription() {
         tier: data.tier || 'free',
         subscribed: data.subscribed || false,
         subscriptionEnd: data.subscription_end || null,
+        cancelAtPeriodEnd: data.cancel_at_period_end || false,
         loading: false,
       });
     } catch (err) {
