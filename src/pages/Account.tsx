@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, LogOut, Palette, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
+import { User, LogOut, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useTheme } from '@/contexts/ThemeContext';
 import { AuthForm } from '@/components/AuthForm';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { BackgroundSettings } from '@/components/account/BackgroundSettings';
+import { AppearanceSettings } from '@/components/account/AppearanceSettings';
 import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
 import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
@@ -25,7 +22,6 @@ const Account = () => {
   const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating, refreshImpersonatedProfile } = useAuth();
   const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading: subLoading } = useSubscription();
-  const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -307,26 +303,7 @@ const Account = () => {
             </Card>
 
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Theme
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark')} className="flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="light" id="light" />
-                    <Label htmlFor="light">Light</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="dark" id="dark" />
-                    <Label htmlFor="dark">Dark</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
+            <AppearanceSettings />
           </div>
 
           <div className="space-y-6">
@@ -432,9 +409,8 @@ const Account = () => {
           <MentionsReceived userId={profile?.id || user.id} />
         </div>
 
-        <div className="mt-6">
-          <BackgroundSettings />
-        </div>
+
+
       </div>
     </div>
   );
