@@ -13,6 +13,7 @@ const DEFAULT_LIMITS: Record<SubscriptionTier, TierLimits> = {
   free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3 },
   pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: Infinity },
   business: { maxTeams: Infinity, maxMembersPerTeam: Infinity, maxActiveBoards: Infinity },
+  enterprise: { maxTeams: Infinity, maxMembersPerTeam: Infinity, maxActiveBoards: Infinity },
 };
 
 /** Fetch the current subscription tier directly from the edge function */
@@ -56,6 +57,11 @@ async function loadDynamicLimits(): Promise<Record<SubscriptionTier, TierLimits>
         maxTeams: parsed.business?.maxTeams ?? Infinity,
         maxMembersPerTeam: parsed.business?.maxMembersPerTeam ?? Infinity,
         maxActiveBoards: parsed.business?.maxActiveBoards ?? Infinity,
+      },
+      enterprise: {
+        maxTeams: parsed.enterprise?.maxTeams ?? Infinity,
+        maxMembersPerTeam: parsed.enterprise?.maxMembersPerTeam ?? Infinity,
+        maxActiveBoards: parsed.enterprise?.maxActiveBoards ?? Infinity,
       },
     };
   } catch {

@@ -386,6 +386,115 @@ export type Database = {
           },
         ]
       }
+      organization_invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          is_active: boolean | null
+          organization_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          is_active?: boolean | null
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          is_active?: boolean | null
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          id: string
+          joined_at: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       poker_session_chat: {
         Row: {
           created_at: string
@@ -1271,6 +1380,7 @@ export type Database = {
           jira_email: string | null
           jira_ticket_prefix: string | null
           name: string
+          organization_id: string | null
           slack_bot_token: string | null
           slack_channel_id: string | null
           slack_webhook_url: string | null
@@ -1287,6 +1397,7 @@ export type Database = {
           jira_email?: string | null
           jira_ticket_prefix?: string | null
           name: string
+          organization_id?: string | null
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
@@ -1303,6 +1414,7 @@ export type Database = {
           jira_email?: string | null
           jira_ticket_prefix?: string | null
           name?: string
+          organization_id?: string | null
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
@@ -1310,6 +1422,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "teams_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1446,6 +1565,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_org_invitation: {
+        Args: { invitation_token: string }
+        Returns: Json
+      }
       accept_team_invitation: {
         Args: { invitation_token: string }
         Returns: Json
@@ -1465,6 +1588,8 @@ export type Database = {
         Args: { target_user: string }
         Returns: string
       }
+      is_org_admin: { Args: { org_id: string; uid: string }; Returns: boolean }
+      is_org_member: { Args: { org_id: string; uid: string }; Returns: boolean }
       is_team_admin: {
         Args: { team_id: string; user_id: string }
         Returns: boolean
@@ -1483,7 +1608,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      org_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1610,6 +1735,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      org_role: ["owner", "admin", "member"],
+    },
   },
 } as const
