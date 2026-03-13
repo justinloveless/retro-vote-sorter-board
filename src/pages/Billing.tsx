@@ -66,7 +66,29 @@ const Billing = () => {
     } else if (searchParams.get('canceled') === 'true') {
       toast.info('Checkout canceled.');
     }
-  }, [searchParams, checkSubscription]);
+  }, [searchParams, checkSubscription, refetchOrgs]);
+
+  // Show org setup prompt when enterprise is active and user hasn't created an org
+  useEffect(() => {
+    if (tier === 'enterprise' && !ownsOrg && searchParams.get('success') === 'true') {
+      setShowOrgSetup(true);
+    }
+  }, [tier, ownsOrg, searchParams]);
+
+  const handleCreateOrg = async () => {
+    if (!orgName.trim() || !orgSlug.trim()) return;
+    setCreatingOrg(true);
+    try {
+      const org = await createOrganization(orgName.trim(), orgSlug.trim(), orgDescription.trim() || undefined);
+      toast.success('Organization created!');
+      setShowOrgSetup(false);
+      navigate(`/org/${org.slug}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create organization');
+    } finally {
+      setCreatingOrg(false);
+    }
+  };
 
   const handleCheckout = async (planTier: 'pro' | 'business') => {
     if (!user) {
