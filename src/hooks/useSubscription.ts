@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-export type SubscriptionTier = 'free' | 'pro' | 'business';
+export type SubscriptionTier = 'free' | 'pro' | 'business' | 'enterprise';
 
 interface SubscriptionState {
   tier: SubscriptionTier;
@@ -42,6 +42,19 @@ export const SUBSCRIPTION_TIERS = {
       'Advanced admin features',
       'Priority support',
       'Custom branding (coming soon)',
+    ],
+  },
+  enterprise: {
+    name: 'Enterprise',
+    monthlyPricePerSeat: 5,
+    monthlyPriceId: 'price_1TAMVaCvGWploxZNB9FrdcHO',
+    features: [
+      'All Business features',
+      'Organizations',
+      'Per-seat billing ($5/seat/month)',
+      'VIP support',
+      'Org-wide team management',
+      'Shared resources across org',
     ],
   },
 } as const;
@@ -100,10 +113,10 @@ export function useSubscription() {
     return () => clearInterval(interval);
   }, [checkSubscription]);
 
-  const startCheckout = useCallback(async (priceId: string) => {
+  const startCheckout = useCallback(async (priceId: string, quantity?: number) => {
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId },
+        body: { priceId, quantity },
       });
       if (error) throw error;
       // If the subscription was updated inline (plan change with proration), refresh status
