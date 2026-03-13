@@ -206,19 +206,20 @@ serve(async (req) => {
       const { customer_id, coupon_id } = body;
       if (!customer_id || !coupon_id) throw new Error("customer_id and coupon_id required");
 
-      // Find active subscriptions for this customer to apply the discount
-      const subs = await stripe.subscriptions.list({ customer: customer_id, status: "active", limit: 1 });
-      
-      if (subs.data.length > 0) {
-        // Apply coupon to the active subscription
-        await stripe.subscriptions.update(subs.data[0].id, { coupon: coupon_id });
-        logStep("Coupon applied to subscription", { customer_id, coupon_id, subscription_id: subs.data[0].id });
-      } else {
-        // No active subscription — create a customer-level discount for future use
-        await stripe.customers.createBalanceTransaction(customer_id, { amount: 0, currency: "usd", description: `Coupon ${coupon_id} queued` });
-        // Apply via promotion code on next checkout by storing it
-        logStep("No active subscription; coupon noted for customer", { customer_id, coupon_id });
+      // Find an active/trialing subscription for this customer to apply the discount
+      const subs = await stripe.subscriptions.list({ customer: customer_id, status: "all", limit: 10 });
+      const targetSub = subs.data.find((sub) => sub.status === "active" || sub.status === "trialing");
+
+      if (!targetSub) {
+        throw new Error("No active subscription found for this customer");
       }
+
+      // Stripe API (2025) uses `discounts`, not `coupon`
+      await stripe.subscriptions.update(targetSub.id, {
+        discounts: [{ coupon: coupon_id }],
+      });
+
+      logStep("Coupon applied to subscription", { customer_id, coupon_id, subscription_id: targetSub.id });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
