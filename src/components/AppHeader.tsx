@@ -67,6 +67,31 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
 
+    const { organizations, selectedOrgId, setSelectedOrgId, hasOrgs } = useOrgSelector();
+
+    const renderOrgSelector = () => {
+        if (!user || !hasOrgs) return null;
+        return (
+            <Select
+                value={selectedOrgId || '_personal'}
+                onValueChange={(val) => setSelectedOrgId(val === '_personal' ? null : val)}
+            >
+                <SelectTrigger className="w-[180px] h-9 text-sm">
+                    <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 shrink-0" />
+                        <SelectValue />
+                    </div>
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="_personal">Personal</SelectItem>
+                    {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        );
+    };
+
     const renderLeftContent = () => {
         switch (variant) {
             case 'home':
