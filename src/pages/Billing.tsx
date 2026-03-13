@@ -18,6 +18,27 @@ const Billing = () => {
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [dynamicFeatures, setDynamicFeatures] = useState<Record<string, string[]> | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'tier_limits')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            setDynamicFeatures({
+              free: parsed.free?.features,
+              pro: parsed.pro?.features,
+              business: parsed.business?.features,
+            });
+          } catch { /* ignore */ }
+        }
+      });
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
