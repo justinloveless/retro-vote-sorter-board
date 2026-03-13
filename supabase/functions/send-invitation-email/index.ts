@@ -16,6 +16,7 @@ interface InvitationEmailRequest {
   teamName: string;
   inviterName: string;
   token: string;
+  invitePath?: string; // e.g. '/invite' or '/org-invite'
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -25,11 +26,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { invitationId, email, teamName, inviterName, token }: InvitationEmailRequest = await req.json();
+    const { invitationId, email, teamName, inviterName, token, invitePath }: InvitationEmailRequest = await req.json();
 
     console.log("Sending invitation email to:", email, "for team:", teamName);
 
-    const inviteLink = `${req.headers.get('origin') || 'https://your-domain.com'}/invite/${token}`;
+    const basePath = invitePath || '/invite';
+    const inviteLink = `${req.headers.get('origin') || 'https://your-domain.com'}${basePath}/${token}`;
 
     const emailResponse = await resend.emails.send({
       from: "Team Invitations <onboarding@resend.dev>",
