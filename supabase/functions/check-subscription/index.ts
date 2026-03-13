@@ -63,15 +63,12 @@ serve(async (req) => {
     let tier = "free";
     let subscriptionEnd = null;
     let productId = null;
+    let cancelAtPeriodEnd = false;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      logStep("Subscription raw data", { 
-        current_period_end: subscription.current_period_end,
-        type: typeof subscription.current_period_end 
-      });
+      cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
       
-      // Handle current_period_end safely - it's a Unix timestamp in seconds
       if (subscription.current_period_end) {
         try {
           const endMs = typeof subscription.current_period_end === 'number' 
@@ -87,7 +84,6 @@ serve(async (req) => {
       
       productId = subscription.items.data[0]?.price?.product;
       
-      // Map product IDs to tiers
       const proProducts = ["prod_U8bHBCeWeliSGZ", "prod_U8bHzSN1wed3Ss"];
       const businessProducts = ["prod_U8bHNNAcQOswB3", "prod_U8bIEG4qNUUCUG"];
       
@@ -97,7 +93,7 @@ serve(async (req) => {
         tier = "business";
       }
       
-      logStep("Active subscription found", { tier, subscriptionEnd, productId });
+      logStep("Active subscription found", { tier, subscriptionEnd, productId, cancelAtPeriodEnd });
     }
 
     return new Response(JSON.stringify({
