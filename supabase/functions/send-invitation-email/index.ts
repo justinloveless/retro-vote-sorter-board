@@ -16,6 +16,7 @@ interface InvitationEmailRequest {
   teamName: string;
   inviterName: string;
   token: string;
+  invitePath?: string; // e.g. '/invite' or '/org-invite'
 }
 
 const handler = async (req: Request): Promise<Response> => {
