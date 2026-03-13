@@ -68,10 +68,22 @@ const Teams = () => {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Teams</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your teams and create retro boards</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Create Team
-          </Button>
+          <div className="flex items-center gap-3">
+            {limits.maxTeams !== Infinity && (
+              <Badge variant="outline" className="text-xs">
+                {ownedTeams}/{limits.maxTeams} teams
+              </Badge>
+            )}
+            <Button 
+              onClick={() => setShowCreateDialog(true)} 
+              className="flex items-center gap-2"
+              disabled={atTeamLimit}
+              title={atTeamLimit ? `Your ${tier} plan allows up to ${limits.maxTeams} team${limits.maxTeams === 1 ? '' : 's'}. Upgrade to create more.` : undefined}
+            >
+              <Plus className="h-4 w-4" />
+              Create Team
+            </Button>
+          </div>
         </div>
 
         {teams.length === 0 ? (
