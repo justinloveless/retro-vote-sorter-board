@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
+import Billing from "./pages/Billing";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
