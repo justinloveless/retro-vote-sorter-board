@@ -172,7 +172,7 @@ const Teams = () => {
           </div>
         </div>
 
-        {teams.length === 0 ? (
+        {filteredTeams.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
