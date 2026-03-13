@@ -118,15 +118,39 @@ export function useOrganization(orgSlug: string | undefined) {
       if (orgError) throw orgError;
       setOrganization(org as Organization);
 
-      // Fetch members with profiles
-      const { data: memberData } = await supabase
+      // Fetch members first (without relying on a FK-based join)
+      const { data: memberData, error: memberError } = await supabase
         .from('organization_members')
-        .select('*, profile:profiles(full_name, avatar_url)')
+        .select('id, organization_id, user_id, role, joined_at')
         .eq('organization_id', (org as any).id);
+
+      if (memberError) throw memberError;
+
+      const userIds = Array.from(
+        new Set((memberData || []).map((m: any) => m.user_id).filter(Boolean))
+      ) as string[];
+
+      let profilesById = new Map<string, { full_name: string | null; avatar_url: string | null }>();
+
+      if (userIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', userIds);
+
+        if (profileError) throw profileError;
+
+        profilesById = new Map(
+          (profileData || []).map((p: any) => [
+            p.id,
+            { full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null },
+          ])
+        );
+      }
 
       const mappedMembers = (memberData || []).map((m: any) => ({
         ...m,
-        profile: m.profile || { full_name: null, avatar_url: null },
+        profile: profilesById.get(m.user_id) || { full_name: null, avatar_url: null },
       }));
       setMembers(mappedMembers);
 
