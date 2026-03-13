@@ -67,7 +67,8 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
 
-    const { organizations, selectedOrgId, setSelectedOrgId, hasOrgs } = useOrgSelector();
+    const { organizations, selectedOrgId, selectedOrg, selectedOrgRole, setSelectedOrgId, hasOrgs } = useOrgSelector();
+    const isOrgAdminOrOwner = selectedOrgRole === 'owner' || selectedOrgRole === 'admin';
 
     const renderOrgSelector = () => {
         if (!user || !hasOrgs) return null;
@@ -147,6 +148,12 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                             Admin
                         </Button>
                     )}
+                    {isOrgAdminOrOwner && selectedOrg && (
+                        <Button variant="outline" onClick={() => navigate(`/org/${selectedOrg.slug}/admin`)} className="justify-start">
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Org Settings
+                        </Button>
+                    )}
                     {location.pathname !== '/teams' && (
                         <Button variant="outline" onClick={() => navigate('/teams')} className="justify-start">
                             <Users className="h-4 w-4 mr-2" />
@@ -210,6 +217,12 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                         <Button variant="outline" onClick={() => navigate('/admin')}>
                             <Shield className="h-4 w-4 mr-2" />
                             Admin
+                        </Button>
+                    )}
+                    {isOrgAdminOrOwner && selectedOrg && (
+                        <Button variant="outline" onClick={() => navigate(`/org/${selectedOrg.slug}/admin`)}>
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Org Settings
                         </Button>
                     )}
                     {location.pathname !== '/teams' && (
