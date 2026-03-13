@@ -97,7 +97,7 @@ export function useSubscriptionLimits() {
   }, []);
 
   const checkBoardLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
     const max = normalizeLimit(dynamicLimits[currentTier]?.maxActiveBoards, DEFAULT_LIMITS[currentTier].maxActiveBoards);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
