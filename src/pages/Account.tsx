@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, LogOut, Palette, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
+import { User, LogOut, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useTheme } from '@/contexts/ThemeContext';
 import { AuthForm } from '@/components/AuthForm';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { BackgroundSettings } from '@/components/account/BackgroundSettings';
+import { AppearanceSettings } from '@/components/account/AppearanceSettings';
+import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
+import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
 import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
