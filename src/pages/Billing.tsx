@@ -20,11 +20,20 @@ const Billing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
+  const { organizations, createOrganization, refetch: refetchOrgs } = useOrganizations();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const [dynamicFeatures, setDynamicFeatures] = useState<Record<string, string[]> | null>(null);
   const [seatCount, setSeatCount] = useState(5);
+  const [showOrgSetup, setShowOrgSetup] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [orgSlug, setOrgSlug] = useState('');
+  const [orgDescription, setOrgDescription] = useState('');
+  const [creatingOrg, setCreatingOrg] = useState(false);
+
+  // Check if user already owns an org
+  const ownsOrg = organizations.some(o => o.owner_id === user?.id);
 
   useEffect(() => {
     supabase
@@ -50,7 +59,10 @@ const Billing = () => {
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
       toast.success('Subscription activated! Refreshing your plan...');
-      checkSubscription();
+      checkSubscription().then(async () => {
+        // After refresh, check if this is an enterprise subscription and user has no org yet
+        await refetchOrgs();
+      });
     } else if (searchParams.get('canceled') === 'true') {
       toast.info('Checkout canceled.');
     }
