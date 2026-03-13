@@ -35,8 +35,9 @@ const OrgAdmin = () => {
   const [orgName, setOrgName] = useState('');
   const [orgDesc, setOrgDesc] = useState('');
   const [saving, setSaving] = useState(false);
-  const [userTeams, setUserTeams] = useState<any[]>([]);
   const [orgTeams, setOrgTeams] = useState<any[]>([]);
+  const [inviteCodes, setInviteCodes] = useState<any[]>([]);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   useEffect(() => {
     if (organization) {
