@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { GlobalBackground } from "@/components/ui/GlobalBackground";
 import { BackgroundProvider } from "@/contexts/BackgroundContext";
 import { FeatureFlagProvider } from "@/contexts/FeatureFlagContext";
+import { OrgSelectorProvider } from "@/contexts/OrgSelectorContext";
 import Index from "./pages/Index";
 import Retro from "./pages/Retro";
 import Teams from "./pages/Teams";
