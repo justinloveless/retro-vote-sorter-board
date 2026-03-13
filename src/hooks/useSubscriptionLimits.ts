@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 import { useSubscription, SubscriptionTier } from './useSubscription';
 
 export interface TierLimits {
@@ -15,9 +16,11 @@ const DEFAULT_LIMITS: Record<SubscriptionTier, TierLimits> = {
 };
 
 /** Fetch the current subscription tier directly from the edge function */
-async function fetchCurrentTier(): Promise<SubscriptionTier> {
+async function fetchCurrentTier(targetUserId?: string): Promise<SubscriptionTier> {
   try {
-    const { data, error } = await supabase.functions.invoke('check-subscription');
+    const { data, error } = await supabase.functions.invoke('check-subscription', {
+      body: targetUserId ? { target_user_id: targetUserId } : {},
+    });
     if (error) {
       console.error('Error fetching subscription tier for limit check:', error);
       return 'free';
@@ -68,6 +71,8 @@ function normalizeLimit(val: number | null | undefined, fallback: number): numbe
 
 export function useSubscriptionLimits() {
   const { tier, loading } = useSubscription();
+  const { profile, isImpersonating } = useAuth();
+  const targetUserId = isImpersonating && profile?.id ? profile.id : undefined;
   const [allLimits, setAllLimits] = useState<Record<SubscriptionTier, TierLimits>>(DEFAULT_LIMITS);
 
   useEffect(() => {
@@ -77,7 +82,7 @@ export function useSubscriptionLimits() {
   const limits = allLimits[tier];
 
   const checkTeamLimit = useCallback(async (userId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
     const max = normalizeLimit(dynamicLimits[currentTier]?.maxTeams, DEFAULT_LIMITS[currentTier].maxTeams);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
@@ -89,10 +94,10 @@ export function useSubscriptionLimits() {
 
     const current = error ? 0 : (count ?? 0);
     return { allowed: current < max, current, max, tier: currentTier };
-  }, []);
+  }, [targetUserId]);
 
   const checkBoardLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
     const max = normalizeLimit(dynamicLimits[currentTier]?.maxActiveBoards, DEFAULT_LIMITS[currentTier].maxActiveBoards);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
@@ -106,10 +111,10 @@ export function useSubscriptionLimits() {
       : (data ?? []).filter((board) => board.deleted !== true && board.archived !== true).length;
 
     return { allowed: current < max, current, max, tier: currentTier };
-  }, []);
+  }, [targetUserId]);
 
   const checkMemberLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
     const max = normalizeLimit(dynamicLimits[currentTier]?.maxMembersPerTeam, DEFAULT_LIMITS[currentTier].maxMembersPerTeam);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
@@ -132,7 +137,7 @@ export function useSubscriptionLimits() {
     const current = memberCount + pendingInviteCount;
 
     return { allowed: current < max, current, max, tier: currentTier };
-  }, []);
+  }, [targetUserId]);
 
   return {
     tier,
