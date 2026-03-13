@@ -413,9 +413,8 @@ const Account = () => {
           <MentionsReceived userId={profile?.id || user.id} />
         </div>
 
-        <div className="mt-6">
-          <BackgroundSettings />
-        </div>
+
+
       </div>
     </div>
   );
