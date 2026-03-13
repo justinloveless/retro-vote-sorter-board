@@ -14,10 +14,18 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
