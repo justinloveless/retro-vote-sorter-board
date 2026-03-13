@@ -5,48 +5,36 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, Calendar, Settings, Building2 } from 'lucide-react';
+import { Plus, Users, Calendar, Settings } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
-import { useSubscription } from '@/hooks/useSubscription';
-import { useOrganizations } from '@/hooks/useOrganizations';
 import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { AuthForm } from '@/components/AuthForm';
 import { AppHeader } from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 
 const Teams = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { teams, loading, createTeam } = useTeams();
   const { limits, tier } = useSubscriptionLimits();
-  const { tier: subTier } = useSubscription();
-  const { organizations, loading: orgsLoading, createOrganization } = useOrganizations();
-  const { selectedOrgId, selectedOrg, hasOrgs } = useOrgSelector();
+  const { selectedOrgId, hasOrgs } = useOrgSelector();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
-  const [orgName, setOrgName] = useState('');
-  const [orgSlug, setOrgSlug] = useState('');
-  const [orgDescription, setOrgDescription] = useState('');
 
   // Filter teams based on selected org
   const filteredTeams = useMemo(() => {
-    if (!hasOrgs) return teams; // No orgs = show all teams
+    if (!hasOrgs) return teams;
     if (selectedOrgId) {
       return teams.filter(t => t.organization_id === selectedOrgId);
     }
-    // Personal: show teams not linked to any org
     return teams.filter(t => !t.organization_id);
   }, [teams, selectedOrgId, hasOrgs]);
 
   const ownedTeams = filteredTeams.filter(t => t.role === 'owner').length;
   const atTeamLimit = limits.maxTeams !== Infinity && ownedTeams >= limits.maxTeams;
-
-  const canCreateOrg = subTier === 'enterprise' || profile?.role === 'admin';
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) return;
@@ -54,21 +42,6 @@ const Teams = () => {
     setShowCreateDialog(false);
     setTeamName('');
     setTeamDescription('');
-  };
-
-  const handleCreateOrg = async () => {
-    if (!orgName.trim() || !orgSlug.trim()) return;
-    try {
-      const org = await createOrganization(orgName.trim(), orgSlug.trim(), orgDescription.trim() || undefined);
-      toast.success('Organization created!');
-      setShowCreateOrgDialog(false);
-      setOrgName('');
-      setOrgSlug('');
-      setOrgDescription('');
-      navigate(`/org/${org.slug}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create organization');
-    }
   };
 
   if (authLoading) {
@@ -95,60 +68,6 @@ const Teams = () => {
     <div className="min-h-screen pt-16 md:pt-0">
       <AppHeader variant='home' />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Organizations Section */}
-        {(organizations.length > 0 || canCreateOrg) && (
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-bold text-foreground">Organizations</h2>
-              </div>
-              {canCreateOrg && (
-                <Button variant="outline" size="sm" onClick={() => setShowCreateOrgDialog(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  New Org
-                </Button>
-              )}
-            </div>
-            {organizations.length === 0 ? (
-              <Card>
-                <CardContent className="py-6 text-center">
-                  <Building2 className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    {canCreateOrg
-                      ? 'Create your first organization to manage multiple teams under one umbrella.'
-                      : 'Organizations are available on the Enterprise plan.'}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {organizations.map((org) => (
-                  <Card
-                    key={org.id}
-                    className="hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/org/${org.slug}`)}
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Building2 className="h-5 w-5 text-primary" />
-                        {org.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {org.description && (
-                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{org.description}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground">/org/{org.slug}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Teams Section */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">My Teams</h1>
@@ -257,59 +176,6 @@ const Teams = () => {
                   Create Team
                 </Button>
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Create Organization Dialog */}
-        <Dialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Organization</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Organization Name</label>
-                <Input
-                  value={orgName}
-                  onChange={(e) => {
-                    setOrgName(e.target.value);
-                    if (!orgSlug || orgSlug === orgName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')) {
-                      setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'));
-                    }
-                  }}
-                  placeholder="Acme Corp"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">URL Slug</label>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-muted-foreground">/org/</span>
-                  <Input
-                    value={orgSlug}
-                    onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                    placeholder="acme-corp"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Description (optional)</label>
-                <Textarea
-                  value={orgDescription}
-                  onChange={(e) => setOrgDescription(e.target.value)}
-                  placeholder="Brief description of your organization"
-                  rows={2}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleCreateOrg} className="flex-1" disabled={!orgName.trim() || !orgSlug.trim()}>
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Create Organization
-                </Button>
-                <Button variant="outline" onClick={() => setShowCreateOrgDialog(false)}>
                   Cancel
                 </Button>
               </div>
