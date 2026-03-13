@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Zap, Crown, Building2 } from 'lucide-react';
+import { Loader2, Save, Zap, Crown, Building2, Sparkles } from 'lucide-react';
 
 interface TierConfig {
   maxTeams: number | null;
@@ -18,16 +18,18 @@ interface AllTierLimits {
   free: TierConfig;
   pro: TierConfig;
   business: TierConfig;
+  enterprise: TierConfig;
 }
 
 const DEFAULT_LIMITS: AllTierLimits = {
   free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3, features: ['Up to 5 team members', '1 team', '3 active boards', 'Basic retro & poker', 'Community support'] },
   pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: null, features: ['Up to 25 team members', 'Up to 5 teams', 'AI sentiment analysis', 'Audio summaries', 'Admin features', 'Unlimited boards'] },
   business: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['Unlimited team members', 'Unlimited teams', 'All AI features', 'Advanced admin features', 'Priority support', 'Custom branding (coming soon)'] },
+  enterprise: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['All Business features', 'Organizations', 'Per-seat billing ($5/seat/month)', 'VIP support', 'Org-wide team management', 'Shared resources across org'] },
 };
 
-const TIER_ICONS = { free: Zap, pro: Crown, business: Building2 };
-const TIER_LABELS = { free: 'Free', pro: 'Pro', business: 'Business' };
+const TIER_ICONS = { free: Zap, pro: Crown, business: Building2, enterprise: Sparkles };
+const TIER_LABELS = { free: 'Free', pro: 'Pro', business: 'Business', enterprise: 'Enterprise' };
 
 export const TierLimitsManager: React.FC = () => {
   const [limits, setLimits] = useState<AllTierLimits>(DEFAULT_LIMITS);
@@ -47,7 +49,9 @@ export const TierLimitsManager: React.FC = () => {
         .maybeSingle();
       if (error) throw error;
       if (data?.value) {
-        setLimits(JSON.parse(data.value));
+        const parsed = JSON.parse(data.value);
+        // Merge with defaults to ensure enterprise exists
+        setLimits({ ...DEFAULT_LIMITS, ...parsed });
       }
     } catch (err) {
       console.error('Failed to load tier limits:', err);
@@ -108,9 +112,9 @@ export const TierLimitsManager: React.FC = () => {
         <CardDescription>Configure features and limits for each subscription tier. Use blank or 0 for unlimited.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {(['free', 'pro', 'business'] as const).map((tier) => {
+        {(['free', 'pro', 'business', 'enterprise'] as const).map((tier) => {
           const Icon = TIER_ICONS[tier];
-          const config = limits[tier];
+          const config = limits[tier] || DEFAULT_LIMITS[tier];
           return (
             <div key={tier} className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2">
