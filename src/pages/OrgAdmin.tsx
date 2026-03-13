@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Building2, Users, Settings, Loader2, Crown, Shield, User,
-  Mail, Trash2, UserPlus, Link2, Unlink, Save
+  Mail, Trash2, UserPlus, Unlink, Save, Copy, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,22 +35,25 @@ const OrgAdmin = () => {
   const [orgName, setOrgName] = useState('');
   const [orgDesc, setOrgDesc] = useState('');
   const [saving, setSaving] = useState(false);
-  const [userTeams, setUserTeams] = useState<any[]>([]);
   const [orgTeams, setOrgTeams] = useState<any[]>([]);
+  const [inviteCodes, setInviteCodes] = useState<any[]>([]);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   useEffect(() => {
     if (organization) {
       setOrgName(organization.name);
       setOrgDesc(organization.description || '');
-      // Fetch user's teams and org teams
+      // Fetch org teams and invite codes
       Promise.all([
         supabase.from('teams').select('id, name, organization_id')
-          .is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id')
           .eq('organization_id', organization.id),
-      ]).then(([unlinked, linked]) => {
-        setUserTeams(unlinked.data || []);
+        supabase.from('org_team_invite_codes').select('*')
+          .eq('organization_id', organization.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+      ]).then(([linked, codes]) => {
         setOrgTeams(linked.data || []);
+        setInviteCodes((codes.data || []) as any[]);
       });
     }
   }, [organization]);
@@ -102,36 +105,48 @@ const OrgAdmin = () => {
     }
   };
 
-  const handleLinkTeam = async (teamId: string) => {
+  const handleGenerateCode = async () => {
+    if (!organization || !user) return;
+    setGeneratingCode(true);
     try {
-      await linkTeam(teamId);
-      toast.success('Team linked to organization');
-      refetch();
-      // Refresh team lists
-      const [unlinked, linked] = await Promise.all([
-        supabase.from('teams').select('id, name, organization_id').is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id').eq('organization_id', organization!.id),
-      ]);
-      setUserTeams(unlinked.data || []);
-      setOrgTeams(linked.data || []);
+      const { data, error } = await supabase
+        .from('org_team_invite_codes')
+        .insert({
+          organization_id: organization.id,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setInviteCodes((prev) => [data as any, ...prev]);
+      toast.success('Invite code generated');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to link team');
+      toast.error(err.message || 'Failed to generate code');
+    } finally {
+      setGeneratingCode(false);
     }
   };
 
-  const handleUnlinkTeam = async (teamId: string) => {
+  const handleDeactivateCode = async (codeId: string) => {
     try {
-      await unlinkTeam(teamId);
-      toast.success('Team unlinked from organization');
-      const [unlinked, linked] = await Promise.all([
-        supabase.from('teams').select('id, name, organization_id').is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id').eq('organization_id', organization!.id),
-      ]);
-      setUserTeams(unlinked.data || []);
-      setOrgTeams(linked.data || []);
+      const { error } = await supabase
+        .from('org_team_invite_codes')
+        .update({ is_active: false })
+        .eq('id', codeId);
+
+      if (error) throw error;
+      setInviteCodes((prev) => prev.filter((c) => c.id !== codeId));
+      toast.success('Invite code deactivated');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to unlink team');
+      toast.error(err.message || 'Failed to deactivate');
     }
+  };
+
+  const handleCopyInviteLink = (inviteCode: string) => {
+    const link = `${window.location.origin}/join-org/${inviteCode}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Invite link copied to clipboard');
   };
 
   const roleIcons: Record<string, any> = { owner: Crown, admin: Shield, member: User };
@@ -285,13 +300,18 @@ const OrgAdmin = () => {
               </CardHeader>
               <CardContent>
                 {orgTeams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No teams linked yet.</p>
+                  <p className="text-sm text-muted-foreground">No teams linked yet. Generate an invite code below and share it with team owners.</p>
                 ) : (
                   <div className="space-y-2">
                     {orgTeams.map((team) => (
                       <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <p className="font-medium text-foreground">{team.name}</p>
-                        <Button variant="ghost" size="sm" onClick={() => handleUnlinkTeam(team.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          unlinkTeam(team.id).then(() => {
+                            toast.success('Team unlinked');
+                            setOrgTeams((prev) => prev.filter((t) => t.id !== team.id));
+                          }).catch(() => toast.error('Failed to unlink team'));
+                        }}>
                           <Unlink className="h-4 w-4 mr-1" /> Unlink
                         </Button>
                       </div>
@@ -303,20 +323,40 @@ const OrgAdmin = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Available Teams</CardTitle>
-                <CardDescription>Teams not yet linked to any organization</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Team Invite Codes
+                  <Button size="sm" onClick={handleGenerateCode} disabled={generatingCode}>
+                    {generatingCode ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                    Generate Code
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  Share these links with team owners so they can link their teams to your organization.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {userTeams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No unlinked teams available.</p>
+                {inviteCodes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active invite codes. Generate one to get started.</p>
                 ) : (
                   <div className="space-y-2">
-                    {userTeams.map((team) => (
-                      <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <p className="font-medium text-foreground">{team.name}</p>
-                        <Button variant="outline" size="sm" onClick={() => handleLinkTeam(team.id)}>
-                          <Link2 className="h-4 w-4 mr-1" /> Link
-                        </Button>
+                    {inviteCodes.map((ic) => (
+                      <div key={ic.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <code className="text-xs bg-muted px-2 py-1 rounded break-all">
+                            {window.location.origin}/join-org/{ic.code}
+                          </code>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Expires {new Date(ic.expires_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleCopyInviteLink(ic.code)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeactivateCode(ic.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
