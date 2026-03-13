@@ -306,6 +306,60 @@ const Account = () => {
               </CardContent>
             </Card>
 
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Theme
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark')} className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="light" id="light" />
+                    <Label htmlFor="light">Light</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="dark" id="dark" />
+                    <Label htmlFor="dark">Dark</Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Subscription
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
+                    <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
+                  </div>
+                  {subscribed && subscriptionEnd && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
+                      </span>
+                      <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
+                        {new Date(subscriptionEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
+                    Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -368,59 +422,6 @@ const Account = () => {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Theme
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark')} className="flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="light" id="light" />
-                    <Label htmlFor="light">Light</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="dark" id="dark" />
-                    <Label htmlFor="dark">Dark</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Subscription
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
-                    <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
-                  </div>
-                  {subscribed && subscriptionEnd && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
-                      </span>
-                      <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
-                        {new Date(subscriptionEnd).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-                  <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
-                    Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </div>
