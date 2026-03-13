@@ -307,26 +307,7 @@ const Account = () => {
             </Card>
 
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Theme
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark')} className="flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="light" id="light" />
-                    <Label htmlFor="light">Light</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="dark" id="dark" />
-                    <Label htmlFor="dark">Dark</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
+            <AppearanceSettings />
           </div>
 
           <div className="space-y-6">
