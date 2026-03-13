@@ -8,8 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Users, Calendar, Settings, Home, User, LogOut, Shield } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { AuthForm } from '@/components/AuthForm';
 import { AppHeader } from '@/components/AppHeader';
+import { Badge } from '@/components/ui/badge';
 
 const Teams = () => {
   const navigate = useNavigate();
