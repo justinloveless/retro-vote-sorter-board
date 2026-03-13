@@ -37,6 +37,7 @@ const App = () => (
       <ThemeProvider>
       <BackgroundProvider>
         <FeatureFlagProvider>
+          <OrgSelectorProvider>
           <TeamDataProvider>
             <TooltipProvider>
               <AudioPlayerProvider>
