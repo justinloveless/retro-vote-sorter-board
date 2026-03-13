@@ -27,7 +27,7 @@ const Team = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { checkBoardLimit } = useSubscriptionLimits();
 
   const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
   const tabParam = searchParams.get('tab');
