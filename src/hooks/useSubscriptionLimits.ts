@@ -16,9 +16,11 @@ const DEFAULT_LIMITS: Record<SubscriptionTier, TierLimits> = {
 };
 
 /** Fetch the current subscription tier directly from the edge function */
-async function fetchCurrentTier(): Promise<SubscriptionTier> {
+async function fetchCurrentTier(targetUserId?: string): Promise<SubscriptionTier> {
   try {
-    const { data, error } = await supabase.functions.invoke('check-subscription');
+    const { data, error } = await supabase.functions.invoke('check-subscription', {
+      body: targetUserId ? { target_user_id: targetUserId } : {},
+    });
     if (error) {
       console.error('Error fetching subscription tier for limit check:', error);
       return 'free';
