@@ -12,6 +12,7 @@ import { InviteLinkDialog } from './InviteLinkDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 
 interface TeamMembersListProps {
   teamId: string;
@@ -27,11 +28,22 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { checkMemberLimit } = useSubscriptionLimits();
 
   const inviteMember = async (email: string) => {
     try {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
+
+      const { allowed, current, max, tier: currentTier } = await checkMemberLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Member limit reached",
+          description: `Your ${currentTier} plan allows up to ${max} team seats (members + pending invites). You currently use ${current}. Upgrade your plan to invite more people.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Get current user's profile for the inviter name
       const { data: profile } = await supabase

@@ -52,14 +52,15 @@ export function useSubscriptionLimits() {
     const max = LIMITS[currentTier].maxActiveBoards;
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('retro_boards')
-      .select('*', { count: 'exact', head: true })
-      .eq('team_id', teamId)
-      .is('deleted', false)
-      .is('archived', false);
+      .select('id, archived, deleted')
+      .eq('team_id', teamId);
 
-    const current = error ? 0 : (count ?? 0);
+    const current = error
+      ? 0
+      : (data ?? []).filter((board) => board.deleted !== true && board.archived !== true).length;
+
     return { allowed: current < max, current, max, tier: currentTier };
   }, []);
 
@@ -68,12 +69,24 @@ export function useSubscriptionLimits() {
     const max = LIMITS[currentTier].maxMembersPerTeam;
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
-    const { count, error } = await supabase
-      .from('team_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('team_id', teamId);
+    const [membersResult, pendingInvitesResult] = await Promise.all([
+      supabase
+        .from('team_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId),
+      supabase
+        .from('team_invitations')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('invite_type', 'email')
+        .eq('status', 'pending')
+        .eq('is_active', true),
+    ]);
 
-    const current = error ? 0 : (count ?? 0);
+    const memberCount = membersResult.error ? 0 : (membersResult.count ?? 0);
+    const pendingInviteCount = pendingInvitesResult.error ? 0 : (pendingInvitesResult.count ?? 0);
+    const current = memberCount + pendingInviteCount;
+
     return { allowed: current < max, current, max, tier: currentTier };
   }, []);
 

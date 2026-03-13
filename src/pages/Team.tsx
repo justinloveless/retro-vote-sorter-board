@@ -17,6 +17,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { TeamActionItems } from '@/components/team/TeamActionItems';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
 
 const Team = () => {
@@ -28,6 +29,7 @@ const Team = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { checkBoardLimit } = useSubscriptionLimits();
 
   const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
   const tabParam = searchParams.get('tab');
@@ -77,6 +79,16 @@ const Team = () => {
     if (!teamId) return null;
 
     try {
+      const { allowed, current, max, tier: currentTier } = await checkBoardLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Board limit reached",
+          description: `Your ${currentTier} plan allows up to ${max} active board${max === 1 ? '' : 's'} per team. You currently have ${current}. Archive existing boards or upgrade your plan.`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       let passwordHash = null;
 
