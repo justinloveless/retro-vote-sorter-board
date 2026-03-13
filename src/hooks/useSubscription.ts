@@ -55,7 +55,7 @@ export const FREE_TIER_FEATURES = [
 ];
 
 export function useSubscription() {
-  const { user, session } = useAuth();
+  const { user, profile, isImpersonating, session } = useAuth();
   const [state, setState] = useState<SubscriptionState>({
     tier: 'free',
     subscribed: false,
@@ -64,6 +64,9 @@ export function useSubscription() {
     loading: true,
   });
 
+  // When impersonating, check the impersonated user's subscription
+  const targetUserId = isImpersonating && profile?.id ? profile.id : undefined;
+
   const checkSubscription = useCallback(async () => {
     if (!session) {
       setState({ tier: 'free', subscribed: false, subscriptionEnd: null, cancelAtPeriodEnd: false, loading: false });
@@ -71,7 +74,9 @@ export function useSubscription() {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        body: targetUserId ? { target_user_id: targetUserId } : {},
+      });
       if (error) throw error;
 
       setState({
@@ -85,7 +90,7 @@ export function useSubscription() {
       console.error('Error checking subscription:', err);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [session]);
+  }, [session, targetUserId]);
 
   useEffect(() => {
     checkSubscription();
