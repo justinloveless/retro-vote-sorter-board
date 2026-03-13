@@ -300,13 +300,18 @@ const OrgAdmin = () => {
               </CardHeader>
               <CardContent>
                 {orgTeams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No teams linked yet.</p>
+                  <p className="text-sm text-muted-foreground">No teams linked yet. Generate an invite code below and share it with team owners.</p>
                 ) : (
                   <div className="space-y-2">
                     {orgTeams.map((team) => (
                       <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <p className="font-medium text-foreground">{team.name}</p>
-                        <Button variant="ghost" size="sm" onClick={() => handleUnlinkTeam(team.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          unlinkTeam(team.id).then(() => {
+                            toast.success('Team unlinked');
+                            setOrgTeams((prev) => prev.filter((t) => t.id !== team.id));
+                          }).catch(() => toast.error('Failed to unlink team'));
+                        }}>
                           <Unlink className="h-4 w-4 mr-1" /> Unlink
                         </Button>
                       </div>
@@ -318,20 +323,40 @@ const OrgAdmin = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Available Teams</CardTitle>
-                <CardDescription>Teams not yet linked to any organization</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Team Invite Codes
+                  <Button size="sm" onClick={handleGenerateCode} disabled={generatingCode}>
+                    {generatingCode ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                    Generate Code
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  Share these links with team owners so they can link their teams to your organization.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {userTeams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No unlinked teams available.</p>
+                {inviteCodes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active invite codes. Generate one to get started.</p>
                 ) : (
                   <div className="space-y-2">
-                    {userTeams.map((team) => (
-                      <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <p className="font-medium text-foreground">{team.name}</p>
-                        <Button variant="outline" size="sm" onClick={() => handleLinkTeam(team.id)}>
-                          <Link2 className="h-4 w-4 mr-1" /> Link
-                        </Button>
+                    {inviteCodes.map((ic) => (
+                      <div key={ic.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <code className="text-xs bg-muted px-2 py-1 rounded break-all">
+                            {window.location.origin}/join-org/{ic.code}
+                          </code>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Expires {new Date(ic.expires_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleCopyInviteLink(ic.code)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeactivateCode(ic.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
