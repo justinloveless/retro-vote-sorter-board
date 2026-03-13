@@ -9,6 +9,7 @@ interface Team {
   name: string;
   description: string | null;
   creator_id: string | null;
+  organization_id: string | null;
   created_at: string;
   updated_at: string;
   role: 'owner' | 'admin' | 'member' | null;
