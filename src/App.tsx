@@ -51,6 +51,7 @@ const App = () => (
                   <Route path="/account" element={<Account />} />
                   <Route path="/invite/:token" element={<InviteAccept />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/billing" element={<Billing />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>
