@@ -111,7 +111,7 @@ export function useSubscriptionLimits() {
       : (data ?? []).filter((board) => board.deleted !== true && board.archived !== true).length;
 
     return { allowed: current < max, current, max, tier: currentTier };
-  }, []);
+  }, [targetUserId]);
 
   const checkMemberLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
     const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(targetUserId), loadDynamicLimits()]);
