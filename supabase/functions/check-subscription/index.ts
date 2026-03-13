@@ -35,12 +35,42 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    const callerUser = userData.user;
+    if (!callerUser?.email) throw new Error("User not authenticated or email not available");
+    logStep("Caller authenticated", { userId: callerUser.id, email: callerUser.email });
+
+    // Check if a target_user_id was provided (for admin impersonation)
+    let emailToCheck = callerUser.email;
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body or invalid JSON — that's fine
+    }
+
+    if (body?.target_user_id && body.target_user_id !== callerUser.id) {
+      // Verify the caller is an admin
+      const { data: callerProfile } = await supabaseClient
+        .from("profiles")
+        .select("role")
+        .eq("id", callerUser.id)
+        .single();
+
+      if (callerProfile?.role !== "admin") {
+        throw new Error("Only admins can check subscription for other users");
+      }
+
+      // Look up the target user's email
+      const { data: targetUser, error: targetError } = await supabaseClient.auth.admin.getUserById(body.target_user_id);
+      if (targetError || !targetUser?.user?.email) {
+        throw new Error("Target user not found or has no email");
+      }
+      emailToCheck = targetUser.user.email;
+      logStep("Admin impersonation: checking subscription for target user", { targetUserId: body.target_user_id, targetEmail: emailToCheck });
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: emailToCheck, limit: 1 });
 
     if (customers.data.length === 0) {
       logStep("No customer found");
@@ -72,7 +102,6 @@ serve(async (req) => {
       const firstItem = subscription.items.data[0];
       productId = firstItem?.price?.product;
       
-      // In Stripe API 2025-08-27.basil, current_period_end moved to subscription items
       const periodEnd = (firstItem as any).current_period_end;
       logStep("Raw period end from item", { periodEnd, type: typeof periodEnd });
       
