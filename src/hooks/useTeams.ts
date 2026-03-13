@@ -65,7 +65,7 @@ export const useTeams = () => {
     loadTeams();
   }, [loadTeams]);
 
-  const createTeam = async (name: string, description?: string) => {
+  const createTeam = async (name: string, description?: string, organizationId?: string | null) => {
     try {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
@@ -86,7 +86,8 @@ export const useTeams = () => {
         .insert([{
           name,
           description,
-          creator_id: currentUser.id
+          creator_id: currentUser.id,
+          organization_id: organizationId || null,
         }]);
 
       if (error) throw error;
