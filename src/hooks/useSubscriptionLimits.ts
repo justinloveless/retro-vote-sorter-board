@@ -71,6 +71,8 @@ function normalizeLimit(val: number | null | undefined, fallback: number): numbe
 
 export function useSubscriptionLimits() {
   const { tier, loading } = useSubscription();
+  const { profile, isImpersonating } = useAuth();
+  const targetUserId = isImpersonating && profile?.id ? profile.id : undefined;
   const [allLimits, setAllLimits] = useState<Record<SubscriptionTier, TierLimits>>(DEFAULT_LIMITS);
 
   useEffect(() => {
