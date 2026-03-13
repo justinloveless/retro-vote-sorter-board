@@ -301,9 +301,6 @@ const Account = () => {
                 </div>
               </CardContent>
             </Card>
-
-
-            <AppearanceSettings />
           </div>
 
           <div className="space-y-6">
