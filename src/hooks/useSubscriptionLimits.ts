@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubscription, SubscriptionTier } from './useSubscription';
 
@@ -8,7 +8,7 @@ export interface TierLimits {
   maxActiveBoards: number;
 }
 
-const LIMITS: Record<SubscriptionTier, TierLimits> = {
+const DEFAULT_LIMITS: Record<SubscriptionTier, TierLimits> = {
   free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3 },
   pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: Infinity },
   business: { maxTeams: Infinity, maxMembersPerTeam: Infinity, maxActiveBoards: Infinity },
@@ -28,13 +28,57 @@ async function fetchCurrentTier(): Promise<SubscriptionTier> {
   }
 }
 
+/** Load dynamic tier limits from app_config, falling back to defaults */
+async function loadDynamicLimits(): Promise<Record<SubscriptionTier, TierLimits>> {
+  try {
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'tier_limits')
+      .maybeSingle();
+    if (error || !data?.value) return DEFAULT_LIMITS;
+    const parsed = JSON.parse(data.value);
+    return {
+      free: {
+        maxTeams: parsed.free?.maxTeams ?? DEFAULT_LIMITS.free.maxTeams,
+        maxMembersPerTeam: parsed.free?.maxMembersPerTeam ?? DEFAULT_LIMITS.free.maxMembersPerTeam,
+        maxActiveBoards: parsed.free?.maxActiveBoards ?? DEFAULT_LIMITS.free.maxActiveBoards,
+      },
+      pro: {
+        maxTeams: parsed.pro?.maxTeams ?? Infinity,
+        maxMembersPerTeam: parsed.pro?.maxMembersPerTeam ?? Infinity,
+        maxActiveBoards: parsed.pro?.maxActiveBoards ?? Infinity,
+      },
+      business: {
+        maxTeams: parsed.business?.maxTeams ?? Infinity,
+        maxMembersPerTeam: parsed.business?.maxMembersPerTeam ?? Infinity,
+        maxActiveBoards: parsed.business?.maxActiveBoards ?? Infinity,
+      },
+    };
+  } catch {
+    return DEFAULT_LIMITS;
+  }
+}
+
+// Convert null (unlimited in DB) to Infinity for runtime checks
+function normalizeLimit(val: number | null | undefined, fallback: number): number {
+  if (val === null || val === undefined || val === 0) return Infinity;
+  return val;
+}
+
 export function useSubscriptionLimits() {
   const { tier, loading } = useSubscription();
-  const limits = LIMITS[tier];
+  const [allLimits, setAllLimits] = useState<Record<SubscriptionTier, TierLimits>>(DEFAULT_LIMITS);
+
+  useEffect(() => {
+    loadDynamicLimits().then(setAllLimits);
+  }, []);
+
+  const limits = allLimits[tier];
 
   const checkTeamLimit = useCallback(async (userId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const currentTier = await fetchCurrentTier();
-    const max = LIMITS[currentTier].maxTeams;
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const max = normalizeLimit(dynamicLimits[currentTier]?.maxTeams, DEFAULT_LIMITS[currentTier].maxTeams);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const { count, error } = await supabase
@@ -48,8 +92,8 @@ export function useSubscriptionLimits() {
   }, []);
 
   const checkBoardLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const currentTier = await fetchCurrentTier();
-    const max = LIMITS[currentTier].maxActiveBoards;
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const max = normalizeLimit(dynamicLimits[currentTier]?.maxActiveBoards, DEFAULT_LIMITS[currentTier].maxActiveBoards);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const { data, error } = await supabase
@@ -65,8 +109,8 @@ export function useSubscriptionLimits() {
   }, []);
 
   const checkMemberLimit = useCallback(async (teamId: string): Promise<{ allowed: boolean; current: number; max: number; tier: SubscriptionTier }> => {
-    const currentTier = await fetchCurrentTier();
-    const max = LIMITS[currentTier].maxMembersPerTeam;
+    const [currentTier, dynamicLimits] = await Promise.all([fetchCurrentTier(), loadDynamicLimits()]);
+    const max = normalizeLimit(dynamicLimits[currentTier]?.maxMembersPerTeam, DEFAULT_LIMITS[currentTier].maxMembersPerTeam);
     if (max === Infinity) return { allowed: true, current: 0, max, tier: currentTier };
 
     const [membersResult, pendingInvitesResult] = await Promise.all([

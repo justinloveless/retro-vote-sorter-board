@@ -42,18 +42,17 @@ const AdminPage: React.FC = () => {
                         </CardContent>
                     </Card>
                 </div>
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-8">
                     <AdminSendNotification />
-                    <div className="mt-8">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Data Backfill</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <BackfillActionItems />
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <TierLimitsManager />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Data Backfill</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <BackfillActionItems />
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>
