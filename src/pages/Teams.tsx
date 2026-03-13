@@ -50,7 +50,7 @@ const Teams = () => {
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) return;
-    await createTeam(teamName.trim(), teamDescription.trim() || undefined);
+    await createTeam(teamName.trim(), teamDescription.trim() || undefined, selectedOrgId);
     setShowCreateDialog(false);
     setTeamName('');
     setTeamDescription('');
