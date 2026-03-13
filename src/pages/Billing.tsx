@@ -36,7 +36,10 @@ const Billing = () => {
     try {
       const tierConfig = SUBSCRIPTION_TIERS[planTier];
       const priceId = yearly ? tierConfig.yearlyPriceId : tierConfig.monthlyPriceId;
-      await startCheckout(priceId);
+      const result = await startCheckout(priceId);
+      if (result?.updated) {
+        toast.success('Plan updated successfully! Changes are prorated.');
+      }
     } catch {
       toast.error('Failed to start checkout. Please try again.');
     } finally {

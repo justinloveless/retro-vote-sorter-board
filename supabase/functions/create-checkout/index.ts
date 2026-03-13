@@ -33,18 +33,44 @@ serve(async (req) => {
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
 
-      // Cancel any existing active subscriptions to prevent duplicates
+      // Check for existing active subscriptions
       const existingSubs = await stripe.subscriptions.list({
         customer: customerId,
         status: "active",
       });
-      for (const sub of existingSubs.data) {
-        await stripe.subscriptions.cancel(sub.id);
+
+      // If there's an active subscription, update it with proration instead of canceling
+      if (existingSubs.data.length > 0) {
+        const currentSub = existingSubs.data[0];
+        const currentPriceId = currentSub.items.data[0].price.id;
+
+        // If already on this price, no change needed
+        if (currentPriceId === priceId) {
+          return new Response(JSON.stringify({ error: "You are already on this plan." }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        // Update the subscription with proration (Stripe prorates by default)
+        const updatedSub = await stripe.subscriptions.update(currentSub.id, {
+          items: [{
+            id: currentSub.items.data[0].id,
+            price: priceId,
+          }],
+          proration_behavior: "create_prorations",
+        });
+
+        return new Response(JSON.stringify({ updated: true, subscription_id: updatedSub.id }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
       }
     }
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
 
+    // Only create a new checkout session if there's no active subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -52,6 +78,8 @@ serve(async (req) => {
       mode: "subscription",
       success_url: `${origin}/billing?success=true`,
       cancel_url: `${origin}/billing?canceled=true`,
+      // Don't collect payment method if customer already has one
+      ...(customerId ? { payment_method_collection: "if_required" } : {}),
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
