@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
+import Billing from "./pages/Billing";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
@@ -50,6 +51,7 @@ const App = () => (
                   <Route path="/account" element={<Account />} />
                   <Route path="/invite/:token" element={<InviteAccept />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/billing" element={<Billing />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>
