@@ -66,8 +66,26 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product;
+      logStep("Subscription raw data", { 
+        current_period_end: subscription.current_period_end,
+        type: typeof subscription.current_period_end 
+      });
+      
+      // Handle current_period_end safely - it's a Unix timestamp in seconds
+      if (subscription.current_period_end) {
+        try {
+          const endMs = typeof subscription.current_period_end === 'number' 
+            ? subscription.current_period_end * 1000 
+            : Number(subscription.current_period_end) * 1000;
+          if (!isNaN(endMs)) {
+            subscriptionEnd = new Date(endMs).toISOString();
+          }
+        } catch (e) {
+          logStep("Failed to parse subscription end date", { error: String(e) });
+        }
+      }
+      
+      productId = subscription.items.data[0]?.price?.product;
       
       // Map product IDs to tiers
       const proProducts = ["prod_U8bHBCeWeliSGZ", "prod_U8bHzSN1wed3Ss"];
