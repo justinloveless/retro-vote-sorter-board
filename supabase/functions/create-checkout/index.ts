@@ -52,13 +52,13 @@ serve(async (req) => {
           });
         }
 
-        // Update the subscription with proration (Stripe prorates by default)
+        // Update the subscription with proration and invoice immediately
         const updatedSub = await stripe.subscriptions.update(currentSub.id, {
           items: [{
             id: currentSub.items.data[0].id,
             price: priceId,
           }],
-          proration_behavior: "create_prorations",
+          proration_behavior: "always_invoice",
         });
 
         return new Response(JSON.stringify({ updated: true, subscription_id: updatedSub.id }), {
