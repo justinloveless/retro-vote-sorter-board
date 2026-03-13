@@ -24,7 +24,6 @@ const Account = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating, refreshImpersonatedProfile } = useAuth();
   const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
-  const { teams, loading: teamsLoading } = useTeams();
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading: subLoading } = useSubscription();
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
