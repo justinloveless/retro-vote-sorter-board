@@ -17,9 +17,13 @@ const Teams = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { teams, loading, createTeam } = useTeams();
+  const { limits, tier } = useSubscriptionLimits();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
+
+  const ownedTeams = teams.filter(t => t.role === 'owner').length;
+  const atTeamLimit = limits.maxTeams !== Infinity && ownedTeams >= limits.maxTeams;
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) return;
