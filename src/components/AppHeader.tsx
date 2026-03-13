@@ -67,7 +67,8 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
 
-    const { organizations, selectedOrgId, setSelectedOrgId, hasOrgs } = useOrgSelector();
+    const { organizations, selectedOrgId, selectedOrg, selectedOrgRole, setSelectedOrgId, hasOrgs } = useOrgSelector();
+    const isOrgAdminOrOwner = selectedOrgRole === 'owner' || selectedOrgRole === 'admin';
 
     const renderOrgSelector = () => {
         if (!user || !hasOrgs) return null;
