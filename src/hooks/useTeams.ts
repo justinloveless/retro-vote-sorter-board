@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
+import { useSubscriptionLimits } from './useSubscriptionLimits';
 
 interface Team {
   id: string;
@@ -18,6 +19,7 @@ export const useTeams = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { checkTeamLimit, tier } = useSubscriptionLimits();
 
   const loadTeams = useCallback(async () => {
     if (!profile) {
@@ -66,6 +68,17 @@ export const useTeams = () => {
     try {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
+
+      // Check team creation limit
+      const { allowed, current, max } = await checkTeamLimit(currentUser.id);
+      if (!allowed) {
+        toast({
+          title: "Team limit reached",
+          description: `Your ${tier} plan allows up to ${max} team${max === 1 ? '' : 's'}. You currently own ${current}. Upgrade your plan to create more teams.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       const { error } = await supabase
         .from('teams')

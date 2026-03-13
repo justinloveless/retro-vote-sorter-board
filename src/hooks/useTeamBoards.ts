@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionLimits } from './useSubscriptionLimits';
 
 interface TeamBoard {
   id: string;
@@ -20,6 +21,7 @@ export const useTeamBoards = (teamId: string | null) => {
   const [boards, setBoards] = useState<TeamBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { checkBoardLimit, tier } = useSubscriptionLimits();
 
   const loadBoards = async () => {
     if (!teamId) {
@@ -61,11 +63,20 @@ export const useTeamBoards = (teamId: string | null) => {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
+      // Check board creation limit
+      const { allowed, current, max } = await checkBoardLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Board limit reached",
+          description: `Your ${tier} plan allows up to ${max} active board${max === 1 ? '' : 's'} per team. You currently have ${current}. Archive existing boards or upgrade your plan.`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      // The board creation will automatically use the team's default template
-      // thanks to the database trigger we created
       const { data: board, error } = await supabase
         .from('retro_boards')
         .insert([{
@@ -90,7 +101,6 @@ export const useTeamBoards = (teamId: string | null) => {
         .single();
 
       if (defaultTemplate && board) {
-        // Apply template settings to board config
         await supabase
           .from('retro_board_config')
           .insert([{
@@ -101,10 +111,7 @@ export const useTeamBoards = (teamId: string | null) => {
             show_author_names: defaultTemplate.show_author_names,
             retro_stages_enabled: defaultTemplate.retro_stages_enabled
           }]);
-
-        // Note: Columns are automatically created by the database trigger 'on_board_created'
       } else {
-        // Fall back to team default settings if no template is set
         const { data: defaultSettings } = await supabase
           .from('team_default_settings')
           .select('*')
@@ -123,7 +130,6 @@ export const useTeamBoards = (teamId: string | null) => {
               retro_stages_enabled: defaultSettings.retro_stages_enabled || false
             }]);
         } else if (board) {
-          // Final fallback: create minimal default config
           await supabase
             .from('retro_board_config')
             .insert([{
