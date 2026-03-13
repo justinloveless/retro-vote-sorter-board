@@ -69,19 +69,16 @@ serve(async (req) => {
       const subscription = subscriptions.data[0];
       cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
       
-      logStep("Raw subscription fields", { 
-        current_period_end: subscription.current_period_end,
-        current_period_end_type: typeof subscription.current_period_end,
-        cancel_at_period_end: subscription.cancel_at_period_end,
-      });
+      const firstItem = subscription.items.data[0];
+      productId = firstItem?.price?.product;
       
-      // Stripe SDK returns current_period_end as a Unix timestamp (seconds)
-      const periodEnd = subscription.current_period_end;
+      // In Stripe API 2025-08-27.basil, current_period_end moved to subscription items
+      const periodEnd = (firstItem as any).current_period_end;
+      logStep("Raw period end from item", { periodEnd, type: typeof periodEnd });
+      
       if (periodEnd) {
         subscriptionEnd = new Date(Number(periodEnd) * 1000).toISOString();
       }
-      
-      productId = subscription.items.data[0]?.price?.product;
       
       const proProducts = ["prod_U8bHBCeWeliSGZ", "prod_U8bHzSN1wed3Ss"];
       const businessProducts = ["prod_U8bHNNAcQOswB3", "prod_U8bIEG4qNUUCUG"];
