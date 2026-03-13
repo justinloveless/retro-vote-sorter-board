@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, LogOut, Palette, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useTeams } from '@/hooks/useTeams';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AuthForm } from '@/components/AuthForm';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
