@@ -42,6 +42,8 @@ const Teams = () => {
     // Personal: show teams not linked to any org
     return teams.filter((t: any) => !t.organization_id);
   }, [teams, selectedOrgId, hasOrgs]);
+
+  const ownedTeams = filteredTeams.filter(t => t.role === 'owner').length;
   const atTeamLimit = limits.maxTeams !== Infinity && ownedTeams >= limits.maxTeams;
 
   const canCreateOrg = subTier === 'enterprise' || profile?.role === 'admin';
