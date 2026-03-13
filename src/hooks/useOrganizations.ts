@@ -214,6 +214,7 @@ export function useOrganization(orgSlug: string | undefined) {
           teamName: organization.name,
           inviterName: profile?.full_name || 'Someone',
           token: invitation.token,
+          invitePath: '/org-invite',
         }
       });
     } catch (emailErr) {
