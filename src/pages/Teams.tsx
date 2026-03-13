@@ -187,7 +187,7 @@ const Teams = () => {
         ) : (
           <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teams.map((team) => (
+              {filteredTeams.map((team) => (
                 <Card key={team.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
