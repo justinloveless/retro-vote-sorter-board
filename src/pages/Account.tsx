@@ -301,9 +301,6 @@ const Account = () => {
                 </div>
               </CardContent>
             </Card>
-
-
-            <AppearanceSettings />
           </div>
 
           <div className="space-y-6">
@@ -402,6 +399,10 @@ const Account = () => {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <AppearanceSettings />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
