@@ -101,14 +101,20 @@ export function useSubscription() {
         body: { priceId },
       });
       if (error) throw error;
+      // If the subscription was updated inline (plan change with proration), refresh status
+      if (data?.updated) {
+        await checkSubscription();
+        return { updated: true };
+      }
       if (data?.url) {
         window.open(data.url, '_blank');
       }
+      return { updated: false };
     } catch (err) {
       console.error('Error creating checkout:', err);
       throw err;
     }
-  }, []);
+  }, [checkSubscription]);
 
   const openCustomerPortal = useCallback(async () => {
     try {
