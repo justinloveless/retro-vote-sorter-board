@@ -393,6 +393,76 @@ const Billing = () => {
             )}
           </p>
         )}
+        {/* Enterprise Org Setup Dialog */}
+        <Dialog open={showOrgSetup} onOpenChange={setShowOrgSetup}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Up Your Organization</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Your Enterprise plan includes an organization. Set it up now to manage your teams under one umbrella.
+            </p>
+            <div className="space-y-4 mt-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Organization Name</label>
+                <Input
+                  value={orgName}
+                  onChange={(e) => {
+                    setOrgName(e.target.value);
+                    if (!orgSlug || orgSlug === orgName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')) {
+                      setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'));
+                    }
+                  }}
+                  placeholder="Acme Corp"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">URL Slug</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">/org/</span>
+                  <Input
+                    value={orgSlug}
+                    onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                    placeholder="acme-corp"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Description (optional)</label>
+                <Textarea
+                  value={orgDescription}
+                  onChange={(e) => setOrgDescription(e.target.value)}
+                  placeholder="Brief description of your organization"
+                  rows={2}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleCreateOrg} className="flex-1" disabled={!orgName.trim() || !orgSlug.trim() || creatingOrg}>
+                  {creatingOrg ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Building2 className="h-4 w-4 mr-2" />}
+                  Create Organization
+                </Button>
+                <Button variant="outline" onClick={() => setShowOrgSetup(false)}>
+                  Later
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Prompt for enterprise users who haven't created their org yet */}
+        {tier === 'enterprise' && !ownsOrg && !showOrgSetup && (
+          <Card className="max-w-2xl mx-auto mt-6 border-primary/50">
+            <CardContent className="py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-primary" />
+                <p className="text-sm text-foreground">You haven't set up your organization yet.</p>
+              </div>
+              <Button size="sm" onClick={() => setShowOrgSetup(true)}>
+                Set Up Organization
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
