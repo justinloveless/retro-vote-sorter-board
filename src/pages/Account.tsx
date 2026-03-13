@@ -395,7 +395,7 @@ const Account = () => {
             </Card>
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -425,69 +425,6 @@ const Account = () => {
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    My Teams
-                  </div>
-                  <Button onClick={() => navigate('/teams')}>
-                    View All Teams
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {teamsLoading ? (
-                  <div className="text-center py-4">
-                    <div className="text-gray-600 dark:text-gray-300">Loading teams...</div>
-                  </div>
-                ) : teams.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">You're not part of any teams yet.</p>
-                    <Button onClick={() => navigate('/teams')}>
-                      Create Your First Team
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {teams.slice(0, 5).map((team) => (
-                      <div
-                        key={team.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/teams/${team.id}`)}
-                      >
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-gray-100">{team.name}</h3>
-                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Created {new Date(team.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </div>
-                    ))}
-                    {teams.length > 5 && (
-                      <Button variant="outline" className="w-full" onClick={() => navigate('/teams')}>
-                        View All {teams.length} Teams
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="mt-4">
-              <EndorsementsReceived userId={profile?.id || user.id} />
-            </div>
-
-            <div className="mt-4">
-              <MentionsReceived userId={profile?.id || user.id} />
-            </div>
           </div>
         </div>
         <div className="mt-6">

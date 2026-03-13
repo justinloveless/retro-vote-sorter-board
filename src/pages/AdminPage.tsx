@@ -30,6 +30,7 @@ const AdminPage: React.FC = () => {
                     <GithubIssueSettings />
                     <ImpersonateUser />
                     <AdminManageTeamMembers />
+                    <TierLimitsManager />
                     <Card>
                         <CardHeader>
                             <CardTitle>Feature Flags</CardTitle>

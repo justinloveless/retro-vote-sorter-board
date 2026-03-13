@@ -341,7 +341,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
           </CardHeader>
           <CardContent className="space-y-3">
             {invitations.map((invitation) => (
-              <div key={invitation.id} className={`${isMobile ? 'border rounded-lg p-4 bg-yellow-50 space-y-3' : 'flex items-center justify-between p-3 border rounded-lg bg-yellow-50'}`}>
+              <div key={invitation.id} className={`${isMobile ? 'border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800/50 space-y-3' : 'flex items-center justify-between p-3 border rounded-lg bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800/50'}`}>
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-gray-500" />
                   <div>
