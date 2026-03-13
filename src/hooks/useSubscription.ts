@@ -8,6 +8,7 @@ interface SubscriptionState {
   tier: SubscriptionTier;
   subscribed: boolean;
   subscriptionEnd: string | null;
+  cancelAtPeriodEnd: boolean;
   loading: boolean;
 }
 
@@ -59,12 +60,13 @@ export function useSubscription() {
     tier: 'free',
     subscribed: false,
     subscriptionEnd: null,
+    cancelAtPeriodEnd: false,
     loading: true,
   });
 
   const checkSubscription = useCallback(async () => {
     if (!session) {
-      setState({ tier: 'free', subscribed: false, subscriptionEnd: null, loading: false });
+      setState({ tier: 'free', subscribed: false, subscriptionEnd: null, cancelAtPeriodEnd: false, loading: false });
       return;
     }
 
@@ -76,6 +78,7 @@ export function useSubscription() {
         tier: data.tier || 'free',
         subscribed: data.subscribed || false,
         subscriptionEnd: data.subscription_end || null,
+        cancelAtPeriodEnd: data.cancel_at_period_end || false,
         loading: false,
       });
     } catch (err) {

@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 const Billing = () => {
   const { user } = useAuth();
-  const { tier, subscribed, subscriptionEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
+  const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -221,11 +221,22 @@ const Billing = () => {
         </div>
 
         {subscribed && subscriptionEnd && (
-          <p className="text-center text-sm text-muted-foreground mt-8">
-            Your current subscription renews on{' '}
-            <span className="font-medium text-foreground">
-              {new Date(subscriptionEnd).toLocaleDateString()}
-            </span>
+          <p className={`text-center text-sm mt-8 ${cancelAtPeriodEnd ? 'text-destructive' : 'text-muted-foreground'}`}>
+            {cancelAtPeriodEnd ? (
+              <>
+                Your {tier.charAt(0).toUpperCase() + tier.slice(1)} plan has been canceled and will expire on{' '}
+                <span className="font-medium">
+                  {new Date(subscriptionEnd).toLocaleDateString()}
+                </span>
+              </>
+            ) : (
+              <>
+                Your current subscription renews on{' '}
+                <span className="font-medium text-foreground">
+                  {new Date(subscriptionEnd).toLocaleDateString()}
+                </span>
+              </>
+            )}
           </p>
         )}
       </div>
