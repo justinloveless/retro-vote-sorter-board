@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { AuthForm } from '@/components/AuthForm';
 import { AppHeader } from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ const Teams = () => {
   const { limits, tier } = useSubscriptionLimits();
   const { tier: subTier } = useSubscription();
   const { organizations, loading: orgsLoading, createOrganization } = useOrganizations();
+  const { selectedOrgId, selectedOrg, hasOrgs } = useOrgSelector();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -31,7 +33,15 @@ const Teams = () => {
   const [orgSlug, setOrgSlug] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
 
-  const ownedTeams = teams.filter(t => t.role === 'owner').length;
+  // Filter teams based on selected org
+  const filteredTeams = useMemo(() => {
+    if (!hasOrgs) return teams; // No orgs = show all teams
+    if (selectedOrgId) {
+      return teams.filter((t: any) => t.organization_id === selectedOrgId);
+    }
+    // Personal: show teams not linked to any org
+    return teams.filter((t: any) => !t.organization_id);
+  }, [teams, selectedOrgId, hasOrgs]);
   const atTeamLimit = limits.maxTeams !== Infinity && ownedTeams >= limits.maxTeams;
 
   const canCreateOrg = subTier === 'enterprise' || profile?.role === 'admin';
