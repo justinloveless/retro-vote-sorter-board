@@ -69,17 +69,16 @@ serve(async (req) => {
       const subscription = subscriptions.data[0];
       cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
       
-      if (subscription.current_period_end) {
-        try {
-          const endMs = typeof subscription.current_period_end === 'number' 
-            ? subscription.current_period_end * 1000 
-            : Number(subscription.current_period_end) * 1000;
-          if (!isNaN(endMs)) {
-            subscriptionEnd = new Date(endMs).toISOString();
-          }
-        } catch (e) {
-          logStep("Failed to parse subscription end date", { error: String(e) });
-        }
+      logStep("Raw subscription fields", { 
+        current_period_end: subscription.current_period_end,
+        current_period_end_type: typeof subscription.current_period_end,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      });
+      
+      // Stripe SDK returns current_period_end as a Unix timestamp (seconds)
+      const periodEnd = subscription.current_period_end;
+      if (periodEnd) {
+        subscriptionEnd = new Date(Number(periodEnd) * 1000).toISOString();
       }
       
       productId = subscription.items.data[0]?.price?.product;
