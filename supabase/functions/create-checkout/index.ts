@@ -32,6 +32,15 @@ serve(async (req) => {
     let customerId;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+
+      // Cancel any existing active subscriptions to prevent duplicates
+      const existingSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+      });
+      for (const sub of existingSubs.data) {
+        await stripe.subscriptions.cancel(sub.id);
+      }
     }
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
