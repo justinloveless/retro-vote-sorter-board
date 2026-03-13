@@ -398,6 +398,36 @@ const Account = () => {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Subscription
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
+                    <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
+                  </div>
+                  {subscribed && subscriptionEnd && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
+                      </span>
+                      <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
+                        {new Date(subscriptionEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
+                    Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
