@@ -43,15 +43,17 @@ const OrgAdmin = () => {
     if (organization) {
       setOrgName(organization.name);
       setOrgDesc(organization.description || '');
-      // Fetch user's teams and org teams
+      // Fetch org teams and invite codes
       Promise.all([
         supabase.from('teams').select('id, name, organization_id')
-          .is('organization_id', null),
-        supabase.from('teams').select('id, name, organization_id')
           .eq('organization_id', organization.id),
-      ]).then(([unlinked, linked]) => {
-        setUserTeams(unlinked.data || []);
+        supabase.from('org_team_invite_codes').select('*')
+          .eq('organization_id', organization.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+      ]).then(([linked, codes]) => {
         setOrgTeams(linked.data || []);
+        setInviteCodes((codes.data || []) as any[]);
       });
     }
   }, [organization]);
