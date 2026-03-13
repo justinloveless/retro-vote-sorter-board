@@ -14,10 +14,18 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu } from 'lucide-react';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
@@ -58,6 +66,31 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     }, [isImpersonating, profile?.id]);
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
+
+    const { organizations, selectedOrgId, setSelectedOrgId, hasOrgs } = useOrgSelector();
+
+    const renderOrgSelector = () => {
+        if (!user || !hasOrgs) return null;
+        return (
+            <Select
+                value={selectedOrgId || '_personal'}
+                onValueChange={(val) => setSelectedOrgId(val === '_personal' ? null : val)}
+            >
+                <SelectTrigger className="w-[180px] h-9 text-sm">
+                    <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 shrink-0" />
+                        <SelectValue />
+                    </div>
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="_personal">Personal</SelectItem>
+                    {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        );
+    };
 
     const renderLeftContent = () => {
         switch (variant) {
@@ -214,6 +247,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     return (
         <header className={`flex justify-between items-center p-4 md:p-6 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
             <div className="flex items-center space-x-4">
+                {renderOrgSelector()}
                 {renderLeftContent()}
             </div>
             <div className="flex-grow flex justify-center">
