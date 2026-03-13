@@ -37,10 +37,10 @@ const Teams = () => {
   const filteredTeams = useMemo(() => {
     if (!hasOrgs) return teams; // No orgs = show all teams
     if (selectedOrgId) {
-      return teams.filter((t: any) => t.organization_id === selectedOrgId);
+      return teams.filter(t => t.organization_id === selectedOrgId);
     }
     // Personal: show teams not linked to any org
-    return teams.filter((t: any) => !t.organization_id);
+    return teams.filter(t => !t.organization_id);
   }, [teams, selectedOrgId, hasOrgs]);
 
   const ownedTeams = filteredTeams.filter(t => t.role === 'owner').length;
