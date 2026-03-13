@@ -148,6 +148,12 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                             Admin
                         </Button>
                     )}
+                    {isOrgAdminOrOwner && selectedOrg && (
+                        <Button variant="outline" onClick={() => navigate(`/org/${selectedOrg.slug}/admin`)} className="justify-start">
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Org Settings
+                        </Button>
+                    )}
                     {location.pathname !== '/teams' && (
                         <Button variant="outline" onClick={() => navigate('/teams')} className="justify-start">
                             <Users className="h-4 w-4 mr-2" />
