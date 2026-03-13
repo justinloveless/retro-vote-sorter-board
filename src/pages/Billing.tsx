@@ -87,7 +87,7 @@ const Billing = () => {
       icon: Zap,
       monthlyPrice: 0,
       yearlyPrice: 0,
-      features: FREE_TIER_FEATURES,
+      features: dynamicFeatures?.free || FREE_TIER_FEATURES,
       accent: 'border-border',
     },
     {
