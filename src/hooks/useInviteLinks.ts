@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionLimits } from './useSubscriptionLimits';
 
 interface InviteLink {
   id: string;
@@ -17,6 +18,7 @@ export const useInviteLinks = (teamId: string | null) => {
   const [inviteLinks, setInviteLinks] = useState<InviteLink[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { checkMemberLimit, tier } = useSubscriptionLimits();
 
   const loadInviteLinks = async () => {
     if (!teamId) {
@@ -34,7 +36,6 @@ export const useInviteLinks = (teamId: string | null) => {
 
       if (error) throw error;
       
-      // Type cast the data to ensure proper typing
       const typedInviteLinks = (data || []).map(link => ({
         ...link,
         invite_type: link.invite_type as 'email' | 'link'
@@ -59,11 +60,22 @@ export const useInviteLinks = (teamId: string | null) => {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
+      // Check member limit before creating invite link
+      const { allowed, current, max } = await checkMemberLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Member limit reached",
+          description: `Your ${tier} plan allows up to ${max} team member${max === 1 ? '' : 's'}. You currently have ${current}. Upgrade your plan to add more members.`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('team_invitations')
         .insert([{
           team_id: teamId,
-          email: '', // Empty email for link invitations
+          email: '',
           invited_by: currentUser.id,
           invite_type: 'link'
         }])

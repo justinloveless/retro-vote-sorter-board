@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionLimits } from './useSubscriptionLimits';
 
 interface TeamMember {
   id: string;
@@ -32,6 +33,7 @@ export const useTeamMembers = (teamId: string | null) => {
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { checkMemberLimit, tier } = useSubscriptionLimits();
 
   const loadMembers = async () => {
     if (!teamId) {
@@ -41,7 +43,6 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      // First get team members
       const { data: membersData, error: membersError } = await supabase
         .from('team_members')
         .select('*')
@@ -50,7 +51,6 @@ export const useTeamMembers = (teamId: string | null) => {
 
       if (membersError) throw membersError;
 
-      // Then get profiles for those users
       const userIds = membersData?.map(member => member.user_id) || [];
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -59,7 +59,6 @@ export const useTeamMembers = (teamId: string | null) => {
 
       if (profilesError) throw profilesError;
 
-      // Combine the data
       const typedMembers = (membersData || []).map(member => ({
         ...member,
         role: member.role as 'owner' | 'admin' | 'member',
@@ -96,7 +95,6 @@ export const useTeamMembers = (teamId: string | null) => {
 
       if (error) throw error;
       
-      // Type cast the data to ensure proper typing
       const typedInvitations = (data || []).map(invitation => ({
         ...invitation,
         status: invitation.status as 'pending' | 'accepted' | 'declined',
@@ -121,21 +119,29 @@ export const useTeamMembers = (teamId: string | null) => {
       const currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
-      // Get current user's profile for the inviter name
+      // Check member limit before inviting
+      const { allowed, current, max } = await checkMemberLimit(teamId);
+      if (!allowed) {
+        toast({
+          title: "Member limit reached",
+          description: `Your ${tier} plan allows up to ${max} team member${max === 1 ? '' : 's'}. You currently have ${current}. Upgrade your plan to add more members.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', currentUser.id)
         .single();
 
-      // Get team name
       const { data: team } = await supabase
         .from('teams')
         .select('name')
         .eq('id', teamId)
         .single();
 
-      // Create the invitation record
       const { data: invitation, error } = await supabase
         .from('team_invitations')
         .insert([{
@@ -149,7 +155,6 @@ export const useTeamMembers = (teamId: string | null) => {
 
       if (error) throw error;
 
-      // Send the email via edge function
       const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
         body: {
           invitationId: invitation.id,
@@ -160,14 +165,12 @@ export const useTeamMembers = (teamId: string | null) => {
         }
       });
 
-      // Emit in-app notification if recipient already has an account
       await supabase.functions.invoke('notify-team-invite', {
         body: { invitationId: invitation.id }
       });
 
       if (emailError) {
         console.error('Error sending email:', emailError);
-        // Still show success message even if email fails, as invitation was created
         toast({
           title: "Invitation created",
           description: `Invitation created for ${email}, but email may not have been sent. They can still use the invite link.`,
