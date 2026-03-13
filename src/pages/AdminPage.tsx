@@ -44,7 +44,6 @@ const AdminPage: React.FC = () => {
                 </div>
                 <div className="lg:col-span-1 space-y-8">
                     <AdminSendNotification />
-                    <TierLimitsManager />
                     <Card>
                         <CardHeader>
                             <CardTitle>Data Backfill</CardTitle>
