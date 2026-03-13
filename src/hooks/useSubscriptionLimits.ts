@@ -137,7 +137,7 @@ export function useSubscriptionLimits() {
     const current = memberCount + pendingInviteCount;
 
     return { allowed: current < max, current, max, tier: currentTier };
-  }, []);
+  }, [targetUserId]);
 
   return {
     tier,
