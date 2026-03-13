@@ -66,7 +66,7 @@ export function useSubscription() {
 
   const checkSubscription = useCallback(async () => {
     if (!session) {
-      setState({ tier: 'free', subscribed: false, subscriptionEnd: null, loading: false });
+      setState({ tier: 'free', subscribed: false, subscriptionEnd: null, cancelAtPeriodEnd: false, loading: false });
       return;
     }
 
