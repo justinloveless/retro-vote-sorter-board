@@ -63,6 +63,7 @@ const App = () => (
                   <Route path="/org/:slug" element={<OrgDashboard />} />
                   <Route path="/org/:slug/admin" element={<OrgAdmin />} />
                   <Route path="/org-invite/:token" element={<OrgInviteAccept />} />
+                  <Route path="/join-org/:code" element={<JoinOrg />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>
