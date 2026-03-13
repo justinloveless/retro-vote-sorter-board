@@ -427,6 +427,12 @@ const Account = () => {
             </Card>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <EndorsementsReceived userId={profile?.id || user.id} />
+          <MentionsReceived userId={profile?.id || user.id} />
+        </div>
+
         <div className="mt-6">
           <BackgroundSettings />
         </div>
