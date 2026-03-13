@@ -25,6 +25,7 @@ import AdminPage from "./pages/AdminPage";
 import OrgDashboard from "./pages/OrgDashboard";
 import OrgAdmin from "./pages/OrgAdmin";
 import OrgInviteAccept from "./pages/OrgInviteAccept";
+import JoinOrg from "./pages/JoinOrg";
 import { AudioPlayerProvider } from "./context/AudioPlayerContext";
 import { AuthProvider } from "./hooks/useAuth";
 import { TeamDataProvider } from "./contexts/TeamDataContext";
