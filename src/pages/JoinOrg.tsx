@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building2, CheckCircle2, XCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Building2, CheckCircle2, XCircle, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 const JoinOrg = () => {
@@ -19,7 +19,7 @@ const JoinOrg = () => {
   const [invite, setInvite] = useState<any>(null);
   const [orgName, setOrgName] = useState('');
   const [ownedTeams, setOwnedTeams] = useState<any[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,24 +52,23 @@ const JoinOrg = () => {
 
         setInvite(inviteData);
 
-        // Get org name
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name')
-          .eq('id', inviteData.organization_id)
-          .single();
+        // Get org name and user's owned unlinked teams in parallel
+        const [orgResult, teamsResult] = await Promise.all([
+          supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', inviteData.organization_id)
+            .single(),
+          supabase
+            .from('teams')
+            .select('id, name, description, organization_id, team_members!inner(role, user_id)')
+            .eq('team_members.user_id', user.id)
+            .eq('team_members.role', 'owner')
+            .is('organization_id', null),
+        ]);
 
-        setOrgName(org?.name || 'Unknown Organization');
-
-        // Get teams the user owns that are unlinked
-        const { data: teams } = await supabase
-          .from('teams')
-          .select('id, name, organization_id, team_members!inner(role, user_id)')
-          .eq('team_members.user_id', user.id)
-          .eq('team_members.role', 'owner')
-          .is('organization_id', null);
-
-        setOwnedTeams(teams || []);
+        setOrgName(orgResult.data?.name || 'Unknown Organization');
+        setOwnedTeams(teamsResult.data || []);
       } catch (err) {
         console.error(err);
         setError('Something went wrong.');
@@ -81,21 +80,44 @@ const JoinOrg = () => {
     load();
   }, [code, user]);
 
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) {
+        next.delete(teamId);
+      } else {
+        next.add(teamId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedTeamIds.size === ownedTeams.length) {
+      setSelectedTeamIds(new Set());
+    } else {
+      setSelectedTeamIds(new Set(ownedTeams.map((t) => t.id)));
+    }
+  };
+
   const handleJoin = async () => {
-    if (!selectedTeamId || !invite) return;
+    if (selectedTeamIds.size === 0 || !invite) return;
     setJoining(true);
     try {
+      const ids = Array.from(selectedTeamIds);
+      // Update all selected teams
       const { error } = await supabase
         .from('teams')
         .update({ organization_id: invite.organization_id })
-        .eq('id', selectedTeamId);
+        .in('id', ids);
 
       if (error) throw error;
 
-      toast.success(`Team linked to ${orgName}!`);
+      const count = ids.length;
+      toast.success(`${count} team${count > 1 ? 's' : ''} linked to ${orgName}!`);
       navigate('/teams');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to link team');
+      toast.error(err.message || 'Failed to link teams');
     } finally {
       setJoining(false);
     }
@@ -133,6 +155,8 @@ const JoinOrg = () => {
     );
   }
 
+  const allSelected = ownedTeams.length > 0 && selectedTeamIds.size === ownedTeams.length;
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
@@ -144,7 +168,7 @@ const JoinOrg = () => {
             </div>
             <CardTitle>Join {orgName}</CardTitle>
             <CardDescription>
-              Link one of your teams to this organization
+              Select which teams to link to this organization
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -154,29 +178,61 @@ const JoinOrg = () => {
               </p>
             ) : (
               <>
-                <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a team to link" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ownedTeams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Select All */}
+                <div
+                  className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={toggleAll}
+                >
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleAll}
+                  />
+                  <span className="text-sm font-medium text-foreground">
+                    Link All ({ownedTeams.length} team{ownedTeams.length !== 1 ? 's' : ''})
+                  </span>
+                </div>
+
+                {/* Team Cards */}
+                <div className="space-y-2">
+                  {ownedTeams.map((team) => {
+                    const isSelected = selectedTeamIds.has(team.id);
+                    return (
+                      <div
+                        key={team.id}
+                        className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleTeam(team.id)}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleTeam(team.id)}
+                        />
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{team.name}</p>
+                            {team.description && (
+                              <p className="text-xs text-muted-foreground truncate">{team.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <Button
                   className="w-full"
                   onClick={handleJoin}
-                  disabled={!selectedTeamId || joining}
+                  disabled={selectedTeamIds.size === 0 || joining}
                 >
                   {joining ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                   )}
-                  Link Team to {orgName}
+                  Link {selectedTeamIds.size > 0 ? selectedTeamIds.size : ''} Team{selectedTeamIds.size !== 1 ? 's' : ''} to {orgName}
                 </Button>
               </>
             )}
