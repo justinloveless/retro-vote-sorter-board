@@ -17,7 +17,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { TeamActionItems } from '@/components/team/TeamActionItems';
-import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
