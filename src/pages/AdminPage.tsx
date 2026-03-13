@@ -10,6 +10,7 @@ import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
 import { AdminSendNotification } from '@/components/admin/AdminSendNotification';
 import { AdminManageTeamMembers } from '@/components/admin/AdminManageTeamMembers';
+import { TierLimitsManager } from '@/components/admin/TierLimitsManager';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
