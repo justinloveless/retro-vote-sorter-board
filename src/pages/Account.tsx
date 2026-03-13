@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X, Lock } from 'lucide-react';
+import { User, Users, LogOut, Calendar, Home, Palette, Shield, Edit, Save, X, Lock, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useTeams } from '@/hooks/useTeams';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AuthForm } from '@/components/AuthForm';
@@ -25,6 +26,7 @@ const Account = () => {
   const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating, refreshImpersonatedProfile } = useAuth();
   const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
   const { teams, loading: teamsLoading } = useTeams();
+  const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading: subLoading } = useSubscription();
   const { theme, setTheme } = useTheme();
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
@@ -394,6 +396,36 @@ const Account = () => {
           </div>
 
           <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Subscription
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
+                    <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
+                  </div>
+                  {subscribed && subscriptionEnd && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
+                      </span>
+                      <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
+                        {new Date(subscriptionEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
+                    Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">

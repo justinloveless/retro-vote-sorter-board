@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Check, Crown, Zap, Building2, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const Billing = () => {
   const { user } = useAuth();
@@ -17,6 +18,27 @@ const Billing = () => {
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [dynamicFeatures, setDynamicFeatures] = useState<Record<string, string[]> | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'tier_limits')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            setDynamicFeatures({
+              free: parsed.free?.features,
+              pro: parsed.pro?.features,
+              business: parsed.business?.features,
+            });
+          } catch { /* ignore */ }
+        }
+      });
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -65,7 +87,7 @@ const Billing = () => {
       icon: Zap,
       monthlyPrice: 0,
       yearlyPrice: 0,
-      features: FREE_TIER_FEATURES,
+      features: dynamicFeatures?.free || FREE_TIER_FEATURES,
       accent: 'border-border',
     },
     {
@@ -75,7 +97,7 @@ const Billing = () => {
       icon: Crown,
       monthlyPrice: SUBSCRIPTION_TIERS.pro.monthlyPrice,
       yearlyPrice: SUBSCRIPTION_TIERS.pro.yearlyPrice,
-      features: SUBSCRIPTION_TIERS.pro.features,
+      features: dynamicFeatures?.pro || SUBSCRIPTION_TIERS.pro.features,
       accent: 'border-primary',
       popular: true,
     },
@@ -86,7 +108,7 @@ const Billing = () => {
       icon: Building2,
       monthlyPrice: SUBSCRIPTION_TIERS.business.monthlyPrice,
       yearlyPrice: SUBSCRIPTION_TIERS.business.yearlyPrice,
-      features: SUBSCRIPTION_TIERS.business.features,
+      features: dynamicFeatures?.business || SUBSCRIPTION_TIERS.business.features,
       accent: 'border-accent',
     },
   ];

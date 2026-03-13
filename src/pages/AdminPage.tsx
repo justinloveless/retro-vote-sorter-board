@@ -10,6 +10,7 @@ import { BackfillActionItems } from '@/components/admin/BackfillActionItems';
 import { ImpersonateUser } from '@/components/admin/ImpersonateUser';
 import { AdminSendNotification } from '@/components/admin/AdminSendNotification';
 import { AdminManageTeamMembers } from '@/components/admin/AdminManageTeamMembers';
+import { TierLimitsManager } from '@/components/admin/TierLimitsManager';
 
 const AdminPage: React.FC = () => {
     const navigate = useNavigate();
@@ -41,18 +42,17 @@ const AdminPage: React.FC = () => {
                         </CardContent>
                     </Card>
                 </div>
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-8">
                     <AdminSendNotification />
-                    <div className="mt-8">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Data Backfill</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <BackfillActionItems />
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <TierLimitsManager />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Data Backfill</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <BackfillActionItems />
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>
