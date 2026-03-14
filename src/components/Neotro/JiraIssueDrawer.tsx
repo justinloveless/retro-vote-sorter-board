@@ -173,7 +173,7 @@ function parseJiraWikiMarkup(text: string): React.ReactNode[] {
         <Card
           key={`panel-${segIdx}`}
           className="my-3 p-4 border"
-          style={bgColor ? { backgroundColor: bgColor } : undefined}
+          style={bgColor ? { backgroundColor: ensurePanelContrast(bgColor) } : undefined}
         >
           <div className="text-sm text-foreground">{parseLines(segment.content)}</div>
         </Card>
