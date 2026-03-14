@@ -423,11 +423,6 @@ export const MobileView: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <NextRoundDialog
-                        isOpen={isNextRoundDialogOpen}
-                        onOpenChange={setIsNextRoundDialogOpen}
-                        onConfirm={nextRound}
-                    />
                 </div>
             )}
         </div>
