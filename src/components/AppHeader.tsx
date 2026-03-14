@@ -282,7 +282,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     return (
         <header className={`flex justify-between items-center p-4 md:p-6 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
             <div className="flex items-center space-x-4">
-                {renderOrgSelector()}
+                {!isMobile && renderOrgSelector()}
                 {renderLeftContent()}
             </div>
             <div className="flex-grow flex justify-center">
