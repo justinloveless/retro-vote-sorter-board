@@ -46,6 +46,17 @@ export const JiraSettingsForm: React.FC<JiraSettingsFormProps> = ({ settings, on
             onChange={(e) => handleChange('jira_ticket_prefix', e.target.value)}
             placeholder="e.g., RNMT"
           />
+          <p className="text-xs text-muted-foreground">Used to auto-complete ticket numbers (e.g., entering "123" becomes "RNMT-123")</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="jira-board-id">Jira Project Key (for backlog browsing)</Label>
+          <Input
+            id="jira-board-id"
+            value={settings.jira_board_id}
+            onChange={(e) => handleChange('jira_board_id', e.target.value)}
+            placeholder="e.g., RNMT"
+          />
+          <p className="text-xs text-muted-foreground">Project key used to browse issues in the poker session queue. Defaults to the ticket prefix if not set.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="jira-email">Jira User Email</Label>

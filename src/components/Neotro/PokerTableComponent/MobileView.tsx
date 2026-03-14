@@ -338,6 +338,22 @@ export const MobileView: React.FC = () => {
                                     </div>
                                 </DrawerContent>
                             </Drawer>
+                            {teamId && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
+                                    onClick={() => setQueuePanelOpen(true)}
+                                >
+                                    <ListOrdered className="h-4 w-4 mr-2" />
+                                    Queue
+                                    {ticketQueue.length > 0 && (
+                                        <Badge variant="secondary" className="ml-1 text-xs px-1">
+                                            {ticketQueue.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            )}
                             <PokerConfig
                                 config={session}
                                 onUpdateConfig={updateSessionConfig}
