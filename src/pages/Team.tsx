@@ -188,8 +188,9 @@ const Team = () => {
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
-            onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+            onJoinPointingSession={handleJoinPointingSession}
             currentUserRole={currentUserRole}
+            pokerEnabled={pokerEnabled}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
