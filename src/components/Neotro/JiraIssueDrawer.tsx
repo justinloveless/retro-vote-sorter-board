@@ -98,6 +98,7 @@ function ClickableImage({ src, alt, maxWidth }: { src: string; alt: string; maxW
   );
 }
 
+interface JiraAttachment {
   filename: string;
   content: string; // URL to the attachment content
 }
