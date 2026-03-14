@@ -1,13 +1,10 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { useSubscription, SubscriptionTier } from '@/hooks/useSubscription';
 
 type FeatureFlags = {
     [key: string]: boolean;
 };
-
-type TierFeatureFlags = Record<string, Record<string, boolean>>;
 
 interface FeatureFlagContextType {
     flags: FeatureFlags;
