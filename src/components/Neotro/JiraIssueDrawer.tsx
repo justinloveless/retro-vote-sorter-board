@@ -441,7 +441,7 @@ function renderDescription(description: string | null, attachments?: JiraAttachm
   if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
     return (
       <div
-        className="prose prose-sm dark:prose-invert max-w-none text-sm"
+        className="prose prose-sm dark:prose-invert max-w-none text-sm overflow-x-hidden break-words"
         dangerouslySetInnerHTML={{ __html: normalized }}
       />
     );
