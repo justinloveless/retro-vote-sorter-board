@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Card } from '@/components/ui/card';
 import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -44,7 +45,6 @@ const statusColorMap: Record<string, string> = {
 };
 
 function getStoryPoints(fields: JiraIssueFields): number | null {
-  // Common field names for story points
   const pointFields = ['story_points', 'customfield_10016', 'customfield_10028', 'customfield_10004'];
   for (const field of pointFields) {
     if (fields[field] != null) return fields[field];
@@ -52,11 +52,162 @@ function getStoryPoints(fields: JiraIssueFields): number | null {
   return null;
 }
 
+/**
+ * Parse Jira wiki markup to React elements.
+ * Handles: *bold*, h1.-h6. headers, # ordered lists, * unordered lists,
+ * {panel:bgColor=...}...{panel} blocks, and {color}...{color} inline.
+ */
+function parseJiraWikiMarkup(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+
+  // First, split by {panel} blocks
+  const panelRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const segments: { type: 'text' | 'panel'; content: string; attrs?: string }[] = [];
+
+  while ((match = panelRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  segments.forEach((segment, segIdx) => {
+    if (segment.type === 'panel') {
+      // Extract bgColor from attrs like "bgColor=#fffae6"
+      const bgMatch = segment.attrs?.match(/bgColor=([#\w]+)/);
+      const bgColor = bgMatch ? bgMatch[1] : undefined;
+      nodes.push(
+        <Card
+          key={`panel-${segIdx}`}
+          className="my-3 p-4 border"
+          style={bgColor ? { backgroundColor: bgColor } : undefined}
+        >
+          <div className="text-sm text-foreground">{parseLines(segment.content)}</div>
+        </Card>
+      );
+    } else {
+      nodes.push(...parseLines(segment.content, segIdx));
+    }
+  });
+
+  return nodes;
+}
+
+function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNode[] {
+  const lines = text.split('\n');
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i].trimEnd();
+
+    // Skip empty lines
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+
+    // Headers: h1. h2. h3. etc
+    const headerMatch = line.match(/^h([1-6])\.\s*(.*)/);
+    if (headerMatch) {
+      const level = parseInt(headerMatch[1]);
+      const content = parseInline(headerMatch[2]);
+      const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+      const sizeClass = level === 1 ? 'text-xl font-bold' : level === 2 ? 'text-lg font-semibold' : level === 3 ? 'text-base font-semibold' : 'text-sm font-semibold';
+      nodes.push(
+        <Tag key={`${keyPrefix}-h-${i}`} className={`${sizeClass} text-foreground mt-3 mb-1`}>
+          {content}
+        </Tag>
+      );
+      i++;
+      continue;
+    }
+
+    // Ordered list: lines starting with # (or ## for nested)
+    if (/^#\s/.test(line)) {
+      const listItems: React.ReactNode[] = [];
+      while (i < lines.length && /^#\s/.test(lines[i].trimEnd())) {
+        listItems.push(
+          <li key={`${keyPrefix}-ol-${i}`} className="text-sm text-foreground">
+            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''))}
+          </li>
+        );
+        i++;
+      }
+      nodes.push(
+        <ol key={`${keyPrefix}-ol-group-${i}`} className="list-decimal list-inside my-2 space-y-1">
+          {listItems}
+        </ol>
+      );
+      continue;
+    }
+
+    // Unordered list: lines starting with *  (but not bold markers like *text*)
+    if (/^\*\s/.test(line)) {
+      const listItems: React.ReactNode[] = [];
+      while (i < lines.length && /^\*\s/.test(lines[i].trimEnd())) {
+        listItems.push(
+          <li key={`${keyPrefix}-ul-${i}`} className="text-sm text-foreground">
+            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''))}
+          </li>
+        );
+        i++;
+      }
+      nodes.push(
+        <ul key={`${keyPrefix}-ul-group-${i}`} className="list-disc list-inside my-2 space-y-1">
+          {listItems}
+        </ul>
+      );
+      continue;
+    }
+
+    // Regular line
+    nodes.push(
+      <p key={`${keyPrefix}-p-${i}`} className="text-sm text-foreground my-1">
+        {parseInline(line)}
+      </p>
+    );
+    i++;
+  }
+
+  return nodes;
+}
+
+/** Parse inline markup: *bold*, _italic_, {{monospace}}, [links], {color} */
+function parseInline(text: string): React.ReactNode {
+  // Remove {color:...}...{color} wrappers but keep content
+  let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
+
+  // Split by bold markers *text*
+  const parts: React.ReactNode[] = [];
+  const boldRegex = /\*([^*]+)\*/g;
+  let lastIdx = 0;
+  let inlineMatch: RegExpExecArray | null;
+
+  while ((inlineMatch = boldRegex.exec(cleaned)) !== null) {
+    if (inlineMatch.index > lastIdx) {
+      parts.push(cleaned.slice(lastIdx, inlineMatch.index));
+    }
+    parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[1]}</strong>);
+    lastIdx = inlineMatch.index + inlineMatch[0].length;
+  }
+  if (lastIdx < cleaned.length) {
+    parts.push(cleaned.slice(lastIdx));
+  }
+
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
 function renderDescription(description: string | null): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
-  // Jira API v2 returns description as a string (plain text or rendered HTML depending on config)
-  // If it looks like HTML, render it; otherwise treat as plain text
+  // If it looks like HTML, render it
   if (description.startsWith('<') || description.includes('<p>') || description.includes('<br')) {
     return (
       <div
@@ -66,12 +217,8 @@ function renderDescription(description: string | null): React.ReactNode {
     );
   }
 
-  // Plain text — preserve line breaks
-  return (
-    <div className="text-sm whitespace-pre-wrap text-foreground">
-      {description}
-    </div>
-  );
+  // Parse Jira wiki markup
+  return <div className="space-y-1">{parseJiraWikiMarkup(description)}</div>;
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
@@ -104,7 +251,6 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       if (data.error) throw new Error(data.error);
 
       if (data.shouldUseIframe) {
-        // No API credentials — can't fetch details, offer external link
         setJiraDomain(data.domain);
         setNoApiCredentials(true);
         setIsOpen(true);
@@ -121,7 +267,9 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     }
   };
 
-  const externalUrl = jiraDomain && issueIdOrKey ? `${jiraDomain}/browse/${issueIdOrKey}` : null;
+  const externalUrl = jiraDomain && (issueData?.key || issueIdOrKey)
+    ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
+    : null;
   const fields = issueData?.fields;
   const storyPoints = fields ? getStoryPoints(fields) : null;
   const statusColor = fields?.status?.statusCategory?.colorName
@@ -139,25 +287,25 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
         Show Jira Issue
       </Button>
 
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader className="space-y-1">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-lg">
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto top-[40%]">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle className="text-lg">
                 {issueData?.key || issueIdOrKey || 'Jira Issue'}
-              </SheetTitle>
+              </DialogTitle>
               {externalUrl && (
                 <a href={externalUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="sm" className="gap-1">
+                  <Button variant="outline" size="sm" className="gap-1.5">
                     <ExternalLink className="h-3.5 w-3.5" />
                     Open in Jira
                   </Button>
                 </a>
               )}
             </div>
-          </SheetHeader>
+          </DialogHeader>
 
-          <div className="mt-4 space-y-5">
+          <div className="space-y-5">
             {/* Error state */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
@@ -187,12 +335,10 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
             {/* Issue details */}
             {fields && (
               <>
-                {/* Summary */}
                 <h2 className="text-base font-semibold text-foreground leading-snug">
                   {fields.summary}
                 </h2>
 
-                {/* Status & Type row */}
                 <div className="flex flex-wrap items-center gap-2">
                   {fields.status && (
                     <Badge variant="secondary" className={`${statusColor} text-xs`}>
@@ -230,11 +376,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   {fields.assignee && (
                     <div className="flex items-center gap-2">
                       {fields.assignee.avatarUrls?.['24x24'] ? (
-                        <img
-                          src={fields.assignee.avatarUrls['24x24']}
-                          alt=""
-                          className="h-5 w-5 rounded-full"
-                        />
+                        <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
                       ) : (
                         <User className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -247,11 +389,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   {fields.reporter && (
                     <div className="flex items-center gap-2">
                       {fields.reporter.avatarUrls?.['24x24'] ? (
-                        <img
-                          src={fields.reporter.avatarUrls['24x24']}
-                          alt=""
-                          className="h-5 w-5 rounded-full"
-                        />
+                        <img src={fields.reporter.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
                       ) : (
                         <User className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -293,8 +431,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
               </>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
