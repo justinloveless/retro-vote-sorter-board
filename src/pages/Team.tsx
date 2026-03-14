@@ -250,9 +250,10 @@ const Team = () => {
       {isMobile && (
         <TeamFloatingActions
           onCreateBoard={() => setShowCreateDialog(true)}
-          onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+          onJoinPointingSession={handleJoinPointingSession}
           onSettings={() => navigate(`/teams/${teamId}/settings`)}
           currentUserRole={currentUserRole}
+          pokerEnabled={pokerEnabled}
         />
       )}
     </>
