@@ -448,7 +448,7 @@ function renderDescription(description: string | null, attachments?: JiraAttachm
   }
 
   // Parse Jira wiki markup
-  return <div className="space-y-1">{parseJiraWikiMarkup(normalized, attachments)}</div>;
+  return <div className="space-y-1 break-words overflow-wrap-anywhere [overflow-wrap:anywhere]">{parseJiraWikiMarkup(normalized, attachments)}</div>;
 }
 
 // Simple cache for Jira issue data
