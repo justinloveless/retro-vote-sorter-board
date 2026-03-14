@@ -12,7 +12,11 @@ import { Card } from '@/components/ui/card';
 import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface JiraIssueFields {
+interface JiraAttachment {
+  filename: string;
+  content: string; // URL to the attachment content
+}
+
   summary: string;
   description: string | null;
   status?: { name: string; statusCategory?: { colorName: string } };
