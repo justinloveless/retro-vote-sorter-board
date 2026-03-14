@@ -151,11 +151,11 @@ function ensurePanelContrast(bgHex: string): string {
     const rgb = hslToRgb(hsl.h, boostedS, l);
     const newLum = relativeLuminance(rgb.r, rgb.g, rgb.b);
     if (contrastRatio(fgLum, newLum) >= 4.5) {
-      return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.3)`;
+      return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.45)`;
     }
   }
 
-  return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.3)`;
+  return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.45)`;
 }
 
 function getStoryPoints(fields: JiraIssueFields): number | null {
