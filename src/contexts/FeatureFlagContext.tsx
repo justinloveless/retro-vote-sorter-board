@@ -16,9 +16,7 @@ const FeatureFlagContext = createContext<FeatureFlagContextType | undefined>(und
 
 export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [flags, setFlags] = useState<FeatureFlags>({});
-    const [tierFeatureFlags, setTierFeatureFlags] = useState<TierFeatureFlags>({});
     const [loading, setLoading] = useState(true);
-    const { tier } = useSubscription();
 
     useEffect(() => {
         let channel: RealtimeChannel;
@@ -26,32 +24,17 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const setupFlags = async () => {
             setLoading(true);
             try {
-                const [flagsRes, configRes] = await Promise.all([
-                    supabase.from('feature_flags').select('flag_name, is_enabled'),
-                    supabase.from('app_config').select('value').eq('key', 'tier_limits').maybeSingle(),
-                ]);
+                const { data, error } = await supabase
+                    .from('feature_flags')
+                    .select('flag_name, is_enabled');
 
-                if (flagsRes.error) throw flagsRes.error;
+                if (error) throw error;
 
-                const flagsObject = (flagsRes.data || []).reduce((acc, flag) => {
+                const flagsObject = (data || []).reduce((acc, flag) => {
                     acc[flag.flag_name] = flag.is_enabled;
                     return acc;
                 }, {} as FeatureFlags);
                 setFlags(flagsObject);
-
-                // Extract per-tier featureFlags from tier_limits config
-                if (configRes.data?.value) {
-                    try {
-                        const parsed = JSON.parse(configRes.data.value);
-                        const tierFlags: TierFeatureFlags = {};
-                        for (const t of ['free', 'pro', 'business', 'enterprise']) {
-                            if (parsed[t]?.featureFlags) {
-                                tierFlags[t] = parsed[t].featureFlags;
-                            }
-                        }
-                        setTierFeatureFlags(tierFlags);
-                    } catch { /* ignore parse errors */ }
-                }
             } catch (error) {
                 console.error("Error fetching initial feature flags:", error);
             } finally {
@@ -84,23 +67,6 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
                                 break;
                             }
                         }
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table: 'app_config', filter: 'key=eq.tier_limits' },
-                    (payload) => {
-                        const row = payload.new as { value: string };
-                        try {
-                            const parsed = JSON.parse(row.value);
-                            const tierFlags: TierFeatureFlags = {};
-                            for (const t of ['free', 'pro', 'business', 'enterprise']) {
-                                if (parsed[t]?.featureFlags) {
-                                    tierFlags[t] = parsed[t].featureFlags;
-                                }
-                            }
-                            setTierFeatureFlags(tierFlags);
-                        } catch { /* ignore */ }
                     }
                 )
                 .subscribe();
