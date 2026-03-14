@@ -1,19 +1,24 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Lock } from 'lucide-react';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const roundParam = searchParams.get('round');
   const { user, profile, loading: loadingAuth } = useAuth();
+  const { isFeatureEnabled, loading: loadingFlags } = useFeatureFlags();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
 
@@ -87,10 +92,28 @@ const NeotroPage = () => {
     round_number: requestedRound.round_number
   } : session;
 
-  if (loadingAuth || loadingSession || loadingRole) {
+  if (loadingAuth || loadingSession || loadingRole || loadingFlags) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-gray-600 dark:text-gray-300">Loading Session...</div>
+        <div className="text-lg text-muted-foreground">Loading Session...</div>
+      </div>
+    );
+  }
+
+  if (!isFeatureEnabled('poker_pointing_sessions')) {
+    return (
+      <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
+        <AppHeader variant='back' />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 max-w-md mx-auto px-4">
+            <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h2 className="text-2xl font-bold">Pro Feature</h2>
+            <p className="text-muted-foreground">
+              Poker pointing sessions are available on Pro plans and above. Upgrade your subscription to access this feature.
+            </p>
+            <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+          </div>
+        </div>
       </div>
     );
   }

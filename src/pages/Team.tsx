@@ -19,6 +19,7 @@ import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { TeamActionItems } from '@/components/team/TeamActionItems';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -30,6 +31,20 @@ const Team = () => {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkBoardLimit } = useSubscriptionLimits();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const pokerEnabled = isFeatureEnabled('poker_pointing_sessions');
+
+  const handleJoinPointingSession = () => {
+    if (!pokerEnabled) {
+      toast({
+        title: "Pro feature",
+        description: "Poker pointing sessions require a Pro plan or above. Upgrade to access this feature.",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigate(`/teams/${teamId}/neotro`);
+  };
 
   const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
   const tabParam = searchParams.get('tab');
@@ -173,8 +188,9 @@ const Team = () => {
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
-            onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+            onJoinPointingSession={handleJoinPointingSession}
             currentUserRole={currentUserRole}
+            pokerEnabled={pokerEnabled}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -234,9 +250,10 @@ const Team = () => {
       {isMobile && (
         <TeamFloatingActions
           onCreateBoard={() => setShowCreateDialog(true)}
-          onJoinPointingSession={() => navigate(`/teams/${teamId}/neotro`)}
+          onJoinPointingSession={handleJoinPointingSession}
           onSettings={() => navigate(`/teams/${teamId}/settings`)}
           currentUserRole={currentUserRole}
+          pokerEnabled={pokerEnabled}
         />
       )}
     </>

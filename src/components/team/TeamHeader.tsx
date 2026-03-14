@@ -14,6 +14,7 @@ interface TeamHeaderProps {
   onJoinPointingSession: () => void;
   currentUserRole?: string;
   showBackButton?: boolean;
+  pokerEnabled?: boolean;
 }
 
 export const TeamHeader: React.FC<TeamHeaderProps> = ({ 
@@ -21,7 +22,8 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
   onCreateBoard, 
   onJoinPointingSession, 
   currentUserRole,
-  showBackButton = true
+  showBackButton = true,
+  pokerEnabled = true
 }) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -62,10 +64,13 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
       <Button
         variant='outline'
         onClick={onJoinPointingSession}
-        className="border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+        className={pokerEnabled
+          ? "border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+          : "border-2 opacity-60"
+        }
       >
         <Spade className="h-4 w-4 mr-2" />
-        Join Pointing Session
+        {pokerEnabled ? 'Join Pointing Session' : 'Pointing Session (Pro)'}
       </Button>
       {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
         <Button
