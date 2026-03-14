@@ -559,8 +559,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
   return (
     <>
-      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={isLoading}>
-        {isLoading ? (
+      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
+        {showSpinner ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         ) : (
           <ChevronDown className="h-4 w-4 mr-2" />
