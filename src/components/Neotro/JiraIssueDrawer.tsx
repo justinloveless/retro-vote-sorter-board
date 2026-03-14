@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,94 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
+
+// Image lightbox context — allows images inside parsed markup to trigger a shared lightbox
+const ImageLightboxContext = React.createContext<((src: string, alt: string) => void) | null>(null);
+
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleZoomIn = () => setScale(s => Math.min(s * 1.3, 5));
+  const handleZoomOut = () => setScale(s => Math.max(s / 1.3, 0.2));
+  const handleReset = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setScale(s => Math.min(Math.max(s * (e.deltaY < 0 ? 1.1 : 0.9), 0.2), 5));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging) return;
+    setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  }, [dragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => setDragging(false), []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      <div className="absolute top-4 right-4 flex gap-2 z-[101]">
+        <Button variant="secondary" size="icon" onClick={handleZoomIn} className="h-9 w-9">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" size="icon" onClick={handleZoomOut} className="h-9 w-9">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" size="icon" onClick={handleReset} className="h-9 w-9">
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" size="icon" onClick={onClose} className="h-9 w-9">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div
+        className="overflow-hidden max-w-[90vw] max-h-[90vh] cursor-grab active:cursor-grabbing select-none"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-none"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transition: dragging ? 'none' : 'transform 0.15s ease',
+          }}
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ClickableImage({ src, alt, maxWidth }: { src: string; alt: string; maxWidth?: number }) {
+  const openLightbox = React.useContext(ImageLightboxContext);
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="my-2 rounded-lg border max-w-full cursor-pointer hover:opacity-80 transition-opacity"
+      style={maxWidth ? { maxWidth: `${maxWidth}px` } : undefined}
+      onClick={() => openLightbox?.(src, alt)}
+    />
+  );
+}
 
 interface JiraAttachment {
   filename: string;
@@ -388,11 +473,11 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
 
 /** Parse inline markup: *bold*, _italic_, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
-  // Remove {color:...}...{color} wrappers but keep content
+  // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
+  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], [~accountid:xxx], !image!
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
@@ -431,21 +516,28 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
         </a>
       );
     } else if (inlineMatch[6] !== undefined) {
+      // [~accountid:xxx] or [~username] — user mention
+      parts.push(
+        <Badge key={`mention-${inlineMatch.index}`} variant="secondary" className="text-xs font-normal px-1.5 py-0">
+          @{inlineMatch[6].length > 20 ? 'user' : inlineMatch[6]}
+        </Badge>
+      );
+    } else if (inlineMatch[7] !== undefined) {
       // !image.png|opts!
-      const filename = inlineMatch[6].trim();
-      const opts = inlineMatch[7] || '';
+      const filename = inlineMatch[7].trim();
+      const opts = inlineMatch[8] || '';
       const widthMatch = opts.match(/width=(\d+)/);
       const altMatch = opts.match(/alt="([^"]*)"/);
       const attachment = attachments?.find(a => a.filename === filename);
       const src = attachment?.content || filename;
+      const alt = altMatch ? altMatch[1] : filename;
 
       parts.push(
-        <img
+        <ClickableImage
           key={`img-${inlineMatch.index}`}
           src={src}
-          alt={altMatch ? altMatch[1] : filename}
-          className="my-2 rounded-lg border max-w-full"
-          style={widthMatch ? { maxWidth: `${Math.min(parseInt(widthMatch[1]), 600)}px` } : undefined}
+          alt={alt}
+          maxWidth={widthMatch ? Math.min(parseInt(widthMatch[1]), 600) : undefined}
         />
       );
     }
@@ -585,9 +677,18 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const statusColor = fields?.status?.statusCategory?.colorName
     ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
     : 'bg-muted text-muted-foreground';
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const openLightbox = useCallback((src: string, alt: string) => setLightboxImage({ src, alt }), []);
 
   return (
-    <>
+    <ImageLightboxContext.Provider value={openLightbox}>
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage.src}
+          alt={lightboxImage.alt}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
       <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
         {showSpinner ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -785,6 +886,6 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </ImageLightboxContext.Provider>
   );
 };
