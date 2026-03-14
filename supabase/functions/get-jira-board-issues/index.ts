@@ -68,10 +68,10 @@ Deno.serve(async (req) => {
       jql,
       startAt: String(startAt),
       maxResults: String(maxResults),
-      fields: 'summary,status,priority,assignee,issuetype,customfield_10016', // customfield_10016 = story points in most Jira setups
+      fields: 'summary,status,priority,assignee,issuetype,customfield_10016',
     });
 
-    const jiraUrl = `${jira_domain}/rest/api/2/search?${params.toString()}`;
+    const jiraUrl = `${jira_domain}/rest/api/3/search/jql?${params.toString()}`;
 
     const jiraResponse = await fetch(jiraUrl, {
       headers: {
