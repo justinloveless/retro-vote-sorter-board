@@ -32,7 +32,18 @@ function ClickableImage({ src, alt, maxWidth }: { src: string; alt: string; maxW
   );
 }
 
-interface JiraAttachment {
+function JiraMention({ accountId }: { accountId: string }) {
+  const userMap = React.useContext(JiraUserMapContext);
+  const displayName = userMap.get(accountId) || accountId;
+  // If it looks like an accountId (long alphanumeric), show a generic label if not found
+  const label = userMap.has(accountId) ? displayName : (accountId.length > 20 ? 'user' : accountId);
+  return (
+    <Badge variant="secondary" className="text-xs font-normal px-1.5 py-0">
+      @{label}
+    </Badge>
+  );
+}
+
   filename: string;
   content: string; // URL to the attachment content
 }
