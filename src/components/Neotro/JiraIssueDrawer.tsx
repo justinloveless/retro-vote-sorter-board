@@ -265,7 +265,7 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
       nodes.push(
         <pre
           key={`code-${segIdx}`}
-          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border"
+          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border whitespace-pre-wrap break-words"
         >
           <code>{segment.content.replace(/^\n/, '')}</code>
         </pre>
@@ -377,7 +377,7 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
     if (inlineMatch[1] !== undefined) {
       // {{inline code}}
       parts.push(
-        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono">
+        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono break-all">
           {inlineMatch[1]}
         </code>
       );
@@ -441,7 +441,7 @@ function renderDescription(description: string | null, attachments?: JiraAttachm
   if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
     return (
       <div
-        className="prose prose-sm dark:prose-invert max-w-none text-sm"
+        className="prose prose-sm dark:prose-invert max-w-none text-sm overflow-x-hidden break-words"
         dangerouslySetInnerHTML={{ __html: normalized }}
       />
     );
@@ -518,7 +518,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto top-[40%]">
+        <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto overflow-x-hidden top-[40%]">
           <DialogHeader>
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-lg">
