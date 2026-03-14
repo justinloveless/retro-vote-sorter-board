@@ -60,9 +60,38 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
-/**
- * Compute relative luminance per WCAG 2.0.
- */
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return { h, s, l };
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  if (s === 0) { const v = Math.round(l * 255); return { r: v, g: v, b: v }; }
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1/3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1/3) * 255),
+  };
+}
+
 function relativeLuminance(r: number, g: number, b: number): number {
   const [rs, gs, bs] = [r, g, b].map(c => {
     const s = c / 255;
@@ -71,9 +100,6 @@ function relativeLuminance(r: number, g: number, b: number): number {
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
-/**
- * WCAG contrast ratio between two luminances.
- */
 function contrastRatio(l1: number, l2: number): number {
   const lighter = Math.max(l1, l2);
   const darker = Math.min(l1, l2);
@@ -81,23 +107,21 @@ function contrastRatio(l1: number, l2: number): number {
 }
 
 /**
- * Adjust a panel background color to ensure readable contrast with the
- * current theme's foreground. Lightens or darkens the color until the
- * contrast ratio reaches at least 4.5:1 (WCAG AA).
+ * Adjust a panel background color for readable contrast with the current
+ * theme foreground. Works in HSL space so only lightness changes — hue and
+ * saturation are preserved (saturation is slightly boosted to counteract
+ * any washed-out appearance from lightness shifts).
  */
 function ensurePanelContrast(bgHex: string): string {
   const bg = hexToRgb(bgHex);
   if (!bg) return bgHex;
 
-  // Read the computed foreground color from the page
   const fgColor = typeof window !== 'undefined'
     ? getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim()
     : '';
 
-  // Parse foreground — expected HSL values like "0 0% 100%" or fallback
-  let fgLum = 0; // default: assume dark foreground (light theme)
+  let fgLum = 0;
   if (fgColor) {
-    // Create a temp element to resolve CSS hsl to rgb
     const temp = document.createElement('div');
     temp.style.color = `hsl(${fgColor})`;
     temp.style.display = 'none';
@@ -111,24 +135,27 @@ function ensurePanelContrast(bgHex: string): string {
   }
 
   const bgLum = relativeLuminance(bg.r, bg.g, bg.b);
-  const ratio = contrastRatio(fgLum, bgLum);
+  if (contrastRatio(fgLum, bgLum) >= 4.5) return bgHex;
 
-  if (ratio >= 4.5) return bgHex; // Already good
-
-  // Determine direction: if foreground is light, darken bg; if dark, lighten bg
+  // Work in HSL — only shift lightness, boost saturation to stay vivid
+  const hsl = rgbToHsl(bg.r, bg.g, bg.b);
   const shouldLighten = fgLum < 0.5;
-  let { r, g, b } = bg;
-  const step = shouldLighten ? 10 : -10;
+  const step = shouldLighten ? 0.03 : -0.03;
 
-  for (let i = 0; i < 30; i++) {
-    r = Math.min(255, Math.max(0, r + step));
-    g = Math.min(255, Math.max(0, g + step));
-    b = Math.min(255, Math.max(0, b + step));
-    const newLum = relativeLuminance(r, g, b);
-    if (contrastRatio(fgLum, newLum) >= 4.5) break;
+  // Boost saturation by up to 30% to keep colors vivid
+  const boostedS = Math.min(1, hsl.s * 1.3);
+  let l = hsl.l;
+
+  for (let i = 0; i < 40; i++) {
+    l = Math.min(1, Math.max(0, l + step));
+    const rgb = hslToRgb(hsl.h, boostedS, l);
+    const newLum = relativeLuminance(rgb.r, rgb.g, rgb.b);
+    if (contrastRatio(fgLum, newLum) >= 4.5) {
+      return `hsl(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%)`;
+    }
   }
 
-  return `rgb(${r}, ${g}, ${b})`;
+  return `hsl(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%)`;
 }
 
 function getStoryPoints(fields: JiraIssueFields): number | null {
