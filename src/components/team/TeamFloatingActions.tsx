@@ -26,7 +26,7 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
         <Button
           variant="outline"
           onClick={onJoinPointingSession}
-          className="rounded-full h-14 w-14 shadow-lg border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+          className={`rounded-full h-14 w-14 shadow-lg border-2 ${pokerEnabled ? 'border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300' : 'opacity-60'}`}
           size="icon"
         >
           <Spade className="h-6 w-6" />
