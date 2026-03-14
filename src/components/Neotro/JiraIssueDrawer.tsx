@@ -720,6 +720,48 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Description</p>
                   {renderDescription(fields.description, fields.attachment)}
                 </div>
+                {/* Comments */}
+                {fields.comment && fields.comment.comments && fields.comment.comments.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <div className="flex items-center gap-1 mb-3">
+                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Comments ({fields.comment.comments.length})
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        {fields.comment.comments.map((comment) => {
+                          const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
+                          const initials = comment.author?.displayName
+                            ?.split(' ')
+                            .map(n => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase() || '?';
+                          const timeAgo = formatJiraDate(comment.created);
+
+                          return (
+                            <Card key={comment.id} className="p-3 gap-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage src={avatarUrl} alt={comment.author?.displayName} />
+                                  <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs font-medium">{comment.author?.displayName}</span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo}</span>
+                              </div>
+                              <div className="text-sm break-words [overflow-wrap:anywhere]">
+                                {parseJiraWikiMarkup(comment.body, fields.attachment)}
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
