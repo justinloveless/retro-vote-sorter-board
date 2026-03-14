@@ -886,6 +886,6 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </ImageLightboxContext.Provider>
   );
 };
