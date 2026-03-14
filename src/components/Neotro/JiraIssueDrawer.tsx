@@ -189,56 +189,62 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
   let remaining = normalized;
 
   while (remaining.length > 0) {
-    // Find the next block opener
-    const noformatIdx = remaining.indexOf('{noformat}');
-    const noformatWithAttrMatch = remaining.match(/\{noformat:([^}]*)\}/);
-    const noformatStart = noformatWithAttrMatch 
-      ? Math.min(noformatIdx >= 0 ? noformatIdx : Infinity, remaining.indexOf(noformatWithAttrMatch[0]))
-      : (noformatIdx >= 0 ? noformatIdx : Infinity);
-    
-    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/);
+    // Find next block opener: {panel...} OR {noformat...}/{norformat...}
+    const noformatMatch = remaining.match(/\{(?:noformat|norformat)(?::([^}]*))?\}/i);
+    const noformatStart = noformatMatch ? remaining.indexOf(noformatMatch[0]) : Infinity;
+
+    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/i);
     const panelStart = panelMatch ? remaining.indexOf(panelMatch[0]) : Infinity;
 
     const nextBlock = Math.min(noformatStart, panelStart);
 
     if (nextBlock === Infinity) {
-      // No more blocks
       segments.push({ type: 'text', content: remaining });
       break;
     }
 
-    // Push text before the block
     if (nextBlock > 0) {
       segments.push({ type: 'text', content: remaining.slice(0, nextBlock) });
     }
 
     if (noformatStart <= panelStart) {
-      // Find the opening tag length
-      const openTag = remaining.slice(noformatStart).match(/^\{noformat(?::([^}]*))?\}/);
-      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const openTag = remaining.slice(noformatStart).match(/^\{(?:noformat|norformat)(?::([^}]*))?\}/i);
+      if (!openTag) {
+        segments.push({ type: 'text', content: remaining });
+        break;
+      }
+
       const attrs = openTag[1] || '';
       const afterOpen = noformatStart + openTag[0].length;
-      const closeIdx = remaining.indexOf('{noformat}', afterOpen);
+      const closeMatch = remaining.slice(afterOpen).match(/\{(?:noformat|norformat)\}/i);
+      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
+
       if (closeIdx === -1) {
-        // No closing tag, treat rest as text
         segments.push({ type: 'text', content: remaining.slice(noformatStart) });
         break;
       }
+
       segments.push({ type: 'code', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + '{noformat}'.length);
+      remaining = remaining.slice(closeIdx + closeMatch![0].length);
     } else {
-      // Panel block
-      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/);
-      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/i);
+      if (!openTag) {
+        segments.push({ type: 'text', content: remaining });
+        break;
+      }
+
       const attrs = openTag[1] || '';
       const afterOpen = panelStart + openTag[0].length;
-      const closeIdx = remaining.indexOf('{panel}', afterOpen);
+      const closeMatch = remaining.slice(afterOpen).match(/\{panel\}/i);
+      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
+
       if (closeIdx === -1) {
         segments.push({ type: 'text', content: remaining.slice(panelStart) });
         break;
       }
+
       segments.push({ type: 'panel', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + '{panel}'.length);
+      remaining = remaining.slice(closeIdx + closeMatch![0].length);
     }
   }
 
