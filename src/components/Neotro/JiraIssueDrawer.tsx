@@ -44,6 +44,7 @@ function JiraMention({ accountId }: { accountId: string }) {
   );
 }
 
+interface JiraAttachment {
   filename: string;
   content: string; // URL to the attachment content
 }
