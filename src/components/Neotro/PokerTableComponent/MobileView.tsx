@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Menu, MessageCircle, Send, ListOrdered } from 'lucide-react';
 import { NextRoundDialog } from '../NextRoundDialog';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
 
