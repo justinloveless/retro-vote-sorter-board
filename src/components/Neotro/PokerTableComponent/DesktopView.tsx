@@ -10,7 +10,8 @@ import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Send, ListOrdered } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { PlayerSelection } from '@/hooks/usePokerSession';
 
 const getGridColumns = (playerCount: number) => {
