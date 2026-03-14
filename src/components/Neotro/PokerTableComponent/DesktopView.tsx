@@ -128,13 +128,14 @@ export const DesktopView: React.FC = () => {
                                     </Button>
                                 </div>
                             )}
+                            {!isViewingHistory && (
                                 <div className="p-2 flex justify-between gap-2">
                                     <PlayHandButton
                                         onHandPlayed={playHand}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={() => setNextRoundDialogOpen(true)}
+                                        onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>

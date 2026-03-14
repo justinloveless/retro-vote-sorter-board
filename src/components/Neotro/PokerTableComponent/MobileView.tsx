@@ -62,6 +62,9 @@ export const MobileView: React.FC = () => {
         teamId,
         activeUserId,
         userRole,
+        onNextRoundRequest,
+        ticketQueue,
+        setQueuePanelOpen,
     } = usePokerTable();
     const [isNextRoundDialogOpen, setIsNextRoundDialogOpen] = useState(false);
     const { height } = useWindowSize();
