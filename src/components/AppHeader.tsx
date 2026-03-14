@@ -121,6 +121,28 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
 
     const renderMobileMenuItems = () => (
         <div className="flex flex-col space-y-4 p-4">
+            {user && hasOrgs && (
+                <div>
+                    <p className="text-xs text-muted-foreground mb-1 px-1">Organization</p>
+                    <Select
+                        value={selectedOrgId || '_personal'}
+                        onValueChange={(val) => setSelectedOrgId(val === '_personal' ? null : val)}
+                    >
+                        <SelectTrigger className="w-full h-9 text-sm">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 shrink-0" />
+                                <SelectValue />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="_personal">Personal</SelectItem>
+                            {organizations.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <Button variant="ghost" onClick={toggleTheme} className="justify-start">
                 {theme === 'light' ? '🌙' : '☀️'}
                 <span className="ml-2">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
