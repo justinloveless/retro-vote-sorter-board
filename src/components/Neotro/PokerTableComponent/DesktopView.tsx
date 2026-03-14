@@ -110,7 +110,24 @@ export const DesktopView: React.FC = () => {
                                     userRole={userRole}
                                 />
                             </div>
-                            {!isViewingHistory && (
+                            {teamId && (
+                                <div className="px-2 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => setQueuePanelOpen(true)}
+                                    >
+                                        <ListOrdered className="h-4 w-4 mr-2" />
+                                        Queue
+                                        {ticketQueue.length > 0 && (
+                                            <Badge variant="secondary" className="ml-2 text-xs px-1.5">
+                                                {ticketQueue.length}
+                                            </Badge>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
                                 <div className="p-2 flex justify-between gap-2">
                                     <PlayHandButton
                                         onHandPlayed={playHand}
