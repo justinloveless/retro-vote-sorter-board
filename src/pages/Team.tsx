@@ -31,6 +31,20 @@ const Team = () => {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkBoardLimit } = useSubscriptionLimits();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const pokerEnabled = isFeatureEnabled('poker_pointing_sessions');
+
+  const handleJoinPointingSession = () => {
+    if (!pokerEnabled) {
+      toast({
+        title: "Pro feature",
+        description: "Poker pointing sessions require a Pro plan or above. Upgrade to access this feature.",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigate(`/teams/${teamId}/neotro`);
+  };
 
   const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
   const tabParam = searchParams.get('tab');
