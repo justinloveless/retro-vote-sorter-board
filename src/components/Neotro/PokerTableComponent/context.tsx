@@ -109,7 +109,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     deleteAllRounds, updateSessionConfig,
     nextRound,
     updateTicketNumber, userRole, presentUserIds, requestedRoundNumber,
-    isNextRoundDialogOpen, setNextRoundDialogOpen
+    isNextRoundDialogOpen, setNextRoundDialogOpen,
+    onNextRoundRequest, ticketQueue, isQueuePanelOpen, setQueuePanelOpen
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
