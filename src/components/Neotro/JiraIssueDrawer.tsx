@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 
 interface JiraAttachment {
