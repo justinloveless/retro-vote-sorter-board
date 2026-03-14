@@ -168,23 +168,31 @@ function getStoryPoints(fields: JiraIssueFields): number | null {
 
 /**
  * Parse Jira wiki markup to React elements.
- * Handles: *bold*, h1.-h6. headers, # ordered lists, * unordered lists,
- * {panel:bgColor=...}...{panel} blocks, and {color}...{color} inline.
+ * Handles: *bold*, {{inline code}}, h1.-h6. headers, # ordered lists, * unordered lists,
+ * {panel:bgColor=...}...{panel} blocks, {noformat}...{noformat} code blocks,
+ * !image.png|opts! images, and {color}...{color} inline.
  */
-function parseJiraWikiMarkup(text: string): React.ReactNode[] {
+function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
 
-  // First, split by {panel} blocks
-  const panelRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}/g;
+  // Split by {panel} and {noformat} blocks first
+  const blockRegex = /\{(panel(?::[^}]*)?)?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  const segments: { type: 'text' | 'panel'; content: string; attrs?: string }[] = [];
+  const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
 
-  while ((match = panelRegex.exec(text)) !== null) {
+  while ((match = blockRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
     }
-    segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
+    if (match[4] !== undefined) {
+      // {noformat} block
+      segments.push({ type: 'code', content: match[4], attrs: match[3] || '' });
+    } else {
+      // {panel} block
+      const panelAttrs = match[1]?.replace(/^panel:?/, '') || '';
+      segments.push({ type: 'panel', content: match[2], attrs: panelAttrs });
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {
@@ -193,7 +201,6 @@ function parseJiraWikiMarkup(text: string): React.ReactNode[] {
 
   segments.forEach((segment, segIdx) => {
     if (segment.type === 'panel') {
-      // Extract bgColor from attrs like "bgColor=#fffae6"
       const bgMatch = segment.attrs?.match(/bgColor=([#\w]+)/);
       const bgColor = bgMatch ? bgMatch[1] : undefined;
       nodes.push(
@@ -202,11 +209,20 @@ function parseJiraWikiMarkup(text: string): React.ReactNode[] {
           className="my-3 p-4 border"
           style={bgColor ? { backgroundColor: ensurePanelContrast(bgColor) } : undefined}
         >
-          <div className="text-sm text-foreground">{parseLines(segment.content)}</div>
+          <div className="text-sm text-foreground">{parseLines(segment.content, segIdx, attachments)}</div>
         </Card>
       );
+    } else if (segment.type === 'code') {
+      nodes.push(
+        <pre
+          key={`code-${segIdx}`}
+          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border"
+        >
+          <code>{segment.content.replace(/^\n/, '')}</code>
+        </pre>
+      );
     } else {
-      nodes.push(...parseLines(segment.content, segIdx));
+      nodes.push(...parseLines(segment.content, segIdx, attachments));
     }
   });
 
