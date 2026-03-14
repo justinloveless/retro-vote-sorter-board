@@ -61,17 +61,16 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
         <Plus className="h-4 w-4 mr-2" />
         New Board
       </Button>
-      <Button
-        variant='outline'
-        onClick={onJoinPointingSession}
-        className={pokerEnabled
-          ? "border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
-          : "border-2 opacity-60"
-        }
-      >
-        <Spade className="h-4 w-4 mr-2" />
-        {pokerEnabled ? 'Join Pointing Session' : 'Pointing Session (Pro)'}
-      </Button>
+      {pokerEnabled && (
+        <Button
+          variant='outline'
+          onClick={onJoinPointingSession}
+          className="border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+        >
+          <Spade className="h-4 w-4 mr-2" />
+          Join Pointing Session
+        </Button>
+      )}
       {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
         <Button
           variant="outline"

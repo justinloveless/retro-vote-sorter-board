@@ -107,9 +107,9 @@ const NeotroPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md mx-auto px-4">
             <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
-            <h2 className="text-2xl font-bold">Pro Feature</h2>
+            <h2 className="text-2xl font-bold">Feature Disabled</h2>
             <p className="text-muted-foreground">
-              Poker pointing sessions are available on Pro plans and above. Upgrade your subscription to access this feature.
+              Poker pointing sessions are currently disabled by an administrator.
             </p>
             <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
           </div>

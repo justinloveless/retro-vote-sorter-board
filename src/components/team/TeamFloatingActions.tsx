@@ -23,14 +23,16 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 safe-area-pb">
       <div className="flex justify-center items-center gap-8 max-w-sm mx-auto">
         {/* Join Pointing Session - Left */}
-        <Button
-          variant="outline"
-          onClick={onJoinPointingSession}
-          className={`rounded-full h-14 w-14 shadow-lg border-2 ${pokerEnabled ? 'border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300' : 'opacity-60'}`}
-          size="icon"
-        >
-          <Spade className="h-6 w-6" />
-        </Button>
+        {pokerEnabled && (
+          <Button
+            variant="outline"
+            onClick={onJoinPointingSession}
+            className="rounded-full h-14 w-14 shadow-lg border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
+            size="icon"
+          >
+            <Spade className="h-6 w-6" />
+          </Button>
+        )}
         
         {/* New Board - Center (Main action) */}
         <Button
@@ -53,8 +55,8 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
           </Button>
         )}
         
-        {/* Placeholder if no settings access to keep layout balanced */}
-        {!canManageSettings && (
+        {/* Placeholder to keep layout balanced */}
+        {!canManageSettings && !pokerEnabled && (
           <div className="h-14 w-14" />
         )}
       </div>

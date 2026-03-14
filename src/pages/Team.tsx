@@ -35,14 +35,6 @@ const Team = () => {
   const pokerEnabled = isFeatureEnabled('poker_pointing_sessions');
 
   const handleJoinPointingSession = () => {
-    if (!pokerEnabled) {
-      toast({
-        title: "Pro feature",
-        description: "Poker pointing sessions require a Pro plan or above. Upgrade to access this feature.",
-        variant: "destructive",
-      });
-      return;
-    }
     navigate(`/teams/${teamId}/neotro`);
   };
 

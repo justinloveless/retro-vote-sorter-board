@@ -119,19 +119,7 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, []);
 
     const isFeatureEnabled = (flagName: string) => {
-        // Global toggle must be on
-        const globalEnabled = flags[flagName] ?? false;
-        if (!globalEnabled) return false;
-
-        // If there are tier-specific settings for this flag, check user's tier
-        const hasTierConfig = Object.values(tierFeatureFlags).some(
-            tf => flagName in tf
-        );
-        if (!hasTierConfig) return true; // No tier restrictions → available to all
-
-        // Check if the user's current tier has access
-        const userTierFlags = tierFeatureFlags[tier];
-        return userTierFlags?.[flagName] ?? false;
+        return flags[flagName] ?? false;
     };
 
     return (
