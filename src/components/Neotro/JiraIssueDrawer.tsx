@@ -472,6 +472,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [clicked, setClicked] = useState(false);
   const [noApiCredentials, setNoApiCredentials] = useState(false);
   const fetchRef = React.useRef<string | null>(null);
 
@@ -532,6 +533,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       if (openOnComplete) setIsOpen(true);
     } finally {
       setIsLoading(false);
+      setClicked(false);
       fetchRef.current = null;
     }
   }, [issueIdOrKey, teamId]);
@@ -541,8 +543,11 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   };
 
   const handleClick = () => {
+    setClicked(true);
     fetchIssue(true);
   };
+
+  const showSpinner = clicked && isLoading;
 
   const externalUrl = jiraDomain && (issueData?.key || issueIdOrKey)
     ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
@@ -555,8 +560,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
   return (
     <>
-      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={isLoading}>
-        {isLoading ? (
+      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
+        {showSpinner ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         ) : (
           <ChevronDown className="h-4 w-4 mr-2" />
