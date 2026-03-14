@@ -542,8 +542,11 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   };
 
   const handleClick = () => {
+    setClicked(true);
     fetchIssue(true);
   };
+
+  const showSpinner = clicked && isLoading;
 
   const externalUrl = jiraDomain && (issueData?.key || issueIdOrKey)
     ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
