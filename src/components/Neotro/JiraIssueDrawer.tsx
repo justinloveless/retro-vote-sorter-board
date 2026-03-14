@@ -258,7 +258,7 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
           className="my-3 p-4 border"
           style={bgColor ? { backgroundColor: ensurePanelContrast(bgColor) } : undefined}
         >
-          <div className="text-sm text-foreground">{parseLines(segment.content, segIdx, attachments)}</div>
+          <div className="text-sm text-foreground">{parseJiraWikiMarkup(segment.content, attachments)}</div>
         </Card>
       );
     } else if (segment.type === 'code') {
