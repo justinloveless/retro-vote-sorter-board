@@ -180,8 +180,8 @@ function getStoryPoints(fields: JiraIssueFields): number | null {
 function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
 
-  // Split by {panel} and {noformat} blocks first
-  const blockRegex = /\{(panel(?::[^}]*)?)?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
+  // Split by {panel} and {noformat} blocks using separate passes for robustness
+  const blockRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
@@ -193,10 +193,9 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
     if (match[4] !== undefined) {
       // {noformat} block
       segments.push({ type: 'code', content: match[4], attrs: match[3] || '' });
-    } else {
+    } else if (match[2] !== undefined) {
       // {panel} block
-      const panelAttrs = match[1]?.replace(/^panel:?/, '') || '';
-      segments.push({ type: 'panel', content: match[2], attrs: panelAttrs });
+      segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
     }
     lastIndex = match.index + match[0].length;
   }
