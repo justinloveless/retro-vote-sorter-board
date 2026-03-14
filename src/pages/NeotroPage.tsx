@@ -15,8 +15,10 @@ import { Lock } from 'lucide-react';
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const roundParam = searchParams.get('round');
   const { user, profile, loading: loadingAuth } = useAuth();
+  const { isFeatureEnabled, loading: loadingFlags } = useFeatureFlags();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
 
