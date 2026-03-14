@@ -611,18 +611,34 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const statusColor = fields?.status?.statusCategory?.colorName
     ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
     : 'bg-muted text-muted-foreground';
-  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
-  const openLightbox = useCallback((src: string, alt: string) => setLightboxImage({ src, alt }), []);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const openPreview = useCallback((src: string) => setPreviewImage(src), []);
+
+  // Build a map of Jira accountId -> displayName from issue data
+  const userMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (!fields) return map;
+    if (fields.assignee?.displayName) {
+      // We don't have the accountId directly on assignee in our interface,
+      // but the raw data has it
+      const raw = fields as any;
+      if (raw.assignee?.accountId) map.set(raw.assignee.accountId, raw.assignee.displayName);
+      if (raw.reporter?.accountId) map.set(raw.reporter.accountId, raw.reporter.displayName);
+    }
+    if (fields.comment?.comments) {
+      for (const comment of fields.comment.comments) {
+        const rawAuthor = comment.author as any;
+        if (rawAuthor?.accountId && rawAuthor?.displayName) {
+          map.set(rawAuthor.accountId, rawAuthor.displayName);
+        }
+      }
+    }
+    return map;
+  }, [fields]);
 
   return (
-    <ImageLightboxContext.Provider value={openLightbox}>
-      {lightboxImage && (
-        <ImageLightbox
-          src={lightboxImage.src}
-          alt={lightboxImage.alt}
-          onClose={() => setLightboxImage(null)}
-        />
-      )}
+    <ImagePreviewContext.Provider value={openPreview}>
+    <JiraUserMapContext.Provider value={userMap}>
       <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
         {showSpinner ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
