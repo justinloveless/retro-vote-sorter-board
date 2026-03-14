@@ -22,7 +22,8 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
   onCreateBoard, 
   onJoinPointingSession, 
   currentUserRole,
-  showBackButton = true
+  showBackButton = true,
+  pokerEnabled = true
 }) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
