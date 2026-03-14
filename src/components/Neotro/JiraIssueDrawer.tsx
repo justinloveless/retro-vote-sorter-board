@@ -85,7 +85,19 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
   );
 }
 
-interface JiraAttachment {
+function ClickableImage({ src, alt, maxWidth }: { src: string; alt: string; maxWidth?: number }) {
+  const openLightbox = React.useContext(ImageLightboxContext);
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="my-2 rounded-lg border max-w-full cursor-pointer hover:opacity-80 transition-opacity"
+      style={maxWidth ? { maxWidth: `${maxWidth}px` } : undefined}
+      onClick={() => openLightbox?.(src, alt)}
+    />
+  );
+}
+
   filename: string;
   content: string; // URL to the attachment content
 }
