@@ -593,7 +593,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                 {/* Description */}
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Description</p>
-                  {renderDescription(fields.description)}
+                  {renderDescription(fields.description, fields.attachment)}
                 </div>
               </>
             )}
