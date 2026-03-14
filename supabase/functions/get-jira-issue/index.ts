@@ -22,13 +22,13 @@ Deno.serve(async (req) => {
 
     const { data: teamData, error: teamError } = await supabaseClient
       .from('teams')
-      .select("jira_domain, jira_email, jira_api_key")
+      .select("jira_domain, jira_email, jira_api_key, jira_ticket_prefix")
       .eq('id', teamId)
       .single();
 
     if (teamError) throw teamError;
 
-    const { jira_domain, jira_email, jira_api_key } = teamData;
+    const { jira_domain, jira_email, jira_api_key, jira_ticket_prefix } = teamData;
 
     if (!jira_domain) {
       return new Response(
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If domain is present but API key is not, instruct client to use iFrame
+    // If domain is present but API key is not, fall back to external link
     if (!jira_api_key) {
       return new Response(
         JSON.stringify({ shouldUseIframe: true, domain: jira_domain }),
@@ -51,8 +51,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // If the issue key doesn't contain a dash (e.g. "123" instead of "PROJ-123"),
+    // prepend the team's Jira ticket prefix
+    let resolvedKey = issueIdOrKey;
+    if (!issueIdOrKey.includes('-') && jira_ticket_prefix) {
+      resolvedKey = `${jira_ticket_prefix}-${issueIdOrKey}`;
+    }
+
     const auth = btoa(`${jira_email}:${jira_api_key}`);
-    const jiraUrl = `${jira_domain}/rest/api/2/issue/${issueIdOrKey}`;
+    const jiraUrl = `${jira_domain}/rest/api/2/issue/${resolvedKey}`;
 
     const jiraResponse = await fetch(jiraUrl, {
       headers: {
