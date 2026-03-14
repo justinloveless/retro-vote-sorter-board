@@ -460,7 +460,7 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
 
 /** Parse inline markup: *bold*, _italic_, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
-  // Remove {color:...}...{color} wrappers but keep content
+  // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
   // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], !image!
