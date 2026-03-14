@@ -96,6 +96,10 @@ export interface PokerTableProviderProps {
   requestedRoundNumber?: number | null;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
+  onNextRoundRequest: () => void;
+  ticketQueue: { queue: TicketQueueItem[] };
+  isQueuePanelOpen: boolean;
+  setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
