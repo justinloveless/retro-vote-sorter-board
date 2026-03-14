@@ -836,6 +836,25 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
           </div>
         </DialogContent>
       </Dialog>
-    </ImageLightboxContext.Provider>
+
+      {/* Image preview dialog — same pattern as chat */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Image Preview</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-0">
+            {previewImage && (
+              <img
+                src={previewImage}
+                alt="Full size preview"
+                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </JiraUserMapContext.Provider>
+    </ImagePreviewContext.Provider>
   );
 };
