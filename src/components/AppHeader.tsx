@@ -121,6 +121,28 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
 
     const renderMobileMenuItems = () => (
         <div className="flex flex-col space-y-4 p-4">
+            {user && hasOrgs && (
+                <div>
+                    <p className="text-xs text-muted-foreground mb-1 px-1">Organization</p>
+                    <Select
+                        value={selectedOrgId || '_personal'}
+                        onValueChange={(val) => setSelectedOrgId(val === '_personal' ? null : val)}
+                    >
+                        <SelectTrigger className="w-full h-9 text-sm">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 shrink-0" />
+                                <SelectValue />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="_personal">Personal</SelectItem>
+                            {organizations.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <Button variant="ghost" onClick={toggleTheme} className="justify-start">
                 {theme === 'light' ? '🌙' : '☀️'}
                 <span className="ml-2">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
@@ -260,7 +282,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     return (
         <header className={`flex justify-between items-center p-4 md:p-6 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
             <div className="flex items-center space-x-4">
-                {renderOrgSelector()}
+                {!isMobile && renderOrgSelector()}
                 {renderLeftContent()}
             </div>
             <div className="flex-grow flex justify-center">
