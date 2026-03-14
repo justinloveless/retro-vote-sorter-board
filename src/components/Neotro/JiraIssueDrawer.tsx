@@ -451,6 +451,21 @@ function renderDescription(description: string | null, attachments?: JiraAttachm
   return <div className="space-y-1">{parseJiraWikiMarkup(normalized, attachments)}</div>;
 }
 
+// Simple cache for Jira issue data
+const jiraCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 10_000;
+
+function getCached(key: string) {
+  const entry = jiraCache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) return entry.data;
+  if (entry) jiraCache.delete(key);
+  return null;
+}
+
+function setCache(key: string, data: any) {
+  jiraCache.set(key, { data, timestamp: Date.now() });
+}
+
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
@@ -458,19 +473,41 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [noApiCredentials, setNoApiCredentials] = useState(false);
+  const fetchRef = React.useRef<string | null>(null);
 
-  const handleShowIssue = async () => {
+  const fetchIssue = React.useCallback(async (openOnComplete: boolean) => {
+    if (!issueIdOrKey || !teamId) {
+      if (openOnComplete) {
+        setError("Ticket number or Team ID is missing.");
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    const cacheKey = `${teamId}:${issueIdOrKey}`;
+
+    // Check cache first
+    const cached = getCached(cacheKey);
+    if (cached) {
+      if (cached.shouldUseIframe) {
+        setJiraDomain(cached.domain);
+        setNoApiCredentials(true);
+      } else {
+        setIssueData(cached);
+        setJiraDomain(cached.domain || null);
+      }
+      if (openOnComplete) setIsOpen(true);
+      return;
+    }
+
+    // Deduplicate concurrent fetches
+    if (fetchRef.current === cacheKey && !openOnComplete) return;
+    fetchRef.current = cacheKey;
+
     setIsLoading(true);
     setError(null);
     setIssueData(null);
     setNoApiCredentials(false);
-
-    if (!issueIdOrKey || !teamId) {
-      setError("Ticket number or Team ID is missing.");
-      setIsOpen(true);
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue', {
@@ -480,42 +517,32 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       if (invokeError) throw new Error(`Function invocation failed: ${invokeError.message}`);
       if (data.error) throw new Error(data.error);
 
+      setCache(cacheKey, data);
+
       if (data.shouldUseIframe) {
         setJiraDomain(data.domain);
         setNoApiCredentials(true);
-        setIsOpen(true);
       } else {
         setIssueData(data);
         setJiraDomain(data.domain || null);
-        setIsOpen(true);
       }
+      if (openOnComplete) setIsOpen(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      setIsOpen(true);
+      if (openOnComplete) setIsOpen(true);
     } finally {
       setIsLoading(false);
+      fetchRef.current = null;
     }
+  }, [issueIdOrKey, teamId]);
+
+  const handleMouseEnter = () => {
+    fetchIssue(false);
   };
 
-  const externalUrl = jiraDomain && (issueData?.key || issueIdOrKey)
-    ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
-    : null;
-  const fields = issueData?.fields;
-  const storyPoints = fields ? getStoryPoints(fields) : null;
-  const statusColor = fields?.status?.statusCategory?.colorName
-    ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
-    : 'bg-muted text-muted-foreground';
-
-  return (
-    <>
-      <Button variant="outline" className="w-full" onClick={handleShowIssue} disabled={isLoading}>
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <ChevronDown className="h-4 w-4 mr-2" />
-        )}
-        Show Jira Issue
-      </Button>
+  const handleClick = () => {
+    fetchIssue(true);
+  };
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto overflow-x-hidden top-[40%]">
