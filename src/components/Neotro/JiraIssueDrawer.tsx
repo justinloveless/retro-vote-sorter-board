@@ -533,6 +533,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       if (openOnComplete) setIsOpen(true);
     } finally {
       setIsLoading(false);
+      setClicked(false);
       fetchRef.current = null;
     }
   }, [issueIdOrKey, teamId]);
