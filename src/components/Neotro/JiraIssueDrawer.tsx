@@ -472,6 +472,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [clicked, setClicked] = useState(false);
   const [noApiCredentials, setNoApiCredentials] = useState(false);
   const fetchRef = React.useRef<string | null>(null);
 
