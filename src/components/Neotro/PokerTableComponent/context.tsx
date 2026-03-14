@@ -3,6 +3,7 @@ import { PlayerSelection, PokerSessionState } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
+import { useJiraIntegration } from '@/hooks/useJiraIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
 import { ReactNode, Dispatch, SetStateAction } from 'react';
@@ -59,6 +60,7 @@ interface PokerTableContextProps {
   setDisplayTicketNumber: React.Dispatch<React.SetStateAction<string>>;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsChatDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isJiraConfigured: boolean;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onNextRoundRequest: () => void;
@@ -121,6 +123,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const [isSending, setIsSending] = useState(false);
 
   const { isSlackInstalled } = useSlackIntegration(teamId);
+  const { isJiraConfigured } = useJiraIntegration(teamId);
   const { sendPokerRoundToSlack } = usePokerSlackNotification();
 
   const {
@@ -309,6 +312,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setDisplayTicketNumber,
     setIsDrawerOpen,
     setIsChatDrawerOpen,
+    isJiraConfigured,
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
     onNextRoundRequest,

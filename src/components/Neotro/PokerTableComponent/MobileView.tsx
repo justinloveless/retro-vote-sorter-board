@@ -16,6 +16,7 @@ import { NextRoundDialog } from '../NextRoundDialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
+import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';
@@ -66,6 +67,7 @@ export const MobileView: React.FC = () => {
         onNextRoundRequest,
         ticketQueue,
         setQueuePanelOpen,
+        isJiraConfigured,
     } = usePokerTable();
     const { height } = useWindowSize();
 
@@ -115,7 +117,14 @@ export const MobileView: React.FC = () => {
                                             />
                                         </div>
                                         {displaySession.game_state === 'Playing' && (
-                                            <div className="pt-4">
+                                            <div className="pt-4 space-y-2">
+                                                <SubmitPointsToJira
+                                                    teamId={teamId}
+                                                    ticketNumber={displayTicketNumber}
+                                                    averagePoints={displaySession.average_points}
+                                                    isHandPlayed={true}
+                                                    isJiraConfigured={isJiraConfigured}
+                                                />
                                                 <Button
                                                     onClick={handleSendToSlack}
                                                     disabled={!isSlackInstalled || isSending}
@@ -306,7 +315,14 @@ export const MobileView: React.FC = () => {
                                             />
                                         </div>
                                         {displaySession.game_state === 'Playing' && (
-                                            <div className="pt-4">
+                                            <div className="pt-4 space-y-2">
+                                                <SubmitPointsToJira
+                                                    teamId={teamId}
+                                                    ticketNumber={displayTicketNumber}
+                                                    averagePoints={displaySession.average_points}
+                                                    isHandPlayed={true}
+                                                    isJiraConfigured={isJiraConfigured}
+                                                />
                                                 <Button
                                                     onClick={handleSendToSlack}
                                                     disabled={!isSlackInstalled || isSending}
