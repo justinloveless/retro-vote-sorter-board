@@ -7,6 +7,7 @@ interface TeamFloatingActionsProps {
   onJoinPointingSession: () => void;
   onSettings: () => void;
   currentUserRole?: string;
+  pokerEnabled?: boolean;
 }
 
 export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
