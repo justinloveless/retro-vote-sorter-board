@@ -1,9 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { useSubscription } from '@/hooks/useSubscription';
 
 type FeatureFlags = {
     [key: string]: boolean;
+};
+
+type TierFeatureFlags = {
+    [tier: string]: { featureFlags?: FeatureFlags };
 };
 
 interface FeatureFlagContextType {
@@ -16,7 +21,28 @@ const FeatureFlagContext = createContext<FeatureFlagContextType | undefined>(und
 
 export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [flags, setFlags] = useState<FeatureFlags>({});
+    const [tierFeatureFlags, setTierFeatureFlags] = useState<TierFeatureFlags>({});
     const [loading, setLoading] = useState(true);
+    const { tier, loading: tierLoading } = useSubscription();
+
+    // Fetch tier_limits from app_config for per-tier feature flags
+    useEffect(() => {
+        const fetchTierFlags = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('app_config')
+                    .select('value')
+                    .eq('key', 'tier_limits')
+                    .maybeSingle();
+                if (error || !data?.value) return;
+                const parsed = JSON.parse(data.value);
+                setTierFeatureFlags(parsed);
+            } catch (e) {
+                console.error('Error fetching tier feature flags:', e);
+            }
+        };
+        fetchTierFlags();
+    }, []);
 
     useEffect(() => {
         let channel: RealtimeChannel;
@@ -81,12 +107,23 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         };
     }, []);
 
-    const isFeatureEnabled = (flagName: string) => {
-        return flags[flagName] ?? false;
-    };
+    const isFeatureEnabled = useCallback((flagName: string) => {
+        // 1. Check global toggle - if off globally, feature is off
+        const globalEnabled = flags[flagName] ?? false;
+        if (!globalEnabled) return false;
+
+        // 2. Check tier-specific feature flags
+        const tierConfig = tierFeatureFlags[tier];
+        if (tierConfig?.featureFlags && flagName in tierConfig.featureFlags) {
+            return tierConfig.featureFlags[flagName] ?? false;
+        }
+
+        // If no tier-specific override exists, the global flag being on is sufficient
+        return true;
+    }, [flags, tierFeatureFlags, tier]);
 
     return (
-        <FeatureFlagContext.Provider value={{ flags, isFeatureEnabled, loading }}>
+        <FeatureFlagContext.Provider value={{ flags, isFeatureEnabled, loading: loading || tierLoading }}>
             {children}
         </FeatureFlagContext.Provider>
     );
