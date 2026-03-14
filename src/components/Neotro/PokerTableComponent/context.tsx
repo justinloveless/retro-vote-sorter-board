@@ -6,6 +6,7 @@ import { useSlackIntegration } from '@/hooks/useSlackIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
 import { ReactNode, Dispatch, SetStateAction } from 'react';
+import { TicketQueueItem } from '@/hooks/useTicketQueue';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
