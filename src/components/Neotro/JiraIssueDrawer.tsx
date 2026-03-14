@@ -463,8 +463,8 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
+  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], [~accountid:xxx], !image!
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
