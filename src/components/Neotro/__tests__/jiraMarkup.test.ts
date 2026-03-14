@@ -7,13 +7,10 @@ function splitBlocks(text: string): { type: 'text' | 'panel' | 'code'; content: 
   let remaining = normalized;
 
   while (remaining.length > 0) {
-    const noformatIdx = remaining.indexOf('{noformat}');
-    const noformatWithAttrMatch = remaining.match(/\{noformat:([^}]*)\}/);
-    const noformatStart = noformatWithAttrMatch 
-      ? Math.min(noformatIdx >= 0 ? noformatIdx : Infinity, remaining.indexOf(noformatWithAttrMatch[0]))
-      : (noformatIdx >= 0 ? noformatIdx : Infinity);
-    
-    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/);
+    const noformatMatch = remaining.match(/\{(?:noformat|norformat)(?::([^}]*))?\}/i);
+    const noformatStart = noformatMatch ? remaining.indexOf(noformatMatch[0]) : Infinity;
+
+    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/i);
     const panelStart = panelMatch ? remaining.indexOf(panelMatch[0]) : Infinity;
 
     const nextBlock = Math.min(noformatStart, panelStart);
@@ -28,32 +25,46 @@ function splitBlocks(text: string): { type: 'text' | 'panel' | 'code'; content: 
     }
 
     if (noformatStart <= panelStart) {
-      const openTag = remaining.slice(noformatStart).match(/^\{noformat(?::([^}]*))?\}/);
+      const openTag = remaining.slice(noformatStart).match(/^\{(?:noformat|norformat)(?::([^}]*))?\}/i);
       if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
       const attrs = openTag[1] || '';
       const afterOpen = noformatStart + openTag[0].length;
-      const closeIdx = remaining.indexOf('{noformat}', afterOpen);
+      const closeMatch = remaining.slice(afterOpen).match(/\{(?:noformat|norformat)\}/i);
+      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
       if (closeIdx === -1) {
         segments.push({ type: 'text', content: remaining.slice(noformatStart) });
         break;
       }
       segments.push({ type: 'code', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + '{noformat}'.length);
+      remaining = remaining.slice(closeIdx + closeMatch![0].length);
     } else {
-      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/);
+      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/i);
       if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
       const attrs = openTag[1] || '';
       const afterOpen = panelStart + openTag[0].length;
-      const closeIdx = remaining.indexOf('{panel}', afterOpen);
+      const closeMatch = remaining.slice(afterOpen).match(/\{panel\}/i);
+      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
       if (closeIdx === -1) {
         segments.push({ type: 'text', content: remaining.slice(panelStart) });
         break;
       }
       segments.push({ type: 'panel', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + '{panel}'.length);
+      remaining = remaining.slice(closeIdx + closeMatch![0].length);
     }
   }
   return segments;
+}
+
+function countCodeBlocksRecursively(text: string): number {
+  const segments = splitBlocks(text);
+  let count = 0;
+
+  for (const segment of segments) {
+    if (segment.type === 'code') count++;
+    if (segment.type === 'panel') count += countCodeBlocksRecursively(segment.content);
+  }
+
+  return count;
 }
 
 function parseInlineTokens(text: string): { type: string; content: string }[] {
