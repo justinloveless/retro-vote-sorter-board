@@ -377,7 +377,7 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
     if (inlineMatch[1] !== undefined) {
       // {{inline code}}
       parts.push(
-        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono">
+        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono break-all">
           {inlineMatch[1]}
         </code>
       );
