@@ -234,7 +234,7 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
   return nodes;
 }
 
-function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNode[] {
+function parseLines(text: string, keyPrefix: number | string = 0, attachments?: JiraAttachment[]): React.ReactNode[] {
   const lines = text.split('\n');
   const nodes: React.ReactNode[] = [];
   let i = 0;
@@ -252,7 +252,7 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
     const headerMatch = line.match(/^h([1-6])\.\s*(.*)/);
     if (headerMatch) {
       const level = parseInt(headerMatch[1]);
-      const content = parseInline(headerMatch[2]);
+      const content = parseInline(headerMatch[2], attachments);
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
       const sizeClass = level === 1 ? 'text-xl font-bold' : level === 2 ? 'text-lg font-semibold' : level === 3 ? 'text-base font-semibold' : 'text-sm font-semibold';
       nodes.push(
@@ -264,13 +264,13 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
       continue;
     }
 
-    // Ordered list: lines starting with # (or ## for nested)
+    // Ordered list
     if (/^#\s/.test(line)) {
       const listItems: React.ReactNode[] = [];
       while (i < lines.length && /^#\s/.test(lines[i].trimEnd())) {
         listItems.push(
           <li key={`${keyPrefix}-ol-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''))}
+            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''), attachments)}
           </li>
         );
         i++;
@@ -283,13 +283,13 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
       continue;
     }
 
-    // Unordered list: lines starting with *  (but not bold markers like *text*)
+    // Unordered list
     if (/^\*\s/.test(line)) {
       const listItems: React.ReactNode[] = [];
       while (i < lines.length && /^\*\s/.test(lines[i].trimEnd())) {
         listItems.push(
           <li key={`${keyPrefix}-ul-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''))}
+            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''), attachments)}
           </li>
         );
         i++;
@@ -305,7 +305,7 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
     // Regular line
     nodes.push(
       <p key={`${keyPrefix}-p-${i}`} className="text-sm text-foreground my-1">
-        {parseInline(line)}
+        {parseInline(line, attachments)}
       </p>
     );
     i++;
@@ -314,22 +314,54 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
   return nodes;
 }
 
-/** Parse inline markup: *bold*, _italic_, {{monospace}}, [links], {color} */
-function parseInline(text: string): React.ReactNode {
+/** Parse inline markup: *bold*, {{inline code}}, !image!, {color} */
+function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Split by bold markers *text*
+  // Tokenize: {{inline code}}, *bold*, !image!
+  const tokenRegex = /\{\{([^}]+)\}\}|\*([^*]+)\*|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
-  const boldRegex = /\*([^*]+)\*/g;
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
 
-  while ((inlineMatch = boldRegex.exec(cleaned)) !== null) {
+  while ((inlineMatch = tokenRegex.exec(cleaned)) !== null) {
     if (inlineMatch.index > lastIdx) {
       parts.push(cleaned.slice(lastIdx, inlineMatch.index));
     }
-    parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[1]}</strong>);
+
+    if (inlineMatch[1] !== undefined) {
+      // {{inline code}}
+      parts.push(
+        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono">
+          {inlineMatch[1]}
+        </code>
+      );
+    } else if (inlineMatch[2] !== undefined) {
+      // *bold*
+      parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[2]}</strong>);
+    } else if (inlineMatch[3] !== undefined) {
+      // !image.png|opts!
+      const filename = inlineMatch[3].trim();
+      const opts = inlineMatch[4] || '';
+      const widthMatch = opts.match(/width=(\d+)/);
+      const altMatch = opts.match(/alt="([^"]*)"/);
+
+      // Find attachment URL by filename
+      const attachment = attachments?.find(a => a.filename === filename);
+      const src = attachment?.content || filename;
+
+      parts.push(
+        <img
+          key={`img-${inlineMatch.index}`}
+          src={src}
+          alt={altMatch ? altMatch[1] : filename}
+          className="my-2 rounded-lg border max-w-full"
+          style={widthMatch ? { maxWidth: `${Math.min(parseInt(widthMatch[1]), 600)}px` } : undefined}
+        />
+      );
+    }
+
     lastIdx = inlineMatch.index + inlineMatch[0].length;
   }
   if (lastIdx < cleaned.length) {
