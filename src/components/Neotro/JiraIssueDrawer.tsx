@@ -9,12 +9,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 
 interface JiraAttachment {
   filename: string;
   content: string; // URL to the attachment content
+}
+
+interface JiraComment {
+  id: string;
+  author: { displayName: string; avatarUrls?: Record<string, string> };
+  body: string;
+  created: string;
+  updated: string;
 }
 
 interface JiraIssueFields {
@@ -26,6 +35,7 @@ interface JiraIssueFields {
   reporter?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   issuetype?: { name: string; iconUrl?: string };
   labels?: string[];
+  comment?: { comments: JiraComment[]; total: number };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
@@ -40,6 +50,24 @@ interface JiraIssueData {
 interface JiraIssueDrawerProps {
   issueIdOrKey: string | null;
   teamId: string | null;
+}
+
+function formatJiraDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 30) return `${diffDays}d ago`;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
 }
 
 const statusColorMap: Record<string, string> = {
@@ -710,6 +738,48 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Description</p>
                   {renderDescription(fields.description, fields.attachment)}
                 </div>
+                {/* Comments */}
+                {fields.comment && fields.comment.comments && fields.comment.comments.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <div className="flex items-center gap-1 mb-3">
+                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Comments ({fields.comment.comments.length})
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        {fields.comment.comments.map((comment) => {
+                          const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
+                          const initials = comment.author?.displayName
+                            ?.split(' ')
+                            .map(n => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase() || '?';
+                          const timeAgo = formatJiraDate(comment.created);
+
+                          return (
+                            <Card key={comment.id} className="p-3 gap-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage src={avatarUrl} alt={comment.author?.displayName} />
+                                  <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs font-medium">{comment.author?.displayName}</span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo}</span>
+                              </div>
+                              <div className="text-sm break-words [overflow-wrap:anywhere]">
+                                {parseJiraWikiMarkup(comment.body, fields.attachment)}
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
