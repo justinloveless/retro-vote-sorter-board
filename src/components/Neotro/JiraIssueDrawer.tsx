@@ -503,21 +503,28 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
         </a>
       );
     } else if (inlineMatch[6] !== undefined) {
+      // [~accountid:xxx] or [~username] — user mention
+      parts.push(
+        <Badge key={`mention-${inlineMatch.index}`} variant="secondary" className="text-xs font-normal px-1.5 py-0">
+          @{inlineMatch[6].length > 20 ? 'user' : inlineMatch[6]}
+        </Badge>
+      );
+    } else if (inlineMatch[7] !== undefined) {
       // !image.png|opts!
-      const filename = inlineMatch[6].trim();
-      const opts = inlineMatch[7] || '';
+      const filename = inlineMatch[7].trim();
+      const opts = inlineMatch[8] || '';
       const widthMatch = opts.match(/width=(\d+)/);
       const altMatch = opts.match(/alt="([^"]*)"/);
       const attachment = attachments?.find(a => a.filename === filename);
       const src = attachment?.content || filename;
+      const alt = altMatch ? altMatch[1] : filename;
 
       parts.push(
-        <img
+        <ClickableImage
           key={`img-${inlineMatch.index}`}
           src={src}
-          alt={altMatch ? altMatch[1] : filename}
-          className="my-2 rounded-lg border max-w-full"
-          style={widthMatch ? { maxWidth: `${Math.min(parseInt(widthMatch[1]), 600)}px` } : undefined}
+          alt={alt}
+          maxWidth={widthMatch ? Math.min(parseInt(widthMatch[1]), 600) : undefined}
         />
       );
     }
