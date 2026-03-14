@@ -111,7 +111,7 @@ const NeotroPage = () => {
             <p className="text-muted-foreground">
               Poker pointing sessions are available on Pro plans and above. Upgrade your subscription to access this feature.
             </p>
-            <Button onClick={() => navigate(-1 as any)} variant="outline">Go Back</Button>
+            <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
           </div>
         </div>
       </div>
