@@ -265,7 +265,7 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
       nodes.push(
         <pre
           key={`code-${segIdx}`}
-          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border"
+          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border whitespace-pre-wrap break-words"
         >
           <code>{segment.content.replace(/^\n/, '')}</code>
         </pre>
