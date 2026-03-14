@@ -544,6 +544,26 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     fetchIssue(true);
   };
 
+  const externalUrl = jiraDomain && (issueData?.key || issueIdOrKey)
+    ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
+    : null;
+  const fields = issueData?.fields;
+  const storyPoints = fields ? getStoryPoints(fields) : null;
+  const statusColor = fields?.status?.statusCategory?.colorName
+    ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
+    : 'bg-muted text-muted-foreground';
+
+  return (
+    <>
+      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={isLoading}>
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <ChevronDown className="h-4 w-4 mr-2" />
+        )}
+        Show Jira Issue
+      </Button>
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto overflow-x-hidden top-[40%]">
           <DialogHeader>
