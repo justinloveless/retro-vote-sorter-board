@@ -352,13 +352,13 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
   return nodes;
 }
 
-/** Parse inline markup: *bold*, {{inline code}}, !image!, {color} */
+/** Parse inline markup: *bold*, _italic_, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Tokenize: {{inline code}} (allowing } inside), *bold*, !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|!([^|!]+)(?:\|([^!]*))?\!/g;
+  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], !image!
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
@@ -379,13 +379,29 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
       // *bold*
       parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[2]}</strong>);
     } else if (inlineMatch[3] !== undefined) {
+      // _italic_
+      parts.push(<em key={`i-${inlineMatch.index}`}>{inlineMatch[3]}</em>);
+    } else if (inlineMatch[4] !== undefined) {
+      // [visible text|url] — visible text can contain formatting
+      const linkText = inlineMatch[4];
+      const linkUrl = inlineMatch[5];
+      parts.push(
+        <a
+          key={`a-${inlineMatch.index}`}
+          href={linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          {parseInline(linkText, attachments)}
+        </a>
+      );
+    } else if (inlineMatch[6] !== undefined) {
       // !image.png|opts!
-      const filename = inlineMatch[3].trim();
-      const opts = inlineMatch[4] || '';
+      const filename = inlineMatch[6].trim();
+      const opts = inlineMatch[7] || '';
       const widthMatch = opts.match(/width=(\d+)/);
       const altMatch = opts.match(/alt="([^"]*)"/);
-
-      // Find attachment URL by filename
       const attachment = attachments?.find(a => a.filename === filename);
       const src = attachment?.content || filename;
 
