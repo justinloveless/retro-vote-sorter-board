@@ -19,13 +19,13 @@ export function useTicketQueue(teamId: string | undefined) {
     if (!teamId) return;
     setLoading(true);
     const { data, error } = await supabase
-      .from('poker_ticket_queue' as any)
+      .from('poker_ticket_queue')
       .select('*')
       .eq('team_id', teamId)
       .order('position', { ascending: true });
     
     if (!error && data) {
-      setQueue(data as unknown as TicketQueueItem[]);
+      setQueue(data as TicketQueueItem[]);
     }
     setLoading(false);
   }, [teamId]);
@@ -64,20 +64,35 @@ export function useTicketQueue(teamId: string | undefined) {
     const maxPosition = queue.length > 0 ? Math.max(...queue.map(q => q.position)) + 1 : 0;
     const { data: userData } = await supabase.auth.getUser();
     
+    // Optimistic update
+    const optimisticItem: TicketQueueItem = {
+      id: crypto.randomUUID(),
+      team_id: teamId,
+      ticket_key: ticketKey,
+      ticket_summary: ticketSummary,
+      position: maxPosition,
+      added_by: userData.user?.id || null,
+      created_at: new Date().toISOString(),
+    };
+    setQueue(prev => [...prev, optimisticItem]);
+
     await supabase
-      .from('poker_ticket_queue' as any)
+      .from('poker_ticket_queue')
       .insert({
         team_id: teamId,
         ticket_key: ticketKey,
         ticket_summary: ticketSummary,
         position: maxPosition,
         added_by: userData.user?.id || null,
-      } as any);
+      });
   }, [teamId, queue]);
 
   const removeTicket = useCallback(async (id: string) => {
+    // Optimistic update
+    setQueue(prev => prev.filter(item => item.id !== id));
+    
     await supabase
-      .from('poker_ticket_queue' as any)
+      .from('poker_ticket_queue')
       .delete()
       .eq('id', id);
   }, []);
@@ -89,8 +104,8 @@ export function useTicketQueue(teamId: string | undefined) {
     // Batch update positions
     const updates = reorderedItems.map((item, index) =>
       supabase
-        .from('poker_ticket_queue' as any)
-        .update({ position: index } as any)
+        .from('poker_ticket_queue')
+        .update({ position: index })
         .eq('id', item.id)
     );
     await Promise.all(updates);
@@ -99,14 +114,21 @@ export function useTicketQueue(teamId: string | undefined) {
   const popNext = useCallback(async (): Promise<TicketQueueItem | null> => {
     if (queue.length === 0) return null;
     const next = queue[0];
-    await removeTicket(next.id);
+    // Optimistic update
+    setQueue(prev => prev.slice(1));
+    await supabase
+      .from('poker_ticket_queue')
+      .delete()
+      .eq('id', next.id);
     return next;
-  }, [queue, removeTicket]);
+  }, [queue]);
 
   const clearQueue = useCallback(async () => {
     if (!teamId) return;
+    // Optimistic update
+    setQueue([]);
     await supabase
-      .from('poker_ticket_queue' as any)
+      .from('poker_ticket_queue')
       .delete()
       .eq('team_id', teamId);
   }, [teamId]);

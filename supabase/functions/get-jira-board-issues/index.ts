@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { teamId, searchText, statusFilter, startAt = 0, maxResults = 50 } = await req.json();
+    const { teamId, searchText, statusFilter, pointsFilter, startAt = 0, maxResults = 50 } = await req.json();
 
     if (!teamId) {
       throw new Error('Missing required parameter: teamId');
@@ -45,13 +45,21 @@ Deno.serve(async (req) => {
       jqlParts.push(`project = "${projectKey}"`);
     }
 
-    // Filter by status (exclude Done by default)
+    // Filter by status
     if (statusFilter === 'all') {
       // No status filter
     } else if (statusFilter) {
       jqlParts.push(`status = "${statusFilter}"`);
     } else {
-      jqlParts.push(`status != "Done"`);
+      // Default: exclude Done
+      jqlParts.push(`statusCategory != "Done"`);
+    }
+
+    // Filter by story points
+    if (pointsFilter === 'unestimated') {
+      jqlParts.push(`cf[10016] is EMPTY`);
+    } else if (pointsFilter) {
+      jqlParts.push(`cf[10016] = ${pointsFilter}`);
     }
 
     // Text search
@@ -59,11 +67,11 @@ Deno.serve(async (req) => {
       jqlParts.push(`(summary ~ "${searchText}" OR key = "${searchText}")`);
     }
 
-    const jql = jqlParts.join(' AND ') + ' ORDER BY rank ASC';
+    const jql = (jqlParts.length > 0 ? jqlParts.join(' AND ') : '') + ' ORDER BY rank ASC';
     const auth = btoa(`${jira_email}:${jira_api_key}`);
     
     const params = new URLSearchParams({
-      jql,
+      jql: jql.trim(),
       startAt: String(startAt),
       maxResults: String(maxResults),
       fields: 'summary,status,priority,assignee,issuetype,customfield_10016',
@@ -96,7 +104,7 @@ Deno.serve(async (req) => {
       assignee: issue.fields?.assignee?.displayName || null,
       issueType: issue.fields?.issuetype?.name || '',
       issueTypeIconUrl: issue.fields?.issuetype?.iconUrl || '',
-      storyPoints: issue.fields?.customfield_10016 || null,
+      storyPoints: issue.fields?.customfield_10016 ?? null,
     }));
 
     return new Response(JSON.stringify({
