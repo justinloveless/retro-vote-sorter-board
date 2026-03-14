@@ -44,6 +44,93 @@ const statusColorMap: Record<string, string> = {
   'medium-gray': 'bg-muted text-muted-foreground',
 };
 
+/**
+ * Parse a hex color to RGB values.
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const cleaned = hex.replace('#', '');
+  const fullHex = cleaned.length === 3
+    ? cleaned.split('').map(c => c + c).join('')
+    : cleaned;
+  if (fullHex.length !== 6) return null;
+  return {
+    r: parseInt(fullHex.slice(0, 2), 16),
+    g: parseInt(fullHex.slice(2, 4), 16),
+    b: parseInt(fullHex.slice(4, 6), 16),
+  };
+}
+
+/**
+ * Compute relative luminance per WCAG 2.0.
+ */
+function relativeLuminance(r: number, g: number, b: number): number {
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/**
+ * WCAG contrast ratio between two luminances.
+ */
+function contrastRatio(l1: number, l2: number): number {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Adjust a panel background color to ensure readable contrast with the
+ * current theme's foreground. Lightens or darkens the color until the
+ * contrast ratio reaches at least 4.5:1 (WCAG AA).
+ */
+function ensurePanelContrast(bgHex: string): string {
+  const bg = hexToRgb(bgHex);
+  if (!bg) return bgHex;
+
+  // Read the computed foreground color from the page
+  const fgColor = typeof window !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim()
+    : '';
+
+  // Parse foreground — expected HSL values like "0 0% 100%" or fallback
+  let fgLum = 0; // default: assume dark foreground (light theme)
+  if (fgColor) {
+    // Create a temp element to resolve CSS hsl to rgb
+    const temp = document.createElement('div');
+    temp.style.color = `hsl(${fgColor})`;
+    temp.style.display = 'none';
+    document.body.appendChild(temp);
+    const computed = getComputedStyle(temp).color;
+    document.body.removeChild(temp);
+    const rgbMatch = computed.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    if (rgbMatch) {
+      fgLum = relativeLuminance(+rgbMatch[1], +rgbMatch[2], +rgbMatch[3]);
+    }
+  }
+
+  const bgLum = relativeLuminance(bg.r, bg.g, bg.b);
+  const ratio = contrastRatio(fgLum, bgLum);
+
+  if (ratio >= 4.5) return bgHex; // Already good
+
+  // Determine direction: if foreground is light, darken bg; if dark, lighten bg
+  const shouldLighten = fgLum < 0.5;
+  let { r, g, b } = bg;
+  const step = shouldLighten ? 10 : -10;
+
+  for (let i = 0; i < 30; i++) {
+    r = Math.min(255, Math.max(0, r + step));
+    g = Math.min(255, Math.max(0, g + step));
+    b = Math.min(255, Math.max(0, b + step));
+    const newLum = relativeLuminance(r, g, b);
+    if (contrastRatio(fgLum, newLum) >= 4.5) break;
+  }
+
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function getStoryPoints(fields: JiraIssueFields): number | null {
   const pointFields = ['story_points', 'customfield_10016', 'customfield_10028', 'customfield_10004'];
   for (const field of pointFields) {
