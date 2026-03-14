@@ -152,6 +152,19 @@ describe('Jira wiki markup block splitting', () => {
     expect(result[1].type).toBe('text');
     expect(result[2].type).toBe('code');
   });
+
+  it('should parse {norformat} as a code block alias', () => {
+    const input = '{norformat}{"x":1}{norformat}';
+    const result = splitBlocks(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('code');
+    expect(result[0].content).toContain('"x":1');
+  });
+
+  it('should detect noformat blocks nested inside panels (recursive pass)', () => {
+    const input = '{panel:bgColor=#fffae6}before\n{noformat}{"k":"v"}{noformat}\nafter{panel}';
+    expect(countCodeBlocksRecursively(input)).toBe(1);
+  });
 });
 
 describe('Jira inline token parsing', () => {
