@@ -55,8 +55,8 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
           </Button>
         )}
         
-        {/* Placeholder if no settings access to keep layout balanced */}
-        {!canManageSettings && (
+        {/* Placeholder to keep layout balanced */}
+        {!canManageSettings && !pokerEnabled && (
           <div className="h-14 w-14" />
         )}
       </div>
