@@ -357,11 +357,9 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                                 >
                                   {issue.status}
                                 </Badge>
-                                {issue.storyPoints != null && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-bold">
-                                    {issue.storyPoints} pts
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-bold">
+                                  {issue.storyPoints != null ? `${issue.storyPoints} pts` : '-'}
+                                </Badge>
                               </div>
                               <div className="text-xs text-muted-foreground truncate mt-0.5">
                                 {issue.summary}
