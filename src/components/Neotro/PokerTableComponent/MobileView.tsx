@@ -398,7 +398,7 @@ export const MobileView: React.FC = () => {
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={() => setIsNextRoundDialogOpen(true)}
+                                        onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>
