@@ -142,8 +142,8 @@ function ensurePanelContrast(bgHex: string): string {
   const shouldLighten = fgLum < 0.5;
   const step = shouldLighten ? 0.03 : -0.03;
 
-  // Boost saturation by up to 30% to keep colors vivid
-  const boostedS = Math.min(1, hsl.s * 1.3);
+  // Boost saturation by up to 10% to keep colors vivid
+  const boostedS = Math.min(1, hsl.s * 1.1);
   let l = hsl.l;
 
   for (let i = 0; i < 40; i++) {
