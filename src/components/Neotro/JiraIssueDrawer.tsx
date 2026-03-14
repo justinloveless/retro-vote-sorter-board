@@ -17,6 +17,7 @@ interface JiraAttachment {
   content: string; // URL to the attachment content
 }
 
+interface JiraIssueFields {
   summary: string;
   description: string | null;
   status?: { name: string; statusCategory?: { colorName: string } };
