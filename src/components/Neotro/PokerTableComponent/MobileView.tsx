@@ -248,11 +248,6 @@ export const MobileView: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <NextRoundDialog
-                        isOpen={isNextRoundDialogOpen}
-                        onOpenChange={setIsNextRoundDialogOpen}
-                        onConfirm={nextRound}
-                    />
                 </ScrollArea>
             ) : (
                 <div className="flex-1 pr-4 overflow-y-auto">
