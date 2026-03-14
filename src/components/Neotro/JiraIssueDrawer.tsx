@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,7 @@ interface JiraIssueDrawerProps {
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [issue, setIssue] = useState<JiraIssue | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,6 +30,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     setIsLoading(true);
     setError(null);
     setIssue(null);
+    setIframeUrl(null);
 
     if (!issueIdOrKey || !teamId) {
       setError("Ticket number or Team ID is missing.");
@@ -45,9 +47,10 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       if (invokeError) throw new Error(`Function invocation failed: ${invokeError.message}`);
       if (data.error) throw new Error(data.error);
 
-      if (data.shouldUseIframe) { // This now means "should use link"
+      if (data.shouldUseIframe) {
         const url = `${data.domain}/browse/${issueIdOrKey}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        setIframeUrl(url);
+        setIsOpen(true);
       } else {
         setIssue({
           title: data.fields.summary,
@@ -73,15 +76,30 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
         )}
         Show Jira Issue
       </Button>
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="top">
-          <SheetHeader>
-            <SheetTitle>Jira Issue Details</SheetTitle>
-          </SheetHeader>
-          <div className="p-4">
-            {error && <p className="text-red-500">{error}</p>}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle>Jira Issue Details</DialogTitle>
+            {iframeUrl && (
+              <a href={iframeUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="sm">
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Open in Jira
+                </Button>
+              </a>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-auto min-h-0">
+            {error && <p className="text-destructive p-4">{error}</p>}
+            {iframeUrl && (
+              <iframe
+                src={iframeUrl}
+                className="w-full h-[70vh] border-0 rounded-md"
+                title="Jira Issue"
+              />
+            )}
             {issue && (
-              <div className="font-custom bg-[#2d2d2d] p-4 space-y-4 rounded-xl text-white">
+              <div className="font-custom bg-muted p-4 space-y-4 rounded-xl">
                 <h2 className="text-2xl font-bold">{issue.title}</h2>
                 <div
                   className="prose prose-sm max-w-none"
@@ -90,8 +108,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
               </div>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
-}; 
+};
