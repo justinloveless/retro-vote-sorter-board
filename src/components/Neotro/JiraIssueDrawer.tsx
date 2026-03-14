@@ -180,27 +180,66 @@ function getStoryPoints(fields: JiraIssueFields): number | null {
 function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
 
-  // Split by {panel} and {noformat} blocks using separate passes for robustness
-  const blockRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
+  // Normalize line endings and trim
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  while ((match = blockRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+  // Split by {panel} and {noformat} blocks
+  // Use a manual approach for robustness with nested braces
+  const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
+  let remaining = normalized;
+
+  while (remaining.length > 0) {
+    // Find the next block opener
+    const noformatIdx = remaining.indexOf('{noformat}');
+    const noformatWithAttrMatch = remaining.match(/\{noformat:([^}]*)\}/);
+    const noformatStart = noformatWithAttrMatch 
+      ? Math.min(noformatIdx >= 0 ? noformatIdx : Infinity, remaining.indexOf(noformatWithAttrMatch[0]))
+      : (noformatIdx >= 0 ? noformatIdx : Infinity);
+    
+    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/);
+    const panelStart = panelMatch ? remaining.indexOf(panelMatch[0]) : Infinity;
+
+    const nextBlock = Math.min(noformatStart, panelStart);
+
+    if (nextBlock === Infinity) {
+      // No more blocks
+      segments.push({ type: 'text', content: remaining });
+      break;
     }
-    if (match[4] !== undefined) {
-      // {noformat} block
-      segments.push({ type: 'code', content: match[4], attrs: match[3] || '' });
-    } else if (match[2] !== undefined) {
-      // {panel} block
-      segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
+
+    // Push text before the block
+    if (nextBlock > 0) {
+      segments.push({ type: 'text', content: remaining.slice(0, nextBlock) });
     }
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIndex) });
+
+    if (noformatStart <= panelStart) {
+      // Find the opening tag length
+      const openTag = remaining.slice(noformatStart).match(/^\{noformat(?::([^}]*))?\}/);
+      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const attrs = openTag[1] || '';
+      const afterOpen = noformatStart + openTag[0].length;
+      const closeIdx = remaining.indexOf('{noformat}', afterOpen);
+      if (closeIdx === -1) {
+        // No closing tag, treat rest as text
+        segments.push({ type: 'text', content: remaining.slice(noformatStart) });
+        break;
+      }
+      segments.push({ type: 'code', content: remaining.slice(afterOpen, closeIdx), attrs });
+      remaining = remaining.slice(closeIdx + '{noformat}'.length);
+    } else {
+      // Panel block
+      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/);
+      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const attrs = openTag[1] || '';
+      const afterOpen = panelStart + openTag[0].length;
+      const closeIdx = remaining.indexOf('{panel}', afterOpen);
+      if (closeIdx === -1) {
+        segments.push({ type: 'text', content: remaining.slice(panelStart) });
+        break;
+      }
+      segments.push({ type: 'panel', content: remaining.slice(afterOpen, closeIdx), attrs });
+      remaining = remaining.slice(closeIdx + '{panel}'.length);
+    }
   }
 
   segments.forEach((segment, segIdx) => {
@@ -313,13 +352,13 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
   return nodes;
 }
 
-/** Parse inline markup: *bold*, {{inline code}}, !image!, {color} */
+/** Parse inline markup: *bold*, _italic_, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Tokenize: {{inline code}} (allowing } inside), *bold*, !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|!([^|!]+)(?:\|([^!]*))?\!/g;
+  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], !image!
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
@@ -340,13 +379,29 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
       // *bold*
       parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[2]}</strong>);
     } else if (inlineMatch[3] !== undefined) {
+      // _italic_
+      parts.push(<em key={`i-${inlineMatch.index}`}>{inlineMatch[3]}</em>);
+    } else if (inlineMatch[4] !== undefined) {
+      // [visible text|url] — visible text can contain formatting
+      const linkText = inlineMatch[4];
+      const linkUrl = inlineMatch[5];
+      parts.push(
+        <a
+          key={`a-${inlineMatch.index}`}
+          href={linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          {parseInline(linkText, attachments)}
+        </a>
+      );
+    } else if (inlineMatch[6] !== undefined) {
       // !image.png|opts!
-      const filename = inlineMatch[3].trim();
-      const opts = inlineMatch[4] || '';
+      const filename = inlineMatch[6].trim();
+      const opts = inlineMatch[7] || '';
       const widthMatch = opts.match(/width=(\d+)/);
       const altMatch = opts.match(/alt="([^"]*)"/);
-
-      // Find attachment URL by filename
       const attachment = attachments?.find(a => a.filename === filename);
       const src = attachment?.content || filename;
 
@@ -373,18 +428,21 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
 function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
-  // If it looks like HTML, render it
-  if (description.startsWith('<') || description.includes('<p>') || description.includes('<br')) {
+  // Normalize line endings
+  const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // If it looks like HTML (starts with a tag or contains block-level HTML tags), render it
+  if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
     return (
       <div
         className="prose prose-sm dark:prose-invert max-w-none text-sm"
-        dangerouslySetInnerHTML={{ __html: description }}
+        dangerouslySetInnerHTML={{ __html: normalized }}
       />
     );
   }
 
   // Parse Jira wiki markup
-  return <div className="space-y-1">{parseJiraWikiMarkup(description, attachments)}</div>;
+  return <div className="space-y-1">{parseJiraWikiMarkup(normalized, attachments)}</div>;
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
