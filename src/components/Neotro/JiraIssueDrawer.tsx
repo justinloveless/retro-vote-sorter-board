@@ -18,6 +18,14 @@ interface JiraAttachment {
   content: string; // URL to the attachment content
 }
 
+interface JiraComment {
+  id: string;
+  author: { displayName: string; avatarUrls?: Record<string, string> };
+  body: string;
+  created: string;
+  updated: string;
+}
+
 interface JiraIssueFields {
   summary: string;
   description: string | null;
@@ -27,6 +35,7 @@ interface JiraIssueFields {
   reporter?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   issuetype?: { name: string; iconUrl?: string };
   labels?: string[];
+  comment?: { comments: JiraComment[]; total: number };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
