@@ -14,6 +14,7 @@ interface TeamHeaderProps {
   onJoinPointingSession: () => void;
   currentUserRole?: string;
   showBackButton?: boolean;
+  pokerEnabled?: boolean;
 }
 
 export const TeamHeader: React.FC<TeamHeaderProps> = ({ 
