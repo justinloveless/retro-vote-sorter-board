@@ -371,7 +371,7 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-function renderDescription(description: string | null): React.ReactNode {
+function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
   // If it looks like HTML, render it
@@ -385,7 +385,7 @@ function renderDescription(description: string | null): React.ReactNode {
   }
 
   // Parse Jira wiki markup
-  return <div className="space-y-1">{parseJiraWikiMarkup(description)}</div>;
+  return <div className="space-y-1">{parseJiraWikiMarkup(description, attachments)}</div>;
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
