@@ -1,32 +1,64 @@
 import { describe, it, expect } from 'vitest';
 
-// Extract the regex logic for testing
+// Manual block splitter matching the component implementation
 function splitBlocks(text: string): { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] {
-  const blockRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
+  let remaining = normalized;
 
-  while ((match = blockRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+  while (remaining.length > 0) {
+    const noformatIdx = remaining.indexOf('{noformat}');
+    const noformatWithAttrMatch = remaining.match(/\{noformat:([^}]*)\}/);
+    const noformatStart = noformatWithAttrMatch 
+      ? Math.min(noformatIdx >= 0 ? noformatIdx : Infinity, remaining.indexOf(noformatWithAttrMatch[0]))
+      : (noformatIdx >= 0 ? noformatIdx : Infinity);
+    
+    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/);
+    const panelStart = panelMatch ? remaining.indexOf(panelMatch[0]) : Infinity;
+
+    const nextBlock = Math.min(noformatStart, panelStart);
+
+    if (nextBlock === Infinity) {
+      segments.push({ type: 'text', content: remaining });
+      break;
     }
-    if (match[4] !== undefined) {
-      segments.push({ type: 'code', content: match[4], attrs: match[3] || '' });
-    } else if (match[2] !== undefined) {
-      segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
+
+    if (nextBlock > 0) {
+      segments.push({ type: 'text', content: remaining.slice(0, nextBlock) });
     }
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIndex) });
+
+    if (noformatStart <= panelStart) {
+      const openTag = remaining.slice(noformatStart).match(/^\{noformat(?::([^}]*))?\}/);
+      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const attrs = openTag[1] || '';
+      const afterOpen = noformatStart + openTag[0].length;
+      const closeIdx = remaining.indexOf('{noformat}', afterOpen);
+      if (closeIdx === -1) {
+        segments.push({ type: 'text', content: remaining.slice(noformatStart) });
+        break;
+      }
+      segments.push({ type: 'code', content: remaining.slice(afterOpen, closeIdx), attrs });
+      remaining = remaining.slice(closeIdx + '{noformat}'.length);
+    } else {
+      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/);
+      if (!openTag) { segments.push({ type: 'text', content: remaining }); break; }
+      const attrs = openTag[1] || '';
+      const afterOpen = panelStart + openTag[0].length;
+      const closeIdx = remaining.indexOf('{panel}', afterOpen);
+      if (closeIdx === -1) {
+        segments.push({ type: 'text', content: remaining.slice(panelStart) });
+        break;
+      }
+      segments.push({ type: 'panel', content: remaining.slice(afterOpen, closeIdx), attrs });
+      remaining = remaining.slice(closeIdx + '{panel}'.length);
+    }
   }
   return segments;
 }
 
 function parseInlineTokens(text: string): { type: string; content: string }[] {
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|_([^_]+)_|\[([^|]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const tokens: { type: string; content: string }[] = [];
   let lastIdx = 0;
   let m: RegExpExecArray | null;
@@ -50,7 +82,7 @@ function parseInlineTokens(text: string): { type: string; content: string }[] {
 
 describe('Jira wiki markup block splitting', () => {
   it('should parse {noformat} blocks with JSON content containing braces', () => {
-    const input = `{noformat}{\n"certificate": {\n"value": "string"\n}\n}{noformat}`;
+    const input = '{noformat}{\n"certificate": {\n"value": "string"\n}\n}{noformat}';
     const result = splitBlocks(input);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('code');
@@ -58,7 +90,7 @@ describe('Jira wiki markup block splitting', () => {
   });
 
   it('should parse {noformat} with surrounding text', () => {
-    const input = `Some text before\n{noformat}code here{noformat}\nSome text after`;
+    const input = 'Some text before\n{noformat}code here{noformat}\nSome text after';
     const result = splitBlocks(input);
     expect(result).toHaveLength(3);
     expect(result[0].type).toBe('text');
@@ -68,20 +100,46 @@ describe('Jira wiki markup block splitting', () => {
   });
 
   it('should parse {panel} blocks', () => {
-    const input = `{panel:bgColor=#fffae6}Warning content{panel}`;
+    const input = '{panel:bgColor=#fffae6}Warning content{panel}';
     const result = splitBlocks(input);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('panel');
     expect(result[0].attrs).toBe('bgColor=#fffae6');
   });
 
-  it('should handle the full noformat JSON example', () => {
-    const input = `{noformat}{\n\n"certificate": {\n\n"value": "string"\n\n},\n\n"certificateName": {\n\n"value": "string"\n\n}\n\n}{noformat}`;
+  it('should handle the full noformat JSON example with double-spaced lines', () => {
+    const input = '{noformat}{\n\n"certificate": {\n\n"value": "string"\n\n},\n\n"certificateName": {\n\n"value": "string"\n\n}\n\n}{noformat}';
     const result = splitBlocks(input);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('code');
     expect(result[0].content).toContain('"certificate"');
     expect(result[0].content).toContain('"certificateName"');
+  });
+
+  it('should handle {noformat} immediately followed by { (no space)', () => {
+    const json = '{\n"key": "value"\n}';
+    const input = `{noformat}${json}{noformat}`;
+    const result = splitBlocks(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('code');
+    expect(result[0].content).toBe(json);
+  });
+
+  it('should handle \\r\\n line endings in noformat', () => {
+    const input = '{noformat}{\r\n"key": "value"\r\n}{noformat}';
+    const result = splitBlocks(input);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('code');
+    expect(result[0].content).toContain('"key"');
+  });
+
+  it('should handle mixed panel and noformat blocks', () => {
+    const input = '{panel:bgColor=#fff}warning{panel}\nsome text\n{noformat}code{noformat}';
+    const result = splitBlocks(input);
+    expect(result).toHaveLength(3);
+    expect(result[0].type).toBe('panel');
+    expect(result[1].type).toBe('text');
+    expect(result[2].type).toBe('code');
   });
 });
 
@@ -108,6 +166,12 @@ describe('Jira inline token parsing', () => {
     expect(tokens[1].content).toBe('world');
   });
 
+  it('should not parse underscores inside words as italic', () => {
+    const tokens = parseInlineTokens('some_variable_name');
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe('text');
+  });
+
   it('should parse [text|url] links', () => {
     const tokens = parseInlineTokens('click [here|https://example.com] now');
     expect(tokens).toHaveLength(3);
@@ -115,10 +179,26 @@ describe('Jira inline token parsing', () => {
     expect(tokens[1].content).toBe('here|https://example.com');
   });
 
+  it('should parse [*bold text*|url] links with formatting', () => {
+    const tokens = parseInlineTokens('[*Click me*|https://example.com]');
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe('link');
+    expect(tokens[0].content).toBe('*Click me*|https://example.com');
+  });
+
   it('should parse mixed inline formatting', () => {
     const tokens = parseInlineTokens('*bold* and _italic_ and {{code}}');
     expect(tokens.filter(t => t.type === 'bold')).toHaveLength(1);
     expect(tokens.filter(t => t.type === 'italic')).toHaveLength(1);
     expect(tokens.filter(t => t.type === 'code')).toHaveLength(1);
+  });
+
+  it('should parse long inline code with slashes and braces', () => {
+    const input = '{{/native-mobile-builds/v1/environments/{environmentKey}/applications/{applicationKey}/configurations/ios}}';
+    const tokens = parseInlineTokens(input);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe('code');
+    expect(tokens[0].content).toContain('{environmentKey}');
+    expect(tokens[0].content).toContain('{applicationKey}');
   });
 });
