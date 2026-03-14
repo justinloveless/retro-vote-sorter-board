@@ -9,6 +9,7 @@ export interface JiraSettings {
   jira_email: string;
   jira_api_key: string;
   jira_ticket_prefix: string;
+  jira_board_id: string;
 }
 
 interface JiraSettingsFormProps {
