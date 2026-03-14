@@ -311,6 +311,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setIsChatDrawerOpen,
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
+    onNextRoundRequest,
+    ticketQueue: ticketQueue.queue,
+    isQueuePanelOpen,
+    setQueuePanelOpen,
   };
 
   return (
