@@ -64,6 +64,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   onReorderQueue,
   onClearQueue,
 }) => {
+  const [activeTab, setActiveTab] = useState('queue');
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('not-done');
   const [pointsFilter, setPointsFilter] = useState('any');
@@ -83,10 +84,9 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     setHasSearched(true);
 
     try {
-      // Map status filter for edge function
       let apiStatusFilter: string | undefined;
       if (statusFilter === 'not-done') {
-        apiStatusFilter = undefined; // edge function defaults to excluding Done
+        apiStatusFilter = undefined;
       } else if (statusFilter === 'all') {
         apiStatusFilter = 'all';
       } else {
@@ -114,7 +114,6 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     }
   }, [teamId, searchText, statusFilter, pointsFilter]);
 
-  // Auto-search when filters change (if already searched)
   useEffect(() => {
     if (hasSearched) {
       searchJira();
@@ -134,7 +133,6 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
 
   const isInQueue = (key: string) => queue.some(q => q.ticket_key === key);
 
-  // Drag and drop handlers
   const handleDragStart = (index: number) => {
     dragItemRef.current = index;
   };
@@ -168,226 +166,240 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
           </SheetTitle>
         </SheetHeader>
 
-        <Tabs defaultValue="queue" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 shrink-0">
             <TabsTrigger value="queue">
               Queue {queue.length > 0 && `(${queue.length})`}
             </TabsTrigger>
             <TabsTrigger value="browse">Browse Jira</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="queue" className="flex-1 flex flex-col min-h-0 mt-4">
-            {queue.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-8">
-                <div>
-                  <ListOrdered className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>No tickets in queue.</p>
-                  <p className="text-xs mt-1">Browse Jira to add tickets for upcoming rounds.</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <ScrollArea className="flex-1">
-                  <div className="space-y-1 pr-2">
-                    {queue.map((item, index) => (
-                      <div
-                        key={item.id}
-                        draggable
-                        onDragStart={() => handleDragStart(index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDrop={handleDrop}
-                        className="flex items-center gap-2 p-2 rounded-md border bg-card hover:bg-accent/50 cursor-grab active:cursor-grabbing group"
-                      >
-                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                        {index === 0 && (
-                          <Badge variant="default" className="shrink-0 text-xs">
-                            Next
-                          </Badge>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-mono text-xs text-primary font-semibold">
-                            {item.ticket_key}
-                          </div>
-                          {item.ticket_summary && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {item.ticket_summary}
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
-                          onClick={() => onRemoveTicket(item.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
+          {/* Queue Tab */}
+          {activeTab === 'queue' && (
+            <div className="flex-1 flex flex-col min-h-0 mt-2">
+              {queue.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-8">
+                  <div>
+                    <ListOrdered className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>No tickets in queue.</p>
+                    <p className="text-xs mt-1">Browse Jira to add tickets for upcoming rounds.</p>
                   </div>
-                </ScrollArea>
-                <div className="pt-3 border-t mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-destructive hover:text-destructive"
-                    onClick={onClearQueue}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Clear Queue
-                  </Button>
                 </div>
-              </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="browse" className="flex-1 flex flex-col min-h-0 mt-2">
-            {/* Search bar at the top */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search issues..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchJira()}
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowFilters(prev => !prev)}
-                className={showFilters ? 'bg-accent' : ''}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => searchJira()}
-                disabled={isSearching}
-                size="icon"
-              >
-                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
-
-            {/* Filter controls */}
-            {showFilters && (
-              <div className="flex gap-2 mt-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="flex-1 h-8 text-xs">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={pointsFilter} onValueChange={setPointsFilter}>
-                  <SelectTrigger className="flex-1 h-8 text-xs">
-                    <SelectValue placeholder="Points" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {POINTS_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {!hasSearched && !isSearching && (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-8">
-                <div>
-                  <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>Search your Jira backlog to find tickets.</p>
-                  <p className="text-xs mt-1">Press Enter or click search to browse issues.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => searchJira('')}
-                    disabled={isSearching}
-                  >
-                    Load All Issues
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {searchError && (
-              <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-md mt-2">
-                {searchError}
-              </div>
-            )}
-
-            {hasSearched && !isSearching && !searchError && (
-              <ScrollArea className="flex-1 mt-2">
-                <div className="space-y-1 pr-2">
-                  {issues.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center p-4">
-                      No issues found.
-                    </div>
-                  ) : (
-                    issues.map((issue) => {
-                      const alreadyQueued = isInQueue(issue.key);
-                      return (
+              ) : (
+                <>
+                  <ScrollArea className="flex-1">
+                    <div className="space-y-1 pr-2">
+                      {queue.map((item, index) => (
                         <div
-                          key={issue.key}
-                          className="flex items-center gap-2 p-2 rounded-md border bg-card hover:bg-accent/50"
+                          key={item.id}
+                          draggable
+                          onDragStart={() => handleDragStart(index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDrop={handleDrop}
+                          className="flex items-center gap-2 p-2 rounded-md border bg-card hover:bg-accent/50 cursor-grab active:cursor-grabbing group"
                         >
+                          <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                          {index === 0 && (
+                            <Badge variant="default" className="shrink-0 text-xs">
+                              Next
+                            </Badge>
+                          )}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              {issue.issueTypeIconUrl && (
-                                <img src={issue.issueTypeIconUrl} alt={issue.issueType} className="h-4 w-4" />
-                              )}
-                              <span className="font-mono text-xs text-primary font-semibold">
-                                {issue.key}
-                              </span>
-                              <Badge
-                                variant={issue.statusCategory === 'done' ? 'default' : 'secondary'}
-                                className="text-[10px] px-1.5 py-0"
-                              >
-                                {issue.status}
-                              </Badge>
-                              {issue.storyPoints != null && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0 font-semibold">
-                                  {issue.storyPoints} pts
-                                </Badge>
-                              )}
+                            <div className="font-mono text-xs text-primary font-semibold">
+                              {item.ticket_key}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate mt-0.5">
-                              {issue.summary}
-                            </div>
-                            {issue.assignee && (
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {issue.assignee}
+                            {item.ticket_summary && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {item.ticket_summary}
                               </div>
                             )}
                           </div>
                           <Button
-                            variant={alreadyQueued ? 'secondary' : 'outline'}
+                            variant="ghost"
                             size="icon"
-                            className="h-7 w-7 shrink-0"
-                            disabled={alreadyQueued || addingKeys.has(issue.key)}
-                            onClick={() => handleAddTicket(issue)}
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+                            onClick={() => onRemoveTicket(item.id)}
                           >
-                            {addingKeys.has(issue.key) ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Plus className="h-3.5 w-3.5" />
-                            )}
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>
-                      );
-                    })
-                  )}
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="pt-3 border-t mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={onClearQueue}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                      Clear Queue
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Browse Tab */}
+          {activeTab === 'browse' && (
+            <div className="flex-1 flex flex-col min-h-0 mt-2">
+              {/* Search bar pinned at top */}
+              <div className="shrink-0 space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search issues..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchJira()}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowFilters(prev => !prev)}
+                    className={showFilters ? 'bg-accent' : ''}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={() => searchJira()}
+                    disabled={isSearching}
+                    size="icon"
+                  >
+                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
                 </div>
-              </ScrollArea>
-            )}
-          </TabsContent>
+
+                {showFilters && (
+                  <div className="flex gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="flex-1 h-8 text-xs">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={pointsFilter} onValueChange={setPointsFilter}>
+                      <SelectTrigger className="flex-1 h-8 text-xs">
+                        <SelectValue placeholder="Points" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {POINTS_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Results area */}
+              {!hasSearched && !isSearching && (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-4">
+                  <div>
+                    <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>Search your Jira backlog.</p>
+                    <p className="text-xs mt-1">Press Enter or click search to browse.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => searchJira('')}
+                      disabled={isSearching}
+                    >
+                      Load All Issues
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {searchError && (
+                <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-md mt-2">
+                  {searchError}
+                </div>
+              )}
+
+              {hasSearched && !isSearching && !searchError && (
+                <ScrollArea className="flex-1 mt-2">
+                  <div className="space-y-1 pr-2">
+                    {issues.length === 0 ? (
+                      <div className="text-sm text-muted-foreground text-center p-4">
+                        No issues found.
+                      </div>
+                    ) : (
+                      issues.map((issue) => {
+                        const alreadyQueued = isInQueue(issue.key);
+                        return (
+                          <div
+                            key={issue.key}
+                            className="flex items-center gap-2 p-2 rounded-md border bg-card hover:bg-accent/50"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {issue.issueTypeIconUrl && (
+                                  <img src={issue.issueTypeIconUrl} alt={issue.issueType} className="h-4 w-4" />
+                                )}
+                                <span className="font-mono text-xs text-primary font-semibold">
+                                  {issue.key}
+                                </span>
+                                <Badge
+                                  variant={issue.statusCategory === 'done' ? 'default' : 'secondary'}
+                                  className="text-[10px] px-1.5 py-0"
+                                >
+                                  {issue.status}
+                                </Badge>
+                                {issue.storyPoints != null && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-bold">
+                                    {issue.storyPoints} pts
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                {issue.summary}
+                              </div>
+                              {issue.assignee && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {issue.assignee}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant={alreadyQueued ? 'secondary' : 'outline'}
+                              size="icon"
+                              className="h-7 w-7 shrink-0"
+                              disabled={alreadyQueued || addingKeys.has(issue.key)}
+                              onClick={() => handleAddTicket(issue)}
+                            >
+                              {addingKeys.has(issue.key) ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Plus className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+
+              {isSearching && (
+                <div className="flex-1 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>
