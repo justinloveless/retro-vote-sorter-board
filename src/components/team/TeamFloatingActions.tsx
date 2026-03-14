@@ -14,7 +14,8 @@ export const TeamFloatingActions: React.FC<TeamFloatingActionsProps> = ({
   onCreateBoard,
   onJoinPointingSession,
   onSettings,
-  currentUserRole
+  currentUserRole,
+  pokerEnabled = true
 }) => {
   const canManageSettings = currentUserRole === 'owner' || currentUserRole === 'admin';
 
