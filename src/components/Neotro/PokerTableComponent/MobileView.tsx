@@ -11,8 +11,9 @@ import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { Menu, MessageCircle, Send } from 'lucide-react';
+import { Menu, MessageCircle, Send, ListOrdered } from 'lucide-react';
 import { NextRoundDialog } from '../NextRoundDialog';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
 
@@ -62,8 +63,10 @@ export const MobileView: React.FC = () => {
         teamId,
         activeUserId,
         userRole,
+        onNextRoundRequest,
+        ticketQueue,
+        setQueuePanelOpen,
     } = usePokerTable();
-    const [isNextRoundDialogOpen, setIsNextRoundDialogOpen] = useState(false);
     const { height } = useWindowSize();
 
     if (!displaySession || !session) return null;
@@ -144,6 +147,22 @@ export const MobileView: React.FC = () => {
                                     </div>
                                 </DrawerContent>
                             </Drawer>
+                            {teamId && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
+                                    onClick={() => setQueuePanelOpen(true)}
+                                >
+                                    <ListOrdered className="h-4 w-4 mr-2" />
+                                    Queue
+                                    {ticketQueue.length > 0 && (
+                                        <Badge variant="secondary" className="ml-1 text-xs px-1">
+                                            {ticketQueue.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            )}
                             <PokerConfig
                                 config={session}
                                 onUpdateConfig={updateSessionConfig}
@@ -220,7 +239,7 @@ export const MobileView: React.FC = () => {
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={() => setIsNextRoundDialogOpen(true)}
+                                        onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>
@@ -245,11 +264,6 @@ export const MobileView: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <NextRoundDialog
-                        isOpen={isNextRoundDialogOpen}
-                        onOpenChange={setIsNextRoundDialogOpen}
-                        onConfirm={nextRound}
-                    />
                 </ScrollArea>
             ) : (
                 <div className="flex-1 pr-4 overflow-y-auto">
@@ -324,6 +338,22 @@ export const MobileView: React.FC = () => {
                                     </div>
                                 </DrawerContent>
                             </Drawer>
+                            {teamId && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
+                                    onClick={() => setQueuePanelOpen(true)}
+                                >
+                                    <ListOrdered className="h-4 w-4 mr-2" />
+                                    Queue
+                                    {ticketQueue.length > 0 && (
+                                        <Badge variant="secondary" className="ml-1 text-xs px-1">
+                                            {ticketQueue.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            )}
                             <PokerConfig
                                 config={session}
                                 onUpdateConfig={updateSessionConfig}
@@ -400,7 +430,7 @@ export const MobileView: React.FC = () => {
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={() => setIsNextRoundDialogOpen(true)}
+                                        onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>
@@ -425,11 +455,6 @@ export const MobileView: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <NextRoundDialog
-                        isOpen={isNextRoundDialogOpen}
-                        onOpenChange={setIsNextRoundDialogOpen}
-                        onConfirm={nextRound}
-                    />
                 </div>
             )}
         </div>

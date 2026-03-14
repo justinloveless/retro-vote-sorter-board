@@ -4,6 +4,8 @@ import { PokerTableProvider } from "./PokerTableComponent/context";
 import { PokerTableContent } from "./PokerTableComponent";
 import { NextRoundDialog } from "./NextRoundDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTicketQueue } from "@/hooks/useTicketQueue";
+import { TicketQueuePanel } from "./TicketQueuePanel";
 
 interface PokerTableProps {
     session: PokerSessionState | null;
@@ -25,6 +27,18 @@ interface PokerTableProps {
 const PokerTable: React.FC<PokerTableProps> = (props) => {
     const isMobile = useIsMobile();
     const [isNextRoundDialogOpen, setNextRoundDialogOpen] = useState(false);
+    const [isQueuePanelOpen, setQueuePanelOpen] = useState(false);
+    const ticketQueue = useTicketQueue(props.teamId);
+
+    const handleNextRoundRequest = async () => {
+        // Auto-advance: if there are queued tickets, pop the next one
+        const next = await ticketQueue.popNext();
+        if (next) {
+            props.nextRound(next.ticket_key);
+        } else {
+            setNextRoundDialogOpen(true);
+        }
+    };
 
     const handleNextRoundConfirm = (ticketNumber?: string) => {
         props.nextRound(ticketNumber);
@@ -37,12 +51,26 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
             isMobile={isMobile}
             isNextRoundDialogOpen={isNextRoundDialogOpen}
             setNextRoundDialogOpen={setNextRoundDialogOpen}
+            onNextRoundRequest={handleNextRoundRequest}
+            ticketQueue={ticketQueue}
+            isQueuePanelOpen={isQueuePanelOpen}
+            setQueuePanelOpen={setQueuePanelOpen}
         >
             <PokerTableContent />
             <NextRoundDialog 
                 isOpen={isNextRoundDialogOpen}
                 onOpenChange={setNextRoundDialogOpen}
                 onConfirm={handleNextRoundConfirm}
+            />
+            <TicketQueuePanel
+                isOpen={isQueuePanelOpen}
+                onOpenChange={setQueuePanelOpen}
+                teamId={props.teamId}
+                queue={ticketQueue.queue}
+                onAddTicket={ticketQueue.addTicket}
+                onRemoveTicket={ticketQueue.removeTicket}
+                onReorderQueue={ticketQueue.reorderQueue}
+                onClearQueue={ticketQueue.clearQueue}
             />
         </PokerTableProvider>
     )

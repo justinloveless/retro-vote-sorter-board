@@ -69,6 +69,7 @@ const TeamSettingsPage = () => {
           jira_email: data.jira_email || '',
           jira_api_key: data.jira_api_key || '',
           jira_ticket_prefix: data.jira_ticket_prefix || '',
+          jira_board_id: (data as any).jira_board_id || '',
         });
       } catch (error) {
         console.error('Error loading team:', error);

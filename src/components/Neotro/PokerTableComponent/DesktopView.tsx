@@ -10,7 +10,8 @@ import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Send, ListOrdered } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { PlayerSelection } from '@/hooks/usePokerSession';
 
 const getGridColumns = (playerCount: number) => {
@@ -56,7 +57,10 @@ export const DesktopView: React.FC = () => {
         teamId,
         activeUserId,
         userRole,
-        setNextRoundDialogOpen
+        setNextRoundDialogOpen,
+        onNextRoundRequest,
+        ticketQueue,
+        setQueuePanelOpen
     } = usePokerTable();
 
     useEffect(() => {
@@ -106,6 +110,24 @@ export const DesktopView: React.FC = () => {
                                     userRole={userRole}
                                 />
                             </div>
+                            {teamId && (
+                                <div className="px-2 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => setQueuePanelOpen(true)}
+                                    >
+                                        <ListOrdered className="h-4 w-4 mr-2" />
+                                        Queue
+                                        {ticketQueue.length > 0 && (
+                                            <Badge variant="secondary" className="ml-2 text-xs px-1.5">
+                                                {ticketQueue.length}
+                                            </Badge>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
                             {!isViewingHistory && (
                                 <div className="p-2 flex justify-between gap-2">
                                     <PlayHandButton
@@ -113,7 +135,7 @@ export const DesktopView: React.FC = () => {
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                     <NextRoundButton
-                                        onHandPlayed={() => setNextRoundDialogOpen(true)}
+                                        onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
                                 </div>

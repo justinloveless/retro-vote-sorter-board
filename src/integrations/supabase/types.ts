@@ -744,6 +744,44 @@ export type Database = {
           },
         ]
       }
+      poker_ticket_queue: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          position: number
+          team_id: string
+          ticket_key: string
+          ticket_summary: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          team_id: string
+          ticket_key: string
+          ticket_summary?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          team_id?: string
+          ticket_key?: string
+          ticket_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poker_ticket_queue_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1414,6 +1452,7 @@ export type Database = {
           description: string | null
           id: string
           jira_api_key: string | null
+          jira_board_id: string | null
           jira_domain: string | null
           jira_email: string | null
           jira_ticket_prefix: string | null
@@ -1431,6 +1470,7 @@ export type Database = {
           description?: string | null
           id?: string
           jira_api_key?: string | null
+          jira_board_id?: string | null
           jira_domain?: string | null
           jira_email?: string | null
           jira_ticket_prefix?: string | null
@@ -1448,6 +1488,7 @@ export type Database = {
           description?: string | null
           id?: string
           jira_api_key?: string | null
+          jira_board_id?: string | null
           jira_domain?: string | null
           jira_email?: string | null
           jira_ticket_prefix?: string | null

@@ -6,6 +6,7 @@ import { useSlackIntegration } from '@/hooks/useSlackIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
 import { ReactNode, Dispatch, SetStateAction } from 'react';
+import { TicketQueueItem } from '@/hooks/useTicketQueue';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
@@ -60,6 +61,10 @@ interface PokerTableContextProps {
   setIsChatDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
+  onNextRoundRequest: () => void;
+  ticketQueue: TicketQueueItem[];
+  isQueuePanelOpen: boolean;
+  setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
@@ -91,6 +96,10 @@ export interface PokerTableProviderProps {
   requestedRoundNumber?: number | null;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
+  onNextRoundRequest: () => void;
+  ticketQueue: { queue: TicketQueueItem[] };
+  isQueuePanelOpen: boolean;
+  setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
@@ -100,7 +109,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     deleteAllRounds, updateSessionConfig,
     nextRound,
     updateTicketNumber, userRole, presentUserIds, requestedRoundNumber,
-    isNextRoundDialogOpen, setNextRoundDialogOpen
+    isNextRoundDialogOpen, setNextRoundDialogOpen,
+    onNextRoundRequest, ticketQueue, isQueuePanelOpen, setQueuePanelOpen
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -301,6 +311,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setIsChatDrawerOpen,
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
+    onNextRoundRequest,
+    ticketQueue: ticketQueue.queue,
+    isQueuePanelOpen,
+    setQueuePanelOpen,
   };
 
   return (
