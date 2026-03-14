@@ -57,7 +57,10 @@ export const DesktopView: React.FC = () => {
         teamId,
         activeUserId,
         userRole,
-        setNextRoundDialogOpen
+        setNextRoundDialogOpen,
+        onNextRoundRequest,
+        ticketQueue,
+        setQueuePanelOpen
     } = usePokerTable();
 
     useEffect(() => {
