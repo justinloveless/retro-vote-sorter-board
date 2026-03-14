@@ -19,6 +19,7 @@ import { TeamFloatingActions } from '@/components/team/TeamFloatingActions';
 import { TeamActionItems } from '@/components/team/TeamActionItems';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
