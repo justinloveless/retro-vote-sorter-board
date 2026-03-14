@@ -428,18 +428,21 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
 function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
-  // If it looks like HTML, render it
-  if (description.startsWith('<') || description.includes('<p>') || description.includes('<br')) {
+  // Normalize line endings
+  const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // If it looks like HTML (starts with a tag or contains block-level HTML tags), render it
+  if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
     return (
       <div
         className="prose prose-sm dark:prose-invert max-w-none text-sm"
-        dangerouslySetInnerHTML={{ __html: description }}
+        dangerouslySetInnerHTML={{ __html: normalized }}
       />
     );
   }
 
   // Parse Jira wiki markup
-  return <div className="space-y-1">{parseJiraWikiMarkup(description, attachments)}</div>;
+  return <div className="space-y-1">{parseJiraWikiMarkup(normalized, attachments)}</div>;
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
