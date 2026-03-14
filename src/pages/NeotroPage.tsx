@@ -1,13 +1,16 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Lock } from 'lucide-react';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
