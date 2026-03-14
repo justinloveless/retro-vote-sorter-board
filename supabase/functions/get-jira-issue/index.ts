@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
     const issueData = await jiraResponse.json();
 
-    return new Response(JSON.stringify({ ...issueData, shouldUseIframe: false }), {
+    return new Response(JSON.stringify({ ...issueData, shouldUseIframe: false, domain: jira_domain }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
