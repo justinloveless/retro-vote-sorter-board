@@ -59,9 +59,7 @@ Deno.serve(async (req) => {
       jqlParts.push(`(summary ~ "${searchText}" OR key = "${searchText}")`);
     }
 
-    jqlParts.push('ORDER BY rank ASC');
-
-    const jql = jqlParts.join(' AND ');
+    const jql = jqlParts.join(' AND ') + ' ORDER BY rank ASC';
     const auth = btoa(`${jira_email}:${jira_api_key}`);
     
     const params = new URLSearchParams({
