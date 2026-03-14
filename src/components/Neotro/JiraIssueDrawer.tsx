@@ -12,6 +12,11 @@ import { Card } from '@/components/ui/card';
 import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+interface JiraAttachment {
+  filename: string;
+  content: string; // URL to the attachment content
+}
+
 interface JiraIssueFields {
   summary: string;
   description: string | null;
@@ -168,23 +173,31 @@ function getStoryPoints(fields: JiraIssueFields): number | null {
 
 /**
  * Parse Jira wiki markup to React elements.
- * Handles: *bold*, h1.-h6. headers, # ordered lists, * unordered lists,
- * {panel:bgColor=...}...{panel} blocks, and {color}...{color} inline.
+ * Handles: *bold*, {{inline code}}, h1.-h6. headers, # ordered lists, * unordered lists,
+ * {panel:bgColor=...}...{panel} blocks, {noformat}...{noformat} code blocks,
+ * !image.png|opts! images, and {color}...{color} inline.
  */
-function parseJiraWikiMarkup(text: string): React.ReactNode[] {
+function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
 
-  // First, split by {panel} blocks
-  const panelRegex = /\{panel(?::([^}]*))?\}([\s\S]*?)\{panel\}/g;
+  // Split by {panel} and {noformat} blocks first
+  const blockRegex = /\{(panel(?::[^}]*)?)?\}([\s\S]*?)\{panel\}|\{noformat(?::([^}]*))?\}([\s\S]*?)\{noformat\}/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  const segments: { type: 'text' | 'panel'; content: string; attrs?: string }[] = [];
+  const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
 
-  while ((match = panelRegex.exec(text)) !== null) {
+  while ((match = blockRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
     }
-    segments.push({ type: 'panel', content: match[2], attrs: match[1] || '' });
+    if (match[4] !== undefined) {
+      // {noformat} block
+      segments.push({ type: 'code', content: match[4], attrs: match[3] || '' });
+    } else {
+      // {panel} block
+      const panelAttrs = match[1]?.replace(/^panel:?/, '') || '';
+      segments.push({ type: 'panel', content: match[2], attrs: panelAttrs });
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {
@@ -193,7 +206,6 @@ function parseJiraWikiMarkup(text: string): React.ReactNode[] {
 
   segments.forEach((segment, segIdx) => {
     if (segment.type === 'panel') {
-      // Extract bgColor from attrs like "bgColor=#fffae6"
       const bgMatch = segment.attrs?.match(/bgColor=([#\w]+)/);
       const bgColor = bgMatch ? bgMatch[1] : undefined;
       nodes.push(
@@ -202,18 +214,27 @@ function parseJiraWikiMarkup(text: string): React.ReactNode[] {
           className="my-3 p-4 border"
           style={bgColor ? { backgroundColor: ensurePanelContrast(bgColor) } : undefined}
         >
-          <div className="text-sm text-foreground">{parseLines(segment.content)}</div>
+          <div className="text-sm text-foreground">{parseLines(segment.content, segIdx, attachments)}</div>
         </Card>
       );
+    } else if (segment.type === 'code') {
+      nodes.push(
+        <pre
+          key={`code-${segIdx}`}
+          className="my-3 p-4 rounded-lg bg-muted text-foreground text-xs font-mono overflow-x-auto border"
+        >
+          <code>{segment.content.replace(/^\n/, '')}</code>
+        </pre>
+      );
     } else {
-      nodes.push(...parseLines(segment.content, segIdx));
+      nodes.push(...parseLines(segment.content, segIdx, attachments));
     }
   });
 
   return nodes;
 }
 
-function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNode[] {
+function parseLines(text: string, keyPrefix: number | string = 0, attachments?: JiraAttachment[]): React.ReactNode[] {
   const lines = text.split('\n');
   const nodes: React.ReactNode[] = [];
   let i = 0;
@@ -231,7 +252,7 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
     const headerMatch = line.match(/^h([1-6])\.\s*(.*)/);
     if (headerMatch) {
       const level = parseInt(headerMatch[1]);
-      const content = parseInline(headerMatch[2]);
+      const content = parseInline(headerMatch[2], attachments);
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
       const sizeClass = level === 1 ? 'text-xl font-bold' : level === 2 ? 'text-lg font-semibold' : level === 3 ? 'text-base font-semibold' : 'text-sm font-semibold';
       nodes.push(
@@ -243,13 +264,13 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
       continue;
     }
 
-    // Ordered list: lines starting with # (or ## for nested)
+    // Ordered list
     if (/^#\s/.test(line)) {
       const listItems: React.ReactNode[] = [];
       while (i < lines.length && /^#\s/.test(lines[i].trimEnd())) {
         listItems.push(
           <li key={`${keyPrefix}-ol-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''))}
+            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''), attachments)}
           </li>
         );
         i++;
@@ -262,13 +283,13 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
       continue;
     }
 
-    // Unordered list: lines starting with *  (but not bold markers like *text*)
+    // Unordered list
     if (/^\*\s/.test(line)) {
       const listItems: React.ReactNode[] = [];
       while (i < lines.length && /^\*\s/.test(lines[i].trimEnd())) {
         listItems.push(
           <li key={`${keyPrefix}-ul-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''))}
+            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''), attachments)}
           </li>
         );
         i++;
@@ -284,7 +305,7 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
     // Regular line
     nodes.push(
       <p key={`${keyPrefix}-p-${i}`} className="text-sm text-foreground my-1">
-        {parseInline(line)}
+        {parseInline(line, attachments)}
       </p>
     );
     i++;
@@ -293,22 +314,54 @@ function parseLines(text: string, keyPrefix: number | string = 0): React.ReactNo
   return nodes;
 }
 
-/** Parse inline markup: *bold*, _italic_, {{monospace}}, [links], {color} */
-function parseInline(text: string): React.ReactNode {
+/** Parse inline markup: *bold*, {{inline code}}, !image!, {color} */
+function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Split by bold markers *text*
+  // Tokenize: {{inline code}}, *bold*, !image!
+  const tokenRegex = /\{\{([^}]+)\}\}|\*([^*]+)\*|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
-  const boldRegex = /\*([^*]+)\*/g;
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
 
-  while ((inlineMatch = boldRegex.exec(cleaned)) !== null) {
+  while ((inlineMatch = tokenRegex.exec(cleaned)) !== null) {
     if (inlineMatch.index > lastIdx) {
       parts.push(cleaned.slice(lastIdx, inlineMatch.index));
     }
-    parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[1]}</strong>);
+
+    if (inlineMatch[1] !== undefined) {
+      // {{inline code}}
+      parts.push(
+        <code key={`ic-${inlineMatch.index}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs font-mono">
+          {inlineMatch[1]}
+        </code>
+      );
+    } else if (inlineMatch[2] !== undefined) {
+      // *bold*
+      parts.push(<strong key={`b-${inlineMatch.index}`}>{inlineMatch[2]}</strong>);
+    } else if (inlineMatch[3] !== undefined) {
+      // !image.png|opts!
+      const filename = inlineMatch[3].trim();
+      const opts = inlineMatch[4] || '';
+      const widthMatch = opts.match(/width=(\d+)/);
+      const altMatch = opts.match(/alt="([^"]*)"/);
+
+      // Find attachment URL by filename
+      const attachment = attachments?.find(a => a.filename === filename);
+      const src = attachment?.content || filename;
+
+      parts.push(
+        <img
+          key={`img-${inlineMatch.index}`}
+          src={src}
+          alt={altMatch ? altMatch[1] : filename}
+          className="my-2 rounded-lg border max-w-full"
+          style={widthMatch ? { maxWidth: `${Math.min(parseInt(widthMatch[1]), 600)}px` } : undefined}
+        />
+      );
+    }
+
     lastIdx = inlineMatch.index + inlineMatch[0].length;
   }
   if (lastIdx < cleaned.length) {
@@ -318,7 +371,7 @@ function parseInline(text: string): React.ReactNode {
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-function renderDescription(description: string | null): React.ReactNode {
+function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
   // If it looks like HTML, render it
@@ -332,7 +385,7 @@ function renderDescription(description: string | null): React.ReactNode {
   }
 
   // Parse Jira wiki markup
-  return <div className="space-y-1">{parseJiraWikiMarkup(description)}</div>;
+  return <div className="space-y-1">{parseJiraWikiMarkup(description, attachments)}</div>;
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
@@ -540,7 +593,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                 {/* Description */}
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Description</p>
-                  {renderDescription(fields.description)}
+                  {renderDescription(fields.description, fields.attachment)}
                 </div>
               </>
             )}
