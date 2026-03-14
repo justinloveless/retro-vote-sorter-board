@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { TicketQueueItem } from '@/hooks/useTicketQueue';
 
@@ -33,6 +34,26 @@ interface TicketQueuePanelProps {
   onClearQueue: () => Promise<void>;
 }
 
+const STATUS_OPTIONS = [
+  { value: 'not-done', label: 'Exclude Done' },
+  { value: 'all', label: 'All Statuses' },
+  { value: 'To Do', label: 'To Do' },
+  { value: 'In Progress', label: 'In Progress' },
+  { value: 'Done', label: 'Done' },
+];
+
+const POINTS_OPTIONS = [
+  { value: 'any', label: 'Any Points' },
+  { value: 'unestimated', label: 'Unestimated' },
+  { value: '1', label: '1 pt' },
+  { value: '2', label: '2 pts' },
+  { value: '3', label: '3 pts' },
+  { value: '5', label: '5 pts' },
+  { value: '8', label: '8 pts' },
+  { value: '13', label: '13 pts' },
+  { value: '21', label: '21 pts' },
+];
+
 export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   isOpen,
   onOpenChange,
@@ -44,11 +65,14 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   onClearQueue,
 }) => {
   const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState('not-done');
+  const [pointsFilter, setPointsFilter] = useState('any');
   const [issues, setIssues] = useState<JiraIssue[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
 
@@ -59,8 +83,23 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     setHasSearched(true);
 
     try {
+      // Map status filter for edge function
+      let apiStatusFilter: string | undefined;
+      if (statusFilter === 'not-done') {
+        apiStatusFilter = undefined; // edge function defaults to excluding Done
+      } else if (statusFilter === 'all') {
+        apiStatusFilter = 'all';
+      } else {
+        apiStatusFilter = statusFilter;
+      }
+
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
-        body: { teamId, searchText: text ?? searchText },
+        body: {
+          teamId,
+          searchText: text ?? searchText,
+          statusFilter: apiStatusFilter,
+          pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
+        },
       });
 
       if (error) throw error;
@@ -73,7 +112,15 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     } finally {
       setIsSearching(false);
     }
-  }, [teamId, searchText]);
+  }, [teamId, searchText, statusFilter, pointsFilter]);
+
+  // Auto-search when filters change (if already searched)
+  useEffect(() => {
+    if (hasSearched) {
+      searchJira();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, pointsFilter]);
 
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
@@ -194,8 +241,9 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
             )}
           </TabsContent>
 
-          <TabsContent value="browse" className="flex-1 flex flex-col min-h-0 mt-4">
-            <div className="flex gap-2 mb-3">
+          <TabsContent value="browse" className="flex-1 flex flex-col min-h-0 mt-2">
+            {/* Search bar at the top */}
+            <div className="flex gap-2">
               <Input
                 placeholder="Search issues..."
                 value={searchText}
@@ -204,6 +252,14 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 className="flex-1"
               />
               <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowFilters(prev => !prev)}
+                className={showFilters ? 'bg-accent' : ''}
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+              <Button
                 onClick={() => searchJira()}
                 disabled={isSearching}
                 size="icon"
@@ -211,6 +267,36 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
+
+            {/* Filter controls */}
+            {showFilters && (
+              <div className="flex gap-2 mt-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="flex-1 h-8 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={pointsFilter} onValueChange={setPointsFilter}>
+                  <SelectTrigger className="flex-1 h-8 text-xs">
+                    <SelectValue placeholder="Points" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POINTS_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {!hasSearched && !isSearching && (
               <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-8">
@@ -232,13 +318,13 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
             )}
 
             {searchError && (
-              <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-md">
+              <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-md mt-2">
                 {searchError}
               </div>
             )}
 
             {hasSearched && !isSearching && !searchError && (
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 mt-2">
                 <div className="space-y-1 pr-2">
                   {issues.length === 0 ? (
                     <div className="text-sm text-muted-foreground text-center p-4">
@@ -266,22 +352,20 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                               >
                                 {issue.status}
                               </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate mt-0.5">
-                              {issue.summary}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {issue.assignee && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  {issue.assignee}
-                                </span>
-                              )}
                               {issue.storyPoints != null && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 font-semibold">
                                   {issue.storyPoints} pts
                                 </Badge>
                               )}
                             </div>
+                            <div className="text-xs text-muted-foreground truncate mt-0.5">
+                              {issue.summary}
+                            </div>
+                            {issue.assignee && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {issue.assignee}
+                              </div>
+                            )}
                           </div>
                           <Button
                             variant={alreadyQueued ? 'secondary' : 'outline'}
