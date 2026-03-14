@@ -61,6 +61,10 @@ interface PokerTableContextProps {
   setIsChatDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
+  onNextRoundRequest: () => void;
+  ticketQueue: TicketQueueItem[];
+  isQueuePanelOpen: boolean;
+  setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
