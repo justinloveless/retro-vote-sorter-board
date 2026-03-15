@@ -14,6 +14,7 @@ interface PlayingCardProps {
   pointsSelected: number; // For example, 5 for 5 of diamonds, 8 for 8 of spades etc.
   isPresent: boolean;
   totalPlayers?: number; // New prop to determine card size
+  variant?: 'default' | 'stacked';
 }
 
 const CARD_WIDTH = 71; // pixels, adjust as needed based on your card image size
@@ -41,6 +42,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   pointsSelected,
   isPresent,
   totalPlayers = 4,
+  variant = 'default',
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [translateY, setTranslateY] = useState("translate-y-0");
@@ -68,13 +70,15 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       setIsFlipped(false); // Ensure it's not flipped in Locked state
       setTranslateY(`-translate-y-1/4`); 
     } else if (cardState === CardState.Played) {
-      // When entering Played state, translate and then flip
-      // Reduce translation distance for many players to keep cards visible
-      const translateDistance = totalPlayers > 8 ? "-translate-y-1/4" : (isMobile ? "-translate-y-1/4" : `-translate-y-3/4`);
-      setTranslateY(translateDistance); 
+      if (variant === 'stacked') {
+        setTranslateY("translate-y-0");
+      } else {
+        const translateDistance = totalPlayers > 8 ? "-translate-y-1/4" : (isMobile ? "-translate-y-1/4" : `-translate-y-3/4`);
+        setTranslateY(translateDistance);
+      }
       flipDelay = setTimeout(() => {
         setIsFlipped(true);
-      }, 300); // Small delay to allow translation animation to start before flip
+      }, 300);
     }
 
     return () => {
@@ -86,16 +90,18 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
 
 
 
+  const isStacked = variant === 'stacked';
+
   return (
-        <div
+    <div
       ref={cardRef}
-      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent ? 'opacity-50' : ''} z-0 hover:z-10 mb-8 md:mb-0`}
+      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent && cardState !== CardState.Played ? 'opacity-50' : ''} z-0 hover:z-10 ${!isStacked ? 'mb-8 md:mb-0' : ''}`}
       style={{
         height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
       }}
       onMouseEnter={() => {
-        if (playerNameRef.current) {
+        if (!isStacked && playerNameRef.current) {
           const rect = playerNameRef.current.getBoundingClientRect();
           setPortalPosition({ 
             x: rect.left + rect.width / 2, 
@@ -105,49 +111,55 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         }
       }}
       onMouseLeave={() => {
-        setShowPortalName(false);
+        if (!isStacked) {
+          setShowPortalName(false);
+        }
       }}
     >
-      <div className="absolute top-full w-full pt-1">
-        <div className="flex items-center justify-center">
-          <div 
-            ref={playerNameRef}
-            className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full relative ${showPortalName ? 'opacity-0' : ''}`}
-            style={{ backdropFilter: 'blur(2px)' }}
-          >
-            {playerName}
+      {!isStacked && (
+        <>
+          <div className="absolute top-full w-full pt-1">
+            <div className="flex items-center justify-center">
+              <div 
+                ref={playerNameRef}
+                className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full relative ${showPortalName ? 'opacity-0' : ''}`}
+                style={{ backdropFilter: 'blur(2px)' }}
+              >
+                {playerName}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-            {showPortalName && createPortal(
-        <div 
-          className="fixed pointer-events-none"
-          style={{ 
-            left: portalPosition.x,
-            top: portalPosition.y,
-            transform: 'translate(-50%, -50%)',
-            zIndex: 9999
-          }}
-        >
-          <div
-            className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
-            style={{ 
-              backdropFilter: 'blur(2px)',
-              transform: 'translateY(-16px)',
-              transition: 'transform 0.2s ease-in-out'
-            }}
-          >
-            {playerName}
-          </div>
-        </div>,
-        document.body
+          {showPortalName && createPortal(
+            <div 
+              className="fixed pointer-events-none"
+              style={{ 
+                left: portalPosition.x,
+                top: portalPosition.y,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 9999
+              }}
+            >
+              <div
+                className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
+                style={{ 
+                  backdropFilter: 'blur(2px)',
+                  transform: 'translateY(-16px)',
+                  transition: 'transform 0.2s ease-in-out'
+                }}
+              >
+                {playerName}
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
       )}
+      
       <ReactCardFlip
         isFlipped={isFlipped}
         flipDirection="horizontal"
         infinite={true}
       >
-        {/* Back of the card (Selection state) */}
         <div className="card-back w-full h-full">
           <img
             src={backCardImage}
@@ -156,7 +168,6 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
           />
         </div>
 
-        {/* Front of the card (Played state) */}
         <div className="card-front w-full h-full">
           <img
             src={frontCardImage}

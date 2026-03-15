@@ -184,7 +184,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     if (!displaySession || displaySession.game_state !== 'Playing') {
       return null;
     }
-    const selections = Object.entries(displaySession.selections);
+    const selections = Object.entries(displaySession.selections)
+      .filter(([, selection]) => (selection as PlayerSelection).name?.trim());
     type SelectionWithUserId = PlayerSelection & { userId: string };
     const groups = selections.reduce((acc, [userId, selection]) => {
       const points = (selection as PlayerSelection).points;
@@ -195,10 +196,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       return acc;
     }, {} as Record<number, SelectionWithUserId[]>);
     const sortedGroupKeys = Object.keys(groups).map(Number).sort((a, b) => a - b);
-    return sortedGroupKeys.map(points => ({
-      points,
-      selections: groups[points],
-    }));
+    const allAbstained = sortedGroupKeys.length === 1 && sortedGroupKeys[0] === -1;
+    return sortedGroupKeys
+      .filter(points => allAbstained || points !== -1)
+      .map(points => ({
+        points,
+        selections: groups[points],
+      }));
   }, [displaySession]);
 
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
