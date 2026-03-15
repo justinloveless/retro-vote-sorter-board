@@ -10,7 +10,7 @@ import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Lock } from 'lucide-react';
+import { Lock, ShieldAlert } from 'lucide-react';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -21,6 +21,7 @@ const NeotroPage = () => {
   const { isFeatureEnabled, loading: loadingFlags } = useFeatureFlags();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
+  const [isMember, setIsMember] = useState(false);
 
 
   useEffect(() => {
@@ -39,7 +40,6 @@ const NeotroPage = () => {
           .single();
 
         if (error) {
-          // It's okay if no record is found, they are just not a member with a role
           if (error.code !== 'PGRST116') {
             console.error('Error fetching user role:', error);
           }
@@ -47,6 +47,7 @@ const NeotroPage = () => {
         
         if (data) {
           setCurrentRole(data.role);
+          setIsMember(true);
         }
       } catch (e) {
         console.error('Error in fetchUserRole:', e);
@@ -58,11 +59,13 @@ const NeotroPage = () => {
     fetchUserRole();
   }, [teamId, profile]);
 
+  // Only initialize the poker session if the user is a confirmed team member
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
-    !loadingAuth ? teamId : null, // Use teamId as the session identifier
+    (!loadingAuth && isMember) ? teamId : null,
     profile?.id,
     profile?.full_name || (user?.email || 'Player'),
-    true
+    true,
+    teamId
   );
 
   // Use history hook to load specific rounds when requested
@@ -96,6 +99,24 @@ const NeotroPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-muted-foreground">Loading Session...</div>
+      </div>
+    );
+  }
+
+  if (!isMember) {
+    return (
+      <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
+        <AppHeader variant='back' />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 max-w-md mx-auto px-4">
+            <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h2 className="text-2xl font-bold">Access Denied</h2>
+            <p className="text-muted-foreground">
+              Only members of this team can participate in pointing sessions.
+            </p>
+            <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+          </div>
+        </div>
       </div>
     );
   }
