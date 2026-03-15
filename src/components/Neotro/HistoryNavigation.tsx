@@ -13,6 +13,8 @@ interface HistoryNavigationProps {
   onPrevious: () => void;
   onNext: () => void;
   onGoToCurrent: () => void;
+  /** When true, renders without outer card (for embedding in another container) */
+  embedded?: boolean;
 }
 
 const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
@@ -24,6 +26,7 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
   onPrevious,
   onNext,
   onGoToCurrent,
+  embedded = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -76,9 +79,8 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
     );
   }
 
-  return (
-    <div className="bg-card/25 border border-primary/20 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between">
+  const content = (
+    <div className="flex items-center justify-between">
         <Button
           variant="outline"
           size="sm"
@@ -127,6 +129,15 @@ const HistoryNavigation: React.FC<HistoryNavigationProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="bg-card/25 border border-primary/20 rounded-lg p-4 mb-4">
+      {content}
     </div>
   );
 };

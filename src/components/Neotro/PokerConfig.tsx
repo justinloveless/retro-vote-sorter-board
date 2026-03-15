@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -21,6 +22,8 @@ interface PokerConfigProps {
   onDeleteAllRounds: () => void;
   isSlackIntegrated: boolean;
   userRole?: string;
+  /** When true, renders icon-only trigger with tooltip */
+  iconOnly?: boolean;
 }
 
 export const PokerConfig: React.FC<PokerConfigProps> = ({
@@ -29,6 +32,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   onDeleteAllRounds,
   isSlackIntegrated,
   userRole,
+  iconOnly = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [presenceEnabled, setPresenceEnabled] = useState(config.presence_enabled !== false);
@@ -49,14 +53,35 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
     setSendToSlack(key === 'send_to_slack' ? value : sendToSlack);
   };
 
+  const triggerButton = iconOnly ? (
+    <Button variant="outline" size="icon" className="h-8 w-8">
+      <Settings className="h-4 w-4" />
+    </Button>
+  ) : (
+    <Button variant="outline" size="sm" className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30">
+      <Settings className="h-4 w-4 mr-2" />
+      Settings
+    </Button>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30">
-          <Settings className="h-4 w-4 mr-2" />
-          Settings
-        </Button>
-      </DialogTrigger>
+      {iconOnly ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                {triggerButton}
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Session Configuration</DialogTitle>

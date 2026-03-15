@@ -90,7 +90,7 @@ const formatPokerResultMessage = (payload: PokerRoundPayload) => {
     fields: [
       {
         type: "mrkdwn",
-        text: `*Average Points:*\n${averagePoints.toFixed(2)}`,
+        text: `*Winning Points:*\n${averagePoints}`,
       },
     ],
   });

@@ -56,7 +56,7 @@ export const JiraSettingsForm: React.FC<JiraSettingsFormProps> = ({ settings, on
             onChange={(e) => handleChange('jira_board_id', e.target.value)}
             placeholder="e.g., RNMT"
           />
-          <p className="text-xs text-muted-foreground">Project key used to browse issues in the poker session queue. Defaults to the ticket prefix if not set.</p>
+          <p className="text-xs text-muted-foreground">Project key (e.g. RNMT) or numeric board ID from the Jira board URL. Used to browse sprints and issues.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="jira-email">Jira User Email</Label>

@@ -17,6 +17,26 @@ export interface Selections {
 
 export type GameState = 'Selection' | 'Playing';
 
+/** Returns the points value with the most votes. On tie, returns the highest. */
+export function getPointsWithMostVotes(selections: { points: number }[]): number {
+  const participating = selections.filter((s) => s.points !== -1);
+  if (participating.length === 0) return 0;
+  const voteCounts: Record<number, number> = {};
+  participating.forEach((s) => {
+    voteCounts[s.points] = (voteCounts[s.points] || 0) + 1;
+  });
+  let maxCount = 0;
+  let winningPoints = 0;
+  for (const [points, count] of Object.entries(voteCounts)) {
+    const p = parseInt(points, 10);
+    if (count > maxCount || (count === maxCount && p > winningPoints)) {
+      maxCount = count;
+      winningPoints = p;
+    }
+  }
+  return winningPoints;
+}
+
 // The main session object is now much simpler
 export interface PokerSession {
   id: string;
@@ -314,9 +334,8 @@ export const usePokerSession = (
     const newSelections: Selections = { ...session.selections };
     Object.values(newSelections).forEach((s: PlayerSelection) => { if (!s.locked) s.points = -1; });
     const participating = Object.values(newSelections).filter((s: PlayerSelection) => s.points !== -1);
-    const average_points = participating.length > 0 ? participating.reduce((a, b) => a + b.points, 0) / participating.length : 0;
-    
-    const newState = { game_state: 'Playing' as GameState, selections: newSelections, average_points };
+    const winning_points = getPointsWithMostVotes(participating);
+    const newState = { game_state: 'Playing' as GameState, selections: newSelections, average_points: winning_points };
 
     setSession(prev => prev ? { ...prev, ...newState } : null);
     await updateRoundState(newState);

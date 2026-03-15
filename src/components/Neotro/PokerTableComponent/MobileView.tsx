@@ -47,6 +47,7 @@ export const MobileView: React.FC = () => {
         updateSessionConfig,
         deleteAllRounds,
         displaySession,
+        displayWinningPoints,
         cardGroups,
         activeUserSelection,
         totalPlayers,
@@ -100,7 +101,7 @@ export const MobileView: React.FC = () => {
                                         <PointsDetails
                                             selectedPoint={activeUserSelection.points}
                                             isHandPlayed={displaySession.game_state === 'Playing'}
-                                            averagePoints={displaySession.average_points}
+                                            winningPoints={displayWinningPoints}
                                             ticketNumber={displayTicketNumber}
                                             onTicketNumberChange={handleTicketNumberChange}
                                             onTicketNumberFocus={handleTicketNumberFocus}
@@ -121,7 +122,7 @@ export const MobileView: React.FC = () => {
                                                 <SubmitPointsToJira
                                                     teamId={teamId}
                                                     ticketNumber={displayTicketNumber}
-                                                    averagePoints={displaySession.average_points}
+                                                    winningPoints={displayWinningPoints}
                                                     isHandPlayed={true}
                                                     isJiraConfigured={isJiraConfigured}
                                                 />
@@ -298,7 +299,7 @@ export const MobileView: React.FC = () => {
                                         <PointsDetails
                                             selectedPoint={activeUserSelection.points}
                                             isHandPlayed={displaySession.game_state === 'Playing'}
-                                            averagePoints={displaySession.average_points}
+                                            winningPoints={displayWinningPoints}
                                             ticketNumber={displayTicketNumber}
                                             onTicketNumberChange={handleTicketNumberChange}
                                             onTicketNumberFocus={handleTicketNumberFocus}
@@ -319,7 +320,7 @@ export const MobileView: React.FC = () => {
                                                 <SubmitPointsToJira
                                                     teamId={teamId}
                                                     ticketNumber={displayTicketNumber}
-                                                    averagePoints={displaySession.average_points}
+                                                    winningPoints={displayWinningPoints}
                                                     isHandPlayed={true}
                                                     isJiraConfigured={isJiraConfigured}
                                                 />
