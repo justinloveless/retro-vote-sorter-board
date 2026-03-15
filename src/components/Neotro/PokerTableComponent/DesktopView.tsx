@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Send, ListOrdered } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PlayerSelection } from '@/hooks/usePokerSession';
+import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 4) return 'grid-cols-4';
@@ -60,7 +61,8 @@ export const DesktopView: React.FC = () => {
         setNextRoundDialogOpen,
         onNextRoundRequest,
         ticketQueue,
-        setQueuePanelOpen
+        setQueuePanelOpen,
+        isJiraConfigured,
     } = usePokerTable();
 
     useEffect(() => {
@@ -141,7 +143,14 @@ export const DesktopView: React.FC = () => {
                                 </div>
                             )}
                             {displaySession.game_state === 'Playing' && (
-                                <div className="pt-2 px-2">
+                                <div className="pt-2 px-2 space-y-2">
+                                    <SubmitPointsToJira
+                                        teamId={teamId}
+                                        ticketNumber={displayTicketNumber}
+                                        averagePoints={displaySession.average_points}
+                                        isHandPlayed={true}
+                                        isJiraConfigured={isJiraConfigured}
+                                    />
                                     <Button
                                         onClick={handleSendToSlack}
                                         disabled={!isSlackInstalled || isSending}
