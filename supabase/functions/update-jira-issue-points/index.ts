@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const auth = btoa(`${jira_email}:${jira_api_key}`);
-    const jiraUrl = `${jira_domain}/rest/api/2/issue/${resolvedKey}`;
+    const jiraUrl = `${jira_domain}/rest/api/3/issue/${resolvedKey}`;
 
     const jiraResponse = await fetch(jiraUrl, {
       method: 'PUT',
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         fields: {
-          customfield_10016: points,
+          story_point_estimate: points,
         },
       }),
     });
