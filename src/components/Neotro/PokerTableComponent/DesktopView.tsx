@@ -43,6 +43,7 @@ export const DesktopView: React.FC = () => {
         handleSendToSlack,
         isSending,
         displaySession,
+        displayWinningPoints,
         cardGroups,
         activeUserSelection,
         totalPlayers,
@@ -65,6 +66,12 @@ export const DesktopView: React.FC = () => {
         isJiraConfigured,
     } = usePokerTable();
 
+    const CARD_BASE_HEIGHT = 95;
+    const desktopScale = totalPlayers <= 4 ? 1.6 : totalPlayers <= 6 ? 1.4 : totalPlayers <= 8 ? 1.2 : totalPlayers <= 12 ? 1.0 : 0.8;
+    const scaledCardHeight = CARD_BASE_HEIGHT * desktopScale;
+    const VISIBLE_STRIP = 10;
+    const stackOverlap = scaledCardHeight - VISIBLE_STRIP;
+
     useEffect(() => {
         console.log('currentRound updated', currentRound)
     }, [currentRound]);
@@ -74,16 +81,49 @@ export const DesktopView: React.FC = () => {
     return (
         <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
             <div className="p-4">
-                <HistoryNavigation
-                    currentRoundNumber={currentRound?.round_number || 1}
-                    totalRounds={rounds.length}
-                    isViewingHistory={isViewingHistory}
-                    canGoBack={canGoBack}
-                    canGoForward={canGoForward}
-                    onPrevious={goToPreviousRound}
-                    onNext={goToNextRound}
-                    onGoToCurrent={goToCurrentRound}
-                />
+                <div className="bg-card/25 border border-primary/20 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                        <HistoryNavigation
+                            currentRoundNumber={currentRound?.round_number || 1}
+                            totalRounds={rounds.length}
+                            isViewingHistory={isViewingHistory}
+                            canGoBack={canGoBack}
+                            canGoForward={canGoForward}
+                            onPrevious={goToPreviousRound}
+                            onNext={goToNextRound}
+                            onGoToCurrent={goToCurrentRound}
+                            embedded
+                        />
+                    </div>
+                    <div className={`flex items-center gap-2 shrink-0 ${rounds.length > 1 ? 'border-l border-primary/20 pl-4' : ''}`}>
+                        {teamId && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setQueuePanelOpen(true)}
+                            >
+                                <ListOrdered className="h-4 w-4 mr-2" />
+                                Queue
+                                {ticketQueue.length > 0 && (
+                                    <Badge variant="secondary" className="ml-2 text-xs px-1.5">
+                                        {ticketQueue.length}
+                                    </Badge>
+                                )}
+                            </Button>
+                        )}
+                        <PokerConfig
+                            config={{
+                                presence_enabled: 'presence_enabled' in session && session.presence_enabled,
+                                send_to_slack: 'send_to_slack' in session && session.send_to_slack
+                            }}
+                            onUpdateConfig={updateSessionConfig}
+                            onDeleteAllRounds={deleteAllRounds}
+                            isSlackIntegrated={isSlackInstalled}
+                            userRole={userRole}
+                            iconOnly
+                        />
+                    </div>
+                </div>
             </div>
 
             <div className="flex flex-1 min-h-0">
@@ -93,43 +133,13 @@ export const DesktopView: React.FC = () => {
                             <PointsDetails
                                 selectedPoint={activeUserSelection.points}
                                 isHandPlayed={displaySession.game_state === 'Playing'}
-                                averagePoints={displaySession.average_points}
+                                winningPoints={displayWinningPoints}
                                 ticketNumber={displayTicketNumber}
                                 onTicketNumberChange={handleTicketNumberChange}
                                 onTicketNumberFocus={handleTicketNumberFocus}
                                 onTicketNumberBlur={handleTicketNumberBlur}
                                 teamId={teamId}
                             />
-                            <div className='flex justify-end pt-2'>
-                                <PokerConfig
-                                    config={{ 
-                                        presence_enabled: 'presence_enabled' in session && session.presence_enabled,
-                                        send_to_slack: 'send_to_slack' in session && session.send_to_slack
-                                    }}
-                                    onUpdateConfig={updateSessionConfig}
-                                    onDeleteAllRounds={deleteAllRounds}
-                                    isSlackIntegrated={isSlackInstalled}
-                                    userRole={userRole}
-                                />
-                            </div>
-                            {teamId && (
-                                <div className="px-2 pt-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full"
-                                        onClick={() => setQueuePanelOpen(true)}
-                                    >
-                                        <ListOrdered className="h-4 w-4 mr-2" />
-                                        Queue
-                                        {ticketQueue.length > 0 && (
-                                            <Badge variant="secondary" className="ml-2 text-xs px-1.5">
-                                                {ticketQueue.length}
-                                            </Badge>
-                                        )}
-                                    </Button>
-                                </div>
-                            )}
                             {!isViewingHistory && (
                                 <div className="p-2 flex justify-between gap-2">
                                     <PlayHandButton
@@ -147,7 +157,7 @@ export const DesktopView: React.FC = () => {
                                     <SubmitPointsToJira
                                         teamId={teamId}
                                         ticketNumber={displayTicketNumber}
-                                        averagePoints={displaySession.average_points}
+                                        winningPoints={displayWinningPoints}
                                         isHandPlayed={true}
                                         isJiraConfigured={isJiraConfigured}
                                     />
@@ -168,25 +178,37 @@ export const DesktopView: React.FC = () => {
                 <div className="w-1/2 flex flex-col p-4">
                     <div className="flex-grow flex items-end justify-center min-h-0 pb-8">
                         {displaySession.game_state === 'Playing' && cardGroups ? (
-                            <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-8">
+                            <div className="flex flex-wrap items-end justify-center gap-x-6 gap-y-4">
                                 {cardGroups.map(({ points, selections }) => (
                                     <div key={points} className="flex flex-col items-center space-y-2">
-                                        <div className="flex justify-center -space-x-14">
+                                        <div className="flex flex-col items-center">
                                             {selections.map((selection, index) => (
-                                                <div key={selection.userId} className="transition-transform transform hover:-translate-y-4"
-                                                    style={{ zIndex: selections.length - index }}>
+                                                <div key={selection.userId}
+                                                    className="relative transition-all duration-200 hover:-translate-y-2 hover:z-50"
+                                                    style={{
+                                                        marginTop: index > 0 ? `-${stackOverlap}px` : 0,
+                                                        zIndex: selections.length - index,
+                                                    }}>
                                                     <PlayingCard
                                                         cardState={CardState.Played}
                                                         playerName={selection.name}
                                                         pointsSelected={selection.points}
                                                         isPresent={presentUserIds.includes(selection.userId)}
                                                         totalPlayers={totalPlayers}
+                                                        variant="stacked"
                                                     />
                                                 </div>
                                             ))}
                                         </div>
                                         <div className="text-center font-bold text-lg text-foreground bg-card/75 rounded-full px-4 py-1">
                                             {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            {selections.map((selection) => (
+                                                <span key={selection.userId} className="text-xs text-muted-foreground">
+                                                    {selection.name}
+                                                </span>
+                                            ))}
                                         </div>
                                     </div>
                                 ))}

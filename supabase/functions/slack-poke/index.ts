@@ -79,6 +79,25 @@ interface PokerSessionRound {
 }
 
 // Utility Functions
+function getPointsWithMostVotes(selections: { points: number }[]): number {
+  const participating = selections.filter((s) => s.points !== -1);
+  if (participating.length === 0) return 0;
+  const voteCounts: Record<number, number> = {};
+  participating.forEach((s) => {
+    voteCounts[s.points] = (voteCounts[s.points] || 0) + 1;
+  });
+  let maxCount = 0;
+  let winningPoints = 0;
+  for (const [points, count] of Object.entries(voteCounts)) {
+    const p = parseInt(points, 10);
+    if (count > maxCount || (count === maxCount && p > winningPoints)) {
+      maxCount = count;
+      winningPoints = p;
+    }
+  }
+  return winningPoints;
+}
+
 export function parseTicketFromText(text: string): {
   ticketNumber: string | null;
   ticketTitle: string | null;
@@ -531,12 +550,10 @@ export async function handleInteractiveComponent(payload: SlackInteractivePayloa
         );
       }
 
-      // Calculate average points for playing state
+      // Calculate winning points (most votes) for playing state
       const participating = Object.values(selections as Record<string, { points: number; display_name: string }>)
         .filter(s => s.points !== -1);
-      const average_points = participating.length > 0 
-        ? participating.reduce((a, b) => a + b.points, 0) / participating.length 
-        : 0;
+      const average_points = getPointsWithMostVotes(participating);
 
       // Publish realtime update to sync browser clients
       await publishRealtimeUpdate(

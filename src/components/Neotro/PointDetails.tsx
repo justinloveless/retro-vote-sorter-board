@@ -32,7 +32,8 @@ interface PointsDetailsProps {
    */
   selectedPoint: number;
   isHandPlayed: boolean;
-  averagePoints: number;
+  /** Winning points (most votes) */
+  winningPoints: number;
   ticketNumber: string | null;
   onTicketNumberChange: (value: string) => void;
   onTicketNumberFocus: () => void;
@@ -46,7 +47,7 @@ interface PointsDetailsProps {
 const PointDetails: React.FC<PointsDetailsProps> = ({
   selectedPoint,
   isHandPlayed,
-  averagePoints,
+  winningPoints,
   ticketNumber,
   onTicketNumberChange,
   onTicketNumberFocus,
@@ -126,13 +127,13 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
       {/* Team Points Section */}
       <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
         <div className="text-xl mr-2">
-          Avg.
+          Winning
           <br />
           Pts
         </div>
         <div className="bg-[#3c3c3c] rounded-lg p-2 flex items-center justify-center grow">
           <p className="text-2xl whitespace-pre-wrap">
-            {isHandPlayed ? averagePoints.toFixed(2) : "???"}
+            {isHandPlayed ? winningPoints : "???"}
           </p>
         </div>
       </div>

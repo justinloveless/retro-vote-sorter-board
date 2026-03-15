@@ -45,9 +45,23 @@ Deno.serve(async (req) => {
     }
 
     const auth = btoa(`${jira_email}:${jira_api_key}`);
-    const jiraUrl = `${jira_domain}/rest/api/3/issue/${resolvedKey}`;
+    const jiraBaseUrl = `${jira_domain}/rest/api/3/issue/${resolvedKey}`;
 
-    const jiraResponse = await fetch(jiraUrl, {
+    // Story points use custom field IDs that vary by Jira instance. Fetch issue to find which field exists.
+    const knownPointFields = ['customfield_10016', 'customfield_10028', 'customfield_10004', 'customfield_10020'];
+    const fieldsParam = knownPointFields.join(',');
+    const getRes = await fetch(`${jiraBaseUrl}?fields=${fieldsParam}`, {
+      headers: { 'Authorization': `Basic ${auth}` },
+    });
+    if (!getRes.ok) {
+      const errBody = await getRes.text();
+      throw new Error(`Jira API error (${getRes.status}): ${errBody}`);
+    }
+    const issueData = await getRes.json();
+    const issueFields = issueData.fields ?? {};
+    const pointsFieldKey = knownPointFields.find((key) => key in issueFields) ?? 'customfield_10016';
+
+    const jiraResponse = await fetch(jiraBaseUrl, {
       method: 'PUT',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -55,7 +69,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         fields: {
-          story_point_estimate: points,
+          [pointsFieldKey]: points,
         },
       }),
     });

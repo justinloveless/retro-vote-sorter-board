@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,6 +81,8 @@ interface JiraIssueData {
 interface JiraIssueDrawerProps {
   issueIdOrKey: string | null;
   teamId: string | null;
+  /** Custom trigger element; when provided, clicking it opens the preview instead of the default button */
+  trigger?: React.ReactElement;
 }
 
 function formatJiraDate(dateStr: string): string {
@@ -311,13 +313,22 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
     if (segment.type === 'panel') {
       const bgMatch = segment.attrs?.match(/bgColor=([#\w]+)/);
       const bgColor = bgMatch ? bgMatch[1] : undefined;
+      const titleMatch = segment.attrs?.match(/(?:^|[|])title=([^|]+)/);
+      const title = titleMatch ? titleMatch[1].trim() : undefined;
       nodes.push(
         <Card
           key={`panel-${segIdx}`}
-          className="my-3 p-4 border"
+          className="my-3 border overflow-hidden"
           style={bgColor ? { backgroundColor: ensurePanelContrast(bgColor) } : undefined}
         >
-          <div className="text-sm text-foreground">{parseJiraWikiMarkup(segment.content, attachments)}</div>
+          {title && (
+            <CardHeader className="p-3 pb-2">
+              <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+            </CardHeader>
+          )}
+          <CardContent className={title ? 'p-3 pt-0' : 'p-4'}>
+            <div className="text-sm text-foreground">{parseJiraWikiMarkup(segment.content, attachments)}</div>
+          </CardContent>
         </Card>
       );
     } else if (segment.type === 'code') {
@@ -335,6 +346,103 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
   });
 
   return nodes;
+}
+
+interface ListItemNode {
+  level: number;
+  content: React.ReactNode;
+  children: ListItemNode[];
+}
+
+function collectListItems(
+  lines: string[],
+  startI: number,
+  pattern: RegExp,
+  stripPrefix: (line: string) => string,
+  attachments?: JiraAttachment[],
+  keyPrefix: number | string = 0
+): { items: ListItemNode[]; nextI: number } {
+  const items: ListItemNode[] = [];
+  const stack: { node: ListItemNode; level: number }[] = [];
+  let i = startI;
+
+  while (i < lines.length) {
+    const line = lines[i].trimEnd();
+    const match = line.match(pattern);
+    if (!match) break;
+
+    const level = match[1].length;
+    const content = parseInline(stripPrefix(line), attachments);
+    const node: ListItemNode = { level, content, children: [] };
+
+    while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+      stack.pop();
+    }
+
+    if (stack.length === 0) {
+      items.push(node);
+      stack.push({ node, level });
+    } else {
+      stack[stack.length - 1].node.children.push(node);
+      stack.push({ node, level });
+    }
+    i++;
+  }
+
+  return { items, nextI: i };
+}
+
+const ORDERED_LIST_STYLES: Record<number, string> = {
+  1: 'list-decimal',
+  2: 'list-[lower-alpha]',
+  3: 'list-[lower-roman]',
+};
+
+function renderNestedOrderedList(items: ListItemNode[], keyPrefix: number | string, baseKey: number): React.ReactNode {
+  const listStyle = (level: number) => ORDERED_LIST_STYLES[level] || 'list-[lower-alpha]';
+  const render = (nodes: ListItemNode[], level: number, key: string): React.ReactNode => (
+    <ol key={key} className={`${listStyle(level)} list-inside my-1 ml-4 space-y-1`}>
+      {nodes.map((item, idx) => (
+        <li key={`${key}-${idx}`} className="text-sm text-foreground">
+          {item.content}
+          {item.children.length > 0 && render(item.children, level + 1, `${key}-${idx}-sub`)}
+        </li>
+      ))}
+    </ol>
+  );
+  return (
+    <ol key={`${keyPrefix}-ol-group-${baseKey}`} className="list-decimal list-inside my-2 space-y-1">
+      {items.map((item, idx) => (
+        <li key={`${keyPrefix}-ol-${baseKey}-${idx}`} className="text-sm text-foreground">
+          {item.content}
+          {item.children.length > 0 && render(item.children, 2, `${keyPrefix}-ol-${baseKey}-${idx}`)}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function renderNestedUnorderedList(items: ListItemNode[], keyPrefix: number | string, baseKey: number): React.ReactNode {
+  const render = (nodes: ListItemNode[], key: string): React.ReactNode => (
+    <ul key={key} className="list-disc list-inside my-1 ml-4 space-y-1">
+      {nodes.map((item, idx) => (
+        <li key={`${key}-${idx}`} className="text-sm text-foreground">
+          {item.content}
+          {item.children.length > 0 && render(item.children, `${key}-${idx}-sub`)}
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <ul key={`${keyPrefix}-ul-group-${baseKey}`} className="list-disc list-inside my-2 space-y-1">
+      {items.map((item, idx) => (
+        <li key={`${keyPrefix}-ul-${baseKey}-${idx}`} className="text-sm text-foreground">
+          {item.content}
+          {item.children.length > 0 && render(item.children, `${keyPrefix}-ul-${baseKey}-${idx}`)}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function parseLines(text: string, keyPrefix: number | string = 0, attachments?: JiraAttachment[]): React.ReactNode[] {
@@ -367,41 +475,21 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
       continue;
     }
 
-    // Ordered list
-    if (/^#\s/.test(line)) {
-      const listItems: React.ReactNode[] = [];
-      while (i < lines.length && /^#\s/.test(lines[i].trimEnd())) {
-        listItems.push(
-          <li key={`${keyPrefix}-ol-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^#\s*/, ''), attachments)}
-          </li>
-        );
-        i++;
-      }
-      nodes.push(
-        <ol key={`${keyPrefix}-ol-group-${i}`} className="list-decimal list-inside my-2 space-y-1">
-          {listItems}
-        </ol>
-      );
+    // Ordered list (supports #, ##, ### for nested)
+    const olMatch = line.match(/^(#+)\s+(.*)$/);
+    if (olMatch) {
+      const { items, nextI } = collectListItems(lines, i, /^(#+)\s/, (raw) => raw.replace(/^#+\s*/, ''), attachments, keyPrefix);
+      i = nextI;
+      nodes.push(renderNestedOrderedList(items, keyPrefix, i));
       continue;
     }
 
-    // Unordered list
-    if (/^\*\s/.test(line)) {
-      const listItems: React.ReactNode[] = [];
-      while (i < lines.length && /^\*\s/.test(lines[i].trimEnd())) {
-        listItems.push(
-          <li key={`${keyPrefix}-ul-${i}`} className="text-sm text-foreground">
-            {parseInline(lines[i].trimEnd().replace(/^\*\s*/, ''), attachments)}
-          </li>
-        );
-        i++;
-      }
-      nodes.push(
-        <ul key={`${keyPrefix}-ul-group-${i}`} className="list-disc list-inside my-2 space-y-1">
-          {listItems}
-        </ul>
-      );
+    // Unordered list (supports *, **, *** for nested)
+    const ulMatch = line.match(/^(\*+)\s+(.*)$/);
+    if (ulMatch) {
+      const { items, nextI } = collectListItems(lines, i, /^(\*+)\s/, (raw) => raw.replace(/^\*+\s*/, ''), attachments, keyPrefix);
+      i = nextI;
+      nodes.push(renderNestedUnorderedList(items, keyPrefix, i));
       continue;
     }
 
@@ -417,13 +505,13 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
   return nodes;
 }
 
-/** Parse inline markup: *bold*, _italic_, {{inline code}}, [text|url], !image!, {color} */
+/** Parse inline markup: *bold*, _italic_, -strikethrough-, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
-  // Tokenize: {{inline code}}, *bold*, _italic_, [text|url], [~accountid:xxx], !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
+  // Tokenize: {{inline code}}, *bold*, _italic_, -strikethrough-, [text|url], [~accountid:xxx], !image!
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|(?<![-\w])-([^-]+)-(?![-\w])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
@@ -447,9 +535,12 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
       // _italic_
       parts.push(<em key={`i-${inlineMatch.index}`}>{inlineMatch[3]}</em>);
     } else if (inlineMatch[4] !== undefined) {
+      // -strikethrough-
+      parts.push(<span key={`s-${inlineMatch.index}`} className="line-through">{parseInline(inlineMatch[4], attachments)}</span>);
+    } else if (inlineMatch[5] !== undefined) {
       // [visible text|url] — visible text can contain formatting
-      const linkText = inlineMatch[4];
-      const linkUrl = inlineMatch[5];
+      const linkText = inlineMatch[5];
+      const linkUrl = inlineMatch[6];
       parts.push(
         <a
           key={`a-${inlineMatch.index}`}
@@ -461,17 +552,17 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
           {parseInline(linkText, attachments)}
         </a>
       );
-    } else if (inlineMatch[6] !== undefined) {
+    } else if (inlineMatch[7] !== undefined) {
       // [~accountid:xxx] or [~username] — user mention
       parts.push(
         <Badge key={`mention-${inlineMatch.index}`} variant="secondary" className="text-xs font-normal px-1.5 py-0">
-          @{inlineMatch[6].length > 20 ? 'user' : inlineMatch[6]}
+          @{inlineMatch[7].length > 20 ? 'user' : inlineMatch[7]}
         </Badge>
       );
-    } else if (inlineMatch[7] !== undefined) {
+    } else if (inlineMatch[8] !== undefined) {
       // !image.png|opts!
-      const filename = inlineMatch[7].trim();
-      const opts = inlineMatch[8] || '';
+      const filename = inlineMatch[8].trim();
+      const opts = inlineMatch[9] || '';
       const widthMatch = opts.match(/width=(\d+)/);
       const altMatch = opts.match(/alt="([^"]*)"/);
       const attachment = attachments?.find(a => a.filename === filename);
@@ -497,13 +588,42 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
+/** Strip HTML tags and decode entities, preserving structure for wiki markup parsing */
+function stripHtmlForWikiParse(html: string): string {
+  return html
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n +/g, '\n')
+    .replace(/ +\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
   // Normalize line endings
   const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // If it looks like HTML (starts with a tag or contains block-level HTML tags), render it
+  // If content contains Jira wiki markup (e.g. {panel}, {noformat}), parse it - even when wrapped in HTML
+  const hasWikiMarkup = /\{(?:panel|noformat|norformat|color)(?::[^}]*)?\}/i.test(normalized);
+  if (hasWikiMarkup) {
+    const toParse = (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized))
+      ? stripHtmlForWikiParse(normalized)
+      : normalized;
+    return <div className="space-y-1 break-words overflow-wrap-anywhere [overflow-wrap:anywhere]">{parseJiraWikiMarkup(toParse, attachments)}</div>;
+  }
+
+  // If it looks like HTML (and no wiki markup), render as HTML
   if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
     return (
       <div
@@ -532,7 +652,7 @@ function setCache(key: string, data: any) {
   jiraCache.set(key, { data, timestamp: Date.now() });
 }
 
-export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId }) => {
+export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, trigger }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
@@ -648,17 +768,32 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     return map;
   }, [fields]);
 
+  const triggerElement = trigger ? (
+    React.cloneElement(trigger, {
+      onClick: (e: React.MouseEvent) => {
+        (trigger.props as { onClick?: (e: React.MouseEvent) => void }).onClick?.(e);
+        handleClick();
+      },
+      onMouseEnter: (e: React.MouseEvent) => {
+        (trigger.props as { onMouseEnter?: (e: React.MouseEvent) => void }).onMouseEnter?.(e);
+        handleMouseEnter();
+      },
+    } as React.HTMLAttributes<HTMLElement>)
+  ) : (
+    <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
+      {showSpinner ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <ChevronDown className="h-4 w-4 mr-2" />
+      )}
+      Show Jira Issue
+    </Button>
+  );
+
   return (
     <ImagePreviewContext.Provider value={openPreview}>
     <JiraUserMapContext.Provider value={userMap}>
-      <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
-        {showSpinner ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <ChevronDown className="h-4 w-4 mr-2" />
-        )}
-        Show Jira Issue
-      </Button>
+      {triggerElement}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto overflow-x-hidden top-[40%]">

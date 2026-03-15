@@ -47,6 +47,7 @@ export const MobileView: React.FC = () => {
         updateSessionConfig,
         deleteAllRounds,
         displaySession,
+        displayWinningPoints,
         cardGroups,
         activeUserSelection,
         totalPlayers,
@@ -70,6 +71,12 @@ export const MobileView: React.FC = () => {
         isJiraConfigured,
     } = usePokerTable();
     const { height } = useWindowSize();
+
+    const CARD_BASE_HEIGHT = 95;
+    const mobileScale = totalPlayers <= 4 ? 1.4 : totalPlayers <= 6 ? 1.2 : totalPlayers <= 8 ? 1.0 : 0.8;
+    const scaledCardHeight = CARD_BASE_HEIGHT * mobileScale;
+    const VISIBLE_STRIP = 8;
+    const stackOverlap = scaledCardHeight - VISIBLE_STRIP;
 
     if (!displaySession || !session) return null;
 
@@ -100,7 +107,7 @@ export const MobileView: React.FC = () => {
                                         <PointsDetails
                                             selectedPoint={activeUserSelection.points}
                                             isHandPlayed={displaySession.game_state === 'Playing'}
-                                            averagePoints={displaySession.average_points}
+                                            winningPoints={displayWinningPoints}
                                             ticketNumber={displayTicketNumber}
                                             onTicketNumberChange={handleTicketNumberChange}
                                             onTicketNumberFocus={handleTicketNumberFocus}
@@ -121,7 +128,7 @@ export const MobileView: React.FC = () => {
                                                 <SubmitPointsToJira
                                                     teamId={teamId}
                                                     ticketNumber={displayTicketNumber}
-                                                    averagePoints={displaySession.average_points}
+                                                    winningPoints={displayWinningPoints}
                                                     isHandPlayed={true}
                                                     isJiraConfigured={isJiraConfigured}
                                                 />
@@ -199,25 +206,37 @@ export const MobileView: React.FC = () => {
                         {/* Cards Area */}
                         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
                             {displaySession.game_state === 'Playing' && cardGroups ? (
-                                <div className="flex flex-wrap items-end justify-center gap-x-2 gap-y-4">
+                                <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
                                     {cardGroups.map(({ points, selections }) => (
                                         <div key={points} className="flex flex-col items-center space-y-2">
-                                            <div className="flex justify-center -space-x-10">
+                                            <div className="flex flex-col items-center">
                                                 {selections.map((selection, index) => (
-                                                    <div key={selection.userId} className="transition-transform transform hover:-translate-y-2"
-                                                        style={{ zIndex: selections.length - index }}>
+                                                    <div key={selection.userId}
+                                                        className="relative transition-all duration-200 hover:-translate-y-1 hover:z-50"
+                                                        style={{
+                                                            marginTop: index > 0 ? `-${stackOverlap}px` : 0,
+                                                            zIndex: selections.length - index,
+                                                        }}>
                                                         <PlayingCard
                                                             cardState={CardState.Played}
                                                             playerName={selection.name}
                                                             pointsSelected={selection.points}
                                                             isPresent={presentUserIds.includes(selection.userId)}
                                                             totalPlayers={totalPlayers}
+                                                            variant="stacked"
                                                         />
                                                     </div>
                                                 ))}
                                             </div>
                                             <div className="text-center font-bold text-sm text-foreground bg-card/75 rounded-full px-3 py-1">
                                                 {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                {selections.map((selection) => (
+                                                    <span key={selection.userId} className="text-xs text-muted-foreground">
+                                                        {selection.name}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
                                     ))}
@@ -239,7 +258,6 @@ export const MobileView: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Action Buttons - Only show if not viewing history */}
                         {!isViewingHistory && (
                             <div className="flex-shrink-0 mb-4">
                                 <div className="flex gap-2 mb-4">
@@ -255,7 +273,6 @@ export const MobileView: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Mobile Point Selector - Only show if not viewing history */}
                         {!isViewingHistory && (
                             <div className="flex-shrink-0">
                                 <PointSelector
@@ -298,7 +315,7 @@ export const MobileView: React.FC = () => {
                                         <PointsDetails
                                             selectedPoint={activeUserSelection.points}
                                             isHandPlayed={displaySession.game_state === 'Playing'}
-                                            averagePoints={displaySession.average_points}
+                                            winningPoints={displayWinningPoints}
                                             ticketNumber={displayTicketNumber}
                                             onTicketNumberChange={handleTicketNumberChange}
                                             onTicketNumberFocus={handleTicketNumberFocus}
@@ -319,7 +336,7 @@ export const MobileView: React.FC = () => {
                                                 <SubmitPointsToJira
                                                     teamId={teamId}
                                                     ticketNumber={displayTicketNumber}
-                                                    averagePoints={displaySession.average_points}
+                                                    winningPoints={displayWinningPoints}
                                                     isHandPlayed={true}
                                                     isJiraConfigured={isJiraConfigured}
                                                 />
@@ -397,25 +414,37 @@ export const MobileView: React.FC = () => {
                         {/* Cards Area */}
                         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
                             {displaySession.game_state === 'Playing' && cardGroups ? (
-                                <div className="flex flex-wrap items-end justify-center gap-x-2 gap-y-4">
+                                <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
                                     {cardGroups.map(({ points, selections }) => (
                                         <div key={points} className="flex flex-col items-center space-y-2">
-                                            <div className="flex justify-center -space-x-10">
+                                            <div className="flex flex-col items-center">
                                                 {selections.map((selection, index) => (
-                                                    <div key={selection.userId} className="transition-transform transform hover:-translate-y-2"
-                                                        style={{ zIndex: selections.length - index }}>
+                                                    <div key={selection.userId}
+                                                        className="relative transition-all duration-200 hover:-translate-y-1 hover:z-50"
+                                                        style={{
+                                                            marginTop: index > 0 ? `-${stackOverlap}px` : 0,
+                                                            zIndex: selections.length - index,
+                                                        }}>
                                                         <PlayingCard
                                                             cardState={CardState.Played}
                                                             playerName={selection.name}
                                                             pointsSelected={selection.points}
                                                             isPresent={presentUserIds.includes(selection.userId)}
                                                             totalPlayers={totalPlayers}
+                                                            variant="stacked"
                                                         />
                                                     </div>
                                                 ))}
                                             </div>
                                             <div className="text-center font-bold text-sm text-foreground bg-card/75 rounded-full px-3 py-1">
                                                 {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                {selections.map((selection) => (
+                                                    <span key={selection.userId} className="text-xs text-muted-foreground">
+                                                        {selection.name}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
                                     ))}

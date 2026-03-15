@@ -28,7 +28,8 @@ function nearestPointOption(avg: number): number {
 interface SubmitPointsToJiraProps {
   teamId?: string;
   ticketNumber: string | null;
-  averagePoints: number;
+  /** Winning points (most votes) - used as default for Jira submission */
+  winningPoints: number;
   isHandPlayed: boolean;
   isJiraConfigured: boolean;
 }
@@ -36,12 +37,15 @@ interface SubmitPointsToJiraProps {
 const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   teamId,
   ticketNumber,
-  averagePoints,
+  winningPoints,
   isHandPlayed,
   isJiraConfigured,
 }) => {
   const { toast } = useToast();
-  const defaultPoints = useMemo(() => nearestPointOption(averagePoints), [averagePoints]);
+  const defaultPoints = useMemo(
+    () => (POINT_OPTIONS.includes(winningPoints) ? winningPoints : nearestPointOption(winningPoints)),
+    [winningPoints]
+  );
   const [selectedPoints, setSelectedPoints] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);

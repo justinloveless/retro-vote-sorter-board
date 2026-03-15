@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { PlayerSelection, PokerSessionState } from '@/hooks/usePokerSession';
+import { PlayerSelection, PokerSessionState, getPointsWithMostVotes } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
@@ -49,6 +49,8 @@ interface PokerTableContextProps {
   uploadChatImage: (file: File) => Promise<string | null>;
   handleSendToSlack: () => Promise<void>;
   displaySession: PokerSessionState | PokerSessionRound | null;
+  /** Mode (most votes) - computed from selections when Playing */
+  displayWinningPoints: number;
   cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
   activeUserSelection: PlayerSelection & { points: number; locked: boolean; name: string; };
   totalPlayers: number;
@@ -155,6 +157,15 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     return isViewingHistory && currentRound ? currentRound : session;
   }, [isViewingHistory, currentRound, session]);
 
+  /** Mode (most votes) - computed from selections so we always show correct value */
+  const displayWinningPoints = useMemo(() => {
+    if (!displaySession || displaySession.game_state !== 'Playing') return 0;
+    const participating = Object.values(displaySession.selections).filter(
+      (s: { points: number }) => s.points !== -1
+    );
+    return getPointsWithMostVotes(participating);
+  }, [displaySession]);
+
   const handleSendToSlack = async () => {
     if (!displaySession || !teamId) return;
     setIsSending(true);
@@ -163,7 +174,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       displaySession.ticket_number,
       displaySession.ticket_title,
       displaySession.selections,
-      displaySession.average_points,
+      displayWinningPoints,
       chatMessagesForRound
     );
     setIsSending(false);
@@ -173,7 +184,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     if (!displaySession || displaySession.game_state !== 'Playing') {
       return null;
     }
-    const selections = Object.entries(displaySession.selections);
+    const selections = Object.entries(displaySession.selections)
+      .filter(([, selection]) => (selection as PlayerSelection).name?.trim());
     type SelectionWithUserId = PlayerSelection & { userId: string };
     const groups = selections.reduce((acc, [userId, selection]) => {
       const points = (selection as PlayerSelection).points;
@@ -184,10 +196,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       return acc;
     }, {} as Record<number, SelectionWithUserId[]>);
     const sortedGroupKeys = Object.keys(groups).map(Number).sort((a, b) => a - b);
-    return sortedGroupKeys.map(points => ({
-      points,
-      selections: groups[points],
-    }));
+    const allAbstained = sortedGroupKeys.length === 1 && sortedGroupKeys[0] === -1;
+    return sortedGroupKeys
+      .filter(points => allAbstained || points !== -1)
+      .map(points => ({
+        points,
+        selections: groups[points],
+      }));
   }, [displaySession]);
 
   const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
@@ -301,6 +316,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     uploadChatImage,
     handleSendToSlack,
     displaySession,
+    displayWinningPoints,
     cardGroups,
     activeUserSelection,
     totalPlayers,
