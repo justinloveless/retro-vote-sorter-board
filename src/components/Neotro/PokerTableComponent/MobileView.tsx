@@ -242,7 +242,7 @@ export const MobileView: React.FC = () => {
                                     ))}
                                 </div>
                             ) : (
-                                <div className={`grid ${getGridColumns(totalPlayers)} gap-2 max-w-full w-full justify-items-center`}>
+                                <div className={`grid ${getGridColumns(totalPlayers)} gap-x-2 gap-y-8 max-w-full w-full justify-items-center`}>
                                     {Object.entries(displaySession.selections).map(([userId, selection]) => (
                                         <div key={userId} className="flex flex-col items-center">
                                             <PlayingCard
@@ -450,7 +450,7 @@ export const MobileView: React.FC = () => {
                                     ))}
                                 </div>
                             ) : (
-                                <div className={`grid ${getGridColumns(totalPlayers)} gap-2 max-w-full w-full justify-items-center`}>
+                                <div className={`grid ${getGridColumns(totalPlayers)} gap-x-2 gap-y-8 max-w-full w-full justify-items-center`}>
                                     {Object.entries(displaySession.selections).map(([userId, selection]) => (
                                         <div key={userId} className="flex flex-col items-center">
                                             <PlayingCard

@@ -54,7 +54,8 @@ export const usePokerSession = (
   roomId: string | null,
   currentUserId: string | undefined,
   currentUserDisplayName: string | undefined,
-  shouldCreate: boolean = false
+  shouldCreate: boolean = false,
+  teamId?: string | null
 ) => {
   const [session, setSession] = useState<PokerSessionState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,41 @@ export const usePokerSession = (
   const roundChannelRef = useRef<RealtimeChannel | null>(null);
   const [presentUserIds, setPresentUserIds] = useState<string[]>([]);
   const [allUserIds, setAllUserIds] = useState<string[]>([]);
+
+  // For team sessions, fetch the full roster and build a selections object from it.
+  // Returns null for non-team sessions.
+  const fetchTeamSelections = useCallback(async (
+    tId: string,
+    existingSelections?: Selections
+  ): Promise<Selections | null> => {
+    const { data: members, error: membersError } = await supabase
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', tId);
+
+    if (membersError || !members) return null;
+
+    const userIds = members.map(m => m.user_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, nickname')
+      .in('id', userIds);
+
+    const profileMap = new Map(
+      (profiles || []).map(p => [p.id, p.nickname || p.full_name || 'Player'])
+    );
+
+    const selections: Selections = {};
+    for (const uid of userIds) {
+      const existing = existingSelections?.[uid];
+      selections[uid] = existing ?? {
+        points: 1,
+        locked: false,
+        name: profileMap.get(uid) || 'Player',
+      };
+    }
+    return selections;
+  }, []);
 
   const manageSession = useCallback(async () => {
     if (!roomId || !currentUserId || !currentUserDisplayName) return;
@@ -77,9 +113,12 @@ export const usePokerSession = (
 
     // 2. Create session if it doesn't exist
     if (error && error.code === 'PGRST116' && shouldCreate) {
+      const insertPayload: Record<string, unknown> = { room_id: roomId, current_round_number: 1 };
+      if (teamId) insertPayload.team_id = teamId;
+
       const { data: newSession, error: createError } = await supabase
         .from('poker_sessions')
-        .insert({ room_id: roomId, current_round_number: 1 })
+        .insert(insertPayload)
         .select()
         .single();
       
@@ -95,6 +134,25 @@ export const usePokerSession = (
       return;
     }
 
+    const effectiveTeamId = teamId || sessionData.team_id;
+
+    // For team-bound sessions, verify the current user is a team member
+    if (effectiveTeamId) {
+      const { data: membership } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', effectiveTeamId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (!membership) {
+        toast({ title: 'Access denied', description: 'Only team members can join this pointing session.', variant: 'destructive' });
+        setSession(null);
+        setLoading(false);
+        return;
+      }
+    }
+
     // 3. Fetch the current round for the session
     let { data: roundData, error: roundError } = await supabase
       .from('poker_session_rounds')
@@ -105,9 +163,18 @@ export const usePokerSession = (
 
     // 4. Create the first round if it doesn't exist
     if (roundError && roundError.code === 'PGRST116') {
-      const initialSelections: Selections = {
-        [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
-      };
+      let initialSelections: Selections;
+
+      if (effectiveTeamId) {
+        initialSelections = await fetchTeamSelections(effectiveTeamId) ?? {
+          [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
+        };
+      } else {
+        initialSelections = {
+          [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
+        };
+      }
+
       const { data: newRound, error: newRoundError } = await supabase
         .from('poker_session_rounds')
         .insert({
@@ -124,29 +191,51 @@ export const usePokerSession = (
       throw roundError;
     }
 
-    // 5. Add user to selections if they aren't there
-    if (roundData && !roundData.selections[currentUserId]) {
-        roundData.selections[currentUserId] = {
-            points: 1,
-            locked: false,
-            name: currentUserDisplayName,
-        };
-        const { data: updatedRound, error: updateRoundError } = await supabase
+    // 5. Reconcile selections with the team roster (team sessions only)
+    if (roundData && effectiveTeamId) {
+      const reconciledSelections = await fetchTeamSelections(effectiveTeamId, roundData.selections);
+      if (reconciledSelections) {
+        const currentKeys = Object.keys(roundData.selections).sort();
+        const newKeys = Object.keys(reconciledSelections).sort();
+        const needsUpdate =
+          currentKeys.join(',') !== newKeys.join(',');
+
+        if (needsUpdate) {
+          roundData.selections = reconciledSelections;
+          const { data: updatedRound, error: updateRoundError } = await supabase
             .from('poker_session_rounds')
-            .update({ selections: roundData.selections })
+            .update({ selections: reconciledSelections })
             .eq('id', roundData.id)
             .select()
             .single();
 
-        if (updateRoundError) throw updateRoundError;
-        roundData = updatedRound;
+          if (updateRoundError) throw updateRoundError;
+          roundData = updatedRound;
+        }
+      }
+    } else if (roundData && !roundData.selections[currentUserId]) {
+      // Non-team session: add the current user if they aren't already in selections
+      roundData.selections[currentUserId] = {
+        points: 1,
+        locked: false,
+        name: currentUserDisplayName,
+      };
+      const { data: updatedRound, error: updateRoundError } = await supabase
+        .from('poker_session_rounds')
+        .update({ selections: roundData.selections })
+        .eq('id', roundData.id)
+        .select()
+        .single();
+
+      if (updateRoundError) throw updateRoundError;
+      roundData = updatedRound;
     }
     
     // 6. Combine session and round data into a single state object
     setSession({ ...sessionData, ...roundData });
     setLoading(false);
 
-  }, [roomId, currentUserId, currentUserDisplayName, toast, shouldCreate]);
+  }, [roomId, currentUserId, currentUserDisplayName, toast, shouldCreate, teamId, fetchTeamSelections]);
 
   useEffect(() => {
     manageSession().catch(e => {
@@ -365,12 +454,18 @@ export const usePokerSession = (
   const nextRound = async (newTicketNumber?: string) => {
     if (!session) return;
 
-    // 1. Create the new round
     const newRoundNumber = session.round_number + 1;
-    const resetSelections: Selections = {};
-    Object.keys(session.selections).forEach(key => {
+    const effectiveTeamId = teamId || null;
+
+    let resetSelections: Selections;
+    if (effectiveTeamId) {
+      resetSelections = await fetchTeamSelections(effectiveTeamId) ?? {};
+    } else {
+      resetSelections = {};
+      Object.keys(session.selections).forEach(key => {
         resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
-    });
+      });
+    }
 
     const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
         session_id: session.session_id,

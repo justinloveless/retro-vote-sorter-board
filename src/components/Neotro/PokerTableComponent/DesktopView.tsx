@@ -214,7 +214,7 @@ export const DesktopView: React.FC = () => {
                                 ))}
                             </div>
                         ) : (
-                            <div className={`grid ${getGridColumns(totalPlayers)} gap-4 justify-items-center max-w-full`}>
+                            <div className={`grid ${getGridColumns(totalPlayers)} gap-x-4 gap-y-10 justify-items-center max-w-full`}>
                                 {Object.entries(displaySession.selections).map(([userId, selection]: [string, PlayerSelection]) => (
                                     <PlayingCard
                                         key={userId}
