@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePokerTable } from './context';
-import PointSelector from "@/components/Neotro/PointSelector";
+import CardHandSelector from "@/components/Neotro/CardHandSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
 import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
