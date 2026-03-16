@@ -230,13 +230,11 @@ export const DesktopView: React.FC = () => {
                     </div>
                     {!isViewingHistory && (
                         <div className="flex-shrink-0 flex items-center justify-center p-4">
-                            <div>
-                                <PointSelector
-                                    pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                        <div>
+                                <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
-                                    onPointsDecrease={() => handlePointChange(false)}
-                                    onPointsIncrease={() => handlePointChange(true)}
+                                    onSelectPoints={(points) => updateUserSelection(points)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
