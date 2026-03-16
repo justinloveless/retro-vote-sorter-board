@@ -186,7 +186,26 @@
 .locked-card-glow {
   box-shadow: 0 0 15px 5px rgba(52, 152, 219, 0.7);
   border-radius: 12px;
-  /* Adjust to match your card's border-radius */
+}
+
+/* Card slide-in animation when locking in */
+@keyframes cardSlideIn {
+  0% {
+    transform: translateY(60px) scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-8px) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-card-slide-in {
+  animation: cardSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Custom styles for Tiptap editor content within the chat */
