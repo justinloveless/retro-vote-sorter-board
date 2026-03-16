@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePokerTable } from './context';
-import PointSelector from "@/components/Neotro/PointSelector";
+import CardHandSelector from "@/components/Neotro/CardHandSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
 import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
@@ -58,6 +58,7 @@ export const MobileView: React.FC = () => {
         handlePointChange,
         toggleLockUserSelection,
         toggleAbstainUserSelection,
+        updateUserSelection,
         displayTicketNumber,
         handleTicketNumberChange,
         handleTicketNumberFocus,
@@ -275,12 +276,10 @@ export const MobileView: React.FC = () => {
 
                         {!isViewingHistory && (
                             <div className="flex-shrink-0">
-                                <PointSelector
-                                    pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                                <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
-                                    onPointsDecrease={() => handlePointChange(false)}
-                                    onPointsIncrease={() => handlePointChange(true)}
+                                    onSelectPoints={(points) => updateUserSelection(points)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
@@ -485,12 +484,10 @@ export const MobileView: React.FC = () => {
                         {/* Mobile Point Selector - Only show if not viewing history */}
                         {!isViewingHistory && (
                             <div className="flex-shrink-0">
-                                <PointSelector
-                                    pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                                <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
-                                    onPointsDecrease={() => handlePointChange(false)}
-                                    onPointsIncrease={() => handlePointChange(true)}
+                                    onSelectPoints={(points) => updateUserSelection(points)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}

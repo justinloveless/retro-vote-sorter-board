@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { usePokerTable } from './context';
-import PointSelector from "@/components/Neotro/PointSelector";
+import CardHandSelector from "@/components/Neotro/CardHandSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
 import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
@@ -36,6 +36,7 @@ export const DesktopView: React.FC = () => {
         goToCurrentRound,
         session,
         updateSessionConfig,
+        updateUserSelection,
         deleteAllRounds,
         isSlackInstalled,
         playHand,
@@ -230,13 +231,11 @@ export const DesktopView: React.FC = () => {
                     </div>
                     {!isViewingHistory && (
                         <div className="flex-shrink-0 flex items-center justify-center p-4">
-                            <div>
-                                <PointSelector
-                                    pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                        <div>
+                                <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
-                                    onPointsDecrease={() => handlePointChange(false)}
-                                    onPointsIncrease={() => handlePointChange(true)}
+                                    onSelectPoints={(points) => updateUserSelection(points)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
