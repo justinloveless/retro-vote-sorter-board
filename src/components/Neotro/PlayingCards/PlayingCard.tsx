@@ -6,21 +6,18 @@ import { getCardImage } from "./cardImage";
 import backCardImage from "@/assets/Card_Back.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Define the possible states of the card
-
 interface PlayingCardProps {
   cardState: CardState;
   playerName: string;
-  pointsSelected: number; // For example, 5 for 5 of diamonds, 8 for 8 of spades etc.
+  pointsSelected: number;
   isPresent: boolean;
-  totalPlayers?: number; // New prop to determine card size
+  totalPlayers?: number;
   variant?: 'default' | 'stacked';
 }
 
-const CARD_WIDTH = 71; // pixels, adjust as needed based on your card image size
-const CARD_HEIGHT = 95; // pixels, adjust as needed based on your card image size
+const CARD_WIDTH = 71;
+const CARD_HEIGHT = 95;
 
-// Dynamic scale based on number of players
 const getCardScale = (totalPlayers: number, isMobile: boolean) => {
   if (isMobile) {
     if (totalPlayers <= 4) return 1.4;
@@ -45,36 +42,36 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   variant = 'default',
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [translateY, setTranslateY] = useState("translate-y-0");
   const [showPortalName, setShowPortalName] = useState(false);
   const [portalPosition, setPortalPosition] = useState({ x: 0, y: 0 });
+  const [slideIn, setSlideIn] = useState(false);
+  const [prevCardState, setPrevCardState] = useState(cardState);
   const isMobile = useIsMobile();
   const cardRef = useRef<HTMLDivElement>(null);
   const playerNameRef = useRef<HTMLDivElement>(null);
 
-
   const scale = getCardScale(totalPlayers, isMobile);
-
-  // Determine the front card image based on pointsSelected
   const frontCardImage = getCardImage(pointsSelected);
+
+  // Track state transitions for slide-in animation
+  useEffect(() => {
+    if (prevCardState === CardState.Selection && cardState === CardState.Locked) {
+      // Player just locked in - trigger slide-in animation
+      setSlideIn(true);
+    }
+    setPrevCardState(cardState);
+  }, [cardState, prevCardState]);
 
   useEffect(() => {
     let flipDelay: NodeJS.Timeout | null = null;
     if (cardState === CardState.Selection) {
-      // When going back to Selection, flip first then translate
       setIsFlipped(false);
-      flipDelay = setTimeout(() => {
-        setTranslateY("translate-y-0");
-      }, 300); // Small delay to allow flip animation to start before translation
+      setSlideIn(false);
     } else if (cardState === CardState.Locked) {
-      setIsFlipped(false); // Ensure it's not flipped in Locked state
-      setTranslateY(`-translate-y-1/4`); 
+      setIsFlipped(false);
     } else if (cardState === CardState.Played) {
-      if (variant === 'stacked') {
-        setTranslateY("translate-y-0");
-      } else {
-        const translateDistance = totalPlayers > 8 ? "-translate-y-1/4" : (isMobile ? "-translate-y-1/4" : `-translate-y-3/4`);
-        setTranslateY(translateDistance);
+      if (variant !== 'stacked') {
+        // no translate needed
       }
       flipDelay = setTimeout(() => {
         setIsFlipped(true);
@@ -82,20 +79,17 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
     }
 
     return () => {
-      if (flipDelay) {
-        clearTimeout(flipDelay);
-      }
+      if (flipDelay) clearTimeout(flipDelay);
     };
-  }, [cardState, isMobile, totalPlayers]);
-
-
+  }, [cardState, isMobile, totalPlayers, variant]);
 
   const isStacked = variant === 'stacked';
+  const isEmptySlot = cardState === CardState.Selection;
 
   return (
     <div
       ref={cardRef}
-      className={`relative transition-transform duration-500 ease-in-out ${translateY} ${!isPresent && cardState !== CardState.Played ? 'opacity-50' : ''} z-0 hover:z-10 ${!isStacked ? 'mb-8 md:mb-0' : ''}`}
+      className={`relative z-0 hover:z-10 ${!isStacked ? 'mb-8 md:mb-0' : ''}`}
       style={{
         height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
@@ -111,9 +105,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         }
       }}
       onMouseLeave={() => {
-        if (!isStacked) {
-          setShowPortalName(false);
-        }
+        if (!isStacked) setShowPortalName(false);
       }}
     >
       {!isStacked && (
@@ -155,27 +147,39 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         </>
       )}
       
-      <ReactCardFlip
-        isFlipped={isFlipped}
-        flipDirection="horizontal"
-        infinite={true}
-      >
-        <div className="card-back w-full h-full">
-          <img
-            src={backCardImage}
-            alt="Card Back"
-            className="w-full h-full object-contain"
-          />
+      {isEmptySlot ? (
+        /* Empty dashed outline placeholder for unlocked cards */
+        <div 
+          className={`w-full h-full rounded-lg border-2 border-dashed border-muted-foreground/40 flex items-center justify-center ${!isPresent ? 'opacity-50' : ''}`}
+        >
+          <div className="text-muted-foreground/40 text-xs font-neotro text-center">?</div>
         </div>
+      ) : (
+        /* Card with slide-in animation when locking in */
+        <div className={`w-full h-full ${slideIn ? 'animate-card-slide-in' : ''} ${!isPresent && cardState !== CardState.Played ? 'opacity-50' : ''}`}>
+          <ReactCardFlip
+            isFlipped={isFlipped}
+            flipDirection="horizontal"
+            infinite={true}
+          >
+            <div className="card-back w-full h-full">
+              <img
+                src={backCardImage}
+                alt="Card Back"
+                className="w-full h-full object-contain"
+              />
+            </div>
 
-        <div className="card-front w-full h-full">
-          <img
-            src={frontCardImage}
-            alt={`Card ${pointsSelected} Points`}
-            className="w-full h-full object-contain"
-          />
+            <div className="card-front w-full h-full">
+              <img
+                src={frontCardImage}
+                alt={`Card ${pointsSelected} Points`}
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </ReactCardFlip>
         </div>
-      </ReactCardFlip>
+      )}
     </div>
   );
 };
