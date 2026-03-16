@@ -276,12 +276,10 @@ export const MobileView: React.FC = () => {
 
                         {!isViewingHistory && (
                             <div className="flex-shrink-0">
-                                <PointSelector
-                                    pointsIndex={pointOptions.indexOf(activeUserSelection.points)}
+                                <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
-                                    onPointsDecrease={() => handlePointChange(false)}
-                                    onPointsIncrease={() => handlePointChange(true)}
+                                    onSelectPoints={(points) => updateUserSelection(points)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
