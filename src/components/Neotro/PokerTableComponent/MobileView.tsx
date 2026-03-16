@@ -58,6 +58,7 @@ export const MobileView: React.FC = () => {
         handlePointChange,
         toggleLockUserSelection,
         toggleAbstainUserSelection,
+        updateUserSelection,
         displayTicketNumber,
         handleTicketNumberChange,
         handleTicketNumberFocus,
