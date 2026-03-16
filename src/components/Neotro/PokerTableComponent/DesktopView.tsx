@@ -36,6 +36,7 @@ export const DesktopView: React.FC = () => {
         goToCurrentRound,
         session,
         updateSessionConfig,
+        updateUserSelection,
         deleteAllRounds,
         isSlackInstalled,
         playHand,
