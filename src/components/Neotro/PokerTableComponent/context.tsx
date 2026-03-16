@@ -160,8 +160,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   /** Mode (most votes) - computed from selections so we always show correct value */
   const displayWinningPoints = useMemo(() => {
     if (!displaySession || displaySession.game_state !== 'Playing') return 0;
-    const participating = Object.values(displaySession.selections).filter(
-      (s: { points: number }) => s.points !== -1
+    const participating = (Object.values(displaySession.selections) as PlayerSelection[]).filter(
+      (s) => s.points !== -1
     );
     return getPointsWithMostVotes(participating);
   }, [displaySession]);
