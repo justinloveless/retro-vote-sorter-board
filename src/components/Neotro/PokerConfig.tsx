@@ -2,18 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Settings } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Settings, Eye } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { DialogFooter } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface PokerSessionConfig {
   room_id?: string | null;
   presence_enabled?: boolean;
   send_to_slack?: boolean;
+  observer_ids?: string[];
+  selections?: Record<string, { name?: string }>;
+  team_id?: string | null;
+}
+
+interface Participant {
+  userId: string;
+  name: string;
 }
 
 interface PokerConfigProps {
@@ -22,6 +31,7 @@ interface PokerConfigProps {
   onDeleteAllRounds: () => void;
   isSlackIntegrated: boolean;
   userRole?: string;
+  teamId?: string | null;
   /** When true, renders icon-only trigger with tooltip */
   iconOnly?: boolean;
 }
@@ -32,18 +42,64 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   onDeleteAllRounds,
   isSlackIntegrated,
   userRole,
+  teamId,
   iconOnly = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [presenceEnabled, setPresenceEnabled] = useState(config.presence_enabled !== false);
   const [sendToSlack, setSendToSlack] = useState(config.send_to_slack === true);
+  const [observerIds, setObserverIds] = useState<string[]>(config.observer_ids ?? []);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
 
   const canDelete = !userRole || userRole === 'admin' || userRole === 'owner';
+
+  useEffect(() => {
+    setPresenceEnabled(config.presence_enabled !== false);
+    setSendToSlack(config.send_to_slack === true);
+    setObserverIds(config.observer_ids ?? []);
+  }, [config.presence_enabled, config.send_to_slack, config.observer_ids]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const loadParticipants = async () => {
+      setParticipantsLoading(true);
+      const effectiveTeamId = teamId ?? config.team_id;
+      if (effectiveTeamId) {
+        const { data: members } = await supabase.from('team_members').select('user_id').eq('team_id', effectiveTeamId);
+        const userIds = (members ?? []).map(m => m.user_id);
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase.from('profiles').select('id, full_name, nickname').in('id', userIds);
+          setParticipants((profiles ?? []).map(p => ({ userId: p.id, name: p.nickname || p.full_name || 'Player' })));
+        } else {
+          setParticipants([]);
+        }
+      } else {
+        const selectionIds = Object.keys(config.selections ?? {});
+        const obsIds = config.observer_ids ?? [];
+        const allIds = [...new Set([...selectionIds, ...obsIds])];
+        if (allIds.length === 0) {
+          setParticipants([]);
+          setParticipantsLoading(false);
+          return;
+        }
+        const { data: profiles } = await supabase.from('profiles').select('id, full_name, nickname').in('id', allIds);
+        const nameFromSelections = (uid: string) => (config.selections ?? {})[uid]?.name;
+        setParticipants(allIds.map(uid => ({
+          userId: uid,
+          name: nameFromSelections(uid) ?? (profiles ?? []).find(p => p.id === uid)?.nickname ?? (profiles ?? []).find(p => p.id === uid)?.full_name ?? 'Player',
+        })));
+      }
+      setParticipantsLoading(false);
+    };
+    loadParticipants();
+  }, [isOpen, teamId, config.team_id, config.selections, config.observer_ids]);
 
   const handleSave = () => {
     onUpdateConfig({
       presence_enabled: presenceEnabled,
       send_to_slack: sendToSlack,
+      observer_ids: observerIds,
     });
     setIsOpen(false);
   };
@@ -51,6 +107,10 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   const handleConfigChange = (key: keyof PokerSessionConfig, value: any) => {
     setPresenceEnabled(key === 'presence_enabled' ? value : presenceEnabled);
     setSendToSlack(key === 'send_to_slack' ? value : sendToSlack);
+  };
+
+  const toggleObserver = (userId: string) => {
+    setObserverIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
   };
 
   const triggerButton = iconOnly ? (
@@ -112,6 +172,42 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
               </div>
             </CardContent>
           </Card>
+
+          {participants.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Observers
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Observers can chat, use the queue, and see revealed cards, but do not play a hand or have a slot on the table.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {participantsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading participants...</p>
+                ) : (
+                  <ScrollArea className="h-[180px] rounded-md border p-3">
+                    <div className="space-y-2">
+                      {participants.map(({ userId, name }) => (
+                        <div key={userId} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`observer-${userId}`}
+                            checked={observerIds.includes(userId)}
+                            onCheckedChange={() => toggleObserver(userId)}
+                          />
+                          <Label htmlFor={`observer-${userId}`} className="text-sm font-normal cursor-pointer flex-1">
+                            {name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {canDelete && (
             <Card className="border-destructive">

@@ -33,8 +33,8 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
   const maxFanAngle = isMobile ? 30 : 40; // total spread in degrees
   const cardWidth = isMobile ? 48 : 64;
   const cardHeight = isMobile ? 64 : 86;
-  // Overlap: negative margin so cards stack
-  const cardSpacing = isMobile ? -8 : -6;
+  // Overlap: ~1/3 of each card (negative margin so cards stack)
+  const cardSpacing = -Math.round(cardWidth / 3);
 
   return (
     <div className="flex flex-col items-center justify-center font-custom">
@@ -69,7 +69,7 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
                 marginLeft: index > 0 ? cardSpacing : 0,
                 transform: `rotate(${rotation}deg) translateY(${isSelected ? -20 : 0}px)`,
                 transformOrigin: 'bottom center',
-                zIndex: isSelected ? 20 : index,
+                zIndex: index,
                 filter: isSelected ? 'drop-shadow(0 0 12px rgba(52, 152, 219, 0.8))' : 'none',
               }}
             >

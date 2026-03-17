@@ -2,28 +2,7 @@ import React, { useState, useEffect } from "react";
 import { JiraIssueDrawer } from "./JiraIssueDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink } from "lucide-react";
-
-// Data for point details
-const detailsData = [
-  { id: -1, Min: "NA", Max: "NA", Comment: "Abstained\nfrom voting" },
-  { id: 1, Min: 0, Max: 0.5, Comment: "Ok" },
-  { id: 2, Min: 0.5, Max: 1, Comment: "Ok" },
-  { id: 3, Min: 1, Max: 2, Comment: "Ok" },
-  { id: 5, Min: 2, Max: 4, Comment: "Ok" },
-  { id: 8, Min: 4, Max: 7, Comment: "Breakdown: Recommended" },
-  {
-    id: 13,
-    Min: 7,
-    Max: 12,
-    Comment: "Breakdown enforced,\nbut can enter sprint.\nSpike reccomended",
-  },
-  {
-    id: 21,
-    Min: 12,
-    Max: 24,
-    Comment: "Cannot be added into sprint.\nHas to be broken down",
-  },
-];
+import { getPointMetadata } from "./pokerPointMetadata";
 
 // Define the component's props interface
 interface PointsDetailsProps {
@@ -42,7 +21,7 @@ interface PointsDetailsProps {
 }
 
 /**
- * A component to display the duration and comment for a selected point value.
+ * A component to display ticket input and winning points for the poker session.
  */
 const PointDetails: React.FC<PointsDetailsProps> = ({
   selectedPoint,
@@ -82,10 +61,8 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
     fetchJiraDomain();
   }, [teamId]);
 
-  // Find the details for the currently selected point
-  const pointData = detailsData.find((detail) => detail.id === selectedPoint);
+  const pointData = getPointMetadata(selectedPoint);
 
-  // Render a fallback UI if no matching point is found
   if (!pointData) {
     return (
       <div className="font-custom bg-[#2d2d2d] text-white p-4 rounded-lg max-w-sm mx-auto text-center">
@@ -93,8 +70,6 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
       </div>
     );
   }
-
-  const { Min, Max, Comment } = pointData;
 
   return (
     <div className="font-custom bg-[#2d2d2d] p-2 space-y-2 rounded-xl">
@@ -124,7 +99,7 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
         </div>
       </div>
       {teamId && <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />}
-      {/* Team Points Section */}
+      {/* Winning Points Section */}
       <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
         <div className="text-xl mr-2">
           Winning
@@ -135,40 +110,6 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
           <p className="text-2xl whitespace-pre-wrap">
             {isHandPlayed ? winningPoints : "???"}
           </p>
-        </div>
-      </div>
-      {/* Duration Section */}
-      <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white">
-        <div className="mb-2 text-3xl text-shadow-[3px_3px_rgba(0,0,0,255)]">
-          Duration
-        </div>
-        <div className="flex justify-center items-center space-x-2">
-          {/* Min Box */}
-          <div className="text-center">
-            <div className="bg-[#007bff] w-24 h-16 flex items-center justify-center rounded-lg">
-              <span className="text-4xl text-shadow-[3px_3px_rgba(0,93,172,255)]">
-                {Min}
-              </span>
-            </div>
-            <p className="mt-1 text-base">Min</p>
-          </div>
-          {/* Max Box */}
-          <div className="text-center">
-            <div className="bg-[#ff4c40ff] w-24 h-16 flex items-center justify-center rounded-lg">
-              <span className="text-4xl text-shadow-[3px_3px_rgba(170,44,36,255)]">
-                {Max}
-              </span>
-            </div>
-            <p className="mt-1 text-base">Max</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Comment Section */}
-      <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white">
-        <div className="text-xl mb-1">Comment</div>
-        <div className="bg-[#3c3c3c] rounded-lg p-2 min-h-[80px] flex items-center justify-center">
-          <p className="text-lg whitespace-pre-wrap">{Comment}</p>
         </div>
       </div>
     </div>

@@ -160,6 +160,13 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     }
   };
 
+  const goToRound = (roundNumber: number) => {
+    const targetIndex = rounds.findIndex((round) => round.round_number === roundNumber);
+    if (targetIndex !== -1) {
+      setCurrentRoundIndex(targetIndex);
+    }
+  };
+
   const isViewingHistory = currentRoundIndex < rounds.length - 1;
   const currentRound = rounds[currentRoundIndex] || null;
   const canGoBack = currentRoundIndex > 0;
@@ -177,6 +184,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
+    goToRound,
     fetchRounds,
   };
 };

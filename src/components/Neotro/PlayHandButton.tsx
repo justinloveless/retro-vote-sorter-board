@@ -3,11 +3,13 @@ import React, { useState } from "react";
 interface PlayHandButtonProps {
   onHandPlayed: () => void;
   isHandPlayed: boolean;
+  className?: string;
 }
 
 const PlayHandButton: React.FC<PlayHandButtonProps> = ({
   onHandPlayed,
   isHandPlayed,
+  className = '',
 }) => {
   const colorClass = isHandPlayed
     ? "bg-gray-500"
@@ -24,7 +26,7 @@ const PlayHandButton: React.FC<PlayHandButtonProps> = ({
         setIsPressed(false);
       }}
       disabled={isHandPlayed}
-      className={`grow pr-[6px] rounded-lg ${colorClass} disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`grow pr-[6px] rounded-lg ${colorClass} disabled:opacity-50 disabled:cursor-not-allowed ${className} ${
         isHandPlayed
           ? `${
               isPressed
@@ -40,9 +42,7 @@ const PlayHandButton: React.FC<PlayHandButtonProps> = ({
     >
       <div className="font-neotro text-white text-2xl normal-case">
         <span>
-          Play
-          <br />
-          Hand
+          Reveal Cards
         </span>
       </div>
     </button>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -639,7 +639,7 @@ function renderDescription(description: string | null, attachments?: JiraAttachm
 
 // Simple cache for Jira issue data
 const jiraCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL_MS = 10_000;
+const CACHE_TTL_MS = 5 * 60_000;
 
 function getCached(key: string) {
   const entry = jiraCache.get(key);
@@ -724,11 +724,28 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     }
   }, [issueIdOrKey, teamId]);
 
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleMouseEnter = () => {
-    fetchIssue(false);
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      fetchIssue(false);
+      hoverTimerRef.current = null;
+    }, 600);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
   };
 
   const handleClick = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
     setClicked(true);
     fetchIssue(true);
   };
@@ -778,9 +795,13 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
         (trigger.props as { onMouseEnter?: (e: React.MouseEvent) => void }).onMouseEnter?.(e);
         handleMouseEnter();
       },
+      onMouseLeave: (e: React.MouseEvent) => {
+        (trigger.props as { onMouseLeave?: (e: React.MouseEvent) => void }).onMouseLeave?.(e);
+        handleMouseLeave();
+      },
     } as React.HTMLAttributes<HTMLElement>)
   ) : (
-    <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} disabled={showSpinner}>
+    <Button variant="outline" className="w-full" onClick={handleClick} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} disabled={showSpinner}>
       {showSpinner ? (
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
       ) : (

@@ -44,6 +44,7 @@ export interface PokerSession {
   current_round_number: number;
   presence_enabled?: boolean;
   send_to_slack?: boolean;
+  observer_ids?: string[];
 }
 
 // This is the composite type we'll use in the hook
@@ -66,10 +67,12 @@ export const usePokerSession = (
   const [allUserIds, setAllUserIds] = useState<string[]>([]);
 
   // For team sessions, fetch the full roster and build a selections object from it.
+  // Excludes observer_ids (they don't play, no slot on table).
   // Returns null for non-team sessions.
   const fetchTeamSelections = useCallback(async (
     tId: string,
-    existingSelections?: Selections
+    existingSelections?: Selections,
+    observerIds: string[] = []
   ): Promise<Selections | null> => {
     const { data: members, error: membersError } = await supabase
       .from('team_members')
@@ -78,7 +81,8 @@ export const usePokerSession = (
 
     if (membersError || !members) return null;
 
-    const userIds = members.map(m => m.user_id);
+    const observerSet = new Set(observerIds);
+    const userIds = members.map(m => m.user_id).filter(uid => !observerSet.has(uid));
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, nickname')
@@ -135,6 +139,7 @@ export const usePokerSession = (
     }
 
     const effectiveTeamId = teamId || sessionData.team_id;
+    const observerIds: string[] = (sessionData as { observer_ids?: string[] }).observer_ids ?? [];
 
     // For team-bound sessions, verify the current user is a team member
     if (effectiveTeamId) {
@@ -164,13 +169,15 @@ export const usePokerSession = (
     // 4. Create the first round if it doesn't exist
     if (roundError && roundError.code === 'PGRST116') {
       let initialSelections: Selections;
+      const isCurrentUserObserver = observerIds.includes(currentUserId);
 
       if (effectiveTeamId) {
-        initialSelections = await fetchTeamSelections(effectiveTeamId) ?? {
-          [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
-        };
+        initialSelections = await fetchTeamSelections(effectiveTeamId, undefined, observerIds) ?? {};
+        if (!isCurrentUserObserver && Object.keys(initialSelections).length === 0) {
+          initialSelections = { [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName } };
+        }
       } else {
-        initialSelections = {
+        initialSelections = isCurrentUserObserver ? {} : {
           [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
         };
       }
@@ -193,7 +200,7 @@ export const usePokerSession = (
 
     // 5. Reconcile selections with the team roster (team sessions only)
     if (roundData && effectiveTeamId) {
-      const reconciledSelections = await fetchTeamSelections(effectiveTeamId, roundData.selections);
+      const reconciledSelections = await fetchTeamSelections(effectiveTeamId, roundData.selections, observerIds);
       if (reconciledSelections) {
         const currentKeys = Object.keys(roundData.selections).sort();
         const newKeys = Object.keys(reconciledSelections).sort();
@@ -213,8 +220,8 @@ export const usePokerSession = (
           roundData = updatedRound;
         }
       }
-    } else if (roundData && !roundData.selections[currentUserId]) {
-      // Non-team session: add the current user if they aren't already in selections
+    } else if (roundData && !roundData.selections[currentUserId] && !observerIds.includes(currentUserId)) {
+      // Non-team session: add the current user if they aren't already in selections and aren't an observer
       roundData.selections[currentUserId] = {
         points: 1,
         locked: false,
@@ -411,6 +418,36 @@ export const usePokerSession = (
       .eq('id', session.session_id);
     if (error) {
       console.error('Error updating session config', error);
+      return;
+    }
+    // When observer_ids changes, sync current round selections (remove observers, add un-observers)
+    if (newConfig.observer_ids !== undefined) {
+      const effectiveTeamId = teamId || session.team_id;
+      const oldObserverIds = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
+      let newSelections: Selections;
+      if (effectiveTeamId) {
+        newSelections = await fetchTeamSelections(effectiveTeamId, session.selections, newConfig.observer_ids) ?? session.selections;
+      } else {
+        const newObserverSet = new Set(newConfig.observer_ids);
+        const oldObserverSet = new Set(oldObserverIds);
+        newSelections = { ...session.selections };
+        newConfig.observer_ids.forEach(uid => delete newSelections[uid]);
+        const toAddBack = oldObserverIds.filter(uid => !newObserverSet.has(uid));
+        if (toAddBack.length > 0) {
+          const { data: profiles } = await supabase.from('profiles').select('id, full_name, nickname').in('id', toAddBack);
+          const profileMap = new Map((profiles || []).map(p => [p.id, p.nickname || p.full_name || 'Player']));
+          toAddBack.forEach(uid => {
+            newSelections[uid] = session.selections[uid] ?? { points: 1, locked: false, name: profileMap.get(uid) || 'Player' };
+          });
+        }
+      }
+      if (Object.keys(newSelections).sort().join(',') !== Object.keys(session.selections).sort().join(',')) {
+        await updateRoundState({ selections: newSelections });
+        // Update local state immediately (broadcast is ignored for current user)
+        setSession(prev => prev ? { ...prev, selections: newSelections, observer_ids: newConfig.observer_ids } : null);
+      } else {
+        setSession(prev => prev ? { ...prev, observer_ids: newConfig.observer_ids } : null);
+      }
     }
   };
 
@@ -456,14 +493,18 @@ export const usePokerSession = (
 
     const newRoundNumber = session.round_number + 1;
     const effectiveTeamId = teamId || null;
+    const observerIds: string[] = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
 
     let resetSelections: Selections;
     if (effectiveTeamId) {
-      resetSelections = await fetchTeamSelections(effectiveTeamId) ?? {};
+      resetSelections = await fetchTeamSelections(effectiveTeamId, undefined, observerIds) ?? {};
     } else {
       resetSelections = {};
-      Object.keys(session.selections).forEach(key => {
-        resetSelections[key] = { ...session.selections[key], points: 1, locked: false };
+      const observerSet = new Set(observerIds);
+      Object.entries(session.selections).forEach(([key, sel]) => {
+        if (!observerSet.has(key)) {
+          resetSelections[key] = { ...sel, points: 1, locked: false };
+        }
       });
     }
 

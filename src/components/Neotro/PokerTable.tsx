@@ -30,6 +30,17 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
     const [isQueuePanelOpen, setQueuePanelOpen] = useState(false);
     const ticketQueue = useTicketQueue(props.teamId);
 
+    const leaveObserverMode = () => {
+        const observerIds = (props.session as { observer_ids?: string[] })?.observer_ids ?? [];
+        props.updateSessionConfig({ observer_ids: observerIds.filter(id => id !== props.activeUserId) });
+    };
+
+    const enterObserverMode = () => {
+        const observerIds = (props.session as { observer_ids?: string[] })?.observer_ids ?? [];
+        if (!props.activeUserId || observerIds.includes(props.activeUserId)) return;
+        props.updateSessionConfig({ observer_ids: [...observerIds, props.activeUserId] });
+    };
+
     const handleNextRoundRequest = async () => {
         // Auto-advance: if there are queued tickets, pop the next one
         const next = await ticketQueue.popNext();
@@ -48,6 +59,8 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
     return (
         <PokerTableProvider 
             {...props} 
+            leaveObserverMode={leaveObserverMode}
+            enterObserverMode={enterObserverMode}
             isMobile={isMobile}
             isNextRoundDialogOpen={isNextRoundDialogOpen}
             setNextRoundDialogOpen={setNextRoundDialogOpen}
