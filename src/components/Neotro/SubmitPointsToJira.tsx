@@ -32,6 +32,7 @@ interface SubmitPointsToJiraProps {
   winningPoints: number;
   isHandPlayed: boolean;
   isJiraConfigured: boolean;
+  className?: string;
 }
 
 const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
@@ -40,6 +41,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   winningPoints,
   isHandPlayed,
   isJiraConfigured,
+  className = '',
 }) => {
   const { toast } = useToast();
   const defaultPoints = useMemo(
@@ -90,8 +92,8 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
         : null;
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1 justify-center">
+    <div className={`space-y-2 ${className}`}>
+      <div className="flex gap-1 justify-center">
         {POINT_OPTIONS.map((p) => (
           <button
             key={p}

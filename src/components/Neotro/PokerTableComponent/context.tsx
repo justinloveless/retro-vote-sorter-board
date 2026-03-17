@@ -18,7 +18,9 @@ interface PokerTableContextProps {
   playHand: () => void;
   nextRound: (ticketNumber?: string) => void;
   updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; }) => void;
+  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; observer_ids?: string[] }) => void;
+  leaveObserverMode: () => void;
+  enterObserverMode: () => void;
   deleteAllRounds: () => void;
   presentUserIds: string[];
   teamId?: string;
@@ -41,6 +43,7 @@ interface PokerTableContextProps {
   goToPreviousRound: () => void;
   goToNextRound: () => void;
   goToCurrentRound: () => void;
+  goToRound: (roundNumber: number) => void;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
@@ -54,6 +57,7 @@ interface PokerTableContextProps {
   cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
   activeUserSelection: PlayerSelection & { points: number; locked: boolean; name: string; };
   totalPlayers: number;
+  isObserver: boolean;
   pointOptions: number[];
   handlePointChange: (increment: boolean) => void;
   handleTicketNumberChange: (value: string) => void;
@@ -67,6 +71,10 @@ interface PokerTableContextProps {
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onNextRoundRequest: () => void;
   ticketQueue: TicketQueueItem[];
+  addTicketToQueue: (ticketKey: string, ticketSummary: string | null) => Promise<void>;
+  removeTicketFromQueue: (id: string) => Promise<void>;
+  reorderQueue: (items: TicketQueueItem[]) => Promise<void>;
+  clearQueue: () => Promise<void>;
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
@@ -90,7 +98,9 @@ export interface PokerTableProviderProps {
   playHand: () => void;
   nextRound: (ticketNumber?: string) => void;
   updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; }) => void;
+  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; observer_ids?: string[] }) => void;
+  leaveObserverMode: () => void;
+  enterObserverMode: () => void;
   deleteAllRounds: () => void;
   presentUserIds: string[];
   children: ReactNode;
@@ -101,7 +111,13 @@ export interface PokerTableProviderProps {
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onNextRoundRequest: () => void;
-  ticketQueue: { queue: TicketQueueItem[] };
+  ticketQueue: {
+    queue: TicketQueueItem[];
+    addTicket: (ticketKey: string, ticketSummary: string | null) => Promise<void>;
+    removeTicket: (id: string) => Promise<void>;
+    reorderQueue: (items: TicketQueueItem[]) => Promise<void>;
+    clearQueue: () => Promise<void>;
+  };
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
@@ -110,11 +126,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const {
     session, activeUserId, updateUserSelection, teamId, isMobile,
     toggleLockUserSelection, toggleAbstainUserSelection, playHand,
-    deleteAllRounds, updateSessionConfig,
+    deleteAllRounds, updateSessionConfig, leaveObserverMode, enterObserverMode,
     nextRound,
     updateTicketNumber, userRole, presentUserIds, requestedRoundNumber,
     isNextRoundDialogOpen, setNextRoundDialogOpen,
-    onNextRoundRequest, ticketQueue, isQueuePanelOpen, setQueuePanelOpen
+    onNextRoundRequest, ticketQueue: ticketQueueHook, isQueuePanelOpen, setQueuePanelOpen
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -137,6 +153,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
+    goToRound,
   } = usePokerSessionHistory(session?.session_id || null, requestedRoundNumber || undefined);
 
   const {
@@ -243,6 +260,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     return { points: 0, locked: false, name: '' };
   }, [displaySession, activeUserId]);
 
+  const observerIds = useMemo(() => (session as { observer_ids?: string[] } | null)?.observer_ids ?? [], [session]);
+  const isObserver = !!(activeUserId && observerIds.includes(activeUserId));
   const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
 
   const handlePointChange = (increment: boolean) => {
@@ -288,6 +307,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     nextRound,
     updateTicketNumber,
     updateSessionConfig,
+    leaveObserverMode,
+    enterObserverMode,
     deleteAllRounds,
     presentUserIds,
     teamId,
@@ -308,6 +329,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
+    goToRound,
     chatMessagesForRound,
     isChatLoading,
     sendMessage,
@@ -320,6 +342,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     cardGroups,
     activeUserSelection,
     totalPlayers,
+    isObserver,
     pointOptions,
     handlePointChange,
     handleTicketNumberChange,
@@ -332,7 +355,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
     onNextRoundRequest,
-    ticketQueue: ticketQueue.queue,
+    ticketQueue: ticketQueueHook.queue,
+    addTicketToQueue: ticketQueueHook.addTicket,
+    removeTicketFromQueue: ticketQueueHook.removeTicket,
+    reorderQueue: ticketQueueHook.reorderQueue,
+    clearQueue: ticketQueueHook.clearQueue,
     isQueuePanelOpen,
     setQueuePanelOpen,
   };

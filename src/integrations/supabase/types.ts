@@ -706,6 +706,7 @@ export type Database = {
           current_round_number: number
           id: string
           last_activity_at: string
+          observer_ids: string[]
           presence_enabled: boolean | null
           room_id: string | null
           send_to_slack: boolean | null
@@ -717,6 +718,7 @@ export type Database = {
           current_round_number?: number
           id?: string
           last_activity_at?: string
+          observer_ids?: string[]
           presence_enabled?: boolean | null
           room_id?: string | null
           send_to_slack?: boolean | null
@@ -728,6 +730,7 @@ export type Database = {
           current_round_number?: number
           id?: string
           last_activity_at?: string
+          observer_ids?: string[]
           presence_enabled?: boolean | null
           room_id?: string | null
           send_to_slack?: boolean | null

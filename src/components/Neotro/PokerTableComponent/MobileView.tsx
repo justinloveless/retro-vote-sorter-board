@@ -11,7 +11,8 @@ import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { Menu, MessageCircle, Send, ListOrdered } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Menu, MessageCircle, Send, ListOrdered, Eye, LogOut } from 'lucide-react';
 import { NextRoundDialog } from '../NextRoundDialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -70,6 +71,9 @@ export const MobileView: React.FC = () => {
         ticketQueue,
         setQueuePanelOpen,
         isJiraConfigured,
+        isObserver,
+        leaveObserverMode,
+        enterObserverMode,
     } = usePokerTable();
     const { height } = useWindowSize();
 
@@ -122,6 +126,7 @@ export const MobileView: React.FC = () => {
                                                 onDeleteAllRounds={deleteAllRounds}
                                                 isSlackIntegrated={isSlackInstalled}
                                                 userRole={userRole}
+                                                teamId={teamId}
                                             />
                                         </div>
                                         {displaySession.game_state === 'Playing' && (
@@ -186,6 +191,7 @@ export const MobileView: React.FC = () => {
                                 onDeleteAllRounds={deleteAllRounds}
                                 isSlackIntegrated={isSlackInstalled}
                                 userRole={userRole}
+                                teamId={teamId}
                             />
                         </div>
 
@@ -261,7 +267,7 @@ export const MobileView: React.FC = () => {
 
                         {!isViewingHistory && (
                             <div className="flex-shrink-0 mb-4">
-                                <div className="flex gap-2 mb-4">
+                                <div className="flex gap-2 mb-4 items-center justify-center">
                                     <PlayHandButton
                                         onHandPlayed={playHand}
                                         isHandPlayed={session.game_state === 'Playing'}
@@ -270,12 +276,24 @@ export const MobileView: React.FC = () => {
                                         onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
+                                    {!isObserver && (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0" onClick={enterObserverMode} aria-label="Join as observer">
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Join as observer</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
                                 </div>
                             </div>
                         )}
 
-                        {!isViewingHistory && (
-                            <div className="flex-shrink-0">
+                        {!isViewingHistory && !isObserver && (
+                            <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
@@ -286,6 +304,28 @@ export const MobileView: React.FC = () => {
                                     isAbstained={activeUserSelection.points === -1}
                                     isAbstainedDisabled={session.game_state === 'Playing'}
                                 />
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={enterObserverMode} aria-label="Join as observer">
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Join as observer</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                        )}
+                        {!isViewingHistory && isObserver && (
+                            <div className="flex-shrink-0 flex flex-col items-center gap-3 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Eye className="h-5 w-5" />
+                                    <span className="text-sm font-medium">You are an observer</span>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={leaveObserverMode} className="gap-2">
+                                    <LogOut className="h-4 w-4" />
+                                    Leave observer mode
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -328,6 +368,7 @@ export const MobileView: React.FC = () => {
                                                 onDeleteAllRounds={deleteAllRounds}
                                                 isSlackIntegrated={isSlackInstalled}
                                                 userRole={userRole}
+                                                teamId={teamId}
                                             />
                                         </div>
                                         {displaySession.game_state === 'Playing' && (
@@ -392,6 +433,7 @@ export const MobileView: React.FC = () => {
                                 onDeleteAllRounds={deleteAllRounds}
                                 isSlackIntegrated={isSlackInstalled}
                                 userRole={userRole}
+                                teamId={teamId}
                             />
                         </div>
 
@@ -468,7 +510,7 @@ export const MobileView: React.FC = () => {
                         {/* Action Buttons - Only show if not viewing history */}
                         {!isViewingHistory && (
                             <div className="flex-shrink-0 mb-4">
-                                <div className="flex gap-2 mb-4">
+                                <div className="flex gap-2 mb-4 items-center justify-center">
                                     <PlayHandButton
                                         onHandPlayed={playHand}
                                         isHandPlayed={session.game_state === 'Playing'}
@@ -477,13 +519,25 @@ export const MobileView: React.FC = () => {
                                         onHandPlayed={onNextRoundRequest}
                                         isHandPlayed={session.game_state === 'Playing'}
                                     />
+                                    {!isObserver && (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0" onClick={enterObserverMode} aria-label="Join as observer">
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Join as observer</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Mobile Point Selector - Only show if not viewing history */}
-                        {!isViewingHistory && (
-                            <div className="flex-shrink-0">
+                        {/* Mobile Point Selector - Only show if not viewing history and not observer */}
+                        {!isViewingHistory && !isObserver && (
+                            <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
                                     pointOptions={pointOptions}
@@ -494,6 +548,28 @@ export const MobileView: React.FC = () => {
                                     isAbstained={activeUserSelection.points === -1}
                                     isAbstainedDisabled={session.game_state === 'Playing'}
                                 />
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={enterObserverMode} aria-label="Join as observer">
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Join as observer</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                        )}
+                        {!isViewingHistory && isObserver && (
+                            <div className="flex-shrink-0 flex flex-col items-center gap-3 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Eye className="h-5 w-5" />
+                                    <span className="text-sm font-medium">You are an observer</span>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={leaveObserverMode} className="gap-2">
+                                    <LogOut className="h-4 w-4" />
+                                    Leave observer mode
+                                </Button>
                             </div>
                         )}
                     </div>
