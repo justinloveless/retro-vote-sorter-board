@@ -168,6 +168,10 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
   };
 
   const deleteRound = async (roundId: string) => {
+    if (rounds.length <= 1) {
+      toast({ title: 'Cannot delete the last round', variant: 'destructive' });
+      return false;
+    }
     try {
       const { error } = await supabase
         .from('poker_session_rounds')

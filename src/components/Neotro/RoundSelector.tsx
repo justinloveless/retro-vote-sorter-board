@@ -326,7 +326,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
               {ticketStripItems.map((item, index) => {
                 const isActive = index === activeSnapIndex;
                 const iconUrl = ticketMetaByKey[item.ticketKey]?.issueTypeIconUrl;
-                const canDelete = isAdmin && deleteRound && item.type === 'round' && item.roundId;
+                const canDelete = isAdmin && deleteRound && item.type === 'round' && item.roundId && ticketStripItems.filter(i => i.type === 'round').length > 1;
                 const chipButton = (
                   <button
                     type="button"
