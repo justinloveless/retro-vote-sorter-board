@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription, SUBSCRIPTION_TIERS, FREE_TIER_FEATURES, SubscriptionTier } from '@/hooks/useSubscription';
 import { useOrganizations } from '@/hooks/useOrganizations';
@@ -15,11 +15,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Check, Crown, Zap, Building2, Loader2, ExternalLink, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { FEATURE_SUBSCRIPTIONS_ENABLED } from '@/constants/featureFlags';
 
 const Billing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading, startCheckout, openCustomerPortal, checkSubscription } = useSubscription();
+  const { isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
   const { organizations, createOrganization, refetch: refetchOrgs } = useOrganizations();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
@@ -176,12 +179,16 @@ const Billing = () => {
     },
   ];
 
-  if (loading) {
+  if (loading || flagsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  if (!isFeatureEnabled(FEATURE_SUBSCRIPTIONS_ENABLED)) {
+    return <Navigate to="/account" replace />;
   }
 
   return (

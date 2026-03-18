@@ -33,6 +33,8 @@ import { DialogHeader } from './ui/dialog';
 import { AuthForm } from './AuthForm';
 import { FeedbackButton } from './FeedbackButton';
 import { supabase } from '@/integrations/supabase/client';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { FEATURE_ORGANIZATION_SELECTOR_ENABLED } from '@/constants/featureFlags';
 
 type HeaderVariant = 'default' | 'home' | 'back';
 
@@ -68,10 +70,13 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const isMobile = useIsMobile();
 
     const { organizations, selectedOrgId, selectedOrg, selectedOrgRole, setSelectedOrgId, hasOrgs } = useOrgSelector();
+    const { isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
+    const showOrganizationSelector =
+        flagsLoading || isFeatureEnabled(FEATURE_ORGANIZATION_SELECTOR_ENABLED);
     const isOrgAdminOrOwner = selectedOrgRole === 'owner' || selectedOrgRole === 'admin';
 
     const renderOrgSelector = () => {
-        if (!user || !hasOrgs) return null;
+        if (!user || !hasOrgs || !showOrganizationSelector) return null;
         return (
             <Select
                 value={selectedOrgId || '_personal'}
@@ -121,7 +126,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
 
     const renderMobileMenuItems = () => (
         <div className="flex flex-col space-y-4 p-4">
-            {user && hasOrgs && (
+            {user && hasOrgs && showOrganizationSelector && (
                 <div>
                     <p className="text-xs text-muted-foreground mb-1 px-1">Organization</p>
                     <Select

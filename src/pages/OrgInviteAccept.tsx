@@ -27,13 +27,8 @@ const OrgInviteAccept = () => {
         if (result.success) {
           setStatus('success');
           toast.success(`Welcome to ${result.organization_name}!`);
-          // Find the org slug to redirect
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('slug')
-            .eq('id', result.organization_id)
-            .single();
-          setTimeout(() => navigate(org ? `/org/${(org as any).slug}` : '/teams'), 2000);
+          const slug = result.organization_slug as string | undefined;
+          setTimeout(() => navigate(slug ? `/org/${slug}` : '/teams'), 2000);
         } else {
           setStatus('error');
           setMessage(result.error || 'Failed to accept invitation');
