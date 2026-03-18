@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Bell, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Bell, CheckCircle2, ExternalLink, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,7 +8,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
 
 export const NotificationBell: React.FC = () => {
-  const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -46,9 +46,25 @@ export const NotificationBell: React.FC = () => {
         <div className="p-3">
           <div className="flex items-center justify-between">
             <div className="font-semibold text-sm">Notifications</div>
-            {unreadCount > 0 && (
-              <div className="text-xs text-muted-foreground">{unreadCount} unread</div>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {unreadCount} unread
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/notifications');
+                }}
+              >
+                View all
+              </Button>
+            </div>
           </div>
         </div>
         <Separator />
@@ -58,30 +74,69 @@ export const NotificationBell: React.FC = () => {
               <li className="p-4 text-sm text-muted-foreground">You're all caught up.</li>
             ) : (
               notifications.map((n) => (
-                <li key={n.id} className={`p-3 hover:bg-muted/50 ${n.is_read ? 'opacity-70' : ''}`}>
-                  <button className="w-full text-left" onClick={() => handleClickItem(n.id, n.url)}>
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5">
-                        {n.is_read ? (
-                          <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{n.title}</div>
-                        {n.message && (
-                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</div>
-                        )}
-                        {n.url && (
-                          <div className="flex items-center gap-1 text-xs text-primary mt-1">
-                            <ExternalLink className="h-3 w-3" /> Open
-                          </div>
-                        )}
-                        <div className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                <li key={n.id} className={`group p-3 hover:bg-muted/50 ${n.is_read ? 'opacity-70' : ''}`}>
+                  <div className="flex items-start gap-2">
+                    <div
+                      className="flex-1 cursor-pointer text-left rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleClickItem(n.id, n.url)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          void handleClickItem(n.id, n.url);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5">
+                          {n.is_read ? (
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{n.title}</div>
+                          {n.message && (
+                            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</div>
+                          )}
+                          {n.url && (
+                            <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                              <ExternalLink className="h-3 w-3" /> Open
+                            </div>
+                          )}
+                          <div className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                        </div>
                       </div>
                     </div>
-                  </button>
+
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                      {!n.is_read && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Mark notification as read"
+                          onClick={() => void markAsRead(n.id)}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="Delete notification"
+                        onClick={() => void deleteNotification(n.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </li>
               ))
             )}
