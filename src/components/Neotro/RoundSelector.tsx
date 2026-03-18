@@ -247,7 +247,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     };
     emblaApi.on('select', onSelect);
     onSelect();
-    return () => emblaApi.off('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi]);
 
   useEffect(() => {
