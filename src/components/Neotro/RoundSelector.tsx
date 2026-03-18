@@ -326,29 +326,48 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
               {ticketStripItems.map((item, index) => {
                 const isActive = index === activeSnapIndex;
                 const iconUrl = ticketMetaByKey[item.ticketKey]?.issueTypeIconUrl;
+                const canDelete = isAdmin && deleteRound && item.type === 'round' && item.roundId;
+                const chipButton = (
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
+                      isActive
+                        ? 'bg-primary/15 border-primary/80 text-foreground scale-110'
+                        : 'bg-card hover:bg-accent/50 opacity-75'
+                    }`}
+                    onClick={() => handleChipClick(index)}
+                  >
+                    {iconUrl ? (
+                      <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="font-mono font-semibold">{item.ticketKey}</span>
+                    {item.pointsLabel && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        {item.pointsLabel}
+                      </span>
+                    )}
+                  </button>
+                );
                 return (
                   <div key={item.id} className="flex-none">
-                    <button
-                      type="button"
-                      className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
-                        isActive
-                          ? 'bg-primary/15 border-primary/80 text-foreground scale-110'
-                          : 'bg-card hover:bg-accent/50 opacity-75'
-                      }`}
-                      onClick={() => handleChipClick(index)}
-                    >
-                      {iconUrl ? (
-                        <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="font-mono font-semibold">{item.ticketKey}</span>
-                      {item.pointsLabel && (
-                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                          {item.pointsLabel}
-                        </span>
-                      )}
-                    </button>
+                    {canDelete ? (
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          {chipButton}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => deleteRound(item.roundId!)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete round
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ) : chipButton}
                   </div>
                 );
               })}
