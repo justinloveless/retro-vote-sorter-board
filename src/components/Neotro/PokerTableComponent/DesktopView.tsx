@@ -37,10 +37,10 @@ function QueuePanelCard({
   onResizeStart,
 }: {
   teamId: string | undefined;
-  ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number }[];
+  ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[];
   addTicketToQueue: (key: string, summary: string | null) => Promise<void>;
   removeTicketFromQueue: (id: string) => Promise<void>;
-  reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number }[]) => Promise<void>;
+  reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[]) => Promise<void>;
   clearQueue: () => Promise<void>;
   displayTicketNumber: string;
   setDisplayTicketNumber: (key: string) => void;
