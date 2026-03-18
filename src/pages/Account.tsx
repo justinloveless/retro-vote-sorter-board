@@ -16,12 +16,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { currentEnvironment } from '@/config/environment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
+import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { FEATURE_SUBSCRIPTIONS_ENABLED } from '@/constants/featureFlags';
 
 const Account = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut, updateProfile, isImpersonating, refreshImpersonatedProfile } = useAuth();
   const [impersonatedEmail, setImpersonatedEmail] = useState<string | null>(null);
   const { tier, subscribed, subscriptionEnd, cancelAtPeriodEnd, loading: subLoading } = useSubscription();
+  const { isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
+  const showSubscriptions =
+    flagsLoading || isFeatureEnabled(FEATURE_SUBSCRIPTIONS_ENABLED);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -304,35 +309,37 @@ const Account = () => {
           </div>
 
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Subscription
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
-                    <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
-                  </div>
-                  {subscribed && subscriptionEnd && (
+            {showSubscriptions && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Subscription
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
-                      </span>
-                      <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
-                        {new Date(subscriptionEnd).toLocaleDateString()}
-                      </span>
+                      <span className="text-sm font-medium text-muted-foreground">Current Plan</span>
+                      <span className="font-semibold text-foreground capitalize">{subLoading ? '...' : tier}</span>
                     </div>
-                  )}
-                  <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
-                    Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                    {subscribed && subscriptionEnd && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {cancelAtPeriodEnd ? 'Expires' : 'Renews'}
+                        </span>
+                        <span className={`text-sm ${cancelAtPeriodEnd ? 'text-destructive' : 'text-foreground'}`}>
+                          {new Date(subscriptionEnd).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    <Button className="w-full mt-2" variant="outline" onClick={() => navigate('/billing')}>
+                      Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

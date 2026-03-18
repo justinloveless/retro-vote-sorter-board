@@ -30,45 +30,32 @@ const JoinOrg = () => {
       }
 
       try {
-        // Fetch invite code
-        const { data: inviteData, error: inviteError } = await supabase
-          .from('org_team_invite_codes')
-          .select('*')
-          .eq('code', code)
-          .eq('is_active', true)
-          .single();
+        // Fetch invite details via RPC (avoids leaking orgs/invite codes via RLS)
+        const { data: inviteResult, error: inviteError } = await supabase.rpc('get_org_team_invite', {
+          invite_code: code,
+        });
 
-        if (inviteError || !inviteData) {
-          setError('Invalid or expired invite code.');
+        if (inviteError) throw inviteError;
+        const result = inviteResult as any;
+        if (!result?.success) {
+          setError(result?.error || 'Invalid or expired invite code.');
           setLoading(false);
           return;
         }
 
-        if (new Date(inviteData.expires_at) < new Date()) {
-          setError('This invite code has expired.');
-          setLoading(false);
-          return;
-        }
+        setInvite(result);
+        setOrgName(result.organization_name || 'Unknown Organization');
 
-        setInvite(inviteData);
+        // Fetch user's owned unlinked teams
+        const { data: teamsData, error: teamsError } = await supabase
+          .from('teams')
+          .select('id, name, description, organization_id, team_members!inner(role, user_id)')
+          .eq('team_members.user_id', user.id)
+          .eq('team_members.role', 'owner')
+          .is('organization_id', null);
 
-        // Get org name and user's owned unlinked teams in parallel
-        const [orgResult, teamsResult] = await Promise.all([
-          supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', inviteData.organization_id)
-            .single(),
-          supabase
-            .from('teams')
-            .select('id, name, description, organization_id, team_members!inner(role, user_id)')
-            .eq('team_members.user_id', user.id)
-            .eq('team_members.role', 'owner')
-            .is('organization_id', null),
-        ]);
-
-        setOrgName(orgResult.data?.name || 'Unknown Organization');
-        setOwnedTeams(teamsResult.data || []);
+        if (teamsError) throw teamsError;
+        setOwnedTeams(teamsData || []);
       } catch (err) {
         console.error(err);
         setError('Something went wrong.');
