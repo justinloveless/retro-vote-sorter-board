@@ -50,6 +50,8 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   ticketQueue,
   goToRound,
   goToCurrentRound,
+  deleteRound,
+  isAdmin = false,
   isMobile = false,
 }) => {
   const [ticketMetaByKey, setTicketMetaByKey] = useState<
