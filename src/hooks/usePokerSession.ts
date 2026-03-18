@@ -422,7 +422,7 @@ export const usePokerSession = (
     }
     // When observer_ids changes, sync current round selections (remove observers, add un-observers)
     if (newConfig.observer_ids !== undefined) {
-      const effectiveTeamId = teamId || session.team_id;
+      const effectiveTeamId = teamId || null;
       const oldObserverIds = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
       let newSelections: Selections;
       if (effectiveTeamId) {
