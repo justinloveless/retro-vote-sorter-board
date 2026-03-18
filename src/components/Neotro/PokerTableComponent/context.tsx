@@ -352,6 +352,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToNextRound,
     goToCurrentRound,
     goToRound,
+    deleteRound,
     chatMessagesForRound,
     chatUnreadCount,
     markChatAsRead,
