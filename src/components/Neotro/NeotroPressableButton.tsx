@@ -8,7 +8,7 @@ type NeotroPressableButtonProps = {
   isDisabled?: boolean;
   activeShowsPressed?: boolean;
   variant?: 'default' | 'destructive';
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
   type?: 'button' | 'submit';
   'aria-label'?: string;
   children: React.ReactNode;
@@ -78,6 +78,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
         target={target}
         rel={rel}
         {...sharedProps}
+        ref={ref as React.ForwardedRef<HTMLAnchorElement>}
       >
         {children}
       </a>
@@ -90,6 +91,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
       onClick={onClick}
       disabled={isDisabled}
       {...sharedProps}
+      ref={ref as React.ForwardedRef<HTMLButtonElement>}
     >
       {children}
     </button>

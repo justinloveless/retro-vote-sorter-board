@@ -422,7 +422,7 @@ export const usePokerSession = (
     }
     // When observer_ids changes, sync current round selections (remove observers, add un-observers)
     if (newConfig.observer_ids !== undefined) {
-      const effectiveTeamId = teamId || session.team_id;
+      const effectiveTeamId = teamId || null;
       const oldObserverIds = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
       let newSelections: Selections;
       if (effectiveTeamId) {
@@ -504,7 +504,7 @@ export const usePokerSession = (
       const observerSet = new Set(observerIds);
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
-          resetSelections[key] = { ...sel, points: 1, locked: false };
+          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
         }
       });
     }

@@ -183,7 +183,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const emblaOptions = useMemo(
     () => ({
       align: 'center' as const,
-      containScroll: false,
+      containScroll: false as const,
       startIndex: selectedStripIndex,
       dragFree: false,
     }),
@@ -247,7 +247,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     };
     emblaApi.on('select', onSelect);
     onSelect();
-    return () => emblaApi.off('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi]);
 
   useEffect(() => {
@@ -261,7 +261,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     };
     syncPosition();
     emblaApi.on('reInit', syncPosition);
-    return () => emblaApi.off('reInit', syncPosition);
+    return () => { emblaApi.off('reInit', syncPosition); };
   }, [emblaApi, selectedStripIndex]);
 
   useEffect(() => {

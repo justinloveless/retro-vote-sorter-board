@@ -37,10 +37,10 @@ function QueuePanelCard({
   onResizeStart,
 }: {
   teamId: string | undefined;
-  ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number }[];
+  ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[];
   addTicketToQueue: (key: string, summary: string | null) => Promise<void>;
   removeTicketFromQueue: (id: string) => Promise<void>;
-  reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number }[]) => Promise<void>;
+  reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[]) => Promise<void>;
   clearQueue: () => Promise<void>;
   displayTicketNumber: string;
   setDisplayTicketNumber: (key: string) => void;
@@ -72,10 +72,10 @@ function QueuePanelCard({
             isJiraConfigured={isJiraConfigured}
             showJiraBrowser={showJiraBrowser}
             showQueue={showQueue}
-            queue={ticketQueue}
+            queue={ticketQueue as any}
             onAddTicket={addTicketToQueue}
             onRemoveTicket={removeTicketFromQueue}
-            onReorderQueue={reorderQueue}
+            onReorderQueue={reorderQueue as any}
             onClearQueue={clearQueue}
             displayTicketNumber={displayTicketNumber}
             onSelectTicket={(ticketKey) => {
@@ -620,7 +620,7 @@ export const DesktopView: React.FC = () => {
                     send_to_slack: 'send_to_slack' in session && session.send_to_slack,
                     observer_ids: (session as { observer_ids?: string[] }).observer_ids,
                     selections: session.selections,
-                    team_id: session.team_id,
+                    team_id: teamId,
                 }}
                 onUpdateConfig={updateSessionConfig}
                 onDeleteAllRounds={deleteAllRounds}
