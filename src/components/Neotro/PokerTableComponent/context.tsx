@@ -159,6 +159,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToNextRound,
     goToCurrentRound,
     goToRound,
+    deleteRound,
   } = usePokerSessionHistory(session?.session_id || null, requestedRoundNumber || undefined);
 
   const {
