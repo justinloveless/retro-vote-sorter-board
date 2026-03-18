@@ -225,6 +225,30 @@ export const usePokerSessionChat = (
     }
   };
 
+  const sendSystemMessage = async (messageText: string) => {
+    if (!sessionId || !messageText.trim()) return false;
+
+    try {
+      const { error } = await supabase.from('poker_session_chat').insert({
+        session_id: sessionId,
+        round_number: currentRoundNumber,
+        user_id: null,
+        user_name: 'System',
+        message: messageText.trim(),
+      });
+
+      if (error) {
+        console.error('Error sending system message:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error sending system message:', error);
+      return false;
+    }
+  };
+
   const addReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId || !currentUserName || !sessionId) return;
     const { error } = await supabase.from('poker_session_chat_message_reactions').insert({
@@ -290,6 +314,7 @@ export const usePokerSessionChat = (
     messages,
     loading,
     sendMessage,
+    sendSystemMessage,
     addReaction,
     removeReaction,
     fetchMessages,

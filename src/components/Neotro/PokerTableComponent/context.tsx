@@ -50,6 +50,7 @@ interface PokerTableContextProps {
   markChatAsRead: () => void;
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
+  sendSystemMessage: (messageText: string) => Promise<boolean>;
   addReaction: (messageId: string, emoji: string) => Promise<void>;
   removeReaction: (messageId: string, emoji: string) => Promise<void>;
   uploadChatImage: (file: File) => Promise<string | null>;
@@ -166,6 +167,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     messages: chatMessagesForRound,
     loading: isChatLoading,
     sendMessage,
+    sendSystemMessage,
     addReaction,
     removeReaction,
     uploadImage: uploadChatImage,
@@ -208,13 +210,20 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const handleSendToSlack = async () => {
     if (!displaySession || !teamId) return;
     setIsSending(true);
+    const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
+    // Log the button press into chat before posting the round to Slack.
+    await sendSystemMessage(
+      `<p>${pressedBy} sent the round to Slack</p>`
+    );
+    // Slack round results should not include our system messages.
+    const userChatMessages = chatMessagesForRound.filter((m) => m.user_id !== null);
     await sendPokerRoundToSlack(
       teamId,
       displaySession.ticket_number,
       displaySession.ticket_title,
       displaySession.selections,
       displayWinningPoints,
-      chatMessagesForRound
+      userChatMessages
     );
     setIsSending(false);
   };
@@ -358,6 +367,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     markChatAsRead,
     isChatLoading,
     sendMessage,
+    sendSystemMessage,
     addReaction,
     removeReaction,
     uploadChatImage,
