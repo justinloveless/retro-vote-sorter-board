@@ -78,6 +78,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
         target={target}
         rel={rel}
         {...sharedProps}
+        ref={ref as React.ForwardedRef<HTMLAnchorElement>}
       >
         {children}
       </a>
