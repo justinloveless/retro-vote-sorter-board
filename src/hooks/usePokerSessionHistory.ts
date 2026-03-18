@@ -167,6 +167,30 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     }
   };
 
+  const deleteRound = async (roundId: string) => {
+    try {
+      const { error } = await supabase
+        .from('poker_session_rounds')
+        .delete()
+        .eq('id', roundId);
+
+      if (error) {
+        console.error('Error deleting round:', error);
+        toast({ title: 'Error deleting round', variant: 'destructive' });
+        return false;
+      }
+
+      toast({ title: 'Round deleted' });
+      await fetchRounds();
+      window.dispatchEvent(new Event('rounds-deleted'));
+      return true;
+    } catch (error) {
+      console.error('Error deleting round:', error);
+      toast({ title: 'Error deleting round', variant: 'destructive' });
+      return false;
+    }
+  };
+
   const isViewingHistory = currentRoundIndex < rounds.length - 1;
   const currentRound = rounds[currentRoundIndex] || null;
   const canGoBack = currentRoundIndex > 0;
