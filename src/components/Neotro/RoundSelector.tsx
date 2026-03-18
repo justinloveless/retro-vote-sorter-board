@@ -108,9 +108,11 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     if (!isViewingHistory && !currentRoundExists) {
       items.push({
         id: 'current-ticket',
+        roundId: undefined,
         ticketKey: displayTicketNumber || 'No ticket',
         pointsLabel: currentPointsLabel,
         type: 'current' as const,
+        roundNumber: currentRoundNumber,
       });
     }
 
