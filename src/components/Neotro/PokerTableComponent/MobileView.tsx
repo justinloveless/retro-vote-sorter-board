@@ -142,6 +142,8 @@ export const MobileView: React.FC = () => {
                             ticketQueue={ticketQueue}
                             goToRound={goToRound}
                             goToCurrentRound={goToCurrentRound}
+                            deleteRound={deleteRound}
+                            isAdmin={userRole === 'admin' || userRole === 'owner'}
                             isMobile={true}
                         />
                     )}
