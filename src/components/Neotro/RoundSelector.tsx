@@ -183,7 +183,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const emblaOptions = useMemo(
     () => ({
       align: 'center' as const,
-      containScroll: false,
+      containScroll: false as const,
       startIndex: selectedStripIndex,
       dragFree: false,
     }),
