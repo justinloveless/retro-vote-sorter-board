@@ -209,6 +209,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     goToNextRound,
     goToCurrentRound,
     goToRound,
+    deleteRound,
     fetchRounds,
   };
 };
