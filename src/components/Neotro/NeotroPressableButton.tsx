@@ -8,7 +8,7 @@ type NeotroPressableButtonProps = {
   isDisabled?: boolean;
   activeShowsPressed?: boolean;
   variant?: 'default' | 'destructive';
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
   type?: 'button' | 'submit';
   'aria-label'?: string;
   children: React.ReactNode;
