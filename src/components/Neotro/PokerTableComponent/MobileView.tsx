@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { usePokerTable } from './context';
 import CardHandSelector from "@/components/Neotro/CardHandSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
@@ -6,18 +6,20 @@ import PlayHandButton from "@/components/Neotro/PlayHandButton";
 import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
-import HistoryNavigation from "@/components/Neotro/HistoryNavigation";
+import { RoundSelector } from '@/components/Neotro/RoundSelector';
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Menu, MessageCircle, Send, ListOrdered, Eye, LogOut } from 'lucide-react';
-import { NextRoundDialog } from '../NextRoundDialog';
-import { Badge } from '@/components/ui/badge';
+import { Send, Eye, Maximize2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
+import { PokerBottomBar, type PanelVisibility } from '@/components/Neotro/PokerBottomBar';
+import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
+import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';
@@ -39,11 +41,8 @@ export const MobileView: React.FC = () => {
         currentRound,
         rounds,
         isViewingHistory,
-        canGoBack,
-        canGoForward,
-        goToPreviousRound,
-        goToNextRound,
         goToCurrentRound,
+        goToRound,
         session,
         updateSessionConfig,
         deleteAllRounds,
@@ -70,12 +69,50 @@ export const MobileView: React.FC = () => {
         onNextRoundRequest,
         ticketQueue,
         setQueuePanelOpen,
+        isQueuePanelOpen,
         isJiraConfigured,
         isObserver,
         leaveObserverMode,
         enterObserverMode,
+        chatUnreadCount,
+        markChatAsRead,
+        goToPreviousRound,
+        goToNextRound,
+        canGoBack,
+        canGoForward,
     } = usePokerTable();
     const { height } = useWindowSize();
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [roundSelectorVisible, setRoundSelectorVisible] = useState(true);
+
+    const handleSwipeLeft = useCallback(() => {
+        if (canGoForward) goToNextRound();
+    }, [canGoForward, goToNextRound]);
+    const handleSwipeRight = useCallback(() => {
+        if (canGoBack) goToPreviousRound();
+    }, [canGoBack, goToPreviousRound]);
+    const { dragStyle, ...swipeHandlers } = useSwipeNavigation({
+        onSwipeLeft: handleSwipeLeft,
+        onSwipeRight: handleSwipeRight,
+    });
+
+    const togglePanel = useCallback((panel: keyof PanelVisibility) => {
+        if (panel === 'details') setIsDrawerOpen((prev) => !prev);
+        else if (panel === 'chat') {
+            setIsChatDrawerOpen((prev) => !prev);
+            if (!isChatDrawerOpen) markChatAsRead();
+        } else if (panel === 'queue') setQueuePanelOpen((prev) => !prev);
+        else if (panel === 'roundSelector') setRoundSelectorVisible((prev) => !prev);
+        else if (panel === 'settings') setIsSettingsOpen(true);
+    }, [setIsDrawerOpen, setIsChatDrawerOpen, setQueuePanelOpen, isChatDrawerOpen, markChatAsRead]);
+
+    const currentTicketKey = displaySession?.ticket_number || displayTicketNumber;
+    const currentTicketSummary = useMemo(() => {
+        const fromSession = (displaySession as { ticket_title?: string | null })?.ticket_title;
+        if (fromSession) return fromSession;
+        const fromQueue = ticketQueue.find((t) => t.ticket_key === currentTicketKey)?.ticket_summary;
+        return fromQueue ?? null;
+    }, [displaySession, ticketQueue, currentTicketKey]);
 
     const CARD_BASE_HEIGHT = 95;
     const mobileScale = totalPlayers <= 4 ? 1.4 : totalPlayers <= 6 ? 1.2 : totalPlayers <= 8 ? 1.0 : 0.8;
@@ -89,127 +126,102 @@ export const MobileView: React.FC = () => {
         <div className={`poker-table relative flex flex-col h-full ${shake ? 'screen-shake' : ''}`}>
             {/* TODO: Refactor this to avoid code duplication */}
             {height < 750 ? (
-                <ScrollArea className="flex-1 pr-4">
-                    {/* Mobile Header with History Navigation */}
-                    <div className="flex flex-col items-center justify-center p-4 space-y-3">
-                        <div className="flex gap-2">
-                            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
-                                <DrawerTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    >
-                                        <Menu className="h-4 w-4 mr-2" />
-                                        Details
-                                    </Button>
-                                </DrawerTrigger>
-                                <DrawerContent>
-                                    <DrawerHeader>
-                                        <DrawerTitle>Session Details</DrawerTitle>
-                                    </DrawerHeader>
-                                    <div className="p-4">
-                                        <PointsDetails
-                                            selectedPoint={activeUserSelection.points}
-                                            isHandPlayed={displaySession.game_state === 'Playing'}
-                                            winningPoints={displayWinningPoints}
-                                            ticketNumber={displayTicketNumber}
-                                            onTicketNumberChange={handleTicketNumberChange}
-                                            onTicketNumberFocus={handleTicketNumberFocus}
-                                            onTicketNumberBlur={handleTicketNumberBlur}
-                                            teamId={teamId}
-                                        />
-                                        <div className='flex justify-end pt-2'>
-                                            <PokerConfig
-                                                config={session}
-                                                onUpdateConfig={updateSessionConfig}
-                                                onDeleteAllRounds={deleteAllRounds}
-                                                isSlackIntegrated={isSlackInstalled}
-                                                userRole={userRole}
-                                                teamId={teamId}
-                                            />
-                                        </div>
-                                        {displaySession.game_state === 'Playing' && (
-                                            <div className="pt-4 space-y-2">
-                                                <SubmitPointsToJira
-                                                    teamId={teamId}
-                                                    ticketNumber={displayTicketNumber}
-                                                    winningPoints={displayWinningPoints}
-                                                    isHandPlayed={true}
-                                                    isJiraConfigured={isJiraConfigured}
-                                                />
-                                                <Button
-                                                    onClick={handleSendToSlack}
-                                                    disabled={!isSlackInstalled || isSending}
-                                                    className="w-full"
-                                                >
-                                                    <Send className="h-4 w-4 mr-2" />
-                                                    {isSending ? 'Sending...' : 'Send to Slack'}
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-
-                            <Drawer open={isChatDrawerOpen} onOpenChange={setIsChatDrawerOpen}>
-                                <DrawerTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    >
-                                        <MessageCircle className="h-4 w-4 mr-2" />
-                                        Chat
-                                    </Button>
-                                </DrawerTrigger>
-                                <DrawerContent className="h-[80vh]">
-                                    <div className="h-full p-4">
-                                        <PokerSessionChat isCollapsible={false} />
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-                            {teamId && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    onClick={() => setQueuePanelOpen(true)}
-                                >
-                                    <ListOrdered className="h-4 w-4 mr-2" />
-                                    Queue
-                                    {ticketQueue.length > 0 && (
-                                        <Badge variant="secondary" className="ml-1 text-xs px-1">
-                                            {ticketQueue.length}
-                                        </Badge>
-                                    )}
-                                </Button>
-                            )}
-                            <PokerConfig
-                                config={session}
-                                onUpdateConfig={updateSessionConfig}
-                                onDeleteAllRounds={deleteAllRounds}
-                                isSlackIntegrated={isSlackInstalled}
-                                userRole={userRole}
-                                teamId={teamId}
-                            />
-                        </div>
-
-                        {/* History Navigation */}
-                        <HistoryNavigation
-                            currentRoundNumber={currentRound?.round_number || 1}
-                            totalRounds={rounds.length}
+                <>
+                <ScrollArea className="flex-1 pr-4 overflow-x-hidden" {...swipeHandlers}>
+                    {/* Mobile Round Selector */}
+                    {roundSelectorVisible && (
+                        <RoundSelector
+                            rounds={rounds}
+                            session={session}
+                            displayTicketNumber={displayTicketNumber}
+                            displaySession={displaySession}
+                            displayWinningPoints={displayWinningPoints}
+                            currentRound={currentRound}
                             isViewingHistory={isViewingHistory}
-                            canGoBack={canGoBack}
-                            canGoForward={canGoForward}
-                            onPrevious={goToPreviousRound}
-                            onNext={goToNextRound}
-                            onGoToCurrent={goToCurrentRound}
+                            teamId={teamId}
+                            ticketQueue={ticketQueue}
+                            goToRound={goToRound}
+                            goToCurrentRound={goToCurrentRound}
+                            isMobile={true}
                         />
-                    </div>
+                    )}
 
                     {/* Mobile Main Content */}
-                    <div className="flex-1 flex flex-col p-4">
+                    <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
+                        {(displaySession.game_state === 'Playing' || !isViewingHistory) && (
+                            <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
+                                <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
+                                    <div className="relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible px-3 py-1.5">
+                                        {teamId && (displaySession.ticket_number || displayTicketNumber) && (
+                                            <div className="absolute top-2 right-2">
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <NeotroPressableButton
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Expand Jira issue"
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-center gap-2 pr-8 shrink-0 pt-0.5 pb-1">
+                                            <span className="text-sm text-muted-foreground leading-[1.75]">
+                                                {isViewingHistory ? 'Viewing:' : 'Now Pointing:'}
+                                            </span>
+                                            {!isViewingHistory && displaySession.game_state !== 'Playing' ? (
+                                                <input
+                                                    type="text"
+                                                    value={displayTicketNumber || ''}
+                                                    onChange={(e) => handleTicketNumberChange(e.target.value)}
+                                                    onFocus={handleTicketNumberFocus}
+                                                    onBlur={handleTicketNumberBlur}
+                                                    placeholder="No ticket"
+                                                    className="font-semibold text-foreground leading-[1.75] bg-transparent border-b border-transparent hover:border-muted-foreground/30 focus:border-primary focus:outline-none min-w-[6rem] text-center"
+                                                />
+                                            ) : (
+                                                <span className="font-semibold text-foreground leading-[1.75]">
+                                                    {displaySession.ticket_number || displayTicketNumber || 'No ticket'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {currentTicketSummary && (
+                                            <span className="text-sm font-normal text-muted-foreground italic text-center line-clamp-1">
+                                                {currentTicketSummary}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {displaySession.game_state === 'Playing' && (
+                                        <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg px-3 py-1">
+                                            <span className="text-sm text-muted-foreground">Winning Points:</span>
+                                            <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                        </div>
+                                    )}
+                                    {!isViewingHistory && (
+                                        displaySession.game_state === 'Playing' ? (
+                                            <div className="flex items-center justify-center py-1">
+                                                <NextRoundButton
+                                                    onHandPlayed={onNextRoundRequest}
+                                                    isHandPlayed={session.game_state === 'Playing'}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <PlayHandButton
+                                                onHandPlayed={playHand}
+                                                isHandPlayed={session.game_state === 'Playing'}
+                                                className="w-full"
+                                            />
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Cards Area */}
                         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
                             {displaySession.game_state === 'Playing' && cardGroups ? (
@@ -265,29 +277,27 @@ export const MobileView: React.FC = () => {
                             )}
                         </div>
 
-                        {!isViewingHistory && (
-                            <div className="flex-shrink-0 mb-4">
-                                <div className="flex gap-2 mb-4 items-center justify-center">
-                                    <PlayHandButton
-                                        onHandPlayed={playHand}
-                                        isHandPlayed={session.game_state === 'Playing'}
+                        {displaySession.game_state === 'Playing' && (
+                            <div className="flex flex-col items-center gap-1 pb-2">
+                                <div className="flex flex-col w-full max-w-xs gap-1">
+                                    <SubmitPointsToJira
+                                        teamId={teamId}
+                                        ticketNumber={displaySession.ticket_number || displayTicketNumber}
+                                        winningPoints={displayWinningPoints}
+                                        isHandPlayed={true}
+                                        isJiraConfigured={isJiraConfigured}
                                     />
-                                    <NextRoundButton
-                                        onHandPlayed={onNextRoundRequest}
-                                        isHandPlayed={session.game_state === 'Playing'}
-                                    />
-                                    {!isObserver && (
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0" onClick={enterObserverMode} aria-label="Join as observer">
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Join as observer</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
+                                    <NeotroPressableButton
+                                        onClick={handleSendToSlack}
+                                        isDisabled={!isSlackInstalled || isSending}
+                                        isActive={isSlackInstalled && !isSending}
+                                        activeShowsPressed={false}
+                                        size="default"
+                                        className="w-full"
+                                    >
+                                        <Send className="h-4 w-4 mr-2" />
+                                        {isSending ? 'Sending...' : 'Send to Slack'}
+                                    </NeotroPressableButton>
                                 </div>
                             </div>
                         )}
@@ -304,154 +314,140 @@ export const MobileView: React.FC = () => {
                                     isAbstained={activeUserSelection.points === -1}
                                     isAbstainedDisabled={session.game_state === 'Playing'}
                                 />
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={enterObserverMode} aria-label="Join as observer">
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Join as observer</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
                             </div>
                         )}
                         {!isViewingHistory && isObserver && (
-                            <div className="flex-shrink-0 flex flex-col items-center gap-3 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
+                            <div className="flex-shrink-0 flex flex-col items-center gap-2 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Eye className="h-5 w-5" />
                                     <span className="text-sm font-medium">You are an observer</span>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={leaveObserverMode} className="gap-2">
-                                    <LogOut className="h-4 w-4" />
-                                    Leave observer mode
-                                </Button>
                             </div>
                         )}
                     </div>
                 </ScrollArea>
-            ) : (
-                <div className="flex-1 pr-4 overflow-y-auto">
-                    {/* Mobile Header with History Navigation */}
-                    <div className="flex flex-col items-center justify-center p-4 space-y-3">
-                        <div className="flex gap-2">
-                            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} >
-                                <DrawerTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    >
-                                        <Menu className="h-4 w-4 mr-2" />
-                                        Details
-                                    </Button>
-                                </DrawerTrigger>
-                                <DrawerContent>
-                                    <DrawerHeader>
-                                        <DrawerTitle>Session Details</DrawerTitle>
-                                    </DrawerHeader>
-                                    <div className="p-4">
-                                        <PointsDetails
-                                            selectedPoint={activeUserSelection.points}
-                                            isHandPlayed={displaySession.game_state === 'Playing'}
-                                            winningPoints={displayWinningPoints}
-                                            ticketNumber={displayTicketNumber}
-                                            onTicketNumberChange={handleTicketNumberChange}
-                                            onTicketNumberFocus={handleTicketNumberFocus}
-                                            onTicketNumberBlur={handleTicketNumberBlur}
-                                            teamId={teamId}
-                                        />
-                                        <div className='flex justify-end pt-2'>
-                                            <PokerConfig
-                                                config={session}
-                                                onUpdateConfig={updateSessionConfig}
-                                                onDeleteAllRounds={deleteAllRounds}
-                                                isSlackIntegrated={isSlackInstalled}
-                                                userRole={userRole}
-                                                teamId={teamId}
-                                            />
-                                        </div>
-                                        {displaySession.game_state === 'Playing' && (
-                                            <div className="pt-4 space-y-2">
-                                                <SubmitPointsToJira
-                                                    teamId={teamId}
-                                                    ticketNumber={displayTicketNumber}
-                                                    winningPoints={displayWinningPoints}
-                                                    isHandPlayed={true}
-                                                    isJiraConfigured={isJiraConfigured}
-                                                />
-                                                <Button
-                                                    onClick={handleSendToSlack}
-                                                    disabled={!isSlackInstalled || isSending}
-                                                    className="w-full"
-                                                >
-                                                    <Send className="h-4 w-4 mr-2" />
-                                                    {isSending ? 'Sending...' : 'Send to Slack'}
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-
-                            <Drawer open={isChatDrawerOpen} onOpenChange={setIsChatDrawerOpen}>
-                                <DrawerTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    >
-                                        <MessageCircle className="h-4 w-4 mr-2" />
-                                        Chat
-                                    </Button>
-                                </DrawerTrigger>
-                                <DrawerContent className="h-[80vh]">
-                                    <div className="h-full p-4">
-                                        <PokerSessionChat isCollapsible={false} />
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-                            {teamId && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="bg-primary/20 backdrop-blur border-primary/30 text-primary hover:bg-white/30"
-                                    onClick={() => setQueuePanelOpen(true)}
-                                >
-                                    <ListOrdered className="h-4 w-4 mr-2" />
-                                    Queue
-                                    {ticketQueue.length > 0 && (
-                                        <Badge variant="secondary" className="ml-1 text-xs px-1">
-                                            {ticketQueue.length}
-                                        </Badge>
-                                    )}
-                                </Button>
-                            )}
-                            <PokerConfig
-                                config={session}
-                                onUpdateConfig={updateSessionConfig}
-                                onDeleteAllRounds={deleteAllRounds}
-                                isSlackIntegrated={isSlackInstalled}
-                                userRole={userRole}
-                                teamId={teamId}
-                            />
-                        </div>
-
-                        {/* History Navigation */}
-                        <HistoryNavigation
-                            currentRoundNumber={currentRound?.round_number || 1}
-                            totalRounds={rounds.length}
+                <div className="flex-shrink-0">
+                    <TooltipProvider>
+                        <PokerBottomBar
+                            visibility={{
+                                details: isDrawerOpen,
+                                chat: isChatDrawerOpen,
+                                queue: isQueuePanelOpen,
+                                jiraBrowser: false,
+                                roundSelector: roundSelectorVisible,
+                                settings: true,
+                            }}
+                            onToggle={togglePanel}
+                            isJiraConfigured={isJiraConfigured}
+                            onSettingsClick={() => setIsSettingsOpen(true)}
+                            isObserver={isObserver}
                             isViewingHistory={isViewingHistory}
-                            canGoBack={canGoBack}
-                            canGoForward={canGoForward}
-                            onPrevious={goToPreviousRound}
-                            onNext={goToNextRound}
-                            onGoToCurrent={goToCurrentRound}
+                            onEnterObserverMode={enterObserverMode}
+                            onLeaveObserverMode={leaveObserverMode}
+                            chatUnreadCount={chatUnreadCount}
+                            isMobile={true}
+                            mobilePanelKeys={teamId ? ['details', 'queue', 'roundSelector', 'chat', 'settings'] : ['details', 'roundSelector', 'chat', 'settings']}
                         />
-                    </div>
+                    </TooltipProvider>
+                </div>
+                </>
+            ) : (
+                <>
+                <div className="flex-1 pr-4 overflow-y-auto overflow-x-hidden min-h-0" {...swipeHandlers}>
+                    {/* Mobile Round Selector */}
+                    {roundSelectorVisible && (
+                        <RoundSelector
+                            rounds={rounds}
+                            session={session}
+                            displayTicketNumber={displayTicketNumber}
+                            displaySession={displaySession}
+                            displayWinningPoints={displayWinningPoints}
+                            currentRound={currentRound}
+                            isViewingHistory={isViewingHistory}
+                            teamId={teamId}
+                            ticketQueue={ticketQueue}
+                            goToRound={goToRound}
+                            goToCurrentRound={goToCurrentRound}
+                            isMobile={true}
+                        />
+                    )}
 
                     {/* Mobile Main Content */}
-                    <div className="flex-1 flex flex-col p-4">
+                    <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
+                        {(displaySession.game_state === 'Playing' || !isViewingHistory) && (
+                            <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
+                                <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
+                                    <div className="relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible px-3 py-1.5">
+                                        {teamId && (displaySession.ticket_number || displayTicketNumber) && (
+                                            <div className="absolute top-2 right-2">
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <NeotroPressableButton
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Expand Jira issue"
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-center gap-2 pr-8 shrink-0 pt-0.5 pb-1">
+                                            <span className="text-sm text-muted-foreground leading-[1.75]">
+                                                {isViewingHistory ? 'Viewing:' : 'Now Pointing:'}
+                                            </span>
+                                            {!isViewingHistory && displaySession.game_state !== 'Playing' ? (
+                                                <input
+                                                    type="text"
+                                                    value={displayTicketNumber || ''}
+                                                    onChange={(e) => handleTicketNumberChange(e.target.value)}
+                                                    onFocus={handleTicketNumberFocus}
+                                                    onBlur={handleTicketNumberBlur}
+                                                    placeholder="No ticket"
+                                                    className="font-semibold text-foreground leading-[1.75] bg-transparent border-b border-transparent hover:border-muted-foreground/30 focus:border-primary focus:outline-none min-w-[6rem] text-center"
+                                                />
+                                            ) : (
+                                                <span className="font-semibold text-foreground leading-[1.75]">
+                                                    {displaySession.ticket_number || displayTicketNumber || 'No ticket'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {currentTicketSummary && (
+                                            <span className="text-sm font-normal text-muted-foreground italic text-center line-clamp-2">
+                                                {currentTicketSummary}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {displaySession.game_state === 'Playing' && (
+                                        <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg px-3 py-1">
+                                            <span className="text-sm text-muted-foreground">Winning Points:</span>
+                                            <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                        </div>
+                                    )}
+                                    {!isViewingHistory && (
+                                        displaySession.game_state === 'Playing' ? (
+                                            <div className="flex items-center justify-center py-1">
+                                                <NextRoundButton
+                                                    onHandPlayed={onNextRoundRequest}
+                                                    isHandPlayed={session.game_state === 'Playing'}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <PlayHandButton
+                                                onHandPlayed={playHand}
+                                                isHandPlayed={session.game_state === 'Playing'}
+                                                className="w-full"
+                                            />
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Cards Area */}
                         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
                             {displaySession.game_state === 'Playing' && cardGroups ? (
@@ -507,35 +503,31 @@ export const MobileView: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Action Buttons - Only show if not viewing history */}
-                        {!isViewingHistory && (
-                            <div className="flex-shrink-0 mb-4">
-                                <div className="flex gap-2 mb-4 items-center justify-center">
-                                    <PlayHandButton
-                                        onHandPlayed={playHand}
-                                        isHandPlayed={session.game_state === 'Playing'}
+                        {displaySession.game_state === 'Playing' && (
+                            <div className="flex flex-col items-center gap-1 pb-2">
+                                <div className="flex flex-col w-full max-w-xs gap-1">
+                                    <SubmitPointsToJira
+                                        teamId={teamId}
+                                        ticketNumber={displaySession.ticket_number || displayTicketNumber}
+                                        winningPoints={displayWinningPoints}
+                                        isHandPlayed={true}
+                                        isJiraConfigured={isJiraConfigured}
                                     />
-                                    <NextRoundButton
-                                        onHandPlayed={onNextRoundRequest}
-                                        isHandPlayed={session.game_state === 'Playing'}
-                                    />
-                                    {!isObserver && (
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0" onClick={enterObserverMode} aria-label="Join as observer">
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Join as observer</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
+                                    <NeotroPressableButton
+                                        onClick={handleSendToSlack}
+                                        isDisabled={!isSlackInstalled || isSending}
+                                        isActive={isSlackInstalled && !isSending}
+                                        activeShowsPressed={false}
+                                        size="default"
+                                        className="w-full"
+                                    >
+                                        <Send className="h-4 w-4 mr-2" />
+                                        {isSending ? 'Sending...' : 'Send to Slack'}
+                                    </NeotroPressableButton>
                                 </div>
                             </div>
                         )}
 
-                        {/* Mobile Point Selector - Only show if not viewing history and not observer */}
                         {!isViewingHistory && !isObserver && (
                             <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <CardHandSelector
@@ -548,33 +540,110 @@ export const MobileView: React.FC = () => {
                                     isAbstained={activeUserSelection.points === -1}
                                     isAbstainedDisabled={session.game_state === 'Playing'}
                                 />
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={enterObserverMode} aria-label="Join as observer">
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Join as observer</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
                             </div>
                         )}
                         {!isViewingHistory && isObserver && (
-                            <div className="flex-shrink-0 flex flex-col items-center gap-3 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
+                            <div className="flex-shrink-0 flex flex-col items-center gap-2 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Eye className="h-5 w-5" />
                                     <span className="text-sm font-medium">You are an observer</span>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={leaveObserverMode} className="gap-2">
-                                    <LogOut className="h-4 w-4" />
-                                    Leave observer mode
-                                </Button>
                             </div>
                         )}
                     </div>
                 </div>
+                <div className="flex-shrink-0">
+                    <TooltipProvider>
+                        <PokerBottomBar
+                            visibility={{
+                                details: isDrawerOpen,
+                                chat: isChatDrawerOpen,
+                                queue: isQueuePanelOpen,
+                                jiraBrowser: false,
+                                roundSelector: roundSelectorVisible,
+                                settings: true,
+                            }}
+                            onToggle={togglePanel}
+                            isJiraConfigured={isJiraConfigured}
+                            onSettingsClick={() => setIsSettingsOpen(true)}
+                            isObserver={isObserver}
+                            isViewingHistory={isViewingHistory}
+                            onEnterObserverMode={enterObserverMode}
+                            onLeaveObserverMode={leaveObserverMode}
+                            chatUnreadCount={chatUnreadCount}
+                            isMobile={true}
+                            mobilePanelKeys={teamId ? ['details', 'queue', 'roundSelector', 'chat', 'settings'] : ['details', 'roundSelector', 'chat', 'settings']}
+                        />
+                    </TooltipProvider>
+                </div>
+                </>
             )}
+            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+                <DrawerContent>
+                    <DrawerHeader>
+                        <DrawerTitle>Session Details</DrawerTitle>
+                    </DrawerHeader>
+                    <div className="p-4">
+                        <PointsDetails
+                            selectedPoint={activeUserSelection.points}
+                            isHandPlayed={displaySession.game_state === 'Playing'}
+                            winningPoints={displayWinningPoints}
+                            ticketNumber={displayTicketNumber}
+                            onTicketNumberChange={handleTicketNumberChange}
+                            onTicketNumberFocus={handleTicketNumberFocus}
+                            onTicketNumberBlur={handleTicketNumberBlur}
+                            teamId={teamId}
+                        />
+                        <div className='flex justify-end pt-2'>
+                            <Button variant="outline" size="sm" onClick={() => { setIsDrawerOpen(false); setIsSettingsOpen(true); }}>
+                                Settings
+                            </Button>
+                        </div>
+                        {displaySession.game_state === 'Playing' && (
+                            <div className="pt-4 space-y-2">
+                                <SubmitPointsToJira
+                                    teamId={teamId}
+                                    ticketNumber={displayTicketNumber}
+                                    winningPoints={displayWinningPoints}
+                                    isHandPlayed={true}
+                                    isJiraConfigured={isJiraConfigured}
+                                />
+                                <Button
+                                    onClick={handleSendToSlack}
+                                    disabled={!isSlackInstalled || isSending}
+                                    className="w-full"
+                                >
+                                    <Send className="h-4 w-4 mr-2" />
+                                    {isSending ? 'Sending...' : 'Send to Slack'}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </DrawerContent>
+            </Drawer>
+            <Drawer open={isChatDrawerOpen} onOpenChange={setIsChatDrawerOpen}>
+                <DrawerContent className="h-[80vh]">
+                    <div className="h-full px-4 pb-4 pt-0">
+                        <PokerSessionChat embedded />
+                    </div>
+                </DrawerContent>
+            </Drawer>
+            <PokerConfig
+                config={{
+                    presence_enabled: 'presence_enabled' in session && session.presence_enabled,
+                    send_to_slack: 'send_to_slack' in session && session.send_to_slack,
+                    observer_ids: (session as { observer_ids?: string[] }).observer_ids,
+                    selections: session.selections,
+                    team_id: session.team_id,
+                }}
+                onUpdateConfig={updateSessionConfig}
+                onDeleteAllRounds={deleteAllRounds}
+                isSlackIntegrated={isSlackInstalled}
+                userRole={userRole}
+                teamId={teamId}
+                open={isSettingsOpen}
+                onOpenChange={setIsSettingsOpen}
+            />
         </div>
     );
 }

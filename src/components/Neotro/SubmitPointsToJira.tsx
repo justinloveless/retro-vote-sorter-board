@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
+import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Upload, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,6 +33,8 @@ interface SubmitPointsToJiraProps {
   isHandPlayed: boolean;
   isJiraConfigured: boolean;
   className?: string;
+  /** Compact layout for smaller viewports */
+  compact?: boolean;
 }
 
 const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
@@ -42,6 +44,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   isHandPlayed,
   isJiraConfigured,
   className = '',
+  compact = false,
 }) => {
   const { toast } = useToast();
   const defaultPoints = useMemo(
@@ -92,15 +95,16 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
         : null;
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex gap-1 justify-center">
+    <div className={`flex flex-wrap items-center justify-center gap-2 ${compact ? 'flex-row' : 'flex-col space-y-2'} ${className}`}>
+      <div className="flex gap-1 justify-center shrink-0">
         {POINT_OPTIONS.map((p) => (
           <button
             key={p}
             onClick={() => { setSelectedPoints(p); setIsSubmitted(false); }}
             disabled={isDisabled}
             className={`
-              px-2.5 py-1 rounded text-sm font-medium transition-colors
+              rounded font-medium transition-colors
+              ${compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-sm'}
               ${p === finalPoints
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'}
@@ -114,12 +118,14 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="w-full block">
-              <Button
+            <span className={compact ? 'inline-block' : 'w-full block'}>
+              <NeotroPressableButton
                 onClick={handleSubmit}
-                disabled={isDisabled || isSubmitting}
-                variant={isSubmitted ? 'outline' : 'default'}
-                className="w-full"
+                isDisabled={isDisabled || isSubmitting}
+                isActive={!isSubmitted}
+                activeShowsPressed={false}
+                size={compact ? 'compact' : 'default'}
+                className={compact ? 'shrink-0' : 'w-full'}
               >
                 {isSubmitted ? (
                   <>
@@ -134,7 +140,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
                     Submit {finalPoints} pts to Jira
                   </>
                 )}
-              </Button>
+              </NeotroPressableButton>
             </span>
           </TooltipTrigger>
           {disabledReason && (

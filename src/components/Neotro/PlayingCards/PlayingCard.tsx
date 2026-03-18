@@ -89,9 +89,8 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`relative z-0 hover:z-10 ${!isStacked ? 'mb-8 md:mb-0' : ''}`}
+      className={`relative z-0 hover:z-10 flex flex-col items-center`}
       style={{
-        height: `${CARD_HEIGHT * scale}px`,
         width: `${CARD_WIDTH * scale}px`,
       }}
       onMouseEnter={() => {
@@ -108,45 +107,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
         if (!isStacked) setShowPortalName(false);
       }}
     >
-      {!isStacked && (
-        <>
-          <div className="absolute top-full w-full pt-1">
-            <div className="flex items-center justify-center">
-              <div 
-                ref={playerNameRef}
-                className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full relative ${showPortalName ? 'opacity-0' : ''}`}
-                style={{ backdropFilter: 'blur(2px)' }}
-              >
-                {playerName}
-              </div>
-            </div>
-          </div>
-          {showPortalName && createPortal(
-            <div 
-              className="fixed pointer-events-none"
-              style={{ 
-                left: portalPosition.x,
-                top: portalPosition.y,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 9999
-              }}
-            >
-              <div
-                className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
-                style={{ 
-                  backdropFilter: 'blur(2px)',
-                  transform: 'translateY(-16px)',
-                  transition: 'transform 0.2s ease-in-out'
-                }}
-              >
-                {playerName}
-              </div>
-            </div>,
-            document.body
-          )}
-        </>
-      )}
-      
+      <div style={{ height: `${CARD_HEIGHT * scale}px`, width: '100%' }}>
       {isEmptySlot ? (
         /* Empty dashed outline placeholder for unlocked cards */
         <div 
@@ -179,6 +140,43 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
             </div>
           </ReactCardFlip>
         </div>
+      )}
+      </div>
+      {!isStacked && (
+        <div className="w-full pt-1">
+          <div className="flex items-center justify-center">
+            <div 
+              ref={playerNameRef}
+              className={`text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate max-w-full ${showPortalName ? 'opacity-0' : ''}`}
+              style={{ backdropFilter: 'blur(2px)' }}
+            >
+              {playerName}
+            </div>
+          </div>
+        </div>
+      )}
+      {!isStacked && showPortalName && createPortal(
+        <div 
+          className="fixed pointer-events-none"
+          style={{ 
+            left: portalPosition.x,
+            top: portalPosition.y,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 9999
+          }}
+        >
+          <div
+            className="text-center bg-card/75 text-foreground text-xs rounded-full px-2 py-1 truncate animate-in fade-in slide-in-from-bottom-3 duration-200 ease-in-out"
+            style={{ 
+              backdropFilter: 'blur(2px)',
+              transform: 'translateY(-16px)',
+              transition: 'transform 0.2s ease-in-out'
+            }}
+          >
+            {playerName}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

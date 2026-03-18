@@ -116,6 +116,8 @@ interface BackgroundContextType {
   preference: BackgroundPreference;
   updatePreference: (newPreference: BackgroundPreference) => Promise<void>;
   getCurrentConfig: () => { type: 'blobs'; blobs: readonly { color: string; top: string; left: string; animationDelay: string; size: string; animation: BackgroundAnimation; }[]; } | { type: 'gradient'; direction: string; colors: readonly string[]; };
+  hideEffects: boolean;
+  setHideEffects: (hide: boolean) => void;
 }
 
 const BackgroundContext = createContext<BackgroundContextType | undefined>(undefined);
@@ -125,6 +127,7 @@ export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const { theme } = useTheme();
   const [isOverlayVisible, setOverlayVisible] = useState(false);
   const [preference, setPreference] = useState<BackgroundPreference>(defaultPreference);
+  const [hideEffects, setHideEffects] = useState(false);
 
   useEffect(() => {
     if (profile?.background_preference && (profile.background_preference as any).preset) {
@@ -181,7 +184,9 @@ export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     preference,
     updatePreference,
     getCurrentConfig,
-  }), [isOverlayVisible, preference, theme]); // theme must be a dependency
+    hideEffects,
+    setHideEffects,
+  }), [isOverlayVisible, preference, theme, hideEffects]); // theme must be a dependency
 
   return (
     <BackgroundContext.Provider value={value}>

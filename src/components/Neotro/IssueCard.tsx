@@ -25,6 +25,12 @@ interface IssueCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onD
   cursorPointer?: boolean;
 }
 
+const statusCategoryColorMap: Record<string, string> = {
+  done: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  indeterminate: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  new: 'bg-muted text-muted-foreground',
+};
+
 export const IssueCard: React.FC<IssueCardProps> = ({
   issue,
   leftSlot,
@@ -66,8 +72,8 @@ export const IssueCard: React.FC<IssueCardProps> = ({
           {hasFullData && (
             <>
               <Badge
-                variant={issue.statusCategory === 'done' ? 'default' : 'secondary'}
-                className="text-[10px] px-1.5 py-0"
+                variant="secondary"
+                className={`text-[10px] px-1.5 py-0 ${statusCategoryColorMap[issue.statusCategory || ''] || 'bg-muted text-muted-foreground'}`}
               >
                 {issue.status}
               </Badge>

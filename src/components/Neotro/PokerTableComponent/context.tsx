@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { PlayerSelection, PokerSessionState, getPointsWithMostVotes } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
@@ -45,6 +45,8 @@ interface PokerTableContextProps {
   goToCurrentRound: () => void;
   goToRound: (roundNumber: number) => void;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
+  chatUnreadCount: number;
+  markChatAsRead: () => void;
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
   addReaction: (messageId: string, emoji: string) => Promise<void>;
@@ -139,6 +141,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const chatSeenPerRound = useRef<Record<number, number>>({});
+  const [chatLastSeenCount, setChatLastSeenCount] = useState(0);
 
   const { isSlackInstalled } = useSlackIntegration(teamId);
   const { isJiraConfigured } = useJiraIntegration(teamId);
@@ -168,6 +172,22 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     currentRound?.round_number || session?.round_number || 1,
     activeUserId,
     session?.selections[activeUserId || '']?.name
+  );
+
+  const currentRoundNumber = currentRound?.round_number ?? session?.round_number ?? 1;
+
+  const markChatAsRead = useCallback(() => {
+    setChatLastSeenCount(chatMessagesForRound.length);
+    chatSeenPerRound.current[currentRoundNumber] = chatMessagesForRound.length;
+  }, [chatMessagesForRound.length, currentRoundNumber]);
+
+  useEffect(() => {
+    setChatLastSeenCount(chatSeenPerRound.current[currentRoundNumber] ?? 0);
+  }, [currentRoundNumber]);
+
+  const chatUnreadCount = useMemo(
+    () => Math.max(0, chatMessagesForRound.length - chatLastSeenCount),
+    [chatMessagesForRound.length, chatLastSeenCount]
   );
 
   const displaySession = useMemo(() => {
@@ -331,6 +351,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToCurrentRound,
     goToRound,
     chatMessagesForRound,
+    chatUnreadCount,
+    markChatAsRead,
     isChatLoading,
     sendMessage,
     addReaction,

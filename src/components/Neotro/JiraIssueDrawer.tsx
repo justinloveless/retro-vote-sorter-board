@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -6,12 +7,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 // Context to allow images inside parsed markup to open a shared preview dialog
 const ImagePreviewContext = React.createContext<((src: string) => void) | null>(null);
@@ -653,6 +656,8 @@ function setCache(key: string, data: any) {
 }
 
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, trigger }) => {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
@@ -660,7 +665,30 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [isLoading, setIsLoading] = useState(false);
   const [clicked, setClicked] = useState(false);
   const [noApiCredentials, setNoApiCredentials] = useState(false);
+  const [canAccessTeamSettings, setCanAccessTeamSettings] = useState<boolean | null>(null);
   const fetchRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!noApiCredentials || !teamId || !profile?.id) {
+      setCanAccessTeamSettings(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('role')
+        .eq('team_id', teamId)
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      if (!cancelled && data) {
+        setCanAccessTeamSettings(['owner', 'admin'].includes(data.role));
+      } else if (!cancelled) {
+        setCanAccessTeamSettings(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [noApiCredentials, teamId, profile?.id]);
 
   const fetchIssue = React.useCallback(async (openOnComplete: boolean) => {
     if (!issueIdOrKey || !teamId) {
@@ -824,12 +852,18 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                 {issueData?.key || issueIdOrKey || 'Jira Issue'}
               </DialogTitle>
               {externalUrl && (
-                <a href={externalUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Open in Jira
-                  </Button>
-                </a>
+                <NeotroPressableButton
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="default"
+                  isActive
+                  activeShowsPressed={false}
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open in Jira
+                </NeotroPressableButton>
               )}
             </div>
           </DialogHeader>
@@ -847,16 +881,26 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
             {noApiCredentials && (
               <div className="space-y-3 text-center py-6">
                 <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto" />
-                <p className="text-sm text-muted-foreground">
-                  Jira API credentials are not configured for this team. Configure them in Team Settings to view issue details inline.
-                </p>
-                {externalUrl && (
-                  <a href={externalUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="default" className="gap-2 mt-2">
-                      <ExternalLink className="h-4 w-4" />
-                      Open in Jira
-                    </Button>
-                  </a>
+                {canAccessTeamSettings ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Jira API credentials are not configured for this team. Configure them in Team Settings to view issue details inline.
+                    </p>
+                    <NeotroPressableButton
+                      onClick={() => teamId && navigate(`/teams/${teamId}/settings#jira-integration`)}
+                      size="default"
+                      isActive
+                      activeShowsPressed={false}
+                      className="gap-2 mt-2 mx-auto"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Team Settings
+                    </NeotroPressableButton>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Jira API credentials are not configured for this team. A team Admin will need to set up Jira Integration in Team Settings to view issue details inline.
+                  </p>
                 )}
               </div>
             )}

@@ -18,17 +18,17 @@ export const QuickReactionPicker: React.FC<QuickReactionPickerProps> = ({ onEmoj
           key={emoji}
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-lg"
+          className="h-7 w-7 text-lg text-foreground hover:text-foreground"
           onClick={() => onEmojiSelect(emoji)}
         >
           {emoji}
         </Button>
       ))}
-      <div className="border-l h-5 mx-1" />
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onShowMore}>
+      <div className="border-l border-muted-foreground/40 h-5 mx-1" />
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-foreground hover:text-foreground" onClick={onShowMore}>
         <SmilePlus className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-foreground hover:text-foreground" onClick={onClose}>
         <X className="h-4 w-4" />
       </Button>
     </div>

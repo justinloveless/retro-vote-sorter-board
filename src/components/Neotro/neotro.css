@@ -1,4 +1,15 @@
-/* This file is intentionally blank. Global styles are used instead. */
+/* Full-width layout for Neotro - background extends edge to edge */
+#root:has(.neotro-full-width) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Prevent horizontal scrollbar on Neotro page */
+.neotro-full-width {
+  overflow-x: hidden;
+}
 
 @font-face {
   font-family: "Neotro";
@@ -8,10 +19,10 @@
 
 .poker-table {
   width: 100%;
-  height: 100%;
   overflow: hidden;
   font-family: "Neotro", sans-serif;
 }
+
 
 @theme {
   --font-sans: "neotro", sans-serif;

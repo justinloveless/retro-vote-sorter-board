@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 
 interface NextRoundDialogProps {
   isOpen: boolean;
@@ -43,10 +43,21 @@ export const NextRoundDialog: React.FC<NextRoundDialogProps> = ({ isOpen, onOpen
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <NeotroPressableButton
+            size="default"
+            activeShowsPressed={false}
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
-          </Button>
-          <Button onClick={handleStartRound}>Start Round</Button>
+          </NeotroPressableButton>
+          <NeotroPressableButton
+            size="default"
+            isActive
+            activeShowsPressed={false}
+            onClick={handleStartRound}
+          >
+            Start Round
+          </NeotroPressableButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

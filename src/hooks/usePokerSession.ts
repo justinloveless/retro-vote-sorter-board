@@ -452,6 +452,7 @@ export const usePokerSession = (
   };
 
   const updateTicketNumber = async (ticketNumber: string) => {
+    setSession(prev => prev ? { ...prev, ticket_number: ticketNumber } : null);
     await updateRoundState({ ticket_number: ticketNumber });
   };
   

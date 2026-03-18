@@ -11,6 +11,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Lock, ShieldAlert } from 'lucide-react';
+import { useBackground } from '@/contexts/BackgroundContext';
+
+const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
 
 const NeotroPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -22,7 +25,14 @@ const NeotroPage = () => {
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
   const [isMember, setIsMember] = useState(false);
+  const { setHideEffects } = useBackground();
 
+  useEffect(() => {
+    if (localStorage.getItem(POKER_HIDE_BG_KEY) === 'true') {
+      setHideEffects(true);
+    }
+    return () => setHideEffects(false);
+  }, [setHideEffects]);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -140,9 +150,9 @@ const NeotroPage = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
+    <div className="h-screen w-screen min-w-full flex flex-col pt-16 md:pt-0 neotro-full-width">
        <AppHeader variant='back' />
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <PokerTable
           session={displaySession}
           activeUserId={profile?.id}

@@ -57,6 +57,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
+    "embla-carousel-wheel-gestures": "^8.1.0",
     "emoji-picker-react": "^4.12.2",
     "gh-pages": "^6.3.0",
     "html-to-md": "^0.8.8",

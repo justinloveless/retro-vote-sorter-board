@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ import { AppHeader } from '@/components/AppHeader';
 const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const { profile, loading: authLoading } = useAuth();
   const [team, setTeam] = useState<any>(null);
   const [teamSettings, setTeamSettings] = useState<TeamSettings | null>(null);
@@ -86,6 +87,13 @@ const TeamSettingsPage = () => {
 
     loadTeam();
   }, [teamId, profile, navigate, toast]);
+
+  useEffect(() => {
+    if (hash === '#jira-integration') {
+      const el = document.getElementById('jira-integration');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [hash]);
 
   const handleSave = async () => {
     if (!teamId || !teamSettings) return;

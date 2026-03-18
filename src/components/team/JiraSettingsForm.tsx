@@ -23,7 +23,7 @@ export const JiraSettingsForm: React.FC<JiraSettingsFormProps> = ({ settings, on
   };
 
   return (
-    <Card>
+    <Card id="jira-integration">
       <CardHeader>
         <CardTitle>Jira Integration</CardTitle>
         <CardDescription>Configure your team's Jira connection.</CardDescription>

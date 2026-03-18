@@ -10,6 +10,9 @@ import { Settings, Eye } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useBackground } from '@/contexts/BackgroundContext';
+
+const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
 
 export interface PokerSessionConfig {
   room_id?: string | null;
@@ -34,6 +37,9 @@ interface PokerConfigProps {
   teamId?: string | null;
   /** When true, renders icon-only trigger with tooltip */
   iconOnly?: boolean;
+  /** Controlled mode: when provided, dialog open state is controlled by parent (no trigger rendered) */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const PokerConfig: React.FC<PokerConfigProps> = ({
@@ -44,13 +50,20 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   userRole,
   teamId,
   iconOnly = false,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && controlledOnOpenChange !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setIsOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
   const [presenceEnabled, setPresenceEnabled] = useState(config.presence_enabled !== false);
   const [sendToSlack, setSendToSlack] = useState(config.send_to_slack === true);
   const [observerIds, setObserverIds] = useState<string[]>(config.observer_ids ?? []);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+  const { hideEffects, setHideEffects } = useBackground();
+  const [bgDisabled, setBgDisabled] = useState(() => localStorage.getItem(POKER_HIDE_BG_KEY) === 'true');
 
   const canDelete = !userRole || userRole === 'admin' || userRole === 'owner';
 
@@ -126,7 +139,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {iconOnly ? (
+      {!isControlled && (iconOnly ? (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -141,7 +154,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
         <DialogTrigger asChild>
           {triggerButton}
         </DialogTrigger>
-      )}
+      ))}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Session Configuration</DialogTitle>
@@ -168,6 +181,19 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
                   checked={sendToSlack}
                   onCheckedChange={(checked) => handleConfigChange('send_to_slack', checked)}
                   disabled={!isSlackIntegrated}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="disable-bg-effects">Disable Background Effects</Label>
+                <Switch
+                  id="disable-bg-effects"
+                  checked={bgDisabled}
+                  onCheckedChange={(checked) => {
+                    setBgDisabled(checked);
+                    setHideEffects(checked);
+                    localStorage.setItem(POKER_HIDE_BG_KEY, String(checked));
+                  }}
                 />
               </div>
             </CardContent>
