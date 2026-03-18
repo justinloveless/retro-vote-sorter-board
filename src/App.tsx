@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import Billing from "./pages/Billing";
+import Notifications from "./pages/Notifications";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 import OrgDashboard from "./pages/OrgDashboard";
@@ -58,6 +59,7 @@ const App = () => (
                   <Route path="/invite/:token" element={<InviteAccept />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/billing" element={<Billing />} />
+                  <Route path="/notifications" element={<Notifications />} />
 
                   {/* Organization Routes */}
                   <Route path="/org/:slug" element={<OrgDashboard />} />
