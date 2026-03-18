@@ -80,6 +80,7 @@ export const MobileView: React.FC = () => {
         goToNextRound,
         canGoBack,
         canGoForward,
+        deleteRound,
     } = usePokerTable();
     const { height } = useWindowSize();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -142,6 +143,8 @@ export const MobileView: React.FC = () => {
                             ticketQueue={ticketQueue}
                             goToRound={goToRound}
                             goToCurrentRound={goToCurrentRound}
+                            deleteRound={deleteRound}
+                            isAdmin={userRole === 'admin' || userRole === 'owner'}
                             isMobile={true}
                         />
                     )}
@@ -368,6 +371,8 @@ export const MobileView: React.FC = () => {
                             ticketQueue={ticketQueue}
                             goToRound={goToRound}
                             goToCurrentRound={goToCurrentRound}
+                            deleteRound={deleteRound}
+                            isAdmin={userRole === 'admin' || userRole === 'owner'}
                             isMobile={true}
                         />
                     )}

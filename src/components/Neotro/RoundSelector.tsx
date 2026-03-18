@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Play, Ticket } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Ticket, Trash2 } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { supabase } from '@/integrations/supabase/client';
 import { getPointsWithMostVotes } from '@/hooks/usePokerSession';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 interface TicketQueueItem {
   id: string;
@@ -26,6 +32,8 @@ interface RoundSelectorProps {
   ticketQueue: TicketQueueItem[];
   goToRound: (roundNumber: number) => void;
   goToCurrentRound: () => void;
+  deleteRound?: (roundId: string) => Promise<boolean>;
+  isAdmin?: boolean;
   /** When true, removes card styling and uses full width (for mobile) */
   isMobile?: boolean;
 }
@@ -42,6 +50,8 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   ticketQueue,
   goToRound,
   goToCurrentRound,
+  deleteRound,
+  isAdmin = false,
   isMobile = false,
 }) => {
   const [ticketMetaByKey, setTicketMetaByKey] = useState<
@@ -82,6 +92,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         const displayPoints = jiraPoints ?? (modePoints > 0 ? modePoints : null);
         return {
           id: `round-${round.id}`,
+          roundId: round.id,
           ticketKey,
           pointsLabel: displayPoints != null ? `${displayPoints} pts` : (isCurrentRound ? currentPointsLabel : null),
           type: isCurrentRound ? ('current' as const) : ('round' as const),
@@ -97,9 +108,11 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     if (!isViewingHistory && !currentRoundExists) {
       items.push({
         id: 'current-ticket',
+        roundId: undefined,
         ticketKey: displayTicketNumber || 'No ticket',
         pointsLabel: currentPointsLabel,
         type: 'current' as const,
+        roundNumber: currentRoundNumber,
       });
     }
 
@@ -313,29 +326,48 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
               {ticketStripItems.map((item, index) => {
                 const isActive = index === activeSnapIndex;
                 const iconUrl = ticketMetaByKey[item.ticketKey]?.issueTypeIconUrl;
+                const canDelete = isAdmin && deleteRound && item.type === 'round' && item.roundId;
+                const chipButton = (
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
+                      isActive
+                        ? 'bg-primary/15 border-primary/80 text-foreground scale-110'
+                        : 'bg-card hover:bg-accent/50 opacity-75'
+                    }`}
+                    onClick={() => handleChipClick(index)}
+                  >
+                    {iconUrl ? (
+                      <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="font-mono font-semibold">{item.ticketKey}</span>
+                    {item.pointsLabel && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        {item.pointsLabel}
+                      </span>
+                    )}
+                  </button>
+                );
                 return (
                   <div key={item.id} className="flex-none">
-                    <button
-                      type="button"
-                      className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
-                        isActive
-                          ? 'bg-primary/15 border-primary/80 text-foreground scale-110'
-                          : 'bg-card hover:bg-accent/50 opacity-75'
-                      }`}
-                      onClick={() => handleChipClick(index)}
-                    >
-                      {iconUrl ? (
-                        <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="font-mono font-semibold">{item.ticketKey}</span>
-                      {item.pointsLabel && (
-                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                          {item.pointsLabel}
-                        </span>
-                      )}
-                    </button>
+                    {canDelete ? (
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          {chipButton}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => deleteRound(item.roundId!)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete round
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ) : chipButton}
                   </div>
                 );
               })}

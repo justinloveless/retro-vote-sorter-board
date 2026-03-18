@@ -44,6 +44,7 @@ interface PokerTableContextProps {
   goToNextRound: () => void;
   goToCurrentRound: () => void;
   goToRound: (roundNumber: number) => void;
+  deleteRound: (roundId: string) => Promise<boolean>;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
   chatUnreadCount: number;
   markChatAsRead: () => void;
@@ -158,6 +159,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToNextRound,
     goToCurrentRound,
     goToRound,
+    deleteRound,
   } = usePokerSessionHistory(session?.session_id || null, requestedRoundNumber || undefined);
 
   const {
@@ -350,6 +352,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToNextRound,
     goToCurrentRound,
     goToRound,
+    deleteRound,
     chatMessagesForRound,
     chatUnreadCount,
     markChatAsRead,
