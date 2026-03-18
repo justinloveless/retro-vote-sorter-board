@@ -32,6 +32,8 @@ interface RoundSelectorProps {
   ticketQueue: TicketQueueItem[];
   goToRound: (roundNumber: number) => void;
   goToCurrentRound: () => void;
+  deleteRound?: (roundId: string) => Promise<boolean>;
+  isAdmin?: boolean;
   /** When true, removes card styling and uses full width (for mobile) */
   isMobile?: boolean;
 }
