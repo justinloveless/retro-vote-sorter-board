@@ -80,6 +80,7 @@ export const MobileView: React.FC = () => {
         goToNextRound,
         canGoBack,
         canGoForward,
+        deleteRound,
     } = usePokerTable();
     const { height } = useWindowSize();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);

@@ -155,6 +155,7 @@ export const DesktopView: React.FC = () => {
         chatUnreadCount,
         markChatAsRead,
         chatMessagesForRound,
+        deleteRound,
     } = usePokerTable();
 
     const isCompact = useIsCompactViewport();
