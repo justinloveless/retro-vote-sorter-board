@@ -92,6 +92,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         const displayPoints = jiraPoints ?? (modePoints > 0 ? modePoints : null);
         return {
           id: `round-${round.id}`,
+          roundId: round.id,
           ticketKey,
           pointsLabel: displayPoints != null ? `${displayPoints} pts` : (isCurrentRound ? currentPointsLabel : null),
           type: isCurrentRound ? ('current' as const) : ('round' as const),
