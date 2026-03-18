@@ -346,6 +346,8 @@ export const DesktopView: React.FC = () => {
                     ticketQueue={ticketQueue}
                     goToRound={goToRound}
                     goToCurrentRound={goToCurrentRound}
+                    deleteRound={deleteRound}
+                    isAdmin={userRole === 'admin' || userRole === 'owner'}
                 />
             )}
 
