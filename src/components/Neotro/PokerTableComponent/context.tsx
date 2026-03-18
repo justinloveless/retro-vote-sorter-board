@@ -44,6 +44,7 @@ interface PokerTableContextProps {
   goToNextRound: () => void;
   goToCurrentRound: () => void;
   goToRound: (roundNumber: number) => void;
+  deleteRound: (roundId: string) => Promise<boolean>;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
   chatUnreadCount: number;
   markChatAsRead: () => void;
