@@ -72,10 +72,10 @@ function QueuePanelCard({
             isJiraConfigured={isJiraConfigured}
             showJiraBrowser={showJiraBrowser}
             showQueue={showQueue}
-            queue={ticketQueue}
+            queue={ticketQueue as any}
             onAddTicket={addTicketToQueue}
             onRemoveTicket={removeTicketFromQueue}
-            onReorderQueue={reorderQueue}
+            onReorderQueue={reorderQueue as any}
             onClearQueue={clearQueue}
             displayTicketNumber={displayTicketNumber}
             onSelectTicket={(ticketKey) => {
