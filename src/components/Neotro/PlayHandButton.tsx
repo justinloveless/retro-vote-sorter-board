@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { usePokerTable } from "./PokerTableComponent/context";
 
 interface PlayHandButtonProps {
   onHandPlayed: () => void;
@@ -11,6 +12,7 @@ const PlayHandButton: React.FC<PlayHandButtonProps> = ({
   isHandPlayed,
   className = '',
 }) => {
+  const { activeUserSelection, sendSystemMessage } = usePokerTable();
   const colorClass = isHandPlayed
     ? "bg-gray-500"
     : "bg-blue-600 hover:bg-blue-700";
@@ -18,7 +20,12 @@ const PlayHandButton: React.FC<PlayHandButtonProps> = ({
 
   return (
     <button
-      onClick={onHandPlayed}
+      onClick={async () => {
+        const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
+        // Await so the system message lands in the current round chat.
+        await sendSystemMessage(`<p>${pressedBy} pressed Reveal Cards</p>`);
+        onHandPlayed();
+      }}
       onMouseDown={() => {
         setIsPressed(true);
       }}

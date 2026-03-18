@@ -91,7 +91,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || newMessage === '<p></p>' || isViewingHistory) return;
+    if (!newMessage.trim() || newMessage === '<p></p>') return;
 
     const success = await sendMessage(newMessage, replyingTo?.id);
     if (success) {
@@ -147,6 +147,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   const renderMessage = (message: ChatMessage) => {
     const isCurrentUser = message.user_id === currentUserId;
+    const isSystemMessage = message.user_id === null;
 
     const aggregatedReactions = (message.reactions || []).reduce((acc, reaction) => {
       if (!acc[reaction.emoji]) {
@@ -162,9 +163,11 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
         className={`group relative flex items-start ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-1`}
       >
         <div
-          className={`max-w-[70%] rounded-lg px-3 py-2 ${isCurrentUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground'
+          className={isSystemMessage
+            ? 'max-w-[90%] px-2 py-1 text-muted-foreground italic'
+            : `max-w-[70%] rounded-lg px-3 py-2 ${isCurrentUser
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'
             }`}
         >
           {message.reply_to_message_id && (
@@ -174,11 +177,11 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             </div>
           )}
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium">{message.user_name}</span>
+            <span className={`text-xs font-medium ${isSystemMessage ? 'italic' : ''}`}>{message.user_name}</span>
             <span className="text-xs opacity-70">{formatTime(message.created_at)}</span>
           </div>
           <div
-            className="text-sm prose dark:prose-invert max-w-none"
+            className={`text-sm prose dark:prose-invert max-w-none ${isSystemMessage ? 'italic' : ''}`}
             dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(processMessageContent(message.message)) }}
           />
           <div className="mt-2 pt-1 border-t border-primary-foreground/20 flex items-center justify-between">
@@ -206,7 +209,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
               </div>
             </TooltipProvider>
 
-            {!isViewingHistory && (
+            {!isSystemMessage && (
               <div className="flex items-center shrink-0 ml-2">
                 <div className="flex items-center rounded-full bg-primary-foreground/10">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyingTo(message)}>
@@ -235,7 +238,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             </div>
           )}
         </div>
-        {showEmojiPicker === message.id && !isViewingHistory && (
+        {showEmojiPicker === message.id && (
           <div className="emoji-picker-container absolute z-10" style={{ bottom: '40px', [isCurrentUser ? 'right' : 'left']: '0px' }}>
             <EmojiPicker
               onEmojiClick={(emojiData) => {
@@ -300,8 +303,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             )}
           </ScrollArea>
 
-          {!isViewingHistory && (
-            <div className="mt-3">
+          <div className="mt-3">
               {replyingTo && (
                 <div className="flex items-center justify-between p-2 mb-2 text-sm bg-muted rounded-md">
                   <div className="flex items-center gap-2 overflow-hidden">
@@ -350,13 +352,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                 )}
               </form>
             </div>
-          )}
-
-          {isViewingHistory && (
-            <div className="mt-3 pt-3 border-t text-center text-sm text-muted-foreground">
-              Chat is read-only when viewing history
-            </div>
-          )}
+          
         </CardContent>
       </Wrapper>
 

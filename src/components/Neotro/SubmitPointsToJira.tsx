@@ -3,6 +3,7 @@ import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton
 import { Upload, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePokerTable } from './PokerTableComponent/context';
 import {
   Tooltip,
   TooltipContent,
@@ -47,6 +48,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   compact = false,
 }) => {
   const { toast } = useToast();
+  const { activeUserSelection, sendSystemMessage } = usePokerTable();
   const defaultPoints = useMemo(
     () => (POINT_OPTIONS.includes(winningPoints) ? winningPoints : nearestPointOption(winningPoints)),
     [winningPoints]
@@ -65,6 +67,12 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
     if (isDisabled) return;
     setIsSubmitting(true);
     try {
+      const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
+      // Log the button press into chat (independent of whether the Jira call succeeds).
+      await sendSystemMessage(
+        `<p>${pressedBy} pressed Submit ${finalPoints} pts to Jira</p>`
+      );
+
       const { data, error } = await supabase.functions.invoke('update-jira-issue-points', {
         body: { teamId, issueKey: ticketNumber, points: finalPoints },
       });
