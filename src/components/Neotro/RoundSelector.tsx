@@ -261,7 +261,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     };
     syncPosition();
     emblaApi.on('reInit', syncPosition);
-    return () => emblaApi.off('reInit', syncPosition);
+    return () => { emblaApi.off('reInit', syncPosition); };
   }, [emblaApi, selectedStripIndex]);
 
   useEffect(() => {

@@ -639,7 +639,7 @@ export const MobileView: React.FC = () => {
                     send_to_slack: 'send_to_slack' in session && session.send_to_slack,
                     observer_ids: (session as { observer_ids?: string[] }).observer_ids,
                     selections: session.selections,
-                    team_id: session.team_id,
+                    team_id: teamId,
                 }}
                 onUpdateConfig={updateSessionConfig}
                 onDeleteAllRounds={deleteAllRounds}

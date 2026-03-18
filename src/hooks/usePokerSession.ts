@@ -504,7 +504,7 @@ export const usePokerSession = (
       const observerSet = new Set(observerIds);
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
-          resetSelections[key] = { ...sel, points: 1, locked: false };
+          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
         }
       });
     }
