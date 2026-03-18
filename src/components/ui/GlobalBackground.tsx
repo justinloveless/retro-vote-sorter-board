@@ -44,11 +44,11 @@ const Blob = ({
 );
 
 export const GlobalBackground: React.FC = () => {
-  const { isOverlayVisible, getCurrentConfig } = useBackground();
+  const { isOverlayVisible, hideEffects, getCurrentConfig } = useBackground();
   const currentConfig = getCurrentConfig();
 
   const renderBackground = () => {
-    if (!currentConfig) return null;
+    if (!currentConfig || hideEffects) return null;
 
     switch (currentConfig.type) {
       case 'blobs':

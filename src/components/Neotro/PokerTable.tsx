@@ -84,6 +84,7 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
                 onRemoveTicket={ticketQueue.removeTicket}
                 onReorderQueue={ticketQueue.reorderQueue}
                 onClearQueue={ticketQueue.clearQueue}
+                isMobile={isMobile}
             />
         </PokerTableProvider>
     )

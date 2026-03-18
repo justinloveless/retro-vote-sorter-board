@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { TicketQueueItem } from '@/hooks/useTicketQueue';
+import { useJiraIntegration } from '@/hooks/useJiraIntegration';
 import { JiraIssueDrawer } from './JiraIssueDrawer';
 import { IssueCard, type JiraIssueDisplay } from './IssueCard';
 
@@ -38,6 +40,8 @@ interface TicketQueuePanelProps {
   onRemoveTicket: (id: string) => Promise<void>;
   onReorderQueue: (items: TicketQueueItem[]) => Promise<void>;
   onClearQueue: () => Promise<void>;
+  /** When true, renders as bottom drawer (like Chat) instead of side sheet */
+  isMobile?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -106,11 +110,15 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   onRemoveTicket,
   onReorderQueue,
   onClearQueue,
+  isMobile = false,
 }) => {
+  const { isJiraConfigured } = useJiraIntegration(teamId);
+  const [manualTicketKey, setManualTicketKey] = useState('');
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('not-done');
   const [pointsFilter, setPointsFilter] = useState('any');
   const [issues, setIssues] = useState<JiraIssue[]>([]);
+  const [manualIssues, setManualIssues] = useState<Map<string, JiraIssue>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
@@ -187,10 +195,56 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   }, [teamId, searchText, statusFilter, pointsFilter, queue]);
 
   useEffect(() => {
-    if (isOpen && teamId) {
+    if (isOpen && teamId && isJiraConfigured) {
       fetchAllIssues();
     }
-  }, [isOpen, teamId, statusFilter, pointsFilter, queue, fetchAllIssues]);
+  }, [isOpen, teamId, isJiraConfigured, statusFilter, pointsFilter, queue, fetchAllIssues]);
+
+  const handleAddManualTicket = async () => {
+    const key = manualTicketKey.trim();
+    if (!key) return;
+    setAddingKeys(prev => new Set(prev).add(key));
+    setManualTicketKey('');
+
+    let summary: string | null = null;
+    if (isJiraConfigured && teamId) {
+      try {
+        const { data } = await supabase.functions.invoke('get-jira-issue', {
+          body: { teamId, issueIdOrKey: key },
+        });
+        if (data && !data.error && data.fields) {
+          summary = data.fields.summary || null;
+          const enriched: JiraIssue = {
+            key: data.key || key,
+            summary: data.fields.summary || '',
+            status: data.fields.status?.name || '',
+            statusCategory: data.fields.status?.statusCategory?.key || '',
+            priority: data.fields.priority?.name || '',
+            priorityIconUrl: data.fields.priority?.iconUrl || '',
+            assignee: data.fields.assignee?.displayName || null,
+            reporter: data.fields.reporter?.displayName || null,
+            parent: data.fields.parent
+              ? { key: data.fields.parent.key, summary: data.fields.parent.fields?.summary || '' }
+              : null,
+            sprint: null,
+            issueType: data.fields.issuetype?.name || '',
+            issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
+            storyPoints: data.fields.customfield_10016 ?? null,
+          };
+          setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
+        }
+      } catch {
+        // Fall through with null summary
+      }
+    }
+
+    await onAddTicket(key, summary);
+    setAddingKeys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
 
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
@@ -250,38 +304,54 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     );
   };
 
-  return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="flex flex-col p-0"
-        style={{ width: drawerWidth, minWidth: drawerWidth, maxWidth: drawerWidth }}
-      >
-        <div
-          onMouseDown={handleResizeMouseDown}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group z-10"
-          title="Drag to resize"
-        >
-          <div className="w-1 h-16 rounded-full bg-border group-hover:bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-        <div className="flex flex-col flex-1 min-h-0 p-6 pt-12">
+  const panelContent = (
+    <>
+        <div className={`flex flex-col flex-1 min-h-0 ${isMobile ? 'pb-4 pt-0' : 'p-6 pt-12'}`}>
+        {isMobile ? (
+          <DrawerHeader className="text-left p-0 pb-3">
+            <DrawerTitle className="flex items-center gap-2">
+              <ListOrdered className="h-5 w-5" />
+              Ticket Queue
+            </DrawerTitle>
+          </DrawerHeader>
+        ) : (
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <ListOrdered className="h-5 w-5" />
             Ticket Queue
           </SheetTitle>
         </SheetHeader>
+        )}
 
         <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
-          <ResizablePanel defaultSize={50} minSize={25} className="flex flex-col min-h-0">
+          <ResizablePanel defaultSize={isJiraConfigured ? 50 : 100} minSize={25} className="flex flex-col min-h-0">
             <div className="text-xs font-semibold text-muted-foreground mb-2 shrink-0">
               Queue {queue.length > 0 && `(${queue.length})`}
+            </div>
+            <div className="shrink-0 flex gap-2 mb-3">
+              <Input
+                placeholder={isJiraConfigured ? 'Or add manually (e.g. PROJ-123)' : 'Ticket key (e.g. PROJ-123)'}
+                value={manualTicketKey}
+                onChange={(e) => setManualTicketKey(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddManualTicket(); }}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                disabled={!manualTicketKey.trim() || addingKeys.has(manualTicketKey.trim())}
+                onClick={handleAddManualTicket}
+              >
+                {addingKeys.has(manualTicketKey.trim()) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              </Button>
             </div>
             {queue.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center p-4">
                 <div>
                   <ListOrdered className="h-10 w-10 mx-auto mb-2 opacity-30" />
                   <p>No tickets in queue.</p>
-                  <p className="text-xs mt-1">Browse Jira below to add tickets.</p>
+                  <p className="text-xs mt-1">{isJiraConfigured ? 'Add manually above or browse Jira below.' : 'Add tickets manually above.'}</p>
                 </div>
               </div>
             ) : (
@@ -289,10 +359,9 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 <ScrollArea className="flex-1 min-h-0">
                   <div className="space-y-1 pr-2">
                     {queue.map((item, index) => {
-                      const enrichedIssue: JiraIssueDisplay = issues.find((i) => i.key === item.ticket_key) ?? {
-                        key: item.ticket_key,
-                        summary: item.ticket_summary,
-                      };
+                      const enrichedIssue: JiraIssueDisplay = issues.find((i) => i.key === item.ticket_key)
+                        ?? manualIssues.get(item.ticket_key)
+                        ?? { key: item.ticket_key, summary: item.ticket_summary };
                       const card = (
                         <IssueCard
                           issue={enrichedIssue}
@@ -339,9 +408,10 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
             )}
           </ResizablePanel>
 
-          <ResizableHandle withHandle className="shrink-0 !h-1 !min-h-1 bg-border" />
-
-          <ResizablePanel defaultSize={50} minSize={25} className="flex flex-col min-h-0 pt-4">
+          {isJiraConfigured && (
+            <>
+              <ResizableHandle withHandle className="shrink-0 !h-1 !min-h-1 bg-border" />
+              <ResizablePanel defaultSize={50} minSize={25} className="flex flex-col min-h-0 pt-4">
             <div className="text-xs font-semibold text-muted-foreground mb-2 shrink-0">
               Browse Jira
             </div>
@@ -453,9 +523,40 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 )}
               </div>
             </ScrollArea>
-          </ResizablePanel>
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
         </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={onOpenChange}>
+        <DrawerContent className="h-[80vh] flex flex-col">
+          <div className="h-full flex flex-col min-h-0 overflow-hidden px-5">
+            {panelContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="flex flex-col p-0"
+        style={{ width: drawerWidth, minWidth: drawerWidth, maxWidth: drawerWidth }}
+      >
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group z-10"
+          title="Drag to resize"
+        >
+          <div className="w-1 h-16 rounded-full bg-border group-hover:bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        {panelContent}
       </SheetContent>
     </Sheet>
   );
