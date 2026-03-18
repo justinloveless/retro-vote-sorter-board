@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Play, Ticket } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Ticket, Trash2 } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { supabase } from '@/integrations/supabase/client';
 import { getPointsWithMostVotes } from '@/hooks/usePokerSession';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 interface TicketQueueItem {
   id: string;
