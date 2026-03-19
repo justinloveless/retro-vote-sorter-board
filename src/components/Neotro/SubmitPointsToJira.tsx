@@ -70,7 +70,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
       const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
       // Log the button press into chat (independent of whether the Jira call succeeds).
       await sendSystemMessage(
-        `<p>${pressedBy} pressed Submit ${finalPoints} pts to Jira</p>`
+        `<p>Submitted ${finalPoints} pts to Jira by ${pressedBy}</p>`
       );
 
       const { data, error } = await supabase.functions.invoke('update-jira-issue-points', {

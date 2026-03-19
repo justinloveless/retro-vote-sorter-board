@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { PokerSessionRound } from './usePokerSessionHistory';
+import {
+  PokerSessionRound,
+  POKER_FOLLOW_CURRENT_ROUND_EVENT,
+} from './usePokerSessionHistory';
 
 // Define types for session state
 export interface PlayerSelection {
@@ -104,9 +107,10 @@ export const usePokerSession = (
     return selections;
   }, []);
 
-  const manageSession = useCallback(async () => {
+  const manageSession = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!roomId || !currentUserId || !currentUserDisplayName) return;
-    setLoading(true);
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) setLoading(true);
 
     // 1. Fetch the main session
     let { data: sessionData, error } = await supabase
@@ -188,6 +192,8 @@ export const usePokerSession = (
           session_id: sessionData.id,
           round_number: sessionData.current_round_number,
           selections: initialSelections,
+          is_active: true,
+          game_state: 'Selection',
         })
         .select()
         .single();
@@ -273,17 +279,41 @@ export const usePokerSession = (
         filter: `id=eq.${session.session_id}`
       },
       (payload) => {
-        // A change to the session table (like config) triggers a state update.
-        // Round changes are handled by the 'next_round_initiated' broadcast.
-        setSession(prev => prev ? ({ ...prev, ...(payload.new as PokerSession) }) : null);
+        // Merge only poker_sessions columns. `prev.id` is the current round row id;
+        // spreading payload.new would overwrite it with the session id and break updates.
+        const row = payload.new as Record<string, unknown>;
+        setSession((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            current_round_number: row.current_round_number as number,
+            observer_ids: (row.observer_ids as string[] | undefined) ?? prev.observer_ids,
+            presence_enabled:
+              row.presence_enabled === null || row.presence_enabled === undefined
+                ? prev.presence_enabled
+                : (row.presence_enabled as boolean),
+            send_to_slack:
+              row.send_to_slack === null || row.send_to_slack === undefined
+                ? prev.send_to_slack
+                : (row.send_to_slack as boolean),
+          };
+        });
       }
     );
 
     channel.on(
       'broadcast',
       { event: 'next_round_initiated' },
-      () => {
-        manageSession();
+      ({ payload }: { payload?: { roundNumber?: number } }) => {
+        const rn = payload?.roundNumber;
+        if (typeof rn === 'number') {
+          window.dispatchEvent(
+            new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
+              detail: { sessionId: session.session_id, roundNumber: rn },
+            })
+          );
+        }
+        manageSession({ showLoading: false });
       }
     );
 
@@ -467,10 +497,10 @@ export const usePokerSession = (
     setSession(prev => prev ? { ...prev, ...newState } : null);
     await updateRoundState(newState);
 
-    // Emit notification to known participants when the hand starts
+    // Notify once when the first hand starts; not on later rounds.
     try {
       const participantIds = Object.keys(newSelections);
-      if (participantIds.length > 0) {
+      if (participantIds.length > 0 && session.round_number === 1) {
         const title = `Poker session started`;
         const roomId = session.room_id;
         // Use admin-send-notification for consistency and future flexibility
@@ -509,17 +539,33 @@ export const usePokerSession = (
       });
     }
 
+    // Deactivate all currently-active rounds (Next Round is the "single active" flow).
+    await supabase
+      .from('poker_session_rounds')
+      .update({ is_active: false })
+      .eq('session_id', session.session_id)
+      .eq('is_active', true);
+
     const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
         session_id: session.session_id,
         round_number: newRoundNumber,
         selections: resetSelections,
-        ticket_number: newTicketNumber || ''
+        ticket_number: newTicketNumber || '',
+        is_active: true,
+        game_state: 'Selection',
     });
 
     if (newRoundError) {
         console.error('Error creating new round', newRoundError);
         return;
     }
+
+    // Sync: update history selection ref before postgres realtime can fire fetchRounds (race with selectedRoundNumberRef).
+    window.dispatchEvent(
+      new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
+        detail: { sessionId: session.session_id, roundNumber: newRoundNumber },
+      })
+    );
 
     // 2. Update the session to point to the new round
     // The realtime subscription on the session table will trigger a full refresh for all clients.
@@ -530,11 +576,67 @@ export const usePokerSession = (
       await sessionChannelRef.current.send({
         type: 'broadcast',
         event: 'next_round_initiated',
+        payload: { roundNumber: newRoundNumber },
       });
     }
 
-    // 4. Manually refetch for the local user
-    manageSession();
+    // 4. Manually refetch for the local user (keep UI mounted — no full-page loading state)
+    manageSession({ showLoading: false });
+  };
+
+  const startNewRound = async (newTicketNumber?: string) => {
+    if (!session) return;
+
+    const newRoundNumber = session.round_number + 1;
+    const effectiveTeamId = teamId || null;
+    const observerIds: string[] = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
+
+    let resetSelections: Selections;
+    if (effectiveTeamId) {
+      resetSelections = await fetchTeamSelections(effectiveTeamId, undefined, observerIds) ?? {};
+    } else {
+      resetSelections = {};
+      const observerSet = new Set(observerIds);
+      Object.entries(session.selections).forEach(([key, sel]) => {
+        if (!observerSet.has(key)) {
+          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
+        }
+      });
+    }
+
+    const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
+      session_id: session.session_id,
+      round_number: newRoundNumber,
+      selections: resetSelections,
+      ticket_number: newTicketNumber || '',
+      is_active: true,
+      game_state: 'Selection',
+    });
+
+    if (newRoundError) {
+      console.error('Error creating new round', newRoundError);
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
+        detail: { sessionId: session.session_id, roundNumber: newRoundNumber },
+      })
+    );
+
+    // Update session pointer so clients (and chat/queue) know which round is "latest".
+    await supabase.from('poker_sessions').update({ current_round_number: newRoundNumber }).eq('id', session.session_id);
+
+    // Reuse existing event so clients refetch their session-level data.
+    if (sessionChannelRef.current) {
+      await sessionChannelRef.current.send({
+        type: 'broadcast',
+        event: 'next_round_initiated',
+        payload: { roundNumber: newRoundNumber },
+      });
+    }
+
+    manageSession({ showLoading: false });
   };
 
   const deleteAllRounds = async () => {
@@ -553,5 +655,18 @@ export const usePokerSession = (
     }
   };
 
-  return { session, loading, updateUserSelection, toggleLockUserSelection, toggleAbstainUserSelection, playHand, nextRound, updateTicketNumber, presentUserIds: session?.presence_enabled === false ? allUserIds : presentUserIds, updateSessionConfig, deleteAllRounds };
+  return {
+    session,
+    loading,
+    updateUserSelection,
+    toggleLockUserSelection,
+    toggleAbstainUserSelection,
+    playHand,
+    nextRound,
+    startNewRound,
+    updateTicketNumber,
+    presentUserIds: session?.presence_enabled === false ? allUserIds : presentUserIds,
+    updateSessionConfig,
+    deleteAllRounds,
+  };
 };

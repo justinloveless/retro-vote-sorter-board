@@ -49,6 +49,8 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   const currentUserId = activeUserId;
   const currentUserName = activeUserSelection?.name;
   const currentRoundNumber = currentRound?.round_number || 1;
+  const ticketNumber = currentRound?.ticket_number;
+  const chatTitle = ticketNumber ? `${ticketNumber} Chat` : `Round ${currentRoundNumber} Chat`;
 
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean | string>(false);
@@ -275,7 +277,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             <CardTitle className="flex items-center gap-2 text-lg">
               <MessageCircle className="h-5 w-5" />
               <span>
-                Round {currentRoundNumber} Chat
+                {chatTitle}
               </span>
               {messages.length > 0 && (
                 <Badge variant="secondary" className="ml-2">

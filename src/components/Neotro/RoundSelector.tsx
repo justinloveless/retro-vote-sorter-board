@@ -33,6 +33,7 @@ interface RoundSelectorProps {
   goToRound: (roundNumber: number) => void;
   goToCurrentRound: () => void;
   deleteRound?: (roundId: string) => Promise<boolean>;
+  onStartNewRoundRequest?: () => void;
   isAdmin?: boolean;
   /** When true, removes card styling and uses full width (for mobile) */
   isMobile?: boolean;
@@ -51,6 +52,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   goToRound,
   goToCurrentRound,
   deleteRound,
+  onStartNewRoundRequest = () => {},
   isAdmin = false,
   isMobile = false,
 }) => {
@@ -76,15 +78,13 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
 
   const ticketStripItems = useMemo(() => {
     const roundItems = rounds
-      .filter(
-        (round) =>
-          !!round.ticket_number || (!isViewingHistory && round.round_number === currentRoundNumber)
-      )
+      .filter((round) => round.is_active || !!round.ticket_number || round.round_number === currentRoundNumber)
       .map((round) => {
-        const isCurrentRound = !isViewingHistory && round.round_number === currentRoundNumber;
-        const ticketKey = isCurrentRound
+        const isLatestRound = round.round_number === currentRoundNumber;
+        const isSelectedRound = currentRound?.round_number === round.round_number;
+        const ticketKey = isLatestRound
           ? (displayTicketNumber || round.ticket_number || 'No ticket')
-          : (round.ticket_number as string);
+          : (round.ticket_number || 'No ticket');
         const jiraPoints = ticketMetaByKey[ticketKey]?.storyPoints;
         const modePoints = getPointsWithMostVotes(
           Object.values(round.selections || {}) as { points: number }[]
@@ -94,9 +94,10 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
           id: `round-${round.id}`,
           roundId: round.id,
           ticketKey,
-          pointsLabel: displayPoints != null ? `${displayPoints} pts` : (isCurrentRound ? currentPointsLabel : null),
-          type: isCurrentRound ? ('current' as const) : ('round' as const),
+          pointsLabel: displayPoints != null ? `${displayPoints} pts` : (isSelectedRound ? currentPointsLabel : null),
+          type: isLatestRound ? ('current' as const) : ('round' as const),
           roundNumber: round.round_number,
+          isActive: round.is_active,
         };
       });
 
@@ -113,17 +114,16 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         pointsLabel: currentPointsLabel,
         type: 'current' as const,
         roundNumber: currentRoundNumber,
+        isActive: true,
       });
     }
 
     return items;
-  }, [rounds, displayTicketNumber, currentPointsLabel, ticketMetaByKey, isViewingHistory, currentRoundNumber]);
+  }, [rounds, displayTicketNumber, currentPointsLabel, ticketMetaByKey, isViewingHistory, currentRound, currentRoundNumber]);
 
   const selectedStripIndex = useMemo(() => {
-    if (isViewingHistory && currentRound) {
-      const idx = ticketStripItems.findIndex(
-        (item) => item.type === 'round' && item.roundNumber === currentRound.round_number
-      );
+    if (currentRound) {
+      const idx = ticketStripItems.findIndex((item) => item.roundNumber === currentRound.round_number);
       if (idx >= 0) return idx;
     }
     const currentIdx = ticketStripItems.findIndex((item) => item.type === 'current');
@@ -132,7 +132,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       if (ticketStripItems[i].type === 'round') return i;
     }
     return 0;
-  }, [isViewingHistory, currentRound, ticketStripItems]);
+  }, [currentRound, ticketStripItems]);
 
   const ticketKeysForFetch = useMemo(() => {
     const fromRounds = rounds.map((r) => r.ticket_number).filter((k): k is string => !!k);
@@ -198,20 +198,39 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions, [wheelPlugin]);
   const [activeSnapIndex, setActiveSnapIndex] = useState(selectedStripIndex);
 
+  const activeRoundsSorted = useMemo(
+    () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+    [rounds]
+  );
+
+  const goToNextActiveRound = useCallback(() => {
+    if (activeRoundsSorted.length === 0) return;
+
+    const currentRoundNumber =
+      currentRound?.round_number ?? session?.round_number ?? 1;
+
+    const idx = activeRoundsSorted.findIndex((r) => r.round_number === currentRoundNumber);
+    if (idx < 0) {
+      // If the currently selected round isn't active, jump to the first active.
+      goToRound(activeRoundsSorted[0].round_number);
+      return;
+    }
+
+    const next = activeRoundsSorted[(idx + 1) % activeRoundsSorted.length];
+    if (next) goToRound(next.round_number);
+  }, [activeRoundsSorted, currentRound?.round_number, goToRound, session?.round_number]);
+
   const navigateToItem = useCallback(
     (item: { ticketKey: string; type: string; roundNumber?: number }) => {
-      if (!item || item.ticketKey === 'No ticket') return;
-      if (item.type === 'round' && item.roundNumber) {
+      if (!item) return;
+      if (item.roundNumber) {
         if (currentRound?.round_number !== item.roundNumber) {
           goToRound(item.roundNumber);
         }
         return;
       }
-      if (item.type === 'current') {
-        if (isViewingHistory) goToCurrentRound();
-      }
     },
-    [currentRound, goToRound, isViewingHistory, goToCurrentRound]
+    [currentRound, goToRound]
   );
 
   const handleChipClick = useCallback(
@@ -301,10 +320,17 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
             </NeotroPressableButton>
             <NeotroPressableButton
               size="sm"
-              onClick={goToCurrentRound}
-              aria-label="Go to current round"
+              onClick={goToNextActiveRound}
+              aria-label="Go to next active round"
             >
               <Play className="h-3.5 w-3.5" />
+            </NeotroPressableButton>
+            <NeotroPressableButton
+              size="sm"
+              onClick={onStartNewRoundRequest}
+              aria-label="Start new round"
+            >
+              <span className="font-mono font-semibold text-sm leading-none">+</span>
             </NeotroPressableButton>
             <NeotroPressableButton
               size="sm"
@@ -324,16 +350,21 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
           <div ref={emblaRef} className="overflow-hidden">
             <div className={`flex items-center gap-2 px-1 ${isMobile ? 'py-1' : 'py-2'}`}>
               {ticketStripItems.map((item, index) => {
-                const isActive = index === activeSnapIndex;
+                const isSelected = index === activeSnapIndex;
+                const isRoundActive = !!item.isActive;
                 const iconUrl = ticketMetaByKey[item.ticketKey]?.issueTypeIconUrl;
                 const canDelete = isAdmin && deleteRound && item.type === 'round' && item.roundId && ticketStripItems.filter(i => i.type === 'round').length > 1;
                 const chipButton = (
                   <button
                     type="button"
                     className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
-                      isActive
-                        ? 'bg-primary/15 border-primary/80 text-foreground scale-110'
-                        : 'bg-card hover:bg-accent/50 opacity-75'
+                      isSelected
+                        ? isRoundActive
+                          ? 'bg-emerald-500/15 border-emerald-400/80 text-foreground scale-110 ring-1 ring-emerald-400/30 shadow-[0_0_14px_rgba(16,185,129,0.35)]'
+                          : 'bg-primary/15 border-primary/80 text-foreground scale-110'
+                        : isRoundActive
+                          ? 'bg-emerald-500/10 border-emerald-400/70 text-foreground ring-1 ring-emerald-400/20 shadow-[0_0_10px_rgba(16,185,129,0.32)]'
+                          : 'bg-card hover:bg-accent/50 opacity-75'
                     }`}
                     onClick={() => handleChipClick(index)}
                   >

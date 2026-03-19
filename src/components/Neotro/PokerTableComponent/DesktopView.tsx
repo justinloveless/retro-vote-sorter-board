@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Maximize2, Eye, GripVertical } from 'lucide-react';
+import { Send, Maximize2, Eye, GripVertical, RotateCcw } from 'lucide-react';
 import { PlayerSelection } from '@/hooks/usePokerSession';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
@@ -124,6 +124,7 @@ export const DesktopView: React.FC = () => {
         isSending,
         displaySession,
         displayWinningPoints,
+        replayRound,
         cardGroups,
         activeUserSelection,
         totalPlayers,
@@ -145,6 +146,7 @@ export const DesktopView: React.FC = () => {
         enterObserverMode,
         setNextRoundDialogOpen,
         onNextRoundRequest,
+        onStartNewRoundRequest,
         ticketQueue,
         addTicketToQueue,
         removeTicketFromQueue,
@@ -349,6 +351,7 @@ export const DesktopView: React.FC = () => {
                     goToCurrentRound={goToCurrentRound}
                     deleteRound={deleteRound}
                     isAdmin={userRole === 'admin' || userRole === 'owner'}
+                    onStartNewRoundRequest={onStartNewRoundRequest}
                 />
             )}
 
@@ -424,9 +427,32 @@ export const DesktopView: React.FC = () => {
                                     )}
                                 </div>
                                 {displaySession.game_state === 'Playing' && (
-                                    <div className={`flex items-center justify-center gap-2 bg-primary/20 rounded-lg ${isCompact ? 'px-3 py-1' : 'px-4 py-2'}`}>
-                                        <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                        <span className={`font-bold ${isCompact ? 'text-base' : 'text-xl'}`}>{displayWinningPoints} pts</span>
+                                    <div className={`relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1`}>
+                                        <div className={`flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 ${isCompact ? 'px-3 py-1' : 'px-4 py-2'}`}>
+                                            <span className="text-sm text-muted-foreground">Winning Points:</span>
+                                            <span className={`font-bold ${isCompact ? 'text-base' : 'text-xl'}`}>{displayWinningPoints} pts</span>
+                                        </div>
+                                        {!isObserver && (
+                                            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <NeotroPressableButton
+                                                                size="sm"
+                                                                activeShowsPressed={false}
+                                                                aria-label="Replay"
+                                                                onClick={replayRound}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4" />
+                                                            </NeotroPressableButton>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Replay</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {!isViewingHistory && (
@@ -434,14 +460,14 @@ export const DesktopView: React.FC = () => {
                                         <div className={`flex items-center justify-center ${isCompact ? 'py-1' : 'gap-2 py-2'}`}>
                                             <NextRoundButton
                                                 onHandPlayed={onNextRoundRequest}
-                                                isHandPlayed={session.game_state === 'Playing'}
+                                                isHandPlayed={true}
                                                 className="w-full"
                                             />
                                         </div>
                                     ) : (
                                         <PlayHandButton
                                             onHandPlayed={playHand}
-                                            isHandPlayed={session.game_state === 'Playing'}
+                                            isHandPlayed={false}
                                             className="w-full"
                                         />
                                     )
@@ -578,7 +604,7 @@ export const DesktopView: React.FC = () => {
                                 isLockedIn={activeUserSelection.locked}
                                 onAbstain={toggleAbstainUserSelection}
                                 isAbstained={activeUserSelection.points === -1}
-                                isAbstainedDisabled={session.game_state === 'Playing'}
+                                isAbstainedDisabled={false}
                             />
                         </div>
                     ) : !isViewingHistory && isObserver ? (

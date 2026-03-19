@@ -12,7 +12,7 @@ import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Eye, Maximize2 } from 'lucide-react';
+import { Send, Eye, Maximize2, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
@@ -48,6 +48,7 @@ export const MobileView: React.FC = () => {
         deleteAllRounds,
         displaySession,
         displayWinningPoints,
+        replayRound,
         cardGroups,
         activeUserSelection,
         totalPlayers,
@@ -67,6 +68,7 @@ export const MobileView: React.FC = () => {
         activeUserId,
         userRole,
         onNextRoundRequest,
+        onStartNewRoundRequest,
         ticketQueue,
         setQueuePanelOpen,
         isQueuePanelOpen,
@@ -145,6 +147,7 @@ export const MobileView: React.FC = () => {
                             goToCurrentRound={goToCurrentRound}
                             deleteRound={deleteRound}
                             isAdmin={userRole === 'admin' || userRole === 'owner'}
+                            onStartNewRoundRequest={onStartNewRoundRequest}
                             isMobile={true}
                         />
                     )}
@@ -199,9 +202,32 @@ export const MobileView: React.FC = () => {
                                         )}
                                     </div>
                                     {displaySession.game_state === 'Playing' && (
-                                        <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg px-3 py-1">
-                                            <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                            <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                        <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
+                                            <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
+                                                <span className="text-sm text-muted-foreground">Winning Points:</span>
+                                                <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                            </div>
+                                            {!isObserver && (
+                                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <NeotroPressableButton
+                                                                    size="sm"
+                                                                    activeShowsPressed={false}
+                                                                    aria-label="Replay"
+                                                                    onClick={replayRound}
+                                                                >
+                                                                    <RotateCcw className="h-4 w-4" />
+                                                                </NeotroPressableButton>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Replay</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     {!isViewingHistory && (
@@ -209,16 +235,20 @@ export const MobileView: React.FC = () => {
                                             <div className="flex items-center justify-center py-1">
                                                 <NextRoundButton
                                                     onHandPlayed={onNextRoundRequest}
-                                                    isHandPlayed={session.game_state === 'Playing'}
+                                                    isHandPlayed={displaySession.game_state === 'Playing'}
                                                     className="w-full"
+                                                    label="Next Round"
+                                                    systemMessagePrefix="Round completed by"
                                                 />
                                             </div>
                                         ) : (
-                                            <PlayHandButton
-                                                onHandPlayed={playHand}
-                                                isHandPlayed={session.game_state === 'Playing'}
-                                                className="w-full"
-                                            />
+                                            <div className="flex items-center justify-center py-1">
+                                                <PlayHandButton
+                                                    onHandPlayed={playHand}
+                                                    isHandPlayed={displaySession.game_state === 'Playing'}
+                                                    className="w-full"
+                                                />
+                                            </div>
                                         )
                                     )}
                                 </div>
@@ -315,7 +345,7 @@ export const MobileView: React.FC = () => {
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
                                     isAbstained={activeUserSelection.points === -1}
-                                    isAbstainedDisabled={session.game_state === 'Playing'}
+                                    isAbstainedDisabled={displaySession.game_state === 'Playing'}
                                 />
                             </div>
                         )}
@@ -373,6 +403,7 @@ export const MobileView: React.FC = () => {
                             goToCurrentRound={goToCurrentRound}
                             deleteRound={deleteRound}
                             isAdmin={userRole === 'admin' || userRole === 'owner'}
+                            onStartNewRoundRequest={onStartNewRoundRequest}
                             isMobile={true}
                         />
                     )}
@@ -427,9 +458,32 @@ export const MobileView: React.FC = () => {
                                         )}
                                     </div>
                                     {displaySession.game_state === 'Playing' && (
-                                        <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg px-3 py-1">
-                                            <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                            <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                        <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
+                                            <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
+                                                <span className="text-sm text-muted-foreground">Winning Points:</span>
+                                                <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                            </div>
+                                            {!isObserver && (
+                                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <NeotroPressableButton
+                                                                    size="sm"
+                                                                    activeShowsPressed={false}
+                                                                    aria-label="Replay"
+                                                                    onClick={replayRound}
+                                                                >
+                                                                    <RotateCcw className="h-4 w-4" />
+                                                                </NeotroPressableButton>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Replay</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     {!isViewingHistory && (
@@ -437,16 +491,20 @@ export const MobileView: React.FC = () => {
                                             <div className="flex items-center justify-center py-1">
                                                 <NextRoundButton
                                                     onHandPlayed={onNextRoundRequest}
-                                                    isHandPlayed={session.game_state === 'Playing'}
+                                                    isHandPlayed={displaySession.game_state === 'Playing'}
                                                     className="w-full"
+                                                    label="Next Round"
+                                                    systemMessagePrefix="Round completed by"
                                                 />
                                             </div>
                                         ) : (
-                                            <PlayHandButton
-                                                onHandPlayed={playHand}
-                                                isHandPlayed={session.game_state === 'Playing'}
-                                                className="w-full"
-                                            />
+                                            <div className="flex items-center justify-center py-1">
+                                                <PlayHandButton
+                                                    onHandPlayed={playHand}
+                                                    isHandPlayed={displaySession.game_state === 'Playing'}
+                                                    className="w-full"
+                                                />
+                                            </div>
                                         )
                                     )}
                                 </div>
@@ -543,7 +601,7 @@ export const MobileView: React.FC = () => {
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
                                     isAbstained={activeUserSelection.points === -1}
-                                    isAbstainedDisabled={session.game_state === 'Playing'}
+                                    isAbstainedDisabled={displaySession.game_state === 'Playing'}
                                 />
                             </div>
                         )}
