@@ -651,6 +651,9 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       average_points: 0,
     };
 
+    // Reset auto-reveal guard so it can trigger again after replay.
+    autoRevealTriggeredRef.current = null;
+
     // Optimistic update so the hand UI flips back immediately.
     setOptimisticRoundsById((prev) => ({
       ...prev,
