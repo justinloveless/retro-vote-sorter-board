@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Selections } from './usePokerSession';
 import { GameState } from './usePokerSession';
+
+/** Dispatched when the session advances so history can update `selectedRoundNumberRef` before `fetchRounds` races realtime. */
+export const POKER_FOLLOW_CURRENT_ROUND_EVENT = 'poker-follow-current-round';
+
+export type PokerFollowCurrentRoundDetail = { sessionId: string; roundNumber: number };
 
 export interface PokerSessionRound {
   id: string;
@@ -15,6 +20,7 @@ export interface PokerSessionRound {
   completed_at: string;
   created_at: string;
   game_state: GameState;
+  is_active: boolean;
 }
 
 export const usePokerSessionHistory = (sessionId: string | null, initialRoundNumber?: number) => {
@@ -22,6 +28,9 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // Preserve the user's selected round when we refetch due to realtime changes.
+  const selectedRoundNumberRef = useRef<number | undefined>(initialRoundNumber);
 
   const fetchRounds = useCallback(async () => {
     if (!sessionId) return;
@@ -43,15 +52,17 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
       setRounds(data || []);
       
       if (data && data.length > 0) {
-        // If initialRoundNumber is provided, try to find and set that round
-        if (initialRoundNumber !== undefined) {
-          const targetIndex = data.findIndex(round => round.round_number === initialRoundNumber);
-          if (targetIndex !== -1) {
-            setCurrentRoundIndex(targetIndex);
-          } else {
-            // If specified round not found, default to latest
-            setCurrentRoundIndex(data.length - 1);
-          }
+        const desiredRoundNumber = selectedRoundNumberRef.current ?? initialRoundNumber;
+        const targetIndex =
+          desiredRoundNumber !== undefined
+            ? data.findIndex((round) => round.round_number === desiredRoundNumber)
+            : -1;
+
+        if (targetIndex !== -1) {
+          setCurrentRoundIndex(targetIndex);
+        } else if (initialRoundNumber !== undefined) {
+          // If specified round not found, default to latest
+          setCurrentRoundIndex(data.length - 1);
         } else {
           // Set to the latest round by default
           setCurrentRoundIndex(data.length - 1);
@@ -75,6 +86,15 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
       setRounds([]);
       return;
     }
+
+    const handleFollowCurrentRound = (e: Event) => {
+      const ce = e as CustomEvent<PokerFollowCurrentRoundDetail>;
+      const { sessionId: sid, roundNumber } = ce.detail || ({} as PokerFollowCurrentRoundDetail);
+      if (sid !== sessionId || typeof roundNumber !== 'number') return;
+      selectedRoundNumberRef.current = roundNumber;
+      void fetchRounds();
+    };
+    window.addEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
 
     const channel = supabase
       .channel(`poker_session_rounds-changes-for-${sessionId}`)
@@ -100,11 +120,17 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     window.addEventListener('rounds-deleted', handleRoundsDeleted);
 
     return () => {
+      window.removeEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
       supabase.removeChannel(channel);
       window.removeEventListener('round-ended', handleRoundEnded);
       window.removeEventListener('rounds-deleted', handleRoundsDeleted);
     };
-  }, [sessionId]);
+  }, [sessionId, fetchRounds]);
+
+  useEffect(() => {
+    const round = rounds[currentRoundIndex];
+    if (round) selectedRoundNumberRef.current = round.round_number;
+  }, [rounds, currentRoundIndex]);
 
   const saveCurrentRound = async (
     sessionId: string,
@@ -195,8 +221,8 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     }
   };
 
-  const isViewingHistory = currentRoundIndex < rounds.length - 1;
   const currentRound = rounds[currentRoundIndex] || null;
+  const isViewingHistory = currentRound ? !currentRound.is_active : true;
   const canGoBack = currentRoundIndex > 0;
   const canGoForward = currentRoundIndex < rounds.length - 1;
 

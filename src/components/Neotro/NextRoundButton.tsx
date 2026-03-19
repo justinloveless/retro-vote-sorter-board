@@ -5,12 +5,16 @@ interface PlayHandButtonProps {
   onHandPlayed: () => void;
   isHandPlayed: boolean;
   className?: string;
+  label?: string;
+  systemMessagePrefix?: string;
 }
 
 const NextRoundButton: React.FC<PlayHandButtonProps> = ({
   onHandPlayed,
   isHandPlayed,
   className = '',
+  label = 'Next Round',
+  systemMessagePrefix = 'Round completed by',
 }) => {
   const { activeUserSelection, sendSystemMessage } = usePokerTable();
   const colorClass = isHandPlayed
@@ -25,7 +29,7 @@ const NextRoundButton: React.FC<PlayHandButtonProps> = ({
         // Important: await before calling onHandPlayed so the message is written to the
         // currently active round (pre-advance), not the newly created round.
         await sendSystemMessage(
-          `<p>${pressedBy} pressed Next Round</p>`
+          `<p>${systemMessagePrefix} ${pressedBy}</p>`
         );
         onHandPlayed();
       }}
@@ -46,7 +50,7 @@ const NextRoundButton: React.FC<PlayHandButtonProps> = ({
     >
       <div className="font-neotro text-white text-2xl normal-case">
         <span>
-          Next Round
+          {label}
         </span>
       </div>
     </button>

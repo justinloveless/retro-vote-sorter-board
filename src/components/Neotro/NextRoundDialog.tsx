@@ -14,9 +14,19 @@ interface NextRoundDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onConfirm: (ticketNumber: string) => void;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }
 
-export const NextRoundDialog: React.FC<NextRoundDialogProps> = ({ isOpen, onOpenChange, onConfirm }) => {
+export const NextRoundDialog: React.FC<NextRoundDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  title = 'Start Next Round',
+  description = 'Enter the ticket number for the next round. You can leave this blank.',
+  confirmLabel = 'Start Round',
+}) => {
   const [ticketNumber, setTicketNumber] = useState('');
 
   const handleStartRound = () => {
@@ -29,10 +39,8 @@ export const NextRoundDialog: React.FC<NextRoundDialogProps> = ({ isOpen, onOpen
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Start Next Round</DialogTitle>
-          <DialogDescription>
-            Enter the ticket number for the next round. You can leave this blank.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="py-4">
           <Input
@@ -56,7 +64,7 @@ export const NextRoundDialog: React.FC<NextRoundDialogProps> = ({ isOpen, onOpen
             activeShowsPressed={false}
             onClick={handleStartRound}
           >
-            Start Round
+            {confirmLabel}
           </NeotroPressableButton>
         </DialogFooter>
       </DialogContent>

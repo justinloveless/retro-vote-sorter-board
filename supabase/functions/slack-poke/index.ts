@@ -239,6 +239,14 @@ export async function createNewRound(
       .update({ current_round_number: newRoundNumber })
       .eq('id', sessionId);
 
+    // Keep Slack "start round" behavior aligned with Next Round:
+    // only the newly created round is active.
+    await supabase
+      .from('poker_session_rounds')
+      .update({ is_active: false })
+      .eq('session_id', sessionId)
+      .eq('is_active', true);
+
     // Create new round
     const { data: newRound, error } = await supabase
       .from('poker_session_rounds')
@@ -249,6 +257,7 @@ export async function createNewRound(
         ticket_title: ticketTitle,
         selections: {},
         game_state: 'Selection',
+        is_active: true,
         created_at: new Date().toISOString()
       })
       .select()

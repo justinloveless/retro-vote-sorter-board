@@ -15,6 +15,7 @@ interface PokerTableProps {
     toggleAbstainUserSelection: () => void;
     playHand: () => void;
     nextRound: (ticketNumber?: string) => void;
+    startNewRound: (ticketNumber?: string) => void;
     updateTicketNumber: (ticketNumber: string) => void;
     updateSessionConfig: (config: any) => void;
     deleteAllRounds: () => void;
@@ -26,9 +27,11 @@ interface PokerTableProps {
 
 const PokerTable: React.FC<PokerTableProps> = (props) => {
     const isMobile = useIsMobile();
+    const { startNewRound, ...providerProps } = props;
     const [isNextRoundDialogOpen, setNextRoundDialogOpen] = useState(false);
+    const [isStartNewRoundDialogOpen, setStartNewRoundDialogOpen] = useState(false);
     const [isQueuePanelOpen, setQueuePanelOpen] = useState(false);
-    const ticketQueue = useTicketQueue(props.teamId);
+    const ticketQueue = useTicketQueue(providerProps.teamId);
 
     const leaveObserverMode = () => {
         const observerIds = (props.session as { observer_ids?: string[] })?.observer_ids ?? [];
@@ -56,15 +59,33 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
         setNextRoundDialogOpen(false);
     };
 
+    const handleStartNewRoundRequest = async () => {
+        // Start a parallel round without deactivating other active rounds.
+        const next = await ticketQueue.popNext();
+        if (next) {
+            startNewRound(next.ticket_key);
+        } else {
+            setStartNewRoundDialogOpen(true);
+        }
+    };
+
+    const handleStartNewRoundConfirm = (ticketNumber?: string) => {
+        startNewRound(ticketNumber);
+        setStartNewRoundDialogOpen(false);
+    };
+
     return (
         <PokerTableProvider 
-            {...props} 
+            {...providerProps}
             leaveObserverMode={leaveObserverMode}
             enterObserverMode={enterObserverMode}
             isMobile={isMobile}
             isNextRoundDialogOpen={isNextRoundDialogOpen}
             setNextRoundDialogOpen={setNextRoundDialogOpen}
             onNextRoundRequest={handleNextRoundRequest}
+            isStartNewRoundDialogOpen={isStartNewRoundDialogOpen}
+            setStartNewRoundDialogOpen={setStartNewRoundDialogOpen}
+            onStartNewRoundRequest={handleStartNewRoundRequest}
             ticketQueue={ticketQueue}
             isQueuePanelOpen={isQueuePanelOpen}
             setQueuePanelOpen={setQueuePanelOpen}
@@ -74,6 +95,14 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
                 isOpen={isNextRoundDialogOpen}
                 onOpenChange={setNextRoundDialogOpen}
                 onConfirm={handleNextRoundConfirm}
+            />
+            <NextRoundDialog
+                isOpen={isStartNewRoundDialogOpen}
+                onOpenChange={setStartNewRoundDialogOpen}
+                onConfirm={handleStartNewRoundConfirm}
+                title="Start New Round"
+                description="Start another active round in parallel. You can enter a ticket number, or leave it blank."
+                confirmLabel="Start Round"
             />
             <TicketQueuePanel
                 isOpen={isQueuePanelOpen}

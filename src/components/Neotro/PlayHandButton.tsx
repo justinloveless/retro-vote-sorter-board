@@ -23,7 +23,7 @@ const PlayHandButton: React.FC<PlayHandButtonProps> = ({
       onClick={async () => {
         const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
         // Await so the system message lands in the current round chat.
-        await sendSystemMessage(`<p>${pressedBy} pressed Reveal Cards</p>`);
+        await sendSystemMessage(`<p>Cards revealed by ${pressedBy}</p>`);
         onHandPlayed();
       }}
       onMouseDown={() => {
