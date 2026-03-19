@@ -1,19 +1,30 @@
-import React from 'react';
-import { usePokerTable } from './context';
+import React, { useContext } from 'react';
+import { usePokerTable, PokerTableContext } from './context';
 import { MobileView } from './MobileView';
 import { DesktopView } from './DesktopView';
 import "@/components/Neotro/neotro.css";
 
 export const PokerTableContent: React.FC = () => {
-    const { isMobile, session } = usePokerTable();
+    const context = useContext(PokerTableContext);
+
+    if (!context) {
+        // During HMR the provider context can temporarily be unavailable
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-lg text-muted-foreground">Loading Session...</div>
+            </div>
+        );
+    }
+
+    const { isMobile, session } = context;
 
     if (!session) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="text-lg text-gray-600 dark:text-gray-300">Loading Session...</div>
+                <div className="text-lg text-muted-foreground">Loading Session...</div>
             </div>
         );
     }
 
     return isMobile ? <MobileView /> : <DesktopView />;
-} 
+}
