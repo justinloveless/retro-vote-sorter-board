@@ -96,7 +96,7 @@ export const FeedbackButton: React.FC<Props> = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600 dark:text-gray-300">Type</label>
-              <select className="border rounded px-2 py-1 text-sm" value={type} onChange={(e) => setType(e.target.value as any)}>
+              <select className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground" value={type} onChange={(e) => setType(e.target.value as any)}>
                 <option value="bug">Bug</option>
                 <option value="feature">Feature</option>
                 <option value="other">Other</option>
