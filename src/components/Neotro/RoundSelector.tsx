@@ -82,9 +82,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       .map((round) => {
         const isLatestRound = round.round_number === currentRoundNumber;
         const isSelectedRound = currentRound?.round_number === round.round_number;
-        const ticketKey = isLatestRound
-          ? (displayTicketNumber || round.ticket_number || 'No ticket')
-          : (round.ticket_number || 'No ticket');
+        const ticketKey = round.ticket_number || 'No ticket';
         const jiraPoints = ticketMetaByKey[ticketKey]?.storyPoints;
         const modePoints = getPointsWithMostVotes(
           Object.values(round.selections || {}) as { points: number }[]
@@ -101,16 +99,17 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         };
       });
 
-    const lastRound = roundItems[roundItems.length - 1];
-    const currentRoundExists = lastRound?.type === 'current';
+    const currentRoundExists = roundItems.some((item) => item.type === 'current');
 
     const items = [...roundItems];
 
     if (!isViewingHistory && !currentRoundExists) {
+      const sessionRoundTicket =
+        rounds.find((r) => r.round_number === currentRoundNumber)?.ticket_number || 'No ticket';
       items.push({
         id: 'current-ticket',
         roundId: undefined,
-        ticketKey: displayTicketNumber || 'No ticket',
+        ticketKey: sessionRoundTicket,
         pointsLabel: currentPointsLabel,
         type: 'current' as const,
         roundNumber: currentRoundNumber,
@@ -119,7 +118,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     }
 
     return items;
-  }, [rounds, displayTicketNumber, currentPointsLabel, ticketMetaByKey, isViewingHistory, currentRound, currentRoundNumber]);
+  }, [rounds, currentPointsLabel, ticketMetaByKey, isViewingHistory, currentRound, currentRoundNumber]);
 
   const selectedStripIndex = useMemo(() => {
     if (currentRound) {
