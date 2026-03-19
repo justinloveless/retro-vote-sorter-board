@@ -600,6 +600,31 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     }
   };
 
+  // Auto-reveal: when every participant has locked in or abstained, reveal cards automatically.
+  const autoRevealTriggeredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active) return;
+    if (effectiveCurrentRound.game_state === 'Playing') return;
+
+    const selections = effectiveCurrentRound.selections || {};
+    const entries = Object.entries(selections);
+    // Need at least 1 player to auto-reveal
+    if (entries.length === 0) return;
+
+    const allReady = entries.every(([, sel]) => {
+      const s = sel as PlayerSelection;
+      return s.locked || s.points === -1;
+    });
+
+    if (allReady && autoRevealTriggeredRef.current !== effectiveCurrentRound.id) {
+      autoRevealTriggeredRef.current = effectiveCurrentRound.id;
+      // Small delay so the last lock-in animation is visible before reveal
+      setTimeout(() => {
+        playHandForSelectedRound();
+      }, 600);
+    }
+  }, [effectiveCurrentRound]);
+
   const replayRoundForSelectedRound = async () => {
     if (!effectiveCurrentRound) return;
     if (effectiveCurrentRound.game_state !== 'Playing') return;
@@ -625,6 +650,9 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       selections: resetSelections,
       average_points: 0,
     };
+
+    // Reset auto-reveal guard so it can trigger again after replay.
+    autoRevealTriggeredRef.current = null;
 
     // Optimistic update so the hand UI flips back immediately.
     setOptimisticRoundsById((prev) => ({
