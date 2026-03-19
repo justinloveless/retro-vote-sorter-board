@@ -1662,6 +1662,7 @@ export type Database = {
       }
       create_default_columns: { Args: { board_id: string }; Returns: undefined }
       get_current_tenant_id: { Args: never; Returns: string }
+      get_org_team_invite: { Args: { invite_code: string }; Returns: Json }
       get_readiness_summary: {
         Args: { board_id_param: string; stage_param: string }
         Returns: Json
