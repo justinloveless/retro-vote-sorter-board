@@ -557,7 +557,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     const winning_points = getPointsWithMostVotes(participating as { points: number }[]);
 
     const newState = {
-      game_state: 'Playing',
+      game_state: 'Playing' as const,
       selections: newSelections,
       average_points: winning_points,
     };

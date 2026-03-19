@@ -281,7 +281,7 @@ export const usePokerSession = (
       (payload) => {
         // Merge only poker_sessions columns. `prev.id` is the current round row id;
         // spreading payload.new would overwrite it with the session id and break updates.
-        const row = payload.new as Record<string, unknown>;
+        const row = payload.new as unknown as Record<string, unknown>;
         setSession((prev) => {
           if (!prev) return null;
           return {
