@@ -92,7 +92,7 @@ interface PokerTableContextProps {
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
 
-const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
+export const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
 
 export const usePokerTable = () => {
   const context = useContext(PokerTableContext);
