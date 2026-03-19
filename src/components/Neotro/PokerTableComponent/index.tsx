@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { PokerTableContext, type PokerTableContextProps } from './context';
+import { PokerTableContext } from './context';
 import { MobileView } from './MobileView';
 import { DesktopView } from './DesktopView';
 import "@/components/Neotro/neotro.css";
