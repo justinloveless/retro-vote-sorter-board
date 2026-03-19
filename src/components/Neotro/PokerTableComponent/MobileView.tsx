@@ -501,7 +501,7 @@ export const MobileView: React.FC = () => {
                                             <div className="flex items-center justify-center py-1">
                                                 <PlayHandButton
                                                     onHandPlayed={playHand}
-                                                    isHandPlayed={displaySession.game_state === 'Playing'}
+                                                    isHandPlayed={false}
                                                     className="w-full"
                                                 />
                                             </div>
