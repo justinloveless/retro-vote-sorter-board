@@ -108,11 +108,11 @@ export function generateVotingMessage(
   });
 
   // Add link to poker session if team ID is available
-  if (teamId) {
+  if (teamId && sessionRoomId) {
     const baseUrl = 'https://retro-scope.lovable.app';
     const sessionUrl = roundNumber 
-      ? `${baseUrl}/teams/${teamId}/neotro?round=${roundNumber}`
-      : `${baseUrl}/teams/${teamId}/neotro`;
+      ? `${baseUrl}/teams/${teamId}/poker/${sessionRoomId}?round=${roundNumber}`
+      : `${baseUrl}/teams/${teamId}/poker/${sessionRoomId}`;
 
     console.log('sessionUrl', sessionUrl);
     
