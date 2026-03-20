@@ -72,7 +72,8 @@ export function generateVotingMessage(
   gameState: 'Voting' | 'Playing',
   teamId?: string,
   roundNumber?: number,
-  jiraUrl?: string | null
+  jiraUrl?: string | null,
+  sessionRoomId?: string
 ): any {
   const ticketInfo = ticketNumber ? `${ticketNumber}${ticketTitle ? `: ${ticketTitle}` : ''}` : 'Planning Poker Session';
   
