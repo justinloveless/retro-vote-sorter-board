@@ -21,6 +21,10 @@ import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { TeamPokerSessions } from '@/components/team/TeamPokerSessions';
+import {
+  fetchLatestPokerSessionRowForTeam,
+  pokerSessionSettingsFromPreviousRow,
+} from '@/lib/pokerSessionCloneSettings';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -40,10 +44,14 @@ const Team = () => {
     
     // Generate a unique room_id for this session
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
+
+    const previousRow = await fetchLatestPokerSessionRowForTeam(supabase, teamId);
+    const settingsFromPrevious = pokerSessionSettingsFromPreviousRow(previousRow);
+
     const { data, error } = await supabase
       .from('poker_sessions')
       .insert({
+        ...settingsFromPrevious,
         room_id: roomId,
         team_id: teamId,
         current_round_number: 1,
@@ -235,6 +243,9 @@ const Team = () => {
                     <TeamPokerSessions
                       teamId={teamId!}
                       onCreateSession={handleCreatePokerSession}
+                      canDeleteSessions={
+                        ['owner', 'admin'].includes(currentUserRole ?? '') || profile?.role === 'admin'
+                      }
                     />
                   </TabsContent>
                 )}

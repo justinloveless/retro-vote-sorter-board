@@ -20,14 +20,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useIsCompactViewport } from '@/hooks/use-compact-viewport';
 import { PokerBottomBar, type PanelVisibility } from '@/components/Neotro/PokerBottomBar';
 import { RoundSelector } from '@/components/Neotro/RoundSelector';
+import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
+import type { TicketQueueItem } from '@/hooks/useTicketQueue';
 
 function QueuePanelCard({
   teamId,
   ticketQueue,
+  rounds,
   addTicketToQueue,
   removeTicketFromQueue,
   reorderQueue,
   clearQueue,
+  playQueueTicketNow,
+  playQueueTicketNowDisabled,
+  playQueueNowBusyId,
   displayTicketNumber,
   setDisplayTicketNumber,
   updateTicketNumber,
@@ -38,10 +44,14 @@ function QueuePanelCard({
 }: {
   teamId: string | undefined;
   ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[];
+  rounds: PokerSessionRound[];
   addTicketToQueue: (key: string, summary: string | null) => Promise<void>;
   removeTicketFromQueue: (id: string) => Promise<void>;
   reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[]) => Promise<void>;
   clearQueue: () => Promise<void>;
+  playQueueTicketNow: (item: TicketQueueItem) => void | Promise<void>;
+  playQueueTicketNowDisabled: boolean;
+  playQueueNowBusyId: string | null;
   displayTicketNumber: string;
   setDisplayTicketNumber: (key: string) => void;
   updateTicketNumber: (key: string) => void;
@@ -70,6 +80,7 @@ function QueuePanelCard({
           <EmbeddedTicketQueue
             teamId={teamId}
             isJiraConfigured={isJiraConfigured}
+            rounds={rounds}
             showJiraBrowser={showJiraBrowser}
             showQueue={showQueue}
             queue={ticketQueue as any}
@@ -77,6 +88,9 @@ function QueuePanelCard({
             onRemoveTicket={removeTicketFromQueue}
             onReorderQueue={reorderQueue as any}
             onClearQueue={clearQueue}
+            onPlayQueueTicketNow={playQueueTicketNow}
+            playQueueTicketNowDisabled={playQueueTicketNowDisabled}
+            playQueueNowBusyId={playQueueNowBusyId}
             displayTicketNumber={displayTicketNumber}
             onSelectTicket={(ticketKey) => {
               setDisplayTicketNumber(ticketKey);
@@ -152,6 +166,9 @@ export const DesktopView: React.FC = () => {
         removeTicketFromQueue,
         reorderQueue,
         clearQueue,
+        playQueueTicketNow,
+        playQueueTicketNowDisabled,
+        playQueueNowBusyId,
         isJiraConfigured,
         updateTicketNumber,
         chatUnreadCount,
@@ -362,10 +379,14 @@ export const DesktopView: React.FC = () => {
                         <QueuePanelCard
                                 teamId={teamId}
                                 ticketQueue={ticketQueue}
+                                rounds={rounds}
                                 addTicketToQueue={addTicketToQueue}
                                 removeTicketFromQueue={removeTicketFromQueue}
                                 reorderQueue={reorderQueue}
                                 clearQueue={clearQueue}
+                                playQueueTicketNow={playQueueTicketNow}
+                                playQueueTicketNowDisabled={playQueueTicketNowDisabled}
+                                playQueueNowBusyId={playQueueNowBusyId}
                                 displayTicketNumber={displayTicketNumber}
                                 setDisplayTicketNumber={setDisplayTicketNumber}
                                 updateTicketNumber={updateTicketNumber}

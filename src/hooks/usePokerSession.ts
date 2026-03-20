@@ -6,6 +6,11 @@ import {
   PokerSessionRound,
   POKER_FOLLOW_CURRENT_ROUND_EVENT,
 } from './usePokerSessionHistory';
+import { isUuidLike } from '@/lib/pokerSessionPathSlug';
+import {
+  fetchLatestPokerSessionRowForTeam,
+  pokerSessionSettingsFromPreviousRow,
+} from '@/lib/pokerSessionCloneSettings';
 
 // Define types for session state
 export interface PlayerSelection {
@@ -109,19 +114,50 @@ export const usePokerSession = (
 
   const manageSession = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!roomId || !currentUserId || !currentUserDisplayName) return;
+    const slug = roomId.trim();
+    if (!slug || slug === 'null' || slug === 'undefined') {
+      setSession(null);
+      setLoading(false);
+      return;
+    }
     const showLoading = options?.showLoading ?? true;
     if (showLoading) setLoading(true);
 
-    // 1. Fetch the main session
+    // 1. Fetch the main session by room_id, or by id when the URL uses the session UUID (legacy null room_id rows).
     let { data: sessionData, error } = await supabase
       .from('poker_sessions')
       .select('*')
-      .eq('room_id', roomId)
+      .eq('room_id', slug)
       .single();
+
+    if (error?.code === 'PGRST116' && isUuidLike(slug)) {
+      const { data: byId, error: idError } = await supabase
+        .from('poker_sessions')
+        .select('*')
+        .eq('id', slug)
+        .single();
+      if (!idError && byId) {
+        sessionData = byId;
+        error = null;
+      } else {
+        sessionData = undefined;
+        error = idError ?? error;
+      }
+    }
 
     // 2. Create session if it doesn't exist
     if (error && error.code === 'PGRST116' && shouldCreate) {
-      const insertPayload: Record<string, unknown> = { room_id: roomId, current_round_number: 1 };
+      let settingsFromPrevious: Record<string, unknown> = {};
+      if (teamId) {
+        const previousRow = await fetchLatestPokerSessionRowForTeam(supabase, teamId);
+        settingsFromPrevious = pokerSessionSettingsFromPreviousRow(previousRow);
+      }
+
+      const insertPayload: Record<string, unknown> = {
+        ...settingsFromPrevious,
+        room_id: slug,
+        current_round_number: 1,
+      };
       if (teamId) insertPayload.team_id = teamId;
 
       const { data: newSession, error: createError } = await supabase
@@ -244,8 +280,14 @@ export const usePokerSession = (
       roundData = updatedRound;
     }
     
-    // 6. Combine session and round data into a single state object
-    setSession({ ...sessionData, ...roundData });
+    // 6. Combine session and round data into a single state object.
+    // Always set session_id from the poker_sessions row — `id` after spread is the *round* id, and
+    // round rows must never be mistaken for the session id (breaks history fetch + realtime).
+    setSession({
+      ...sessionData,
+      ...roundData,
+      session_id: sessionData.id,
+    } as PokerSessionState);
     setLoading(false);
 
   }, [roomId, currentUserId, currentUserDisplayName, toast, shouldCreate, teamId, fetchTeamSelections]);
@@ -254,6 +296,7 @@ export const usePokerSession = (
     manageSession().catch(e => {
       console.error(e);
       toast({ title: 'Error loading session', description: e.message, variant: 'destructive' });
+      setSession(null);
       setLoading(false);
     });
   }, [manageSession]);
@@ -323,8 +366,13 @@ export const usePokerSession = (
       (payload) => {
         // Ignore broadcast if it's from the current user
         if (payload.senderUserId === currentUserId) return;
-        
-        setSession(prev => prev ? ({ ...prev, ...payload.payload }) : null);
+
+        setSession((prev) => {
+          if (!prev) return null;
+          const raw = payload.payload as Record<string, unknown>;
+          const { senderUserId: _u, session_id: _sid, ...roundPatch } = raw;
+          return { ...prev, ...roundPatch, session_id: prev.session_id };
+        });
       }
     );
     
@@ -502,10 +550,10 @@ export const usePokerSession = (
       const participantIds = Object.keys(newSelections);
       if (participantIds.length > 0 && session.round_number === 1) {
         const title = `Poker session started`;
-        const roomId = session.room_id;
+        const pathSlug = session.room_id?.trim() || session.session_id;
         const notificationUrl = teamId 
-          ? `/teams/${teamId}/poker/${roomId}`
-          : `/poker/${roomId}`;
+          ? `/teams/${teamId}/poker/${pathSlug}`
+          : `/poker/${pathSlug}`;
         await supabase.functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map(id => ({ userId: id })),

@@ -1,16 +1,15 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
-import { NeotroHeader } from "@/components/Neotro/NeotroHeader";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Lock, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Lock, ShieldAlert } from 'lucide-react';
 import { useBackground } from '@/contexts/BackgroundContext';
 
 const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
@@ -69,19 +68,27 @@ const NeotroPage = () => {
     fetchUserRole();
   }, [teamId, profile]);
 
-  // Use sessionId as the room_id to find/create the poker session
+  // Team sessions are inserted in Team.tsx (or elsewhere) before opening this route; never
+  // auto-create on a miss — that was creating a blank session whenever lookup returned no row.
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
-    (!loadingAuth && isMember) ? sessionId || null : null,
+    (!loadingAuth && isMember) ? (sessionId?.trim() || null) : null,
     profile?.id,
     profile?.full_name || (user?.email || 'Player'),
-    true,
+    false,
     teamId
   );
 
-  // Use history hook to load specific rounds when requested
-  const { 
-    rounds
-  } = usePokerSessionHistory(session?.session_id || null);
+  const pokerRouteForHistory = useMemo(
+    () => (teamId && sessionId ? { teamId, slug: sessionId } : null),
+    [teamId, sessionId]
+  );
+
+  // Use history hook to load specific rounds when requested (?round=)
+  const { rounds } = usePokerSessionHistory(
+    session?.session_id || null,
+    undefined,
+    pokerRouteForHistory
+  );
 
   // Check if a specific round is requested via query parameter
   const requestedRoundNumber = roundParam ? parseInt(roundParam, 10) : null;
@@ -149,6 +156,29 @@ const NeotroPage = () => {
     );
   }
 
+  if (!displaySession) {
+    return (
+      <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
+        <AppHeader variant="back" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 max-w-md mx-auto px-4">
+            <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h2 className="text-2xl font-bold">Session not found</h2>
+            <p className="text-muted-foreground">
+              This pointing session does not exist or could not be loaded. If the link is old, start a new session from the team page.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => navigate(teamId ? `/teams/${teamId}?tab=poker` : '/teams')}
+            >
+              Back to team
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen min-w-full flex flex-col pt-16 md:pt-0 neotro-full-width">
        <AppHeader variant='back' />
@@ -159,6 +189,7 @@ const NeotroPage = () => {
           teamId={teamId}
           userRole={currentRole}
           requestedRoundNumber={requestedRoundNumber}
+          pokerRouteContext={pokerRouteForHistory}
           {...pokerActions}
         />
       </div>

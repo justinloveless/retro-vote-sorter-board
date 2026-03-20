@@ -15,6 +15,7 @@ import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, Mes
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
 
 // Context to allow images inside parsed markup to open a shared preview dialog
 const ImagePreviewContext = React.createContext<((src: string) => void) | null>(null);
@@ -227,13 +228,6 @@ function ensurePanelContrast(bgHex: string): string {
   return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.45)`;
 }
 
-function getStoryPoints(fields: JiraIssueFields): number | null {
-  const pointFields = ['story_points', 'customfield_10016', 'customfield_10028', 'customfield_10004'];
-  for (const field of pointFields) {
-    if (fields[field] != null) return fields[field];
-  }
-  return null;
-}
 
 /**
  * Parse Jira wiki markup to React elements.
@@ -784,7 +778,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
     : null;
   const fields = issueData?.fields;
-  const storyPoints = fields ? getStoryPoints(fields) : null;
+  const storyPoints = fields ? getStoryPointsFromJiraFields(fields as Record<string, unknown>) : null;
   const statusColor = fields?.status?.statusCategory?.colorName
     ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
     : 'bg-muted text-muted-foreground';

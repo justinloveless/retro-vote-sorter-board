@@ -8,12 +8,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { TicketQueueItem } from '@/hooks/useTicketQueue';
+import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { useJiraIntegration } from '@/hooks/useJiraIntegration';
 import { JiraIssueDrawer } from './JiraIssueDrawer';
 import { IssueCard, type JiraIssueDisplay } from './IssueCard';
+import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
+import {
+  getJiraBrowseDisabledReason,
+  JIRA_BROWSE_DISABLED_REASON_META,
+} from '@/lib/jiraBrowseDisabledReason';
 
 interface JiraIssue {
   key: string;
@@ -40,6 +47,11 @@ interface TicketQueuePanelProps {
   onRemoveTicket: (id: string) => Promise<void>;
   onReorderQueue: (items: TicketQueueItem[]) => Promise<void>;
   onClearQueue: () => Promise<void>;
+  onPlayQueueTicketNow: (item: TicketQueueItem) => void | Promise<void>;
+  playQueueTicketNowDisabled: boolean;
+  playQueueNowBusyId: string | null;
+  /** Tickets assigned to any session round (active or not) cannot be added again from Browse Jira */
+  rounds?: PokerSessionRound[];
   /** When true, renders as bottom drawer (like Chat) instead of side sheet */
   isMobile?: boolean;
 }
@@ -110,6 +122,10 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   onRemoveTicket,
   onReorderQueue,
   onClearQueue,
+  onPlayQueueTicketNow,
+  playQueueTicketNowDisabled,
+  playQueueNowBusyId,
+  rounds = [],
   isMobile = false,
 }) => {
   const { isJiraConfigured } = useJiraIntegration(teamId);
@@ -124,6 +140,8 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(new Set());
+  const [lastJql, setLastJql] = useState<string | null>(null);
+  const { toast } = useToast();
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
 
@@ -151,6 +169,16 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   }, [drawerWidth]);
 
+  const copyJqlToClipboard = useCallback(async () => {
+    if (!lastJql) return;
+    try {
+      await navigator.clipboard.writeText(lastJql);
+      toast({ title: 'JQL copied to clipboard' });
+    } catch {
+      toast({ title: 'Could not copy', variant: 'destructive' });
+    }
+  }, [lastJql, toast]);
+
   const issuesBySprint = useMemo(() => {
     const BACKLOG_KEY = '__backlog__';
     const groups = new Map<string, JiraIssue[]>();
@@ -166,33 +194,46 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     return { backlog, sprintBuckets: sprintNames.map(name => ({ name, issues: groups.get(name)! })) };
   }, [issues]);
 
+  const ticketKeysOnSessionRounds = useMemo(() => {
+    const keys = new Set<string>();
+    for (const r of rounds) {
+      const k = r.ticket_number?.trim();
+      if (k) keys.add(k);
+    }
+    return keys;
+  }, [rounds]);
+
   const fetchAllIssues = useCallback(async () => {
     if (!teamId) return;
     setIsLoading(true);
     setSearchError(null);
     try {
       const apiStatusFilter = statusFilter === 'not-done' ? undefined : statusFilter === 'all' ? 'all' : statusFilter;
-      const queueKeys = queue.map((q) => q.ticket_key);
+      const includeKeySet = new Set(queue.map((q) => q.ticket_key));
+      for (const k of ticketKeysOnSessionRounds) includeKeySet.add(k);
+      const includeKeys = includeKeySet.size > 0 ? Array.from(includeKeySet) : undefined;
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
         body: {
           teamId,
           searchText: searchText || undefined,
           statusFilter: apiStatusFilter,
           pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
-          includeKeys: queueKeys.length > 0 ? queueKeys : undefined,
+          includeKeys,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setIssues(data.issues || []);
+      setLastJql(typeof data?.jql === 'string' ? data.jql : null);
       setCollapsedBuckets(new Set()); // Reset: all expanded on new fetch
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Failed to load issues');
       setIssues([]);
+      setLastJql(null);
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, searchText, statusFilter, pointsFilter, queue]);
+  }, [teamId, searchText, statusFilter, pointsFilter, queue, ticketKeysOnSessionRounds]);
 
   useEffect(() => {
     if (isOpen && teamId && isJiraConfigured) {
@@ -229,7 +270,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
             sprint: null,
             issueType: data.fields.issuetype?.name || '',
             issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
-            storyPoints: data.fields.customfield_10016 ?? null,
+            storyPoints: getStoryPointsFromJiraFields(data.fields as Record<string, unknown>),
           };
           setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
         }
@@ -257,6 +298,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   };
 
   const isInQueue = (key: string) => queue.some(q => q.ticket_key === key);
+  const isBlockedFromAdding = (key: string) => isInQueue(key) || ticketKeysOnSessionRounds.has(key);
 
   const handleDragStart = (index: number) => {
     dragItemRef.current = index;
@@ -279,20 +321,30 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   };
 
   const renderIssue = (issue: JiraIssue) => {
-    const alreadyQueued = isInQueue(issue.key);
+    const blocked = isBlockedFromAdding(issue.key);
+    const disabledReason = blocked ? getJiraBrowseDisabledReason(issue.key, queue, rounds) : null;
+    const reasonMeta = disabledReason ? JIRA_BROWSE_DISABLED_REASON_META[disabledReason] : null;
     const issueContent = (
       <IssueCard
         issue={issue as JiraIssueDisplay}
+        className={reasonMeta ? 'items-start' : undefined}
         rightSlot={
-          <Button
-            variant={alreadyQueued ? 'secondary' : 'outline'}
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            disabled={alreadyQueued || addingKeys.has(issue.key)}
-            onClick={(e) => { e.stopPropagation(); handleAddTicket(issue); }}
-          >
-            {addingKeys.has(issue.key) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          </Button>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {reasonMeta && (
+              <Badge variant={reasonMeta.badgeVariant} className="text-[10px] px-1.5 py-0">
+                {reasonMeta.label}
+              </Badge>
+            )}
+            <Button
+              variant={blocked ? 'secondary' : 'outline'}
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              disabled={blocked || addingKeys.has(issue.key)}
+              onClick={(e) => { e.stopPropagation(); handleAddTicket(issue); }}
+            >
+              {addingKeys.has(issue.key) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
         }
         cursorPointer={!!teamId}
       />
@@ -340,7 +392,11 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 variant="outline"
                 size="icon"
                 className="shrink-0"
-                disabled={!manualTicketKey.trim() || addingKeys.has(manualTicketKey.trim())}
+                disabled={
+                  !manualTicketKey.trim()
+                  || addingKeys.has(manualTicketKey.trim())
+                  || isBlockedFromAdding(manualTicketKey.trim())
+                }
                 onClick={handleAddManualTicket}
               >
                 {addingKeys.has(manualTicketKey.trim()) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -367,14 +423,33 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                           issue={enrichedIssue}
                           leftSlot={<GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />}
                           rightSlot={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
-                              onClick={(e) => { e.stopPropagation(); onRemoveTicket(item.id); }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
+                            <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 px-2 text-[10px]"
+                                disabled={playQueueTicketNowDisabled || playQueueNowBusyId !== null}
+                                title="New active round with this ticket for everyone; other active rounds stay open"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void onPlayQueueTicketNow(item);
+                                }}
+                              >
+                                {playQueueNowBusyId === item.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  'Play now'
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={(e) => { e.stopPropagation(); onRemoveTicket(item.id); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
                           }
                           showNextBadge={index === 0}
                           className="cursor-grab active:cursor-grabbing group"
@@ -416,7 +491,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
               Browse Jira
             </div>
             <div className="shrink-0 space-y-2">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Input
                   placeholder="Search issues..."
                   value={searchText}
@@ -438,6 +513,16 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                   size="icon"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!lastJql}
+                  onClick={() => void copyJqlToClipboard()}
+                  title="Copy JQL used for this search"
+                >
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
 

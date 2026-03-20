@@ -1,15 +1,23 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { TicketQueueItem } from '@/hooks/useTicketQueue';
+import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { JiraIssueDrawer } from './JiraIssueDrawer';
 import { IssueCard, type JiraIssueDisplay } from './IssueCard';
+import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
+import {
+  getJiraBrowseDisabledReason,
+  JIRA_BROWSE_DISABLED_REASON_META,
+} from '@/lib/jiraBrowseDisabledReason';
 
 interface JiraIssue {
   key: string;
@@ -35,8 +43,13 @@ interface EmbeddedTicketQueueProps {
   onRemoveTicket: (id: string) => Promise<void>;
   onReorderQueue: (items: TicketQueueItem[]) => Promise<void>;
   onClearQueue: () => Promise<void>;
+  onPlayQueueTicketNow: (item: TicketQueueItem) => void | Promise<void>;
+  playQueueTicketNowDisabled: boolean;
+  playQueueNowBusyId: string | null;
   displayTicketNumber: string;
   onSelectTicket: (ticketKey: string) => void;
+  /** Tickets on any session round (active or not) are excluded from adding via Browse Jira */
+  rounds?: PokerSessionRound[];
   /** When false, hides the Browse Jira panel (only Queue is shown). Default true when isJiraConfigured. */
   showJiraBrowser?: boolean;
   /** When false, hides the Queue panel (only Jira Browser is shown when isJiraConfigured). Default true. */
@@ -110,8 +123,12 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   onRemoveTicket,
   onReorderQueue,
   onClearQueue,
+  onPlayQueueTicketNow,
+  playQueueTicketNowDisabled,
+  playQueueNowBusyId,
   displayTicketNumber,
   onSelectTicket,
+  rounds = [],
 }) => {
   const [manualTicketKey, setManualTicketKey] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -124,6 +141,8 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(new Set());
+  const [lastJql, setLastJql] = useState<string | null>(null);
+  const { toast } = useToast();
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
 
@@ -142,34 +161,67 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     return { backlog, sprintBuckets: sprintNames.map(name => ({ name, issues: groups.get(name)! })) };
   }, [issues]);
 
+  const ticketKeysOnSessionRounds = useMemo(() => {
+    const keys = new Set<string>();
+    for (const r of rounds) {
+      const k = r.ticket_number?.trim();
+      if (k) keys.add(k);
+    }
+    return keys;
+  }, [rounds]);
+
+  /** Stable for effect deps when `rounds` is a new array reference with the same tickets */
+  const sessionRoundKeysDigest = useMemo(
+    () =>
+      [...rounds]
+        .map((r) => r.ticket_number?.trim() ?? '')
+        .filter(Boolean)
+        .sort()
+        .join(','),
+    [rounds],
+  );
+
+  const copyJqlToClipboard = useCallback(async () => {
+    if (!lastJql) return;
+    try {
+      await navigator.clipboard.writeText(lastJql);
+      toast({ title: 'JQL copied to clipboard' });
+    } catch {
+      toast({ title: 'Could not copy', variant: 'destructive' });
+    }
+  }, [lastJql, toast]);
+
   const fetchAllIssues = useCallback(async () => {
     if (!teamId) return;
     setIsLoading(true);
     setSearchError(null);
     try {
       const apiStatusFilter = statusFilter === 'not-done' ? undefined : statusFilter === 'all' ? 'all' : statusFilter;
-      const queueKeys = queue.map((q) => q.ticket_key);
+      const includeKeySet = new Set(queue.map((q) => q.ticket_key));
+      for (const k of ticketKeysOnSessionRounds) includeKeySet.add(k);
+      const includeKeys = includeKeySet.size > 0 ? Array.from(includeKeySet) : undefined;
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
         body: {
           teamId,
           searchText: searchText || undefined,
           statusFilter: apiStatusFilter,
           pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
-          includeKeys: queueKeys.length > 0 ? queueKeys : undefined,
+          includeKeys,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setIssues(data.issues || []);
+      setLastJql(typeof data?.jql === 'string' ? data.jql : null);
       setCollapsedBuckets(new Set());
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Failed to load issues');
       setIssues([]);
+      setLastJql(null);
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, searchText, statusFilter, pointsFilter, queue]);
-
+  }, [teamId, searchText, statusFilter, pointsFilter, queue, ticketKeysOnSessionRounds]);
 
   const handleAddManualTicket = async () => {
     const key = manualTicketKey.trim();
@@ -200,7 +252,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
             sprint: null,
             issueType: data.fields.issuetype?.name || '',
             issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
-            storyPoints: data.fields.customfield_10016 ?? null,
+            storyPoints: getStoryPointsFromJiraFields(data.fields as Record<string, unknown>),
           };
           setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
         }
@@ -228,6 +280,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   };
 
   const isInQueue = (key: string) => queue.some(q => q.ticket_key === key);
+  const isBlockedFromAdding = (key: string) => isInQueue(key) || ticketKeysOnSessionRounds.has(key);
 
   const handleDragStart = (index: number) => {
     dragItemRef.current = index;
@@ -250,21 +303,31 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   };
 
   const renderBrowseIssue = (issue: JiraIssue) => {
-    const alreadyQueued = isInQueue(issue.key);
+    const blocked = isBlockedFromAdding(issue.key);
+    const disabledReason = blocked ? getJiraBrowseDisabledReason(issue.key, queue, rounds) : null;
+    const reasonMeta = disabledReason ? JIRA_BROWSE_DISABLED_REASON_META[disabledReason] : null;
     const issueContent = (
       <IssueCard
         issue={issue as JiraIssueDisplay}
+        className={reasonMeta ? 'items-start' : undefined}
         rightSlot={
-          <NeotroPressableButton
-            size="xs"
-            isActive={!alreadyQueued}
-            activeShowsPressed={false}
-            isDisabled={alreadyQueued || addingKeys.has(issue.key)}
-            onClick={(e) => { e.stopPropagation(); handleAddTicket(issue); }}
-            aria-label={alreadyQueued ? 'Already in queue' : 'Add to queue'}
-          >
-            {addingKeys.has(issue.key) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-          </NeotroPressableButton>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {reasonMeta && (
+              <Badge variant={reasonMeta.badgeVariant} className="text-[10px] px-1.5 py-0">
+                {reasonMeta.label}
+              </Badge>
+            )}
+            <NeotroPressableButton
+              size="xs"
+              isActive={!blocked}
+              activeShowsPressed={false}
+              isDisabled={blocked || addingKeys.has(issue.key)}
+              onClick={(e) => { e.stopPropagation(); handleAddTicket(issue); }}
+              aria-label={blocked ? 'Already in queue or on a round' : 'Add to queue'}
+            >
+              {addingKeys.has(issue.key) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            </NeotroPressableButton>
+          </div>
         }
         cursorPointer={!!teamId}
       />
@@ -276,11 +339,16 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     );
   };
 
-  useEffect(() => {
-    if (teamId && isJiraConfigured) {
-      fetchAllIssues();
-    }
-  }, [teamId, isJiraConfigured]);
+  useEffect(
+    () => {
+      if (teamId && isJiraConfigured) {
+        fetchAllIssues();
+      }
+    },
+    // Refetch when queue or session round tickets change (includeKeys); search stays on Search button (latest fetchAllIssues)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [teamId, isJiraConfigured, queue, sessionRoundKeysDigest],
+  );
 
   useEffect(() => {
     if (!teamId || !isJiraConfigured || queue.length === 0) return;
@@ -313,7 +381,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
               sprint: null,
               issueType: data.fields.issuetype?.name || '',
               issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
-              storyPoints: data.fields.customfield_10016 ?? null,
+              storyPoints: getStoryPointsFromJiraFields(data.fields as Record<string, unknown>),
             };
             setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
           }
@@ -359,7 +427,11 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
               size="sm"
               isActive={!!manualTicketKey.trim()}
               activeShowsPressed={false}
-              isDisabled={!manualTicketKey.trim() || addingKeys.has(manualTicketKey.trim())}
+              isDisabled={
+                !manualTicketKey.trim()
+                || addingKeys.has(manualTicketKey.trim())
+                || isBlockedFromAdding(manualTicketKey.trim())
+              }
               onClick={handleAddManualTicket}
               aria-label="Add ticket"
             >
@@ -390,16 +462,36 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                         issue={enrichedIssue}
                         leftSlot={<GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />}
                         rightSlot={
-                          <NeotroPressableButton
-                            variant="destructive"
-                            size="xs"
-                            activeShowsPressed={false}
-                            onClick={(e) => { e.stopPropagation(); onRemoveTicket(item.id); }}
-                            aria-label="Remove from queue"
-                            className="opacity-0 group-hover:opacity-100 shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </NeotroPressableButton>
+                          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100">
+                            <NeotroPressableButton
+                              size="compact"
+                              isActive
+                              activeShowsPressed={false}
+                              isDisabled={playQueueTicketNowDisabled || playQueueNowBusyId !== null}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void onPlayQueueTicketNow(item);
+                              }}
+                              aria-label="Play now"
+                              title="New active round with this ticket for everyone; other active rounds stay open"
+                              className="min-w-[4.25rem]"
+                            >
+                              {playQueueNowBusyId === item.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                'Play now'
+                              )}
+                            </NeotroPressableButton>
+                            <NeotroPressableButton
+                              variant="destructive"
+                              size="xs"
+                              activeShowsPressed={false}
+                              onClick={(e) => { e.stopPropagation(); onRemoveTicket(item.id); }}
+                              aria-label="Remove from queue"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </NeotroPressableButton>
+                          </div>
                         }
                         showNextBadge={index === 0}
                         className="cursor-grab active:cursor-grabbing group"
@@ -430,7 +522,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                 Browse Jira
               </div>
           <div className="space-y-2 shrink-0">
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               <Input
                 placeholder="Search..."
                 value={searchText}
@@ -455,6 +547,15 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                 aria-label="Search"
               >
                 {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+              </NeotroPressableButton>
+              <NeotroPressableButton
+                size="sm"
+                isDisabled={!lastJql}
+                onClick={() => void copyJqlToClipboard()}
+                aria-label="Copy JQL for this search"
+                title="Copy JQL used for this search"
+              >
+                <Copy className="h-3 w-3" />
               </NeotroPressableButton>
             </div>
 
