@@ -16,7 +16,7 @@ import { useBackground } from '@/contexts/BackgroundContext';
 const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
 
 const NeotroPage = () => {
-  const { teamId } = useParams<{ teamId: string }>();
+  const { teamId, sessionId } = useParams<{ teamId: string; sessionId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const roundParam = searchParams.get('round');
@@ -69,9 +69,9 @@ const NeotroPage = () => {
     fetchUserRole();
   }, [teamId, profile]);
 
-  // Only initialize the poker session if the user is a confirmed team member
+  // Use sessionId as the room_id to find/create the poker session
   const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
-    (!loadingAuth && isMember) ? teamId : null,
+    (!loadingAuth && isMember) ? sessionId || null : null,
     profile?.id,
     profile?.full_name || (user?.email || 'Player'),
     true,
