@@ -321,7 +321,8 @@ export function updateVotingMessage(
   ticketTitle: string | null,
   teamId?: string,
   roundNumber?: number,
-  jiraUrl?: string | null
+  jiraUrl?: string | null,
+  sessionRoomId?: string
 ): any {
   return generateVotingMessage(
     ticketNumber,
@@ -330,7 +331,8 @@ export function updateVotingMessage(
     gameState as 'Voting' | 'Playing',
     teamId,
     roundNumber,
-    jiraUrl
+    jiraUrl,
+    sessionRoomId
   );
 }
 
@@ -370,7 +372,7 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
 
     // Generate initial message
     const jiraUrl = generateJiraUrl(team, ticketNumber);
-    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number, jiraUrl);
+    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number, jiraUrl, session.room_id);
 
     // Post message via Slack API instead of HTTP response
     const messageTs = await postSlackMessage(

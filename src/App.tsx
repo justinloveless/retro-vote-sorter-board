@@ -54,7 +54,7 @@ const App = () => (
                   <Route path="/teams" element={<Teams />} />
                   <Route path="/teams/:teamId" element={<Team />} />
                   <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
-                  <Route path="/teams/:teamId/neotro" element={<NeotroPage />} />
+                  <Route path="/teams/:teamId/poker/:sessionId" element={<NeotroPage />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/invite/:token" element={<InviteAccept />} />
                   <Route path="/reset-password" element={<ResetPassword />} />

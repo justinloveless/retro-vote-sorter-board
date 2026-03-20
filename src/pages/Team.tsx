@@ -20,6 +20,7 @@ import { TeamActionItems } from '@/components/team/TeamActionItems';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { EndorsementLeaderboard } from '@/components/team/EndorsementLeaderboard';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
+import { TeamPokerSessions } from '@/components/team/TeamPokerSessions';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -34,11 +35,35 @@ const Team = () => {
   const { isFeatureEnabled } = useFeatureFlags();
   const pokerEnabled = isFeatureEnabled('poker_pointing_sessions');
 
-  const handleJoinPointingSession = () => {
-    navigate(`/teams/${teamId}/neotro`);
+  const handleCreatePokerSession = async () => {
+    if (!teamId || !profile) return;
+    
+    // Generate a unique room_id for this session
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const { data, error } = await supabase
+      .from('poker_sessions')
+      .insert({
+        room_id: roomId,
+        team_id: teamId,
+        current_round_number: 1,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: 'Error creating session',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    navigate(`/teams/${teamId}/poker/${data.room_id}`);
   };
 
-  const validTabs = ['boards', 'members', 'action-items', 'endorsements'];
+  const validTabs = ['boards', 'poker', 'members', 'action-items', 'endorsements'];
   const tabParam = searchParams.get('tab');
   const activeTab = validTabs.includes(tabParam || '') ? tabParam! : 'boards';
 
@@ -100,7 +125,6 @@ const Team = () => {
       let passwordHash = null;
 
       if (isPrivate && password) {
-        // Hash the password using Web Crypto API
         const encoder = new TextEncoder();
         const data = encoder.encode(password);
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -127,7 +151,6 @@ const Team = () => {
         description: `"${title}" has been created successfully.`,
       });
 
-      // Invalidate boards cache to refetch
       teamData.invalidateTeamCache(teamId);
       refetchBoards();
 
@@ -174,13 +197,12 @@ const Team = () => {
   return (
     <>
       <AppHeader variant={isMobile ? 'back' : 'home'} />
-      {/* Scrollable content */}
       <div className="relative z-10 min-h-screen pt-16 md:pt-0 pb-24 md:pb-0">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <TeamHeader
             team={team}
             onCreateBoard={() => setShowCreateDialog(true)}
-            onJoinPointingSession={handleJoinPointingSession}
+            onCreatePokerSession={handleCreatePokerSession}
             currentUserRole={currentUserRole}
             pokerEnabled={pokerEnabled}
           />
@@ -190,6 +212,9 @@ const Team = () => {
               <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
                 <TabsList className="w-full flex">
                   <TabsTrigger value="boards" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Boards</TabsTrigger>
+                  {pokerEnabled && (
+                    <TabsTrigger value="poker" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Poker</TabsTrigger>
+                  )}
                   <TabsTrigger value="members" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Members</TabsTrigger>
                   <TabsTrigger value="action-items" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Actions</TabsTrigger>
                   <TabsTrigger value="endorsements" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Kudos</TabsTrigger>
@@ -204,6 +229,15 @@ const Team = () => {
                     onBoardUpdated={refetchBoards}
                   />
                 </TabsContent>
+
+                {pokerEnabled && (
+                  <TabsContent value="poker" className="space-y-4">
+                    <TeamPokerSessions
+                      teamId={teamId!}
+                      onCreateSession={handleCreatePokerSession}
+                    />
+                  </TabsContent>
+                )}
 
                 <TabsContent value="members" className="space-y-4">
                   <TeamMembersList
@@ -242,7 +276,7 @@ const Team = () => {
       {isMobile && (
         <TeamFloatingActions
           onCreateBoard={() => setShowCreateDialog(true)}
-          onJoinPointingSession={handleJoinPointingSession}
+          onCreatePokerSession={handleCreatePokerSession}
           onSettings={() => navigate(`/teams/${teamId}/settings`)}
           currentUserRole={currentUserRole}
           pokerEnabled={pokerEnabled}

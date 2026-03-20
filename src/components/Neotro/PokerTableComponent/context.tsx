@@ -585,13 +585,16 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
         session?.room_id &&
         effectiveCurrentRound.round_number === 1
       ) {
+        const notificationUrl = teamId
+          ? `/teams/${teamId}/poker/${session.room_id}`
+          : `/poker/${session.room_id}`;
         await supabase.functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map((id) => ({ userId: id })),
             type: 'poker_session',
             title: `Poker session started`,
             message: 'Click to join the session.',
-            url: `/poker/${session.room_id}`,
+            url: notificationUrl,
           },
         });
       }

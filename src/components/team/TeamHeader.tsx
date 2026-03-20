@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Plus, Users, Spade } from 'lucide-react';
+import { ArrowLeft, Settings, Plus, Spade } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TeamHeaderProps {
@@ -11,7 +11,7 @@ interface TeamHeaderProps {
     description?: string;
   };
   onCreateBoard: () => void;
-  onJoinPointingSession: () => void;
+  onCreatePokerSession: () => void;
   currentUserRole?: string;
   showBackButton?: boolean;
   pokerEnabled?: boolean;
@@ -20,7 +20,7 @@ interface TeamHeaderProps {
 export const TeamHeader: React.FC<TeamHeaderProps> = ({ 
   team, 
   onCreateBoard, 
-  onJoinPointingSession, 
+  onCreatePokerSession, 
   currentUserRole,
   showBackButton = true,
   pokerEnabled = true
@@ -43,7 +43,7 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
     );
   }
 
-  // Desktop layout (unchanged)
+  // Desktop layout
   return (
     <div className="flex items-center gap-4 mb-8">
       {showBackButton && (
@@ -64,11 +64,11 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
       {pokerEnabled && (
         <Button
           variant='outline'
-          onClick={onJoinPointingSession}
+          onClick={onCreatePokerSession}
           className="border-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950 dark:hover:text-green-300"
         >
-          <Spade className="h-4 w-4 mr-2" />
-          Join Pointing Session
+          <Plus className="h-4 w-4 mr-2" />
+          New Poker Session
         </Button>
       )}
       {(currentUserRole === 'owner' || currentUserRole === 'admin') && (

@@ -503,14 +503,16 @@ export const usePokerSession = (
       if (participantIds.length > 0 && session.round_number === 1) {
         const title = `Poker session started`;
         const roomId = session.room_id;
-        // Use admin-send-notification for consistency and future flexibility
+        const notificationUrl = teamId 
+          ? `/teams/${teamId}/poker/${roomId}`
+          : `/poker/${roomId}`;
         await supabase.functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map(id => ({ userId: id })),
             type: 'poker_session',
             title,
             message: 'Click to join the session.',
-            url: `/poker/${roomId}`
+            url: notificationUrl
           }
         });
       }
