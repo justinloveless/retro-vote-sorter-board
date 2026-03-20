@@ -321,7 +321,8 @@ export function updateVotingMessage(
   ticketTitle: string | null,
   teamId?: string,
   roundNumber?: number,
-  jiraUrl?: string | null
+  jiraUrl?: string | null,
+  sessionRoomId?: string
 ): any {
   return generateVotingMessage(
     ticketNumber,
@@ -330,7 +331,8 @@ export function updateVotingMessage(
     gameState as 'Voting' | 'Playing',
     teamId,
     roundNumber,
-    jiraUrl
+    jiraUrl,
+    sessionRoomId
   );
 }
 
