@@ -1,6 +1,7 @@
 import { PokerSessionState } from "@/hooks/usePokerSession";
+import type { PokerHistoryTeamRoute } from "@/hooks/usePokerSessionHistory";
 import React, { useState } from "react";
-import { PokerTableProvider } from "./PokerTableComponent/context";
+import { PokerTableProvider, usePokerTable } from "./PokerTableComponent/context";
 import { PokerTableContent } from "./PokerTableComponent";
 import { NextRoundDialog } from "./NextRoundDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -23,7 +24,43 @@ interface PokerTableProps {
     teamId?: string;
     userRole?: string;
     requestedRoundNumber?: number | null;
+    /** When set (team poker page), round history resolves session id from URL — avoids wrong session_id on merged state. */
+    pokerRouteContext?: PokerHistoryTeamRoute | null;
 }
+
+const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
+    const {
+        addTicketToQueue,
+        ticketQueue,
+        removeTicketFromQueue,
+        reorderQueue,
+        clearQueue,
+        isQueuePanelOpen,
+        setQueuePanelOpen,
+        teamId,
+        rounds,
+        playQueueTicketNow,
+        playQueueTicketNowDisabled,
+        playQueueNowBusyId,
+    } = usePokerTable();
+    return (
+        <TicketQueuePanel
+            isOpen={isQueuePanelOpen}
+            onOpenChange={setQueuePanelOpen}
+            teamId={teamId}
+            rounds={rounds}
+            queue={ticketQueue}
+            onAddTicket={addTicketToQueue}
+            onRemoveTicket={removeTicketFromQueue}
+            onReorderQueue={reorderQueue}
+            onClearQueue={clearQueue}
+            onPlayQueueTicketNow={playQueueTicketNow}
+            playQueueTicketNowDisabled={playQueueTicketNowDisabled}
+            playQueueNowBusyId={playQueueNowBusyId}
+            isMobile={isMobile}
+        />
+    );
+};
 
 const PokerTable: React.FC<PokerTableProps> = (props) => {
     const isMobile = useIsMobile();
@@ -77,6 +114,7 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
     return (
         <PokerTableProvider 
             {...providerProps}
+            startNewRound={startNewRound}
             leaveObserverMode={leaveObserverMode}
             enterObserverMode={enterObserverMode}
             isMobile={isMobile}
@@ -104,17 +142,7 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
                 description="Start another active round in parallel. You can enter a ticket number, or leave it blank."
                 confirmLabel="Start Round"
             />
-            <TicketQueuePanel
-                isOpen={isQueuePanelOpen}
-                onOpenChange={setQueuePanelOpen}
-                teamId={props.teamId}
-                queue={ticketQueue.queue}
-                onAddTicket={ticketQueue.addTicket}
-                onRemoveTicket={ticketQueue.removeTicket}
-                onReorderQueue={ticketQueue.reorderQueue}
-                onClearQueue={ticketQueue.clearQueue}
-                isMobile={isMobile}
-            />
+            <TicketQueuePanelConnected isMobile={isMobile} />
         </PokerTableProvider>
     )
 }

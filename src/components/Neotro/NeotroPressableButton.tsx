@@ -11,6 +11,7 @@ type NeotroPressableButtonProps = {
   onClick?: (e?: React.MouseEvent) => void;
   type?: 'button' | 'submit';
   'aria-label'?: string;
+  title?: string;
   children: React.ReactNode;
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'default' | 'compact';
@@ -27,6 +28,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
   onClick,
   type = 'button',
   'aria-label': ariaLabel,
+  title,
   children,
   className,
   size = 'md',
@@ -57,6 +59,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
     onMouseUp: () => setIsPressed(false),
     onMouseLeave: () => setIsPressed(false),
     'aria-label': ariaLabel,
+    title,
     className: cn(
       'rounded-lg transition-all flex items-center justify-center no-underline',
       sizeClasses,

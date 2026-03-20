@@ -1,5 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  discoverJiraStoryPointsFieldId,
+  getStoryPointsFromIssueFields,
+  JIRA_STORY_POINT_FIELD_FALLBACK_IDS,
+} from '../_shared/jiraStoryPoints.ts';
+
+const DEFAULT_STORY_POINTS_JQL_FIELD_NAME = 'Story Points';
+
+function escapeJqlString(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -41,6 +52,26 @@ Deno.serve(async (req) => {
     const baseUrl = jira_domain.replace(/\/$/, '');
     const projectKey = jira_board_id || jira_ticket_prefix;
 
+    let sprintFieldId: string | null = null;
+    let storyPointsFieldId: string | null = null;
+    let fieldsList: { id?: string; name?: string; schema?: { custom?: string } }[] = [];
+    try {
+      const fieldsRes = await fetch(`${baseUrl}/rest/api/3/field`, { headers: authHeaders });
+      if (fieldsRes.ok) {
+        const fieldsData = await fieldsRes.json();
+        fieldsList = fieldsData || [];
+        const sprintField = fieldsList.find(
+          (f) => f?.schema?.custom?.toLowerCase().includes('sprint') ?? false,
+        );
+        if (sprintField?.id) sprintFieldId = sprintField.id;
+        storyPointsFieldId = discoverJiraStoryPointsFieldId(fieldsList);
+      }
+    } catch (_) {
+      /* ignore */
+    }
+
+    const storyPointsJqlField = `"${escapeJqlString(DEFAULT_STORY_POINTS_JQL_FIELD_NAME)}"`;
+
     const jqlParts: string[] = [];
     if (projectKey) jqlParts.push(`project = "${projectKey}"`);
     jqlParts.push('issuetype NOT IN (Epic, subtaskIssueTypes())');
@@ -48,13 +79,16 @@ Deno.serve(async (req) => {
     if (statusFilter === 'all') {
       // no status
     } else if (statusFilter) {
-      jqlParts.push(`status = "${statusFilter}"`);
+      jqlParts.push(`statusCategory = "${escapeJqlString(statusFilter)}"`);
     } else {
       jqlParts.push(`statusCategory != "Done"`);
     }
-    if (pointsFilter === 'unestimated') jqlParts.push(`cf[10016] is EMPTY`);
-    else if (pointsFilter) jqlParts.push(`cf[10016] = ${pointsFilter}`);
-    if (searchText) jqlParts.push(`(summary ~ "${searchText}" OR key = "${searchText}")`);
+    if (pointsFilter === 'unestimated') {
+      jqlParts.push(`${storyPointsJqlField} is EMPTY`);
+    } else if (pointsFilter && /^\d+(?:\.\d+)?$/.test(pointsFilter)) {
+      jqlParts.push(`${storyPointsJqlField} = ${pointsFilter}`);
+    }
+    if (searchText) jqlParts.push(`(summary ~ "${searchText}" OR key ~ "${searchText}")`);
 
     const boardIdNum = parseInt(jira_board_id || '', 10);
     const isNumericBoardId = !isNaN(boardIdNum) && String(boardIdNum) === (jira_board_id || '').trim();
@@ -117,23 +151,15 @@ Deno.serve(async (req) => {
     if (sprintIdx >= 0) jqlParts[sprintIdx] = sprintJql;
     const jql = jqlParts.join(' AND ') + ' ORDER BY sprint, created DESC';
 
-    let sprintFieldId: string | null = null;
-    try {
-      const fieldsRes = await fetch(`${baseUrl}/rest/api/3/field`, { headers: authHeaders });
-      if (fieldsRes.ok) {
-        const fieldsData = await fieldsRes.json();
-        const sprintField = (fieldsData || []).find(
-          (f: { id: string; schema?: { custom?: string } }) =>
-            f?.schema?.custom?.toLowerCase().includes('sprint') ?? false
-        );
-        if (sprintField?.id) sprintFieldId = sprintField.id;
-      }
-    } catch (_) {
-      /* ignore */
-    }
-
-    const baseFields = 'summary,status,priority,assignee,reporter,parent,issuetype,customfield_10016';
-    const fieldsParam = sprintFieldId ? `${baseFields},${sprintFieldId}` : `${baseFields},customfield_10020,customfield_10021`;
+    const coreFieldNames = ['summary', 'status', 'priority', 'assignee', 'reporter', 'parent', 'issuetype'];
+    const pointFieldIdSet = new Set<string>([...JIRA_STORY_POINT_FIELD_FALLBACK_IDS]);
+    if (storyPointsFieldId) pointFieldIdSet.add(storyPointsFieldId);
+    const fieldsArray = [
+      ...coreFieldNames,
+      ...pointFieldIdSet,
+      ...(sprintFieldId ? [sprintFieldId] : ['customfield_10020', 'customfield_10021']),
+    ];
+    const fieldsParam = [...new Set(fieldsArray)].join(',');
 
     const getSprintName = (fields: Record<string, unknown> | null | undefined): string | null => {
       const extract = (val: unknown): string | null => {
@@ -184,7 +210,7 @@ Deno.serve(async (req) => {
       const body: Record<string, unknown> = {
         jql: jql.trim(),
         maxResults: pageSize,
-        fields: (fieldsParam as string).split(','),
+        fields: fieldsParam.split(','),
       };
       if (nextPageToken) body.nextPageToken = nextPageToken;
 
@@ -215,7 +241,7 @@ Deno.serve(async (req) => {
           const incRes = await fetch(`${baseUrl}/rest/api/3/search`, {
             method: 'POST',
             headers: authHeaders,
-            body: JSON.stringify({ jql: keysJql, maxResults: 50, fields: (fieldsParam as string).split(',') }),
+            body: JSON.stringify({ jql: keysJql, maxResults: 50, fields: fieldsParam.split(',') }),
           });
           if (incRes.ok) {
             const incData = await incRes.json();
@@ -234,25 +260,29 @@ Deno.serve(async (req) => {
     }
 
     // deno-lint-ignore no-explicit-any
-    const issues = allIssues.map((issue: any) => ({
-      key: issue.key,
-      summary: issue.fields?.summary || '',
-      status: issue.fields?.status?.name || '',
-      statusCategory: issue.fields?.status?.statusCategory?.key || '',
-      priority: issue.fields?.priority?.name || '',
-      priorityIconUrl: issue.fields?.priority?.iconUrl || '',
-      assignee: issue.fields?.assignee?.displayName || null,
-      reporter: issue.fields?.reporter?.displayName || null,
-      parent: issue.fields?.parent ? { key: issue.fields.parent.key, summary: issue.fields.parent.fields?.summary || '' } : null,
-      sprint: getSprintName(issue.fields as Record<string, unknown>) || 'Backlog',
-      issueType: issue.fields?.issuetype?.name || '',
-      issueTypeIconUrl: issue.fields?.issuetype?.iconUrl || '',
-      storyPoints: issue.fields?.customfield_10016 ?? null,
-    }));
+    const issues = allIssues.map((issue: any) => {
+      const fields = issue.fields as Record<string, unknown>;
+      return {
+        key: issue.key,
+        summary: issue.fields?.summary || '',
+        status: issue.fields?.status?.name || '',
+        statusCategory: issue.fields?.status?.statusCategory?.key || '',
+        priority: issue.fields?.priority?.name || '',
+        priorityIconUrl: issue.fields?.priority?.iconUrl || '',
+        assignee: issue.fields?.assignee?.displayName || null,
+        reporter: issue.fields?.reporter?.displayName || null,
+        parent: issue.fields?.parent ? { key: issue.fields.parent.key, summary: issue.fields.parent.fields?.summary || '' } : null,
+        sprint: getSprintName(fields) || 'Backlog',
+        issueType: issue.fields?.issuetype?.name || '',
+        issueTypeIconUrl: issue.fields?.issuetype?.iconUrl || '',
+        storyPoints: getStoryPointsFromIssueFields(fields, storyPointsFieldId),
+      };
+    });
 
     return new Response(JSON.stringify({
       issues,
       total: issues.length,
+      jql: jql.trim(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { pokerSessionSettingsFromPreviousRow } from "../_shared/pokerSessionCloneSettings.ts";
 import { 
   generateVoteProgressText, 
   generateVoteSummary, 
@@ -195,10 +196,23 @@ export async function getOrCreatePokerSession(teamId: string): Promise<PokerSess
       return existingSession;
     }
 
+    const { data: latestForTeam } = await supabase
+      .from("poker_sessions")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const settingsFromPrevious = pokerSessionSettingsFromPreviousRow(
+      latestForTeam as Record<string, unknown> | null | undefined,
+    );
+
     // Create new session
     const { data: newSession, error } = await supabase
       .from('poker_sessions')
       .insert({
+        ...settingsFromPrevious,
         team_id: teamId,
         room_id: teamId,
         current_round_number: 0,

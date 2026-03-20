@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { PlayerSelection, PokerSessionState, getPointsWithMostVotes } from '@/hooks/usePokerSession';
 import { supabase } from '@/integrations/supabase/client';
-import { usePokerSessionHistory, PokerSessionRound } from '@/hooks/usePokerSessionHistory';
+import {
+  usePokerSessionHistory,
+  PokerSessionRound,
+  type PokerHistoryTeamRoute,
+} from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
 import { useJiraIntegration } from '@/hooks/useJiraIntegration';
@@ -88,6 +92,12 @@ interface PokerTableContextProps {
   removeTicketFromQueue: (id: string) => Promise<void>;
   reorderQueue: (items: TicketQueueItem[]) => Promise<void>;
   clearQueue: () => Promise<void>;
+  /** New active round for this ticket (other active rounds stay active); session current round updates for everyone; removes from queue. */
+  playQueueTicketNow: (item: TicketQueueItem) => Promise<void>;
+  /** Queue item id currently starting a round, or null. */
+  playQueueNowBusyId: string | null;
+  /** Observers and missing session cannot advance rounds from the queue. */
+  playQueueTicketNowDisabled: boolean;
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
 }
@@ -110,6 +120,8 @@ export interface PokerTableProviderProps {
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
   nextRound: (ticketNumber?: string) => void;
+  /** Add a new active round without deactivating existing active rounds (parallel rounds). */
+  startNewRound: (ticketNumber?: string) => void;
   updateTicketNumber: (ticketNumber: string) => void;
   updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; observer_ids?: string[] }) => void;
   leaveObserverMode: () => void;
@@ -136,6 +148,7 @@ export interface PokerTableProviderProps {
   };
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
+  pokerRouteContext?: PokerHistoryTeamRoute | null;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
@@ -143,12 +156,15 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session, activeUserId, teamId, isMobile,
     deleteAllRounds, updateSessionConfig, leaveObserverMode, enterObserverMode,
     nextRound,
+    startNewRound,
+    updateTicketNumber: updateLiveRoundTicketNumber,
     userRole, presentUserIds, requestedRoundNumber,
     isNextRoundDialogOpen, setNextRoundDialogOpen,
     onNextRoundRequest,
     isStartNewRoundDialogOpen, setStartNewRoundDialogOpen,
     onStartNewRoundRequest,
-    ticketQueue: ticketQueueHook, isQueuePanelOpen, setQueuePanelOpen
+    ticketQueue: ticketQueueHook, isQueuePanelOpen, setQueuePanelOpen,
+    pokerRouteContext,
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -175,7 +191,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToCurrentRound,
     goToRound,
     deleteRound,
-  } = usePokerSessionHistory(session?.session_id || null, requestedRoundNumber || undefined);
+  } = usePokerSessionHistory(
+    session?.session_id || null,
+    requestedRoundNumber || undefined,
+    pokerRouteContext ?? null
+  );
 
   const [optimisticRoundsById, setOptimisticRoundsById] = useState<Record<string, PokerSessionRound>>({});
 
@@ -183,6 +203,38 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     currentRound && optimisticRoundsById[currentRound.id]
       ? optimisticRoundsById[currentRound.id]
       : currentRound;
+
+  const addTicketToQueue = useCallback(
+    async (ticketKey: string, ticketSummary: string | null) => {
+      const sess = session;
+      const noTicketOnCurrentRound = sess && !String(sess.ticket_number ?? '').trim();
+      if (noTicketOnCurrentRound) {
+        const liveRoundId = sess.id;
+        const baseRound =
+          rounds.find((r) => r.id === liveRoundId) ??
+          (currentRound?.id === liveRoundId ? currentRound : undefined);
+        if (baseRound) {
+          setOptimisticRoundsById((prev) => ({
+            ...prev,
+            [liveRoundId]: { ...baseRound, ticket_number: ticketKey },
+          }));
+          if (currentRound?.id === liveRoundId && currentRound.is_active) {
+            setDisplayTicketNumber(ticketKey);
+          }
+        }
+        await updateLiveRoundTicketNumber(ticketKey);
+        return;
+      }
+      await ticketQueueHook.addTicket(ticketKey, ticketSummary);
+    },
+    [
+      session,
+      rounds,
+      currentRound,
+      ticketQueueHook.addTicket,
+      updateLiveRoundTicketNumber,
+    ]
+  );
 
   const normalizeForStableStringify = (value: any): any => {
     if (value === null || typeof value !== 'object') return value;
@@ -451,6 +503,26 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const isObserver = !!(activeUserId && observerIds.includes(activeUserId));
   const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
 
+  const [playQueueNowBusyId, setPlayQueueNowBusyId] = useState<string | null>(null);
+  const playQueueNowLockRef = useRef(false);
+  const playQueueTicketNowDisabled = !session || isObserver;
+
+  const playQueueTicketNow = useCallback(
+    async (item: TicketQueueItem) => {
+      if (!session || isObserver || playQueueNowLockRef.current) return;
+      playQueueNowLockRef.current = true;
+      setPlayQueueNowBusyId(item.id);
+      try {
+        await startNewRound(item.ticket_key);
+        await ticketQueueHook.removeTicket(item.id);
+      } finally {
+        playQueueNowLockRef.current = false;
+        setPlayQueueNowBusyId(null);
+      }
+    },
+    [session, isObserver, startNewRound, ticketQueueHook.removeTicket]
+  );
+
   const updateUserSelectionForSelectedRound = async (points: number) => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
@@ -582,12 +654,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       const participantIds = Object.keys(newSelections);
       if (
         participantIds.length > 0 &&
-        session?.room_id &&
+        (session?.room_id?.trim() || session?.session_id) &&
         effectiveCurrentRound.round_number === 1
       ) {
+        const pathSlug = session!.room_id?.trim() || session!.session_id;
         const notificationUrl = teamId
-          ? `/teams/${teamId}/poker/${session.room_id}`
-          : `/poker/${session.room_id}`;
+          ? `/teams/${teamId}/poker/${pathSlug}`
+          : `/poker/${pathSlug}`;
         await supabase.functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map((id) => ({ userId: id })),
@@ -775,10 +848,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setStartNewRoundDialogOpen,
     onStartNewRoundRequest,
     ticketQueue: ticketQueueHook.queue,
-    addTicketToQueue: ticketQueueHook.addTicket,
+    addTicketToQueue,
     removeTicketFromQueue: ticketQueueHook.removeTicket,
     reorderQueue: ticketQueueHook.reorderQueue,
     clearQueue: ticketQueueHook.clearQueue,
+    playQueueTicketNow,
+    playQueueNowBusyId,
+    playQueueTicketNowDisabled,
     isQueuePanelOpen,
     setQueuePanelOpen,
   };

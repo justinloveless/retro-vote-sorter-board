@@ -1,8 +1,31 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Selections } from './usePokerSession';
 import { GameState } from './usePokerSession';
+import { isUuidLike } from '@/lib/pokerSessionPathSlug';
+
+/** Team poker URLs: resolve DB session id from team + slug so history never depends on merged UI state alone. */
+export type PokerHistoryTeamRoute = { teamId: string; slug: string };
+
+async function resolvePokerSessionPk(
+  sessionIdHint: string | null | undefined,
+  teamRoute: PokerHistoryTeamRoute | null | undefined
+): Promise<string | null> {
+  const slug = teamRoute?.slug?.trim();
+  const teamId = teamRoute?.teamId?.trim();
+  if (teamId && slug && slug !== 'null' && slug !== 'undefined') {
+    let q = supabase.from('poker_sessions').select('id').eq('team_id', teamId);
+    if (isUuidLike(slug)) {
+      q = q.or(`id.eq.${slug},room_id.eq.${slug}`);
+    } else {
+      q = q.eq('room_id', slug);
+    }
+    const { data, error } = await q.maybeSingle();
+    if (!error && data?.id) return data.id;
+  }
+  const hint = sessionIdHint?.trim();
+  return hint && hint !== 'null' && hint !== 'undefined' ? hint : null;
+}
 
 /** Dispatched when the session advances so history can update `selectedRoundNumberRef` before `fetchRounds` races realtime. */
 export const POKER_FOLLOW_CURRENT_ROUND_EVENT = 'poker-follow-current-round';
@@ -23,24 +46,41 @@ export interface PokerSessionRound {
   is_active: boolean;
 }
 
-export const usePokerSessionHistory = (sessionId: string | null, initialRoundNumber?: number) => {
+export const usePokerSessionHistory = (
+  sessionId: string | null,
+  initialRoundNumber?: number,
+  teamRoute?: PokerHistoryTeamRoute | null
+) => {
   const [rounds, setRounds] = useState<PokerSessionRound[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [resolvedSessionPk, setResolvedSessionPk] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Preserve the user's selected round when we refetch due to realtime changes.
   const selectedRoundNumberRef = useRef<number | undefined>(initialRoundNumber);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const pk = await resolvePokerSessionPk(sessionId, teamRoute ?? null);
+      if (!cancelled) setResolvedSessionPk(pk);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, teamRoute?.teamId, teamRoute?.slug]);
+
   const fetchRounds = useCallback(async () => {
-    if (!sessionId) return;
-    
+    const pk = resolvedSessionPk;
+    if (!pk) return;
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('poker_session_rounds')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', pk)
         .order('round_number', { ascending: true });
 
       if (error) {
@@ -77,46 +117,47 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
     } finally {
       setLoading(false);
     }
-  }, [sessionId, initialRoundNumber, toast]);
+  }, [resolvedSessionPk, initialRoundNumber, toast]);
 
   useEffect(() => {
-    if (sessionId) {
-      fetchRounds();
-    } else {
+    if (!resolvedSessionPk) {
       setRounds([]);
+      setCurrentRoundIndex(0);
       return;
     }
+
+    void fetchRounds();
 
     const handleFollowCurrentRound = (e: Event) => {
       const ce = e as CustomEvent<PokerFollowCurrentRoundDetail>;
       const { sessionId: sid, roundNumber } = ce.detail || ({} as PokerFollowCurrentRoundDetail);
-      if (sid !== sessionId || typeof roundNumber !== 'number') return;
+      if (sid !== resolvedSessionPk || typeof roundNumber !== 'number') return;
       selectedRoundNumberRef.current = roundNumber;
       void fetchRounds();
     };
     window.addEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
 
     const channel = supabase
-      .channel(`poker_session_rounds-changes-for-${sessionId}`)
+      .channel(`poker_session_rounds-changes-for-${resolvedSessionPk}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'poker_session_rounds',
-          filter: `session_id=eq.${sessionId}`,
+          filter: `session_id=eq.${resolvedSessionPk}`,
         },
         () => {
-          fetchRounds();
+          void fetchRounds();
         }
       )
       .subscribe();
     
     // Listen for the custom event to refetch rounds
-    const handleRoundEnded = () => fetchRounds();
+    const handleRoundEnded = () => void fetchRounds();
     window.addEventListener('round-ended', handleRoundEnded);
 
-    const handleRoundsDeleted = () => fetchRounds();
+    const handleRoundsDeleted = () => void fetchRounds();
     window.addEventListener('rounds-deleted', handleRoundsDeleted);
 
     return () => {
@@ -125,7 +166,7 @@ export const usePokerSessionHistory = (sessionId: string | null, initialRoundNum
       window.removeEventListener('round-ended', handleRoundEnded);
       window.removeEventListener('rounds-deleted', handleRoundsDeleted);
     };
-  }, [sessionId, fetchRounds]);
+  }, [resolvedSessionPk, fetchRounds]);
 
   useEffect(() => {
     const round = rounds[currentRoundIndex];

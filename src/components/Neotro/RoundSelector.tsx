@@ -77,9 +77,9 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const currentRoundNumber = session?.round_number ?? 1;
 
   const ticketStripItems = useMemo(() => {
-    const roundItems = rounds
-      .filter((round) => round.is_active || !!round.ticket_number || round.round_number === currentRoundNumber)
-      .map((round) => {
+    // List every round so completed / inactive rounds without tickets stay reachable (legacy sessions).
+    const sortedRounds = rounds.slice().sort((a, b) => a.round_number - b.round_number);
+    const roundItems = sortedRounds.map((round) => {
         const isLatestRound = round.round_number === currentRoundNumber;
         const isSelectedRound = currentRound?.round_number === round.round_number;
         const ticketKey = round.ticket_number || 'No ticket';
