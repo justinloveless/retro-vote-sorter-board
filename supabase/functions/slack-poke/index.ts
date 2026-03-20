@@ -372,7 +372,7 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
 
     // Generate initial message
     const jiraUrl = generateJiraUrl(team, ticketNumber);
-    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number, jiraUrl);
+    const message = generateVotingMessage(ticketNumber, ticketTitle, {}, 'Voting', team.id, round.round_number, jiraUrl, session.room_id);
 
     // Post message via Slack API instead of HTTP response
     const messageTs = await postSlackMessage(
