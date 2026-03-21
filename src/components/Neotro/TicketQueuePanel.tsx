@@ -46,8 +46,18 @@ interface TicketQueuePanelProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   teamId: string | undefined;
-  onAddTicket: (key: string, summary: string | null) => Promise<void>;
-  onAddTicketsBatch?: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
+  onAddTicket: (
+    key: string,
+    summary: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => Promise<void>;
+  onAddTicketsBatch?: (
+    tickets: Array<{
+      ticketKey: string;
+      ticketSummary: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
+  ) => Promise<void>;
   /** Tickets assigned to any session round (active or not) cannot be added again from Browse Jira */
   rounds?: PokerSessionRound[];
   /** When true, renders as bottom drawer (like Chat) instead of side sheet */
@@ -250,6 +260,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     setManualTicketKey('');
 
     let summary: string | null = null;
+    let parent: { key: string; summary: string } | null = null;
     if (isJiraConfigured && teamId) {
       try {
         const { data } = await supabase.functions.invoke('get-jira-issue', {
@@ -257,13 +268,16 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
         });
         if (data && !data.error && data.fields) {
           summary = data.fields.summary || null;
+          parent = data.fields.parent
+            ? { key: data.fields.parent.key, summary: data.fields.parent.fields?.summary || '' }
+            : null;
         }
       } catch {
         // Fall through with null summary
       }
     }
 
-    await onAddTicket(key, summary);
+    await onAddTicket(key, summary, parent);
     setAddingKeys(prev => {
       const next = new Set(prev);
       next.delete(key);
@@ -273,7 +287,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
 
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
-    await onAddTicket(issue.key, issue.summary);
+    await onAddTicket(issue.key, issue.summary, issue.parent);
     setAddingKeys(prev => {
       const next = new Set(prev);
       next.delete(issue.key);
@@ -302,11 +316,12 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
             toAdd.map((issue) => ({
               ticketKey: issue.key.trim(),
               ticketSummary: issue.summary,
+              ticketParent: issue.parent,
             }))
           );
         } else {
           for (const issue of toAdd) {
-            await onAddTicket(issue.key.trim(), issue.summary);
+            await onAddTicket(issue.key.trim(), issue.summary, issue.parent);
           }
         }
         toast({

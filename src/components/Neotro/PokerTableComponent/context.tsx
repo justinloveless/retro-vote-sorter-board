@@ -46,7 +46,11 @@ interface PokerTableContextProps {
    */
   replayRound: () => void;
   nextRound: (ticketNumber?: string) => void;
-  updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
+  updateTicketNumber: (
+    ticketNumber: string,
+    ticketTitle?: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => void;
   updateSessionConfig: (config: Partial<PokerSession>) => void;
   leaveObserverMode: () => void;
   enterObserverMode: () => void;
@@ -110,8 +114,18 @@ interface PokerTableContextProps {
   isStartNewRoundDialogOpen: boolean;
   setStartNewRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onStartNewRoundRequest: () => void;
-  addTicketToQueue: (ticketKey: string, ticketSummary: string | null) => Promise<void>;
-  addTicketsToQueueBatch: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
+  addTicketToQueue: (
+    ticketKey: string,
+    ticketSummary: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => Promise<void>;
+  addTicketsToQueueBatch: (
+    tickets: Array<{
+      ticketKey: string;
+      ticketSummary: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
+  ) => Promise<void>;
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
   onPokerBack?: () => void;
@@ -143,9 +157,23 @@ export interface PokerTableProviderProps {
   playHand: () => void;
   nextRound: (ticketNumber?: string) => void;
   /** Add a new active round without deactivating existing active rounds (parallel rounds). */
-  startNewRound: (ticketNumber?: string, ticketTitle?: string | null) => void;
-  startNewRounds?: (tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>) => Promise<void>;
-  updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
+  startNewRound: (
+    ticketNumber?: string,
+    ticketTitle?: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => void;
+  startNewRounds?: (
+    tickets: Array<{
+      ticketNumber: string;
+      ticketTitle?: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
+  ) => Promise<void>;
+  updateTicketNumber: (
+    ticketNumber: string,
+    ticketTitle?: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => void;
   updateSessionConfig: (config: Partial<PokerSession>) => void;
   leaveObserverMode: () => void;
   enterObserverMode: () => void;
@@ -235,7 +263,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       : (activeUserDisplayName?.trim() || 'Player');
 
   const addTicketToQueue = useCallback(
-    async (ticketKey: string, ticketSummary: string | null) => {
+    async (
+      ticketKey: string,
+      ticketSummary: string | null,
+      ticketParent?: { key: string; summary: string } | null
+    ) => {
       const normalizedTicketKey = ticketKey.trim();
       if (!normalizedTicketKey) return;
       const sess = session;
@@ -248,16 +280,26 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
         if (baseRound) {
           setOptimisticRoundsById((prev) => ({
             ...prev,
-            [liveRoundId]: { ...baseRound, ticket_number: normalizedTicketKey, ticket_title: ticketSummary },
+            [liveRoundId]: {
+              ...baseRound,
+              ticket_number: normalizedTicketKey,
+              ticket_title: ticketSummary,
+              ...(ticketParent !== undefined
+                ? {
+                    ticket_parent_key: ticketParent?.key ?? null,
+                    ticket_parent_summary: ticketParent?.summary ?? null,
+                  }
+                : {}),
+            },
           }));
           if (currentRound?.id === liveRoundId && currentRound.is_active) {
             setDisplayTicketNumber(normalizedTicketKey);
           }
         }
-        await updateLiveRoundTicketNumber(normalizedTicketKey, ticketSummary);
+        await updateLiveRoundTicketNumber(normalizedTicketKey, ticketSummary, ticketParent);
         return;
       }
-      await startNewRound(normalizedTicketKey, ticketSummary);
+      await startNewRound(normalizedTicketKey, ticketSummary, ticketParent);
     },
     [
       session,
@@ -269,18 +311,31 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   );
 
   const addTicketsToQueueBatch = useCallback(
-    async (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => {
-      const uniqueTicketMap = new Map<string, string | null>();
+    async (
+      tickets: Array<{
+        ticketKey: string;
+        ticketSummary: string | null;
+        ticketParent?: { key: string; summary: string } | null;
+      }>
+    ) => {
+      const uniqueTicketMap = new Map<
+        string,
+        { ticketSummary: string | null; ticketParent?: { key: string; summary: string } | null }
+      >();
       for (const ticket of tickets) {
         const key = ticket.ticketKey.trim();
         if (!key || uniqueTicketMap.has(key)) continue;
-        uniqueTicketMap.set(key, ticket.ticketSummary);
+        uniqueTicketMap.set(key, {
+          ticketSummary: ticket.ticketSummary,
+          ticketParent: ticket.ticketParent,
+        });
       }
       if (uniqueTicketMap.size === 0) return;
 
-      const normalizedTickets = Array.from(uniqueTicketMap.entries()).map(([ticketKey, ticketSummary]) => ({
+      const normalizedTickets = Array.from(uniqueTicketMap.entries()).map(([ticketKey, v]) => ({
         ticketKey,
-        ticketSummary,
+        ticketSummary: v.ticketSummary,
+        ticketParent: v.ticketParent,
       }));
 
       const sess = session;
@@ -301,13 +356,23 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
                 ...baseRound,
                 ticket_number: firstTicket.ticketKey,
                 ticket_title: firstTicket.ticketSummary,
+                ...(firstTicket.ticketParent !== undefined
+                  ? {
+                      ticket_parent_key: firstTicket.ticketParent?.key ?? null,
+                      ticket_parent_summary: firstTicket.ticketParent?.summary ?? null,
+                    }
+                  : {}),
               },
             }));
             if (currentRound?.id === liveRoundId && currentRound.is_active) {
               setDisplayTicketNumber(firstTicket.ticketKey);
             }
           }
-          await updateLiveRoundTicketNumber(firstTicket.ticketKey, firstTicket.ticketSummary);
+          await updateLiveRoundTicketNumber(
+            firstTicket.ticketKey,
+            firstTicket.ticketSummary,
+            firstTicket.ticketParent
+          );
           startIndex = 1;
         }
       }
@@ -315,6 +380,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       const remaining = normalizedTickets.slice(startIndex).map((ticket) => ({
         ticketNumber: ticket.ticketKey,
         ticketTitle: ticket.ticketSummary,
+        ticketParent: ticket.ticketParent,
       }));
       if (remaining.length === 0) return;
 

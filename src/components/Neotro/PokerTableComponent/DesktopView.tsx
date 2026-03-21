@@ -50,8 +50,18 @@ function QueuePanelCard({
 }: {
   teamId: string | undefined;
   rounds: PokerSessionRound[];
-  addTicketToQueue: (key: string, summary: string | null) => Promise<void>;
-  addTicketsToQueueBatch: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
+  addTicketToQueue: (
+    key: string,
+    summary: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => Promise<void>;
+  addTicketsToQueueBatch: (
+    tickets: Array<{
+      ticketKey: string;
+      ticketSummary: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
+  ) => Promise<void>;
   displayTicketNumber: string;
   setDisplayTicketNumber: (key: string) => void;
   updateTicketNumber: (key: string) => void;

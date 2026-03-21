@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -17,13 +18,26 @@ import { Plus, Spade, Calendar, Hash, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pokerSessionPathSlug } from '@/lib/pokerSessionPathSlug';
 import { useToast } from '@/hooks/use-toast';
+import {
+  countPointedStories,
+  getSessionTopicSummary75Percent,
+  sessionTopicBadgeToneForParentClass,
+  SESSION_TOPIC_UNSCOPED_TONE_KEY,
+  type PokerRoundForListStats,
+} from '@/lib/pokerSessionListStats';
+import { parentBadgeClassName } from '@/lib/parentBadgeTone';
+import { cn } from '@/lib/utils';
 
 interface PokerSessionRow {
   id: string;
   room_id: string | null;
   created_at: string;
-  /** Embedded aggregate: number of round rows (excludes hard-deleted rounds). */
-  poker_session_rounds: { count: number }[] | null;
+  poker_session_rounds: Array<
+    Pick<
+      PokerRoundForListStats,
+      'game_state' | 'ticket_number' | 'ticket_parent_key' | 'ticket_parent_summary'
+    >
+  > | null;
 }
 
 interface TeamPokerSessionsProps {
@@ -53,15 +67,26 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     );
   };
 
-  const roundRowCount = (session: PokerSessionRow) =>
-    session.poker_session_rounds?.[0]?.count ?? 0;
+  const roundRowsOrCount = (session: PokerSessionRow) => {
+    const embedded = session.poker_session_rounds;
+    if (!embedded?.length) return { total: 0, rows: [] as PokerRoundForListStats[] };
+    return { total: embedded.length, rows: embedded as PokerRoundForListStats[] };
+  };
 
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('poker_sessions')
-        .select('id, room_id, created_at, poker_session_rounds(count)')
+        .select(
+          `id, room_id, created_at,
+           poker_session_rounds(
+             game_state,
+             ticket_number,
+             ticket_parent_key,
+             ticket_parent_summary
+           )`
+        )
         .eq('team_id', teamId)
         .order('created_at', { ascending: false });
 
@@ -105,7 +130,15 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     const fetchSessions = async () => {
       const { data, error } = await supabase
         .from('poker_sessions')
-        .select('id, room_id, created_at, poker_session_rounds(count)')
+        .select(
+          `id, room_id, created_at,
+           poker_session_rounds(
+             game_state,
+             ticket_number,
+             ticket_parent_key,
+             ticket_parent_summary
+           )`
+        )
         .eq('team_id', teamId)
         .order('created_at', { ascending: false });
 
@@ -198,7 +231,9 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     <>
       <div className="space-y-3">
         {sessions.map((session) => {
-          const roundCount = roundRowCount(session);
+          const { total: roundCount, rows: roundRows } = roundRowsOrCount(session);
+          const pointedCount = countPointedStories(roundRows);
+          const topicSummary = getSessionTopicSummary75Percent(roundRows);
           return (
           <Card
             key={session.id}
@@ -217,10 +252,42 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
                   </div>
                   <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
                     <Hash className="h-3 w-3 shrink-0" />
-                    {roundCount} round{roundCount !== 1 ? 's' : ''}
+                    {pointedCount}/{roundCount} {roundCount === 1 ? 'story' : 'stories'} pointed
                     <span className="mx-1">·</span>
                     Started {format(new Date(session.created_at), 'h:mm a')}
                   </div>
+                  {topicSummary && (
+                    <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span className="text-muted-foreground shrink-0">Mostly about:</span>
+                      {topicSummary.kind === 'various' ? (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
+                            parentBadgeClassName('__various_topics__'),
+                          )}
+                        >
+                          various topics
+                        </Badge>
+                      ) : (
+                        topicSummary.topics.map((t) => (
+                          <Badge
+                            key={`${t.toneKey}-${t.label}`}
+                            variant="outline"
+                            title={
+                              t.toneKey !== SESSION_TOPIC_UNSCOPED_TONE_KEY ? t.toneKey : undefined
+                            }
+                            className={cn(
+                              'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
+                              parentBadgeClassName(sessionTopicBadgeToneForParentClass(t.toneKey)),
+                            )}
+                          >
+                            {t.label}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>

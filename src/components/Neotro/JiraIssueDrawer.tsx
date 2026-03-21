@@ -16,6 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
+import { parentBadgeClassName } from '@/lib/parentBadgeTone';
+import { cn } from '@/lib/utils';
 
 // Context to allow images inside parsed markup to open a shared preview dialog
 const ImagePreviewContext = React.createContext<((src: string) => void) | null>(null);
@@ -69,6 +71,8 @@ interface JiraIssueFields {
   assignee?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   reporter?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   issuetype?: { name: string; iconUrl?: string };
+  /** Present when the issue is under a parent (same shape as Jira browse lists). */
+  parent?: { key: string; fields?: { summary?: string } } | null;
   labels?: string[];
   comment?: { comments: JiraComment[]; total: number };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -941,32 +945,67 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
                 <Separator />
 
-                {/* People */}
+                {/* People & parent */}
                 <div className="grid grid-cols-2 gap-3">
                   {fields.assignee && (
-                    <div className="flex items-center gap-2">
-                      {fields.assignee.avatarUrls?.['24x24'] ? (
-                        <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
-                      ) : (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Assignee</p>
-                        <p className="text-sm text-foreground">{fields.assignee.displayName}</p>
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Assignee</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {fields.assignee.avatarUrls?.['24x24'] ? (
+                          <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full shrink-0" />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <p className="text-sm text-foreground truncate">{fields.assignee.displayName}</p>
                       </div>
                     </div>
                   )}
                   {fields.reporter && (
-                    <div className="flex items-center gap-2">
-                      {fields.reporter.avatarUrls?.['24x24'] ? (
-                        <img src={fields.reporter.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
-                      ) : (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Reporter</p>
-                        <p className="text-sm text-foreground">{fields.reporter.displayName}</p>
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Reporter</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {fields.reporter.avatarUrls?.['24x24'] ? (
+                          <img src={fields.reporter.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full shrink-0" />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <p className="text-sm text-foreground truncate">{fields.reporter.displayName}</p>
                       </div>
+                    </div>
+                  )}
+                  {fields.parent?.key && (
+                    <div className="col-span-2 flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Parent</p>
+                      {jiraDomain ? (
+                        <a
+                          href={`${jiraDomain}/browse/${fields.parent.key}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 max-w-full self-start"
+                          title={fields.parent.key}
+                        >
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-sm font-medium border max-w-full truncate hover:opacity-90',
+                              parentBadgeClassName(fields.parent.key),
+                            )}
+                          >
+                            {(fields.parent.fields?.summary ?? '').trim() || fields.parent.key}
+                          </Badge>
+                        </a>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          title={fields.parent.key}
+                          className={cn(
+                            'text-sm font-medium border max-w-full truncate self-start',
+                            parentBadgeClassName(fields.parent.key),
+                          )}
+                        >
+                          {(fields.parent.fields?.summary ?? '').trim() || fields.parent.key}
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>

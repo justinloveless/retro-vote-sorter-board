@@ -45,8 +45,18 @@ interface JiraIssue {
 interface EmbeddedTicketQueueProps {
   teamId: string | undefined;
   isJiraConfigured: boolean;
-  onAddTicket: (key: string, summary: string | null) => Promise<void>;
-  onAddTicketsBatch?: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
+  onAddTicket: (
+    key: string,
+    summary: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => Promise<void>;
+  onAddTicketsBatch?: (
+    tickets: Array<{
+      ticketKey: string;
+      ticketSummary: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
+  ) => Promise<void>;
   displayTicketNumber: string;
   onSelectTicket: (ticketKey: string) => void;
   /** Tickets on any session round (active or not) are excluded from adding via Browse Jira */
@@ -328,7 +338,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
       }
     }
 
-    await onAddTicket(key, summary);
+    await onAddTicket(key, summary, enrichedIssue?.parent ?? null);
     if (enrichedIssue) pushIssuesMetadataToParent([enrichedIssue]);
     setAddingKeys(prev => {
       const next = new Set(prev);
@@ -339,7 +349,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
 
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
-    await onAddTicket(issue.key, issue.summary);
+    await onAddTicket(issue.key, issue.summary, issue.parent);
     pushIssuesMetadataToParent([issue]);
     setAddingKeys(prev => {
       const next = new Set(prev);
@@ -369,11 +379,12 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
             toAdd.map((issue) => ({
               ticketKey: issue.key.trim(),
               ticketSummary: issue.summary,
+              ticketParent: issue.parent,
             }))
           );
         } else {
           for (const issue of toAdd) {
-            await onAddTicket(issue.key.trim(), issue.summary);
+            await onAddTicket(issue.key.trim(), issue.summary, issue.parent);
           }
         }
         pushIssuesMetadataToParent(toAdd);
