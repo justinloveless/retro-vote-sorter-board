@@ -7,6 +7,7 @@ import CardState from "@/components/Neotro/PlayingCards/CardState";
 import PointsDetails from "@/components/Neotro/PointDetails";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import { RoundSelector } from '@/components/Neotro/RoundSelector';
+import { PlayingFieldRoundSlide } from '@/components/Neotro/PlayingFieldRoundSlide';
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ export const MobileView: React.FC = () => {
         isSlackInstalled,
         isSending,
         currentRound,
+        currentRoundIndex,
         rounds,
         isViewingHistory,
         goToCurrentRound,
@@ -183,6 +185,7 @@ export const MobileView: React.FC = () => {
 
                     {/* Mobile Main Content (short viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
+                        <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
                         {(displaySession.game_state === 'Playing' ||
                             !isViewingHistory ||
                             (isViewingHistory && isCompact)) && (
@@ -471,6 +474,7 @@ export const MobileView: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                        </PlayingFieldRoundSlide>
                     </div>
                 </ScrollArea>
                 <div className="flex-shrink-0">
@@ -524,6 +528,7 @@ export const MobileView: React.FC = () => {
 
                     {/* Mobile Main Content (taller viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
+                        <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
                         {(displaySession.game_state === 'Playing' ||
                             !isViewingHistory ||
                             (isViewingHistory && isCompact)) && (
@@ -812,6 +817,7 @@ export const MobileView: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                        </PlayingFieldRoundSlide>
                     </div>
                 </div>
                 <div className="flex-shrink-0">

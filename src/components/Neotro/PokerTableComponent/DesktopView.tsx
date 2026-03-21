@@ -30,6 +30,7 @@ import {
   writePanelWidth,
 } from '@/hooks/use-persisted-neotro-poker-panels';
 import { RoundSelector } from '@/components/Neotro/RoundSelector';
+import { PlayingFieldRoundSlide } from '@/components/Neotro/PlayingFieldRoundSlide';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
@@ -114,6 +115,7 @@ export const DesktopView: React.FC = () => {
     const {
         shake,
         currentRound,
+        currentRoundIndex,
         rounds,
         isViewingHistory,
         canGoBack,
@@ -616,6 +618,7 @@ export const DesktopView: React.FC = () => {
                         </div>
                     )}
                     <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                    <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
                     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
                         <div className="my-auto flex flex-col items-center gap-2 w-full min-h-0">
                             <div className="relative min-h-0 w-full overflow-hidden flex flex-col items-center">
@@ -761,6 +764,7 @@ export const DesktopView: React.FC = () => {
                     ) : null}
                         </div>
                     </div>
+                    </PlayingFieldRoundSlide>
                     </DragToPlayProvider>
                 </div>
                 {panelVisibility.chat ? (
