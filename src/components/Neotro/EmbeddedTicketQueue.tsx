@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Plus, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, ListPlus } from 'lucide-react';
+import { Plus, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, ListPlus, Trash2, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
