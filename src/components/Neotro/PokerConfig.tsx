@@ -18,6 +18,8 @@ export interface PokerSessionConfig {
   room_id?: string | null;
   presence_enabled?: boolean;
   send_to_slack?: boolean;
+  /** When true (default), non-spotlight users follow the spotlight holder's round. */
+  spotlight_follow_enabled?: boolean;
   observer_ids?: string[];
   selections?: Record<string, { name?: string }>;
   team_id?: string | null;
@@ -59,6 +61,9 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   const setIsOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
   const [presenceEnabled, setPresenceEnabled] = useState(config.presence_enabled !== false);
   const [sendToSlack, setSendToSlack] = useState(config.send_to_slack === true);
+  const [spotlightFollowEnabled, setSpotlightFollowEnabled] = useState(
+    config.spotlight_follow_enabled !== false
+  );
   const [observerIds, setObserverIds] = useState<string[]>(config.observer_ids ?? []);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
@@ -70,8 +75,9 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   useEffect(() => {
     setPresenceEnabled(config.presence_enabled !== false);
     setSendToSlack(config.send_to_slack === true);
+    setSpotlightFollowEnabled(config.spotlight_follow_enabled !== false);
     setObserverIds(config.observer_ids ?? []);
-  }, [config.presence_enabled, config.send_to_slack, config.observer_ids]);
+  }, [config.presence_enabled, config.send_to_slack, config.spotlight_follow_enabled, config.observer_ids]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,6 +118,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
     onUpdateConfig({
       presence_enabled: presenceEnabled,
       send_to_slack: sendToSlack,
+      spotlight_follow_enabled: spotlightFollowEnabled,
       observer_ids: observerIds,
     });
     setIsOpen(false);
@@ -120,6 +127,7 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
   const handleConfigChange = (key: keyof PokerSessionConfig, value: any) => {
     setPresenceEnabled(key === 'presence_enabled' ? value : presenceEnabled);
     setSendToSlack(key === 'send_to_slack' ? value : sendToSlack);
+    setSpotlightFollowEnabled(key === 'spotlight_follow_enabled' ? value : spotlightFollowEnabled);
   };
 
   const toggleObserver = (userId: string) => {
@@ -181,6 +189,20 @@ export const PokerConfig: React.FC<PokerConfigProps> = ({
                   checked={sendToSlack}
                   onCheckedChange={(checked) => handleConfigChange('send_to_slack', checked)}
                   disabled={!isSlackIntegrated}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="spotlight-follow">Follow spotlight ticket</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When someone has the spotlight, everyone else jumps to the ticket they select.
+                  </p>
+                </div>
+                <Switch
+                  id="spotlight-follow"
+                  checked={spotlightFollowEnabled}
+                  onCheckedChange={(checked) => handleConfigChange('spotlight_follow_enabled', checked)}
                 />
               </div>
 

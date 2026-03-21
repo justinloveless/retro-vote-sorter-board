@@ -19,6 +19,11 @@ const NeotroPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const roundParam = searchParams.get('round');
+  const requestedRoundNumberFromUrl = useMemo(() => {
+    if (roundParam == null || roundParam === '') return null;
+    const n = Number.parseInt(roundParam, 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }, [roundParam]);
   const { user, profile, loading: loadingAuth } = useAuth();
   const { isFeatureEnabled, loading: loadingFlags } = useFeatureFlags();
   const [currentRole, setCurrentRole] = useState<string | undefined>();
@@ -90,13 +95,10 @@ const NeotroPage = () => {
     pokerRouteForHistory
   );
 
-  // Check if a specific round is requested via query parameter
-  const requestedRoundNumber = roundParam ? parseInt(roundParam, 10) : null;
-
-  // Find the requested round when rounds are loaded
-  const requestedRound = requestedRoundNumber && rounds.length > 0 
-    ? rounds.find(round => round.round_number === requestedRoundNumber)
-    : null;
+  const requestedRound =
+    requestedRoundNumberFromUrl && rounds.length > 0
+      ? rounds.find((round) => round.round_number === requestedRoundNumberFromUrl)
+      : null;
 
   // Determine which session data to use
   const displaySession = requestedRound ? {
@@ -108,6 +110,7 @@ const NeotroPage = () => {
     current_round_number: session?.current_round_number,
     presence_enabled: session?.presence_enabled,
     send_to_slack: session?.send_to_slack,
+    spotlight_follow_enabled: session?.spotlight_follow_enabled,
     // Override the round_number to match the requested round for chat and history
     round_number: requestedRound.round_number
   } : session;
@@ -180,16 +183,19 @@ const NeotroPage = () => {
   }
 
   return (
-    <div className="h-screen w-screen min-w-full flex flex-col pt-16 md:pt-0 neotro-full-width">
-       <AppHeader variant='back' />
+    <div className="h-screen w-screen min-w-full flex flex-col neotro-full-width">
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <PokerTable
           session={displaySession}
           activeUserId={profile?.id}
+          activeUserDisplayName={
+            profile?.nickname || profile?.full_name || user?.email || 'Player'
+          }
           teamId={teamId}
           userRole={currentRole}
-          requestedRoundNumber={requestedRoundNumber}
+          requestedRoundNumber={requestedRoundNumberFromUrl}
           pokerRouteContext={pokerRouteForHistory}
+          onPokerBack={() => navigate(-1)}
           {...pokerActions}
         />
       </div>

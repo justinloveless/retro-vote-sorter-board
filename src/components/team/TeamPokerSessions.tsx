@@ -22,7 +22,8 @@ interface PokerSessionRow {
   id: string;
   room_id: string | null;
   created_at: string;
-  current_round_number: number;
+  /** Embedded aggregate: number of round rows (excludes hard-deleted rounds). */
+  poker_session_rounds: { count: number }[] | null;
 }
 
 interface TeamPokerSessionsProps {
@@ -52,12 +53,15 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     );
   };
 
+  const roundRowCount = (session: PokerSessionRow) =>
+    session.poker_session_rounds?.[0]?.count ?? 0;
+
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('poker_sessions')
-        .select('id, room_id, created_at, current_round_number')
+        .select('id, room_id, created_at, poker_session_rounds(count)')
         .eq('team_id', teamId)
         .order('created_at', { ascending: false });
 
@@ -72,8 +76,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
 
     fetchSessions();
 
-    // Subscribe to realtime changes
-    const channel = supabase
+    const channelSessions = supabase
       .channel(`team-poker-sessions-${teamId}`)
       .on('postgres_changes', {
         event: '*',
@@ -81,14 +84,65 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
         table: 'poker_sessions',
         filter: `team_id=eq.${teamId}`,
       }, () => {
-        fetchSessions();
+        void fetchSessions();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channelSessions);
     };
   }, [teamId]);
+
+  /** Refetch when any round row for this team's sessions changes (insert/update/delete). */
+  const sessionIdsKey = sessions
+    .map((s) => s.id)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    if (!sessionIdsKey) return;
+
+    const fetchSessions = async () => {
+      const { data, error } = await supabase
+        .from('poker_sessions')
+        .select('id, room_id, created_at, poker_session_rounds(count)')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const pending = optimisticPendingDeleteIds.current;
+        setSessions(
+          pending.size === 0 ? data : data.filter((s) => !pending.has(s.id))
+        );
+      }
+    };
+
+    const ids = sessionIdsKey.split(',');
+    const filter =
+      ids.length === 1
+        ? `session_id=eq.${ids[0]}`
+        : `session_id=in.(${ids.join(',')})`;
+
+    const channelRounds = supabase
+      .channel(`team-poker-rounds-${teamId}-${sessionIdsKey}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'poker_session_rounds',
+          filter,
+        },
+        () => {
+          void fetchSessions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelRounds);
+    };
+  }, [teamId, sessionIdsKey]);
 
   const confirmDeleteSession = async () => {
     const session = sessionPendingDelete;
@@ -143,7 +197,9 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
   return (
     <>
       <div className="space-y-3">
-        {sessions.map((session) => (
+        {sessions.map((session) => {
+          const roundCount = roundRowCount(session);
+          return (
           <Card
             key={session.id}
             className="cursor-pointer hover:shadow-md transition-shadow border-border"
@@ -161,7 +217,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
                   </div>
                   <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
                     <Hash className="h-3 w-3 shrink-0" />
-                    {session.current_round_number} round{session.current_round_number !== 1 ? 's' : ''}
+                    {roundCount} round{roundCount !== 1 ? 's' : ''}
                     <span className="mx-1">·</span>
                     Started {format(new Date(session.created_at), 'h:mm a')}
                   </div>
@@ -194,7 +250,8 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
               </div>
             </CardContent>
           </Card>
-        ))}
+        );
+        })}
       </div>
 
       <AlertDialog open={!!sessionPendingDelete} onOpenChange={(open) => !open && setSessionPendingDelete(null)}>

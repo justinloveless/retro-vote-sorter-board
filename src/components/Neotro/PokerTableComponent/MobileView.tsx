@@ -15,11 +15,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Send, Eye, Maximize2, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import useWindowSize from '@/hooks/use-window-size';
+import { useIsCompactViewport } from '@/hooks/use-compact-viewport';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 import { PokerBottomBar, type PanelVisibility } from '@/components/Neotro/PokerBottomBar';
 import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { TicketDetailsNeotroButton } from '@/components/Neotro/TicketDetailsNeotroButton';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
+import { useJiraTicketMetadata } from '@/hooks/use-jira-ticket-metadata';
+import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';
@@ -69,7 +73,6 @@ export const MobileView: React.FC = () => {
         userRole,
         onNextRoundRequest,
         onStartNewRoundRequest,
-        ticketQueue,
         setQueuePanelOpen,
         isQueuePanelOpen,
         isJiraConfigured,
@@ -77,16 +80,19 @@ export const MobileView: React.FC = () => {
         leaveObserverMode,
         enterObserverMode,
         chatUnreadCount,
+        chatNewMessageCountByRound,
         markChatAsRead,
         goToPreviousRound,
         goToNextRound,
         canGoBack,
         canGoForward,
         deleteRound,
+        onPokerBack,
+        pokerToolbarExtras,
     } = usePokerTable();
     const { height } = useWindowSize();
+    const isCompact = useIsCompactViewport();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [roundSelectorVisible, setRoundSelectorVisible] = useState(true);
 
     const handleSwipeLeft = useCallback(() => {
         if (canGoForward) goToNextRound();
@@ -104,8 +110,7 @@ export const MobileView: React.FC = () => {
         else if (panel === 'chat') {
             setIsChatDrawerOpen((prev) => !prev);
             if (!isChatDrawerOpen) markChatAsRead();
-        } else if (panel === 'queue') setQueuePanelOpen((prev) => !prev);
-        else if (panel === 'roundSelector') setRoundSelectorVisible((prev) => !prev);
+        } else if (panel === 'queue' || panel === 'jiraBrowser') setQueuePanelOpen((prev) => !prev);
         else if (panel === 'settings') setIsSettingsOpen(true);
     }, [setIsDrawerOpen, setIsChatDrawerOpen, setQueuePanelOpen, isChatDrawerOpen, markChatAsRead]);
 
@@ -113,15 +118,30 @@ export const MobileView: React.FC = () => {
     const currentTicketSummary = useMemo(() => {
         const fromSession = (displaySession as { ticket_title?: string | null })?.ticket_title;
         if (fromSession) return fromSession;
-        const fromQueue = ticketQueue.find((t) => t.ticket_key === currentTicketKey)?.ticket_summary;
-        return fromQueue ?? null;
-    }, [displaySession, ticketQueue, currentTicketKey]);
+        return null;
+    }, [displaySession, currentTicketKey]);
 
     const CARD_BASE_HEIGHT = 95;
     const mobileScale = totalPlayers <= 4 ? 1.4 : totalPlayers <= 6 ? 1.2 : totalPlayers <= 8 ? 1.0 : 0.8;
     const scaledCardHeight = CARD_BASE_HEIGHT * mobileScale;
     const VISIBLE_STRIP = 8;
     const stackOverlap = scaledCardHeight - VISIBLE_STRIP;
+
+    const ticketMetaByKey = useJiraTicketMetadata(teamId, rounds, displayTicketNumber);
+
+    const compactTicketStripLabel = useMemo(
+        () => displayTicketLabel(displaySession?.ticket_number || displayTicketNumber),
+        [displaySession?.ticket_number, displayTicketNumber]
+    );
+
+    const compactTicketStripTooltip = useMemo(() => {
+        const key = String(currentTicketKey || '').trim();
+        const fromApi = !isSyntheticRoundTicket(key) ? ticketMetaByKey[key]?.summary : undefined;
+        if (fromApi) return fromApi;
+        const fromSession = (displaySession as { ticket_title?: string | null })?.ticket_title;
+        if (fromSession) return fromSession;
+        return compactTicketStripLabel;
+    }, [ticketMetaByKey, displaySession, currentTicketKey, compactTicketStripLabel]);
 
     if (!displaySession || !session) return null;
 
@@ -132,42 +152,122 @@ export const MobileView: React.FC = () => {
                 <>
                 <ScrollArea className="flex-1 pr-4 overflow-x-hidden" {...swipeHandlers}>
                     {/* Mobile Round Selector */}
-                    {roundSelectorVisible && (
-                        <RoundSelector
-                            rounds={rounds}
-                            session={session}
-                            displayTicketNumber={displayTicketNumber}
-                            displaySession={displaySession}
-                            displayWinningPoints={displayWinningPoints}
-                            currentRound={currentRound}
-                            isViewingHistory={isViewingHistory}
-                            teamId={teamId}
-                            ticketQueue={ticketQueue}
-                            goToRound={goToRound}
-                            goToCurrentRound={goToCurrentRound}
-                            deleteRound={deleteRound}
-                            isAdmin={userRole === 'admin' || userRole === 'owner'}
-                            onStartNewRoundRequest={onStartNewRoundRequest}
-                            isMobile={true}
-                        />
-                    )}
+                    <RoundSelector
+                        rounds={rounds}
+                        session={session}
+                        displayTicketNumber={displayTicketNumber}
+                        displaySession={displaySession}
+                        displayWinningPoints={displayWinningPoints}
+                        currentRound={currentRound}
+                        isViewingHistory={isViewingHistory}
+                        ticketMetaByKey={ticketMetaByKey}
+                        goToRound={goToRound}
+                        goToCurrentRound={goToCurrentRound}
+                        deleteRound={deleteRound}
+                        isAdmin={userRole === 'admin' || userRole === 'owner'}
+                        onStartNewRoundRequest={onStartNewRoundRequest}
+                        isMobile={true}
+                        onBack={onPokerBack}
+                        toolbarExtras={pokerToolbarExtras}
+                        chatNewMessageCountByRound={chatNewMessageCountByRound}
+                    />
 
-                    {/* Mobile Main Content */}
+                    {/* Mobile Main Content (short viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
-                        {(displaySession.game_state === 'Playing' || !isViewingHistory) && (
+                        {(displaySession.game_state === 'Playing' ||
+                            !isViewingHistory ||
+                            (isViewingHistory && isCompact)) && (
                             <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
                                 <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
+                                    {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
+                                        <div className="flex flex-row items-stretch gap-2 w-full">
+                                            <PlayHandButton
+                                                onHandPlayed={playHand}
+                                                isHandPlayed={false}
+                                                className="flex-1 min-w-0"
+                                            />
+                                            {teamId &&
+                                            isJiraConfigured &&
+                                            !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) ? (
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <TicketDetailsNeotroButton className="flex-1 min-w-0" />
+                                                    }
+                                                />
+                                            ) : (
+                                                <TicketDetailsNeotroButton
+                                                    disabled
+                                                    className="flex-1 min-w-0"
+                                                    title={
+                                                        !teamId || !isJiraConfigured
+                                                            ? 'Jira is not available'
+                                                            : 'Select a ticket first'
+                                                    }
+                                                />
+                                            )}
+                                        </div>
+                                    ) : isCompact &&
+                                      (isViewingHistory ||
+                                          (!isViewingHistory && displaySession.game_state === 'Playing')) ? (
+                                    <div className="relative flex w-full flex-row items-center gap-2 rounded-lg bg-card/50 px-3 py-1.5">
+                                        {teamId &&
+                                        isJiraConfigured &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
+                                            <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <NeotroPressableButton
+                                                            variant="emerald"
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Expand Jira issue"
+                                                            title="Issue details"
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <div
+                                            className={`flex min-w-0 flex-1 items-center justify-center gap-2 ${
+                                                teamId &&
+                                                isJiraConfigured &&
+                                                !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber)
+                                                    ? 'pr-10'
+                                                    : ''
+                                            }`}
+                                        >
+                                            <span className="shrink-0 text-sm text-muted-foreground">
+                                                {isViewingHistory ? 'Viewing:' : 'Now Pointing:'}
+                                            </span>
+                                            <span
+                                                className="min-w-0 truncate text-center font-semibold text-foreground"
+                                                title={compactTicketStripTooltip}
+                                            >
+                                                {compactTicketStripLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    ) : !isCompact ? (
                                     <div className="relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible px-3 py-1.5">
-                                        {teamId && (displaySession.ticket_number || displayTicketNumber) && (
+                                        {teamId &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
                                             <div className="absolute top-2 right-2">
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     trigger={
                                                         <NeotroPressableButton
+                                                            variant="emerald"
                                                             size="sm"
                                                             activeShowsPressed={false}
                                                             aria-label="Expand Jira issue"
+                                                            title="Issue details"
                                                         >
                                                             <Maximize2 className="h-4 w-4" />
                                                         </NeotroPressableButton>
@@ -186,12 +286,12 @@ export const MobileView: React.FC = () => {
                                                     onChange={(e) => handleTicketNumberChange(e.target.value)}
                                                     onFocus={handleTicketNumberFocus}
                                                     onBlur={handleTicketNumberBlur}
-                                                    placeholder="No ticket"
+                                                    placeholder={`Round ${displaySession.round_number ?? session?.current_round_number ?? 1}`}
                                                     className="font-semibold text-foreground leading-[1.75] bg-transparent border-b border-transparent hover:border-muted-foreground/30 focus:border-primary focus:outline-none min-w-[6rem] text-center"
                                                 />
                                             ) : (
                                                 <span className="font-semibold text-foreground leading-[1.75]">
-                                                    {displaySession.ticket_number || displayTicketNumber || 'No ticket'}
+                                                    {displayTicketLabel(displaySession.ticket_number || displayTicketNumber)}
                                                 </span>
                                             )}
                                         </div>
@@ -201,6 +301,7 @@ export const MobileView: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+                                    ) : null}
                                     {displaySession.game_state === 'Playing' && (
                                         <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
                                             <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
@@ -216,6 +317,7 @@ export const MobileView: React.FC = () => {
                                                                     size="sm"
                                                                     activeShowsPressed={false}
                                                                     aria-label="Replay"
+                                                                    title="Replay round"
                                                                     onClick={replayRound}
                                                                 >
                                                                     <RotateCcw className="h-4 w-4" />
@@ -241,7 +343,7 @@ export const MobileView: React.FC = () => {
                                                     systemMessagePrefix="Round completed by"
                                                 />
                                             </div>
-                                        ) : (
+                                        ) : !isCompact ? (
                                             <div className="flex items-center justify-center py-1">
                                                 <PlayHandButton
                                                     onHandPlayed={playHand}
@@ -249,7 +351,7 @@ export const MobileView: React.FC = () => {
                                                     className="w-full"
                                                 />
                                             </div>
-                                        )
+                                        ) : null
                                     )}
                                 </div>
                             </div>
@@ -366,8 +468,8 @@ export const MobileView: React.FC = () => {
                                 details: isDrawerOpen,
                                 chat: isChatDrawerOpen,
                                 queue: isQueuePanelOpen,
-                                jiraBrowser: false,
-                                roundSelector: roundSelectorVisible,
+                                jiraBrowser: isQueuePanelOpen,
+                                roundSelector: false,
                                 settings: true,
                             }}
                             onToggle={togglePanel}
@@ -379,7 +481,7 @@ export const MobileView: React.FC = () => {
                             onLeaveObserverMode={leaveObserverMode}
                             chatUnreadCount={chatUnreadCount}
                             isMobile={true}
-                            mobilePanelKeys={teamId ? ['details', 'queue', 'roundSelector', 'chat', 'settings'] : ['details', 'roundSelector', 'chat', 'settings']}
+                            mobilePanelKeys={teamId ? ['details', 'jiraBrowser', 'chat', 'settings'] : ['details', 'jiraBrowser', 'chat', 'settings']}
                         />
                     </TooltipProvider>
                 </div>
@@ -388,42 +490,122 @@ export const MobileView: React.FC = () => {
                 <>
                 <div className="flex-1 pr-4 overflow-y-auto overflow-x-hidden min-h-0" {...swipeHandlers}>
                     {/* Mobile Round Selector */}
-                    {roundSelectorVisible && (
-                        <RoundSelector
-                            rounds={rounds}
-                            session={session}
-                            displayTicketNumber={displayTicketNumber}
-                            displaySession={displaySession}
-                            displayWinningPoints={displayWinningPoints}
-                            currentRound={currentRound}
-                            isViewingHistory={isViewingHistory}
-                            teamId={teamId}
-                            ticketQueue={ticketQueue}
-                            goToRound={goToRound}
-                            goToCurrentRound={goToCurrentRound}
-                            deleteRound={deleteRound}
-                            isAdmin={userRole === 'admin' || userRole === 'owner'}
-                            onStartNewRoundRequest={onStartNewRoundRequest}
-                            isMobile={true}
-                        />
-                    )}
+                    <RoundSelector
+                        rounds={rounds}
+                        session={session}
+                        displayTicketNumber={displayTicketNumber}
+                        displaySession={displaySession}
+                        displayWinningPoints={displayWinningPoints}
+                        currentRound={currentRound}
+                        isViewingHistory={isViewingHistory}
+                        ticketMetaByKey={ticketMetaByKey}
+                        goToRound={goToRound}
+                        goToCurrentRound={goToCurrentRound}
+                        deleteRound={deleteRound}
+                        isAdmin={userRole === 'admin' || userRole === 'owner'}
+                        onStartNewRoundRequest={onStartNewRoundRequest}
+                        isMobile={true}
+                        onBack={onPokerBack}
+                        toolbarExtras={pokerToolbarExtras}
+                        chatNewMessageCountByRound={chatNewMessageCountByRound}
+                    />
 
-                    {/* Mobile Main Content */}
+                    {/* Mobile Main Content (taller viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
-                        {(displaySession.game_state === 'Playing' || !isViewingHistory) && (
+                        {(displaySession.game_state === 'Playing' ||
+                            !isViewingHistory ||
+                            (isViewingHistory && isCompact)) && (
                             <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
                                 <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
+                                    {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
+                                        <div className="flex flex-row items-stretch gap-2 w-full">
+                                            <PlayHandButton
+                                                onHandPlayed={playHand}
+                                                isHandPlayed={false}
+                                                className="flex-1 min-w-0"
+                                            />
+                                            {teamId &&
+                                            isJiraConfigured &&
+                                            !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) ? (
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <TicketDetailsNeotroButton className="flex-1 min-w-0" />
+                                                    }
+                                                />
+                                            ) : (
+                                                <TicketDetailsNeotroButton
+                                                    disabled
+                                                    className="flex-1 min-w-0"
+                                                    title={
+                                                        !teamId || !isJiraConfigured
+                                                            ? 'Jira is not available'
+                                                            : 'Select a ticket first'
+                                                    }
+                                                />
+                                            )}
+                                        </div>
+                                    ) : isCompact &&
+                                      (isViewingHistory ||
+                                          (!isViewingHistory && displaySession.game_state === 'Playing')) ? (
+                                    <div className="relative flex w-full flex-row items-center gap-2 rounded-lg bg-card/50 px-3 py-1.5">
+                                        {teamId &&
+                                        isJiraConfigured &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
+                                            <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <NeotroPressableButton
+                                                            variant="emerald"
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Expand Jira issue"
+                                                            title="Issue details"
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <div
+                                            className={`flex min-w-0 flex-1 items-center justify-center gap-2 ${
+                                                teamId &&
+                                                isJiraConfigured &&
+                                                !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber)
+                                                    ? 'pr-10'
+                                                    : ''
+                                            }`}
+                                        >
+                                            <span className="shrink-0 text-sm text-muted-foreground">
+                                                {isViewingHistory ? 'Viewing:' : 'Now Pointing:'}
+                                            </span>
+                                            <span
+                                                className="min-w-0 truncate text-center font-semibold text-foreground"
+                                                title={compactTicketStripTooltip}
+                                            >
+                                                {compactTicketStripLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    ) : !isCompact ? (
                                     <div className="relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible px-3 py-1.5">
-                                        {teamId && (displaySession.ticket_number || displayTicketNumber) && (
+                                        {teamId &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
                                             <div className="absolute top-2 right-2">
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     trigger={
                                                         <NeotroPressableButton
+                                                            variant="emerald"
                                                             size="sm"
                                                             activeShowsPressed={false}
                                                             aria-label="Expand Jira issue"
+                                                            title="Issue details"
                                                         >
                                                             <Maximize2 className="h-4 w-4" />
                                                         </NeotroPressableButton>
@@ -442,12 +624,12 @@ export const MobileView: React.FC = () => {
                                                     onChange={(e) => handleTicketNumberChange(e.target.value)}
                                                     onFocus={handleTicketNumberFocus}
                                                     onBlur={handleTicketNumberBlur}
-                                                    placeholder="No ticket"
+                                                    placeholder={`Round ${displaySession.round_number ?? session?.current_round_number ?? 1}`}
                                                     className="font-semibold text-foreground leading-[1.75] bg-transparent border-b border-transparent hover:border-muted-foreground/30 focus:border-primary focus:outline-none min-w-[6rem] text-center"
                                                 />
                                             ) : (
                                                 <span className="font-semibold text-foreground leading-[1.75]">
-                                                    {displaySession.ticket_number || displayTicketNumber || 'No ticket'}
+                                                    {displayTicketLabel(displaySession.ticket_number || displayTicketNumber)}
                                                 </span>
                                             )}
                                         </div>
@@ -457,6 +639,7 @@ export const MobileView: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+                                    ) : null}
                                     {displaySession.game_state === 'Playing' && (
                                         <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
                                             <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
@@ -472,6 +655,7 @@ export const MobileView: React.FC = () => {
                                                                     size="sm"
                                                                     activeShowsPressed={false}
                                                                     aria-label="Replay"
+                                                                    title="Replay round"
                                                                     onClick={replayRound}
                                                                 >
                                                                     <RotateCcw className="h-4 w-4" />
@@ -497,7 +681,7 @@ export const MobileView: React.FC = () => {
                                                     systemMessagePrefix="Round completed by"
                                                 />
                                             </div>
-                                        ) : (
+                                        ) : !isCompact ? (
                                             <div className="flex items-center justify-center py-1">
                                                 <PlayHandButton
                                                     onHandPlayed={playHand}
@@ -505,7 +689,7 @@ export const MobileView: React.FC = () => {
                                                     className="w-full"
                                                 />
                                             </div>
-                                        )
+                                        ) : null
                                     )}
                                 </div>
                             </div>
@@ -622,8 +806,8 @@ export const MobileView: React.FC = () => {
                                 details: isDrawerOpen,
                                 chat: isChatDrawerOpen,
                                 queue: isQueuePanelOpen,
-                                jiraBrowser: false,
-                                roundSelector: roundSelectorVisible,
+                                jiraBrowser: isQueuePanelOpen,
+                                roundSelector: false,
                                 settings: true,
                             }}
                             onToggle={togglePanel}
@@ -635,7 +819,7 @@ export const MobileView: React.FC = () => {
                             onLeaveObserverMode={leaveObserverMode}
                             chatUnreadCount={chatUnreadCount}
                             isMobile={true}
-                            mobilePanelKeys={teamId ? ['details', 'queue', 'roundSelector', 'chat', 'settings'] : ['details', 'roundSelector', 'chat', 'settings']}
+                            mobilePanelKeys={teamId ? ['details', 'jiraBrowser', 'chat', 'settings'] : ['details', 'jiraBrowser', 'chat', 'settings']}
                         />
                     </TooltipProvider>
                 </div>
@@ -695,6 +879,7 @@ export const MobileView: React.FC = () => {
                 config={{
                     presence_enabled: 'presence_enabled' in session && session.presence_enabled,
                     send_to_slack: 'send_to_slack' in session && session.send_to_slack,
+                    spotlight_follow_enabled: session.spotlight_follow_enabled !== false,
                     observer_ids: (session as { observer_ids?: string[] }).observer_ids,
                     selections: session.selections,
                     team_id: teamId,

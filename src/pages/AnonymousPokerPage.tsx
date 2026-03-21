@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import PokerTable from '@/components/Neotro/PokerTable';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
-import { Copy, ArrowLeft, Home, LogIn, Menu } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { AppHeader } from '@/components/AppHeader';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 // Helper function to get or create anonymous user identity
 const getAnonymousUser = () => {
@@ -27,10 +25,15 @@ const AnonymousPokerPage: React.FC = () => {
     const { roomId } = useParams<{ roomId: string }>();
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const requestedRoundNumberFromUrl = useMemo(() => {
+        const roundParam = searchParams.get('round');
+        if (roundParam == null || roundParam === '') return null;
+        const n = Number.parseInt(roundParam, 10);
+        return Number.isFinite(n) && n >= 1 ? n : null;
+    }, [searchParams]);
     const { toast } = useToast();
     const { user, profile, loading: authLoading } = useAuth();
-    const isMobile = useIsMobile();
-
     const [player, setPlayer] = useState<{ id?: string, name?: string }>({});
     const [isIdentityReady, setIsIdentityReady] = useState(false);
     const [anonymousNameInput, setAnonymousNameInput] = useState('');
@@ -146,57 +149,34 @@ const AnonymousPokerPage: React.FC = () => {
                 <PokerTable
                     session={session}
                     activeUserId={player.id}
+                    activeUserDisplayName={player.name}
+                    requestedRoundNumber={requestedRoundNumberFromUrl}
                     {...pokerActions}
                     presentUserIds={pokerActions.presentUserIds}
+                    onPokerBack={() => navigate('/')}
+                    pokerToolbarExtras={
+                        <div className="flex items-center gap-2 min-w-0 max-w-[min(100%,220px)] sm:max-w-xs">
+                            <span className="font-mono text-xs text-foreground truncate" title={roomId}>
+                                {roomId}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 shrink-0"
+                                onClick={copyLink}
+                                aria-label="Copy session link"
+                            >
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    }
                 />
             </div>
         );
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
-            {!isMobile ? (
-                <AppHeader variant='home'>
-                    <div className="pl-12 bg-transparent flex items-center justify-between">
-                        <div className='flex items-center gap-6'>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Room ID:</span>
-                                <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">{roomId}</span>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={copyLink}>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Copy Link
-                            </Button>
-                        </div>
-                    </div>
-                </AppHeader>
-            ) : (
-                <div className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => navigate('/')}
-                            className="text-white hover:bg-white/20"
-                        >
-                            <Home className="h-5 w-5" />
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-white/80">Room ID:</span>
-                            <span className="font-mono text-sm bg-white/20 backdrop-blur rounded px-2 py-1 text-white">{roomId}</span>
-                        </div>
-                    </div>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={copyLink}
-                        className="text-white hover:bg-white/20"
-                    >
-                        <Copy className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
-
+        <div className="h-screen w-screen flex flex-col">
             {renderContent()}
         </div>
     );

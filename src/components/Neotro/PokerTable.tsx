@@ -1,23 +1,26 @@
 import { PokerSessionState } from "@/hooks/usePokerSession";
 import type { PokerHistoryTeamRoute } from "@/hooks/usePokerSessionHistory";
-import React, { useState } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PokerTableProvider, usePokerTable } from "./PokerTableComponent/context";
 import { PokerTableContent } from "./PokerTableComponent";
 import { NextRoundDialog } from "./NextRoundDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useTicketQueue } from "@/hooks/useTicketQueue";
 import { TicketQueuePanel } from "./TicketQueuePanel";
 
 interface PokerTableProps {
     session: PokerSessionState | null;
     activeUserId: string | undefined;
+    /** Used for chat sender name when there is no row in round selections (observers, impersonation). */
+    activeUserDisplayName?: string;
     updateUserSelection: (points: number) => void;
     toggleLockUserSelection: () => void;
     toggleAbstainUserSelection: () => void;
     playHand: () => void;
     nextRound: (ticketNumber?: string) => void;
-    startNewRound: (ticketNumber?: string) => void;
-    updateTicketNumber: (ticketNumber: string) => void;
+    startNewRound: (ticketNumber?: string, ticketTitle?: string | null) => void;
+    startNewRounds?: (tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>) => Promise<void>;
+    updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
     updateSessionConfig: (config: any) => void;
     deleteAllRounds: () => void;
     presentUserIds: string[];
@@ -26,37 +29,47 @@ interface PokerTableProps {
     requestedRoundNumber?: number | null;
     /** When set (team poker page), round history resolves session id from URL — avoids wrong session_id on merged state. */
     pokerRouteContext?: PokerHistoryTeamRoute | null;
+    onPokerBack?: () => void;
+    pokerToolbarExtras?: ReactNode;
 }
+
+/** Writes the viewed round to `?round=` so session links can target a specific round. */
+const PokerRoundUrlSync: React.FC = () => {
+    const { currentRound } = usePokerTable();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    useEffect(() => {
+        const n = currentRound?.round_number;
+        if (n == null || !Number.isFinite(n)) return;
+
+        if (searchParams.get('round') === String(n)) return;
+
+        const next = new URLSearchParams(searchParams);
+        next.set('round', String(n));
+        setSearchParams(next, { replace: true });
+    }, [currentRound?.round_number, searchParams, setSearchParams]);
+
+    return null;
+};
 
 const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     const {
         addTicketToQueue,
-        ticketQueue,
-        removeTicketFromQueue,
-        reorderQueue,
-        clearQueue,
+        addTicketsToQueueBatch,
         isQueuePanelOpen,
         setQueuePanelOpen,
         teamId,
         rounds,
-        playQueueTicketNow,
-        playQueueTicketNowDisabled,
-        playQueueNowBusyId,
     } = usePokerTable();
     return (
         <TicketQueuePanel
+            key={teamId ?? 'no-team'}
             isOpen={isQueuePanelOpen}
             onOpenChange={setQueuePanelOpen}
             teamId={teamId}
             rounds={rounds}
-            queue={ticketQueue}
             onAddTicket={addTicketToQueue}
-            onRemoveTicket={removeTicketFromQueue}
-            onReorderQueue={reorderQueue}
-            onClearQueue={clearQueue}
-            onPlayQueueTicketNow={playQueueTicketNow}
-            playQueueTicketNowDisabled={playQueueTicketNowDisabled}
-            playQueueNowBusyId={playQueueNowBusyId}
+            onAddTicketsBatch={addTicketsToQueueBatch}
             isMobile={isMobile}
         />
     );
@@ -68,7 +81,6 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
     const [isNextRoundDialogOpen, setNextRoundDialogOpen] = useState(false);
     const [isStartNewRoundDialogOpen, setStartNewRoundDialogOpen] = useState(false);
     const [isQueuePanelOpen, setQueuePanelOpen] = useState(false);
-    const ticketQueue = useTicketQueue(providerProps.teamId);
 
     const leaveObserverMode = () => {
         const observerIds = (props.session as { observer_ids?: string[] })?.observer_ids ?? [];
@@ -81,14 +93,8 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
         props.updateSessionConfig({ observer_ids: [...observerIds, props.activeUserId] });
     };
 
-    const handleNextRoundRequest = async () => {
-        // Auto-advance: if there are queued tickets, pop the next one
-        const next = await ticketQueue.popNext();
-        if (next) {
-            props.nextRound(next.ticket_key);
-        } else {
-            setNextRoundDialogOpen(true);
-        }
+    const handleNextRoundRequest = () => {
+        setNextRoundDialogOpen(true);
     };
 
     const handleNextRoundConfirm = (ticketNumber?: string) => {
@@ -96,14 +102,8 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
         setNextRoundDialogOpen(false);
     };
 
-    const handleStartNewRoundRequest = async () => {
-        // Start a parallel round without deactivating other active rounds.
-        const next = await ticketQueue.popNext();
-        if (next) {
-            startNewRound(next.ticket_key);
-        } else {
-            setStartNewRoundDialogOpen(true);
-        }
+    const handleStartNewRoundRequest = () => {
+        setStartNewRoundDialogOpen(true);
     };
 
     const handleStartNewRoundConfirm = (ticketNumber?: string) => {
@@ -124,10 +124,10 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
             isStartNewRoundDialogOpen={isStartNewRoundDialogOpen}
             setStartNewRoundDialogOpen={setStartNewRoundDialogOpen}
             onStartNewRoundRequest={handleStartNewRoundRequest}
-            ticketQueue={ticketQueue}
             isQueuePanelOpen={isQueuePanelOpen}
             setQueuePanelOpen={setQueuePanelOpen}
         >
+            <PokerRoundUrlSync />
             <PokerTableContent />
             <NextRoundDialog 
                 isOpen={isNextRoundDialogOpen}
@@ -139,7 +139,7 @@ const PokerTable: React.FC<PokerTableProps> = (props) => {
                 onOpenChange={setStartNewRoundDialogOpen}
                 onConfirm={handleStartNewRoundConfirm}
                 title="Start New Round"
-                description="Start another active round in parallel. You can enter a ticket number, or leave it blank."
+                description="Start another active round in parallel. Enter the ticket key for the new round."
                 confirmLabel="Start Round"
             />
             <TicketQueuePanelConnected isMobile={isMobile} />

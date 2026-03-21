@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
 const POINT_OPTIONS = [1, 2, 3, 5, 8, 13, 21];
 
@@ -61,7 +62,8 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
 
   if (!isHandPlayed) return null;
 
-  const isDisabled = !isJiraConfigured || !ticketNumber || !teamId;
+  const isDisabled =
+    !isJiraConfigured || !ticketNumber || !teamId || isSyntheticRoundTicket(ticketNumber);
 
   const handleSubmit = async () => {
     if (isDisabled) return;
@@ -100,7 +102,9 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
       ? 'Jira integration not configured'
       : !ticketNumber
         ? 'No ticket number set'
-        : null;
+        : isSyntheticRoundTicket(ticketNumber)
+          ? 'Set a Jira key on this round to submit points'
+          : null;
 
   return (
     <div className={`flex flex-wrap items-center justify-center gap-2 ${compact ? 'flex-row' : 'flex-col space-y-2'} ${className}`}>

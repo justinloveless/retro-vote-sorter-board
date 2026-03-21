@@ -107,10 +107,6 @@ export function useSubscription() {
 
   useEffect(() => {
     checkSubscription();
-
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(checkSubscription, 60000);
-    return () => clearInterval(interval);
   }, [checkSubscription]);
 
   const startCheckout = useCallback(async (priceId: string, quantity?: number) => {

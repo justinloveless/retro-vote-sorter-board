@@ -1,7 +1,8 @@
 import React from 'react';
-import { MessageCircle, ListOrdered, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu } from 'lucide-react';
+import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 
 export interface PanelVisibility {
   chat: boolean;
@@ -30,7 +31,6 @@ interface PokerBottomBarProps {
 
 const PANELS: { key: keyof PanelVisibility; icon: React.ElementType; label: string; requiresJira?: boolean; mobileOnly?: boolean }[] = [
   { key: 'details', icon: Menu, label: 'Details', mobileOnly: true },
-  { key: 'queue', icon: ListOrdered, label: 'Queue' },
   { key: 'jiraBrowser', icon: Search, label: 'Jira Browser', requiresJira: true },
   { key: 'roundSelector', icon: GalleryHorizontalEnd, label: 'Round Selector' },
   { key: 'chat', icon: MessageCircle, label: 'Chat' },
@@ -43,14 +43,15 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
   isJiraConfigured,
   onSettingsClick,
   isObserver = false,
-  isViewingHistory = false,
+  isViewingHistory: _isViewingHistory = false,
   onEnterObserverMode,
   onLeaveObserverMode,
   chatUnreadCount = 0,
   isMobile = false,
   mobilePanelKeys,
 }) => {
-  const showObserverButton = !isViewingHistory && (onEnterObserverMode || onLeaveObserverMode);
+  const showObserverButton = !!(onEnterObserverMode || onLeaveObserverMode);
+  const { isSpotlightMine, onSpotlightClick } = usePokerTable();
   const panels = PANELS.filter(
     (p) => (!p.requiresJira || isJiraConfigured) &&
       (p.key !== 'settings' || visibility.settings) &&
@@ -62,6 +63,25 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
     <div className="w-full flex items-center justify-center gap-1 py-2 px-3 bg-background/80 backdrop-blur border-t border-border">
       {showObserverButton && (
         <>
+        {isMobile && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NeotroPressableButton
+                  variant="gold"
+                  isActive={isSpotlightMine}
+                  onClick={onSpotlightClick}
+                  aria-label={isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </NeotroPressableButton>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <NeotroPressableButton

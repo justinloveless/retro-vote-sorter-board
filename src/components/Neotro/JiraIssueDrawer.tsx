@@ -839,7 +839,10 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       {triggerElement}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[50vw] max-h-[70vh] overflow-y-auto overflow-x-hidden top-[40%]">
+        <DialogContent
+          className="sm:max-w-[60vw] overflow-y-auto overflow-x-hidden"
+          overlayClassName="bg-black/45"
+        >
           <DialogHeader>
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-lg">

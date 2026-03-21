@@ -1,15 +1,16 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Plus, Trash2, GripVertical, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, Copy } from 'lucide-react';
+import { Plus, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, ListPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { TicketQueueItem } from '@/hooks/useTicketQueue';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { JiraIssueDrawer } from './JiraIssueDrawer';
 import { IssueCard, type JiraIssueDisplay } from './IssueCard';
@@ -18,6 +19,10 @@ import {
   getJiraBrowseDisabledReason,
   JIRA_BROWSE_DISABLED_REASON_META,
 } from '@/lib/jiraBrowseDisabledReason';
+import { buildJiraBrowseIssuesBySprint } from '@/lib/jiraBrowseSprintBuckets';
+import type { JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
+import { usePersistedJiraBrowseCollapsedBuckets } from '@/hooks/use-persisted-jira-browse-collapsed-buckets';
+import { usePersistedJiraBrowseFilters } from '@/hooks/use-persisted-jira-browse-filters';
 
 interface JiraIssue {
   key: string;
@@ -30,6 +35,8 @@ interface JiraIssue {
   reporter: string | null;
   parent: { key: string; summary: string } | null;
   sprint: string | null;
+  /** ISO date from Jira sprint; null when backlog or unknown. */
+  sprintStartDate?: string | null;
   issueType: string;
   issueTypeIconUrl: string;
   storyPoints: number | null;
@@ -38,22 +45,16 @@ interface JiraIssue {
 interface EmbeddedTicketQueueProps {
   teamId: string | undefined;
   isJiraConfigured: boolean;
-  queue: TicketQueueItem[];
   onAddTicket: (key: string, summary: string | null) => Promise<void>;
-  onRemoveTicket: (id: string) => Promise<void>;
-  onReorderQueue: (items: TicketQueueItem[]) => Promise<void>;
-  onClearQueue: () => Promise<void>;
-  onPlayQueueTicketNow: (item: TicketQueueItem) => void | Promise<void>;
-  playQueueTicketNowDisabled: boolean;
-  playQueueNowBusyId: string | null;
+  onAddTicketsBatch?: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
   displayTicketNumber: string;
   onSelectTicket: (ticketKey: string) => void;
   /** Tickets on any session round (active or not) are excluded from adding via Browse Jira */
   rounds?: PokerSessionRound[];
   /** When false, hides the Browse Jira panel (only Queue is shown). Default true when isJiraConfigured. */
   showJiraBrowser?: boolean;
-  /** When false, hides the Queue panel (only Jira Browser is shown when isJiraConfigured). Default true. */
-  showQueue?: boolean;
+  /** Called when browse fetch completes — parent can merge this into shared ticket metadata to avoid duplicate get-jira-board-issues. */
+  onMetadataFromBrowse?: (meta: Record<string, JiraTicketMeta>) => void;
 }
 
 const STATUS_OPTIONS = [
@@ -83,6 +84,9 @@ function SprintBucket({
   onOpenChange,
   issues,
   renderIssue,
+  addAllDisabled,
+  addAllBusy,
+  onAddAllInBucket,
 }: {
   name: string;
   count: number;
@@ -90,20 +94,39 @@ function SprintBucket({
   onOpenChange: (open: boolean) => void;
   issues: JiraIssue[];
   renderIssue: (issue: JiraIssue) => React.ReactNode;
+  addAllDisabled: boolean;
+  addAllBusy: boolean;
+  onAddAllInBucket: () => void | Promise<void>;
 }) {
   return (
     <Collapsible open={isOpen} onOpenChange={onOpenChange} className="mb-2">
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 py-1 px-2 text-xs font-semibold text-muted-foreground sticky top-0 bg-background/95 backdrop-blur z-10 hover:bg-muted/50 rounded transition-colors text-left"
+      <div className="sticky top-0 z-10 flex w-full items-center gap-0.5 rounded bg-background/95 backdrop-blur">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/50"
+          >
+            <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+            <FolderKanban className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">{name}</span>
+            <span className="shrink-0 text-muted-foreground/80 font-normal">({count})</span>
+          </button>
+        </CollapsibleTrigger>
+        <NeotroPressableButton
+          size="xs"
+          activeShowsPressed={false}
+          isDisabled={addAllDisabled || addAllBusy}
+          onClick={(e) => {
+            e.stopPropagation();
+            void onAddAllInBucket();
+          }}
+          aria-label={`Add all issues in ${name} to active rounds`}
+          title="Add all in bucket to rounds"
+          className="shrink-0"
         >
-          <ChevronRight className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-          <FolderKanban className="h-3 w-3 shrink-0" />
-          <span className="truncate">{name}</span>
-          <span className="text-muted-foreground/80 font-normal">({count})</span>
-        </button>
-      </CollapsibleTrigger>
+          {addAllBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
+        </NeotroPressableButton>
+      </div>
       <CollapsibleContent>
         <div className="space-y-1 pt-1">
           {issues.map(renderIssue)}
@@ -116,50 +139,58 @@ function SprintBucket({
 export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   teamId,
   showJiraBrowser = true,
-  showQueue = true,
   isJiraConfigured,
-  queue,
   onAddTicket,
-  onRemoveTicket,
-  onReorderQueue,
-  onClearQueue,
-  onPlayQueueTicketNow,
-  playQueueTicketNowDisabled,
-  playQueueNowBusyId,
+  onAddTicketsBatch,
   displayTicketNumber,
+  onMetadataFromBrowse,
   onSelectTicket,
   rounds = [],
 }) => {
+  const queue = useMemo<{ id: string; ticket_key: string; ticket_summary: string | null; position: number }[]>(
+    () => [],
+    []
+  );
+  const onClearQueue = () => {};
+  const onRemoveTicket = (_id: string) => {};
+  const onReorderQueue = async (_items: typeof queue) => {};
+  const onPlayQueueTicketNow = (_item: (typeof queue)[number]) => {};
+  const playQueueTicketNowDisabled = true;
+  const playQueueNowBusyId: string | null = null;
   const [manualTicketKey, setManualTicketKey] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('not-done');
-  const [pointsFilter, setPointsFilter] = useState('any');
+  const {
+    searchText,
+    setSearchText,
+    statusFilter,
+    setStatusFilter,
+    pointsFilter,
+    setPointsFilter,
+    showFilters,
+    setShowFilters,
+    hidePointedOrPointing,
+    setHidePointedOrPointing,
+  } = usePersistedJiraBrowseFilters(teamId);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
   const [manualIssues, setManualIssues] = useState<Map<string, JiraIssue>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(false);
-  const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(new Set());
-  const [lastJql, setLastJql] = useState<string | null>(null);
+  const [collapsedBuckets, setCollapsedBuckets] = usePersistedJiraBrowseCollapsedBuckets(teamId);
+  const [addingBucketId, setAddingBucketId] = useState<string | null>(null);
   const { toast } = useToast();
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
+  /** Browse Jira list scroll — native overflow so we can save/restore scrollTop across refetches. */
+  const jiraBrowseScrollRef = useRef<HTMLDivElement>(null);
+  const browseScrollTopBeforeFetchRef = useRef(0);
+  const pendingBrowseScrollRestoreRef = useRef(false);
 
-  const issuesBySprint = useMemo(() => {
-    const BACKLOG_KEY = '__backlog__';
-    const groups = new Map<string, JiraIssue[]>();
-    for (const issue of issues) {
-      const bucket = issue.sprint || BACKLOG_KEY;
-      const list = groups.get(bucket) || [];
-      list.push(issue);
-      groups.set(bucket, list);
-    }
-    const backlog = groups.get(BACKLOG_KEY) || [];
-    groups.delete(BACKLOG_KEY);
-    const sprintNames = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    return { backlog, sprintBuckets: sprintNames.map(name => ({ name, issues: groups.get(name)! })) };
-  }, [issues]);
+  const browseIssues = useMemo(() => {
+    if (!hidePointedOrPointing) return issues;
+    return issues.filter((i) => getJiraBrowseDisabledReason(i.key, rounds) === null);
+  }, [issues, hidePointedOrPointing, rounds]);
+
+  const issuesBySprint = useMemo(() => buildJiraBrowseIssuesBySprint(browseIssues), [browseIssues]);
 
   const ticketKeysOnSessionRounds = useMemo(() => {
     const keys = new Set<string>();
@@ -170,35 +201,40 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     return keys;
   }, [rounds]);
 
-  /** Stable for effect deps when `rounds` is a new array reference with the same tickets */
-  const sessionRoundKeysDigest = useMemo(
-    () =>
-      [...rounds]
-        .map((r) => r.ticket_number?.trim() ?? '')
-        .filter(Boolean)
-        .sort()
-        .join(','),
-    [rounds],
-  );
+  /** Latest round keys for `includeKeys` without putting them in fetchAllIssues deps (avoids refetch when rounds change). */
+  const ticketKeysOnSessionRoundsRef = useRef(ticketKeysOnSessionRounds);
+  ticketKeysOnSessionRoundsRef.current = ticketKeysOnSessionRounds;
 
-  const copyJqlToClipboard = useCallback(async () => {
-    if (!lastJql) return;
-    try {
-      await navigator.clipboard.writeText(lastJql);
-      toast({ title: 'JQL copied to clipboard' });
-    } catch {
-      toast({ title: 'Could not copy', variant: 'destructive' });
-    }
-  }, [lastJql, toast]);
+  const pushIssuesMetadataToParent = useCallback(
+    (issueList: JiraIssue[]) => {
+      if (!onMetadataFromBrowse || issueList.length === 0) return;
+      const meta: Record<string, JiraTicketMeta> = {};
+      for (const issue of issueList) {
+        if (!issue?.key) continue;
+        meta[issue.key] = {
+          issueTypeIconUrl: issue.issueTypeIconUrl,
+          storyPoints: issue.storyPoints ?? null,
+          summary: issue.summary,
+        };
+      }
+      if (Object.keys(meta).length > 0) onMetadataFromBrowse(meta);
+    },
+    [onMetadataFromBrowse]
+  );
 
   const fetchAllIssues = useCallback(async () => {
     if (!teamId) return;
+    const scrollEl = jiraBrowseScrollRef.current;
+    if (scrollEl) {
+      browseScrollTopBeforeFetchRef.current = scrollEl.scrollTop;
+      pendingBrowseScrollRestoreRef.current = true;
+    }
     setIsLoading(true);
     setSearchError(null);
     try {
       const apiStatusFilter = statusFilter === 'not-done' ? undefined : statusFilter === 'all' ? 'all' : statusFilter;
-      const includeKeySet = new Set(queue.map((q) => q.ticket_key));
-      for (const k of ticketKeysOnSessionRounds) includeKeySet.add(k);
+      const includeKeySet = new Set<string>();
+      for (const k of ticketKeysOnSessionRoundsRef.current) includeKeySet.add(k);
       const includeKeys = includeKeySet.size > 0 ? Array.from(includeKeySet) : undefined;
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
         body: {
@@ -211,17 +247,42 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setIssues(data.issues || []);
-      setLastJql(typeof data?.jql === 'string' ? data.jql : null);
-      setCollapsedBuckets(new Set());
+      const issuesList = data.issues || [];
+      setIssues(issuesList);
+      if (onMetadataFromBrowse && issuesList.length > 0) {
+        const meta: Record<string, JiraTicketMeta> = {};
+        for (const i of issuesList) {
+          if (i?.key) {
+            meta[i.key] = {
+              issueTypeIconUrl: i.issueTypeIconUrl,
+              storyPoints: i.storyPoints ?? null,
+              summary: i.summary,
+            };
+          }
+        }
+        onMetadataFromBrowse(meta);
+      }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Failed to load issues');
       setIssues([]);
-      setLastJql(null);
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, searchText, statusFilter, pointsFilter, queue, ticketKeysOnSessionRounds]);
+  }, [teamId, searchText, statusFilter, pointsFilter, onMetadataFromBrowse]);
+
+  useLayoutEffect(() => {
+    if (!pendingBrowseScrollRestoreRef.current) return;
+    pendingBrowseScrollRestoreRef.current = false;
+    const el = jiraBrowseScrollRef.current;
+    if (!el) return;
+    const top = browseScrollTopBeforeFetchRef.current;
+    el.scrollTop = top;
+    requestAnimationFrame(() => {
+      if (jiraBrowseScrollRef.current) {
+        jiraBrowseScrollRef.current.scrollTop = top;
+      }
+    });
+  }, [issues]);
 
   const handleAddManualTicket = async () => {
     const key = manualTicketKey.trim();
@@ -230,6 +291,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     setManualTicketKey('');
 
     let summary: string | null = null;
+    let enrichedIssue: JiraIssue | null = null;
     if (isJiraConfigured && teamId) {
       try {
         const { data } = await supabase.functions.invoke('get-jira-issue', {
@@ -237,7 +299,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
         });
         if (data && !data.error && data.fields) {
           summary = data.fields.summary || null;
-          const enriched: JiraIssue = {
+          enrichedIssue = {
             key: data.key || key,
             summary: data.fields.summary || '',
             status: data.fields.status?.name || '',
@@ -250,11 +312,16 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
               ? { key: data.fields.parent.key, summary: data.fields.parent.fields?.summary || '' }
               : null,
             sprint: null,
+            sprintStartDate: null,
             issueType: data.fields.issuetype?.name || '',
             issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
             storyPoints: getStoryPointsFromJiraFields(data.fields as Record<string, unknown>),
           };
-          setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
+          setManualIssues((prev) => {
+            const next = new Map(prev);
+            next.set(enrichedIssue!.key, enrichedIssue!);
+            return next;
+          });
         }
       } catch {
         // Fall through with null summary
@@ -262,6 +329,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     }
 
     await onAddTicket(key, summary);
+    if (enrichedIssue) pushIssuesMetadataToParent([enrichedIssue]);
     setAddingKeys(prev => {
       const next = new Set(prev);
       next.delete(key);
@@ -272,6 +340,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
     await onAddTicket(issue.key, issue.summary);
+    pushIssuesMetadataToParent([issue]);
     setAddingKeys(prev => {
       const next = new Set(prev);
       next.delete(issue.key);
@@ -279,8 +348,49 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     });
   };
 
-  const isInQueue = (key: string) => queue.some(q => q.ticket_key === key);
-  const isBlockedFromAdding = (key: string) => isInQueue(key) || ticketKeysOnSessionRounds.has(key);
+  const isBlockedFromAdding = (key: string) => ticketKeysOnSessionRounds.has(key);
+
+  const handleAddAllInBucket = useCallback(
+    async (bucketId: string, bucketIssues: JiraIssue[]) => {
+      const uniqueKeys = new Set<string>();
+      const toAdd = bucketIssues.filter((i) => {
+        const key = i.key?.trim() || '';
+        if (!key) return false;
+        if (uniqueKeys.has(key)) return false;
+        if (ticketKeysOnSessionRounds.has(key)) return false;
+        uniqueKeys.add(key);
+        return true;
+      });
+      if (toAdd.length === 0) return;
+      setAddingBucketId(bucketId);
+      try {
+        if (onAddTicketsBatch) {
+          await onAddTicketsBatch(
+            toAdd.map((issue) => ({
+              ticketKey: issue.key.trim(),
+              ticketSummary: issue.summary,
+            }))
+          );
+        } else {
+          for (const issue of toAdd) {
+            await onAddTicket(issue.key.trim(), issue.summary);
+          }
+        }
+        pushIssuesMetadataToParent(toAdd);
+        toast({
+          title: `Added ${toAdd.length} ticket${toAdd.length === 1 ? '' : 's'} to active rounds`,
+        });
+      } catch (err) {
+        toast({
+          title: err instanceof Error ? err.message : 'Failed to add tickets',
+          variant: 'destructive',
+        });
+      } finally {
+        setAddingBucketId(null);
+      }
+    },
+    [ticketKeysOnSessionRounds, onAddTicket, onAddTicketsBatch, toast, pushIssuesMetadataToParent],
+  );
 
   const handleDragStart = (index: number) => {
     dragItemRef.current = index;
@@ -304,28 +414,30 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
 
   const renderBrowseIssue = (issue: JiraIssue) => {
     const blocked = isBlockedFromAdding(issue.key);
-    const disabledReason = blocked ? getJiraBrowseDisabledReason(issue.key, queue, rounds) : null;
+    const disabledReason = blocked ? getJiraBrowseDisabledReason(issue.key, rounds) : null;
     const reasonMeta = disabledReason ? JIRA_BROWSE_DISABLED_REASON_META[disabledReason] : null;
     const issueContent = (
       <IssueCard
+        browse
         issue={issue as JiraIssueDisplay}
         className={reasonMeta ? 'items-start' : undefined}
         rightSlot={
           <div className="flex flex-col items-end gap-1 shrink-0">
             {reasonMeta && (
-              <Badge variant={reasonMeta.badgeVariant} className="text-[10px] px-1.5 py-0">
+              <Badge variant={reasonMeta.badgeVariant} className="text-xs px-2 py-0.5">
                 {reasonMeta.label}
               </Badge>
             )}
             <NeotroPressableButton
-              size="xs"
+              size="sm"
               isActive={!blocked}
               activeShowsPressed={false}
               isDisabled={blocked || addingKeys.has(issue.key)}
               onClick={(e) => { e.stopPropagation(); handleAddTicket(issue); }}
-              aria-label={blocked ? 'Already in queue or on a round' : 'Add to queue'}
+              aria-label={blocked ? 'Already on a round' : 'Add to active rounds'}
+              title={blocked ? 'Already on a round' : 'Add to rounds'}
             >
-              {addingKeys.has(issue.key) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              {addingKeys.has(issue.key) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             </NeotroPressableButton>
           </div>
         }
@@ -339,16 +451,14 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     );
   };
 
-  useEffect(
-    () => {
-      if (teamId && isJiraConfigured) {
-        fetchAllIssues();
-      }
-    },
-    // Refetch when queue or session round tickets change (includeKeys); search stays on Search button (latest fetchAllIssues)
+  useEffect(() => {
+    if (teamId && isJiraConfigured) {
+      fetchAllIssues();
+    }
+    // Intentionally omit fetchAllIssues: only load when team / Jira availability changes, not when rounds change.
+    // includeKeys for the next search uses ticketKeysOnSessionRoundsRef at click time; parent gets metadata via pushIssuesMetadataToParent on add.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teamId, isJiraConfigured, queue, sessionRoundKeysDigest],
-  );
+  }, [teamId, isJiraConfigured]);
 
   useEffect(() => {
     if (!teamId || !isJiraConfigured || queue.length === 0) return;
@@ -359,41 +469,45 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
 
     let cancelled = false;
     (async () => {
-      for (const key of missingKeys) {
-        if (cancelled) break;
-        try {
-          const { data } = await supabase.functions.invoke('get-jira-issue', {
-            body: { teamId, issueIdOrKey: key },
-          });
-          if (!cancelled && data && !data.error && data.fields) {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
+          body: { teamId, includeKeys: missingKeys, keysOnly: true },
+        });
+        if (cancelled || error || data?.error) return;
+        const rows = data?.issues || [];
+        if (rows.length === 0) return;
+        setManualIssues((prev) => {
+          const next = new Map(prev);
+          for (const row of rows) {
+            if (!row?.key) continue;
             const enriched: JiraIssue = {
-              key: data.key || key,
-              summary: data.fields.summary || '',
-              status: data.fields.status?.name || '',
-              statusCategory: data.fields.status?.statusCategory?.key || '',
-              priority: data.fields.priority?.name || '',
-              priorityIconUrl: data.fields.priority?.iconUrl || '',
-              assignee: data.fields.assignee?.displayName || null,
-              reporter: data.fields.reporter?.displayName || null,
-              parent: data.fields.parent
-                ? { key: data.fields.parent.key, summary: data.fields.parent.fields?.summary || '' }
-                : null,
-              sprint: null,
-              issueType: data.fields.issuetype?.name || '',
-              issueTypeIconUrl: data.fields.issuetype?.iconUrl || '',
-              storyPoints: getStoryPointsFromJiraFields(data.fields as Record<string, unknown>),
+              key: row.key,
+              summary: row.summary || '',
+              status: row.status || '',
+              statusCategory: row.statusCategory || '',
+              priority: row.priority || '',
+              priorityIconUrl: row.priorityIconUrl || '',
+              assignee: row.assignee ?? null,
+              reporter: row.reporter ?? null,
+              parent: row.parent ?? null,
+              sprint: row.sprint ?? null,
+              sprintStartDate: row.sprintStartDate ?? null,
+              issueType: row.issueType || '',
+              issueTypeIconUrl: row.issueTypeIconUrl || '',
+              storyPoints: row.storyPoints ?? null,
             };
-            setManualIssues(prev => { const next = new Map(prev); next.set(enriched.key, enriched); return next; });
+            next.set(enriched.key, enriched);
           }
-        } catch {
-          // skip this key
-        }
+          return next;
+        });
+      } catch {
+        /* skip */
       }
     })();
     return () => { cancelled = true; };
   }, [teamId, isJiraConfigured, queue, issues, manualIssues]);
 
-  const showQueuePanel = showQueue;
+  const showQueuePanel = false;
   const showJiraPanel = isJiraConfigured && showJiraBrowser;
 
   const queuePanel = (
@@ -409,6 +523,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                 size="compact"
                 activeShowsPressed={false}
                 onClick={onClearQueue}
+                title="Clear queue"
               >
                 <Trash2 className="h-3 w-3 mr-1" />
                 Clear
@@ -434,6 +549,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
               }
               onClick={handleAddManualTicket}
               aria-label="Add ticket"
+              title="Add ticket"
             >
               {addingKeys.has(manualTicketKey.trim()) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
             </NeotroPressableButton>
@@ -473,7 +589,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                                 void onPlayQueueTicketNow(item);
                               }}
                               aria-label="Play now"
-                              title="New active round with this ticket for everyone; other active rounds stay open"
+                              title="New round for everyone"
                               className="min-w-[4.25rem]"
                             >
                               {playQueueNowBusyId === item.id ? (
@@ -488,6 +604,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                               activeShowsPressed={false}
                               onClick={(e) => { e.stopPropagation(); onRemoveTicket(item.id); }}
                               aria-label="Remove from queue"
+                              title="Remove from queue"
                             >
                               <Trash2 className="h-3 w-3" />
                             </NeotroPressableButton>
@@ -516,9 +633,9 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   );
 
   const jiraContent = (
-    <>
-      <div className="flex items-center gap-2 text-sm font-semibold mb-2 shrink-0">
-                <Search className="h-4 w-4" />
+    <div className="neotro-jira-scroll-group flex flex-1 flex-col min-h-0">
+      <div className="flex items-center gap-2 text-base font-semibold mb-2 shrink-0">
+                <Search className="h-5 w-5" />
                 Browse Jira
               </div>
           <div className="space-y-2 shrink-0">
@@ -528,15 +645,16 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && teamId) fetchAllIssues(); }}
-                className="flex-1 h-7 text-xs"
+                className="flex-1 h-8 text-sm"
               />
               <NeotroPressableButton
                 size="sm"
                 isActive={showFilters}
                 onClick={() => setShowFilters(prev => !prev)}
                 aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+                title={showFilters ? 'Hide filters' : 'Filters'}
               >
-                <Filter className="h-3 w-3" />
+                <Filter className="h-4 w-4" />
               </NeotroPressableButton>
               <NeotroPressableButton
                 size="sm"
@@ -545,68 +663,95 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                 isDisabled={isLoading}
                 onClick={() => teamId && fetchAllIssues()}
                 aria-label="Search"
+                title="Search"
               >
-                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-              </NeotroPressableButton>
-              <NeotroPressableButton
-                size="sm"
-                isDisabled={!lastJql}
-                onClick={() => void copyJqlToClipboard()}
-                aria-label="Copy JQL for this search"
-                title="Copy JQL used for this search"
-              >
-                <Copy className="h-3 w-3" />
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </NeotroPressableButton>
             </div>
 
             {showFilters && (
-              <div className="flex gap-1">
+                <div className="flex flex-col gap-2">
+                <div className="flex gap-1">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="flex-1 h-6 text-xs">
+                  <SelectTrigger className="flex-1 h-8 text-sm">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     {STATUS_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      <SelectItem key={opt.value} value={opt.value} className="text-sm">
                         {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select value={pointsFilter} onValueChange={setPointsFilter}>
-                  <SelectTrigger className="flex-1 h-6 text-xs">
+                  <SelectTrigger className="flex-1 h-8 text-sm">
                     <SelectValue placeholder="Points" />
                   </SelectTrigger>
                   <SelectContent>
                     {POINTS_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      <SelectItem key={opt.value} value={opt.value} className="text-sm">
                         {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="neotro-jira-hide-pointed"
+                    checked={hidePointedOrPointing}
+                    onCheckedChange={(c) => setHidePointedOrPointing(c === true)}
+                  />
+                  <Label htmlFor="neotro-jira-hide-pointed" className="text-sm font-normal cursor-pointer leading-none">
+                    Hide pointed or in session
+                  </Label>
+                </div>
               </div>
             )}
 
             {searchError && (
-              <div className="text-xs text-destructive p-2 bg-destructive/10 rounded">
+              <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">
                 {searchError}
               </div>
             )}
           </div>
 
-          <ScrollArea className="flex-1 min-h-0 mt-2">
+          <div
+            ref={jiraBrowseScrollRef}
+            className="neotro-jira-browse-scroll flex-1 min-h-0 mt-2 overflow-y-auto overflow-x-hidden rounded-[inherit] pr-1"
+          >
             <div className="space-y-1 pr-2">
               {isLoading && issues.length === 0 ? (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : issues.length === 0 && !searchError ? (
-                <div className="text-xs text-muted-foreground text-center p-4">
-                  No issues found.
+              ) : browseIssues.length === 0 && !searchError ? (
+                <div className="text-sm text-muted-foreground text-center p-4">
+                  {issues.length === 0 ? 'No issues found.' : 'No issues match your filters.'}
                 </div>
               ) : (
                 <>
+                  {issuesBySprint.sprintBuckets
+                    .filter(({ issues: sprintIssues }) => sprintIssues.length > 0)
+                    .map(({ name, issues: sprintIssues }) => (
+                    <SprintBucket
+                      key={name}
+                      name={name}
+                      count={sprintIssues.length}
+                      isOpen={!collapsedBuckets.has(name)}
+                      onOpenChange={(open) => setCollapsedBuckets(prev => {
+                        const next = new Set(prev);
+                        if (open) next.delete(name); else next.add(name);
+                        return next;
+                      })}
+                      issues={sprintIssues}
+                      renderIssue={renderBrowseIssue}
+                      addAllDisabled={sprintIssues.every((i) => isBlockedFromAdding(i.key))}
+                      addAllBusy={addingBucketId === name}
+                      onAddAllInBucket={() => handleAddAllInBucket(name, sprintIssues)}
+                    />
+                  ))}
                   {issuesBySprint.backlog.length > 0 && (
                     <SprintBucket
                       key="__backlog__"
@@ -620,28 +765,18 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                       })}
                       issues={issuesBySprint.backlog}
                       renderIssue={renderBrowseIssue}
+                      addAllDisabled={
+                        issuesBySprint.backlog.every((i) => isBlockedFromAdding(i.key))
+                      }
+                      addAllBusy={addingBucketId === '__backlog__'}
+                      onAddAllInBucket={() => handleAddAllInBucket('__backlog__', issuesBySprint.backlog)}
                     />
                   )}
-                  {issuesBySprint.sprintBuckets.map(({ name, issues: sprintIssues }) => (
-                    <SprintBucket
-                      key={name}
-                      name={name}
-                      count={sprintIssues.length}
-                      isOpen={!collapsedBuckets.has(name)}
-                      onOpenChange={(open) => setCollapsedBuckets(prev => {
-                        const next = new Set(prev);
-                        if (open) next.delete(name); else next.add(name);
-                        return next;
-                      })}
-                      issues={sprintIssues}
-                      renderIssue={renderBrowseIssue}
-                    />
-                  ))}
                 </>
               )}
             </div>
-          </ScrollArea>
-    </>
+          </div>
+    </div>
   );
 
   return (
@@ -663,7 +798,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
           {jiraContent}
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs p-4">
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
           Enable Jira in team settings to browse issues.
         </div>
       )}

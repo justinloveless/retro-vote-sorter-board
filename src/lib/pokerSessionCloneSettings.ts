@@ -17,6 +17,9 @@ export const POKER_SESSION_NON_SETTING_KEYS = new Set([
   'updated_at',
   'current_round_number',
   'last_activity_at',
+  'spotlight_user_id',
+  'spotlight_client_id',
+  'spotlight_round_number',
 ]);
 
 export function pokerSessionSettingsFromPreviousRow(
