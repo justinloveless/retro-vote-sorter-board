@@ -710,7 +710,9 @@ export const MobileView: React.FC = () => {
                         )}
 
                         {/* Cards Area */}
-                        <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
+                        <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                        <div className="relative flex-1 flex items-center justify-center min-h-0 mb-6">
+                            <DropZoneOverlay dropZoneRef={(el) => { dropZoneRef2.current = el; }} />
                             {displaySession.game_state === 'Playing' && cardGroups ? (
                                 <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
                                     {cardGroups.map(({ points, selections }) => (
