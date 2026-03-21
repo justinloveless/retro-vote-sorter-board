@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, Calendar, Settings } from 'lucide-react';
+import { Plus, Users, Calendar, Settings, Star } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
@@ -13,6 +13,16 @@ import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { AuthForm } from '@/components/AuthForm';
 import { AppHeader } from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
+
+const getFavoriteTeams = (userId: string): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(`favorite-teams-${userId}`) || '[]');
+  } catch { return []; }
+};
+
+const setFavoriteTeams = (userId: string, ids: string[]) => {
+  localStorage.setItem(`favorite-teams-${userId}`, JSON.stringify(ids));
+};
 
 const Teams = () => {
   const navigate = useNavigate();
@@ -23,15 +33,31 @@ const Teams = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
+  const [favorites, setFavorites] = useState<string[]>(() => user ? getFavoriteTeams(user.id) : []);
 
-  // Filter teams based on selected org
+  const toggleFavorite = useCallback((teamId: string) => {
+    if (!user) return;
+    setFavorites(prev => {
+      const next = prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId];
+      setFavoriteTeams(user.id, next);
+      return next;
+    });
+  }, [user]);
+
+  // Filter teams based on selected org, then sort favorites first
   const filteredTeams = useMemo(() => {
-    if (!hasOrgs) return teams;
-    if (selectedOrgId) {
-      return teams.filter(t => t.organization_id === selectedOrgId);
+    let result = teams;
+    if (hasOrgs) {
+      result = selectedOrgId
+        ? teams.filter(t => t.organization_id === selectedOrgId)
+        : teams.filter(t => !t.organization_id);
     }
-    return teams.filter(t => !t.organization_id);
-  }, [teams, selectedOrgId, hasOrgs]);
+    return [...result].sort((a, b) => {
+      const aFav = favorites.includes(a.id) ? 0 : 1;
+      const bFav = favorites.includes(b.id) ? 0 : 1;
+      return aFav - bFav;
+    });
+  }, [teams, selectedOrgId, hasOrgs, favorites]);
 
   const ownedTeams = filteredTeams.filter(t => t.role === 'owner').length;
   const atTeamLimit = limits.maxTeams !== Infinity && ownedTeams >= limits.maxTeams;
