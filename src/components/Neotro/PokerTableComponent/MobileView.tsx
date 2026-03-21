@@ -94,6 +94,16 @@ export const MobileView: React.FC = () => {
     const { height } = useWindowSize();
     const isCompact = useIsCompactViewport();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const dropZoneRef1 = useRef<HTMLDivElement | null>(null);
+    const dropZoneRef2 = useRef<HTMLDivElement | null>(null);
+
+    const handleDragDrop = useCallback((points: number) => {
+        updateUserSelection(points);
+        // Small delay so the selection registers before locking in
+        setTimeout(() => toggleLockUserSelection(), 50);
+    }, [updateUserSelection, toggleLockUserSelection]);
+
+    const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
 
     const handleSwipeLeft = useCallback(() => {
         if (canGoForward) goToNextRound();
