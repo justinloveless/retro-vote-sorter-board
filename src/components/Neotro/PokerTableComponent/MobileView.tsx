@@ -22,6 +22,7 @@ import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { TicketDetailsNeotroButton } from '@/components/Neotro/TicketDetailsNeotroButton';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
+import { DragToPlayProvider, DropZoneOverlay } from '@/components/Neotro/DragToPlay';
 import { useJiraTicketMetadata } from '@/hooks/use-jira-ticket-metadata';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
