@@ -125,6 +125,7 @@ export const DesktopView: React.FC = () => {
         session,
         updateSessionConfig,
         updateUserSelection,
+        lockInUserSelectionAtPoints,
         deleteAllRounds,
         isSlackInstalled,
         playHand,
@@ -243,9 +244,8 @@ export const DesktopView: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const handleDragDrop = useCallback((points: number) => {
-        updateUserSelection(points);
-        setTimeout(() => toggleLockUserSelection(), 50);
-    }, [updateUserSelection, toggleLockUserSelection]);
+        lockInUserSelectionAtPoints(points);
+    }, [lockInUserSelectionAtPoints]);
 
     const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
     const CARD_BASE_HEIGHT = 95;
