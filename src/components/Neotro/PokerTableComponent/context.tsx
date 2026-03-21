@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { PlayerSelection, PokerSessionState, getPointsWithMostVotes } from '@/hooks/usePokerSession';
+import {
+  PlayerSelection,
+  PokerSession,
+  PokerSessionState,
+  getPointsWithMostVotes,
+} from '@/hooks/usePokerSession';
 import { supabase } from '@/integrations/supabase/client';
 import {
   usePokerSessionHistory,
   PokerSessionRound,
   type PokerHistoryTeamRoute,
+  POKER_FOLLOW_CURRENT_ROUND_EVENT,
 } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
@@ -12,7 +18,18 @@ import { useJiraIntegration } from '@/hooks/useJiraIntegration';
 import { usePokerSlackNotification } from '@/hooks/usePokerSlackNotification';
 import { PokerSessionConfig } from '../PokerConfig';
 import { ReactNode, Dispatch, SetStateAction } from 'react';
-import { TicketQueueItem } from '@/hooks/useTicketQueue';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { isSyntheticRoundTicket, roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
+import { usePokerSpotlightClientId } from '@/hooks/use-poker-spotlight-client-id';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
@@ -27,8 +44,8 @@ interface PokerTableContextProps {
    */
   replayRound: () => void;
   nextRound: (ticketNumber?: string) => void;
-  updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; observer_ids?: string[] }) => void;
+  updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
+  updateSessionConfig: (config: Partial<PokerSession>) => void;
   leaveObserverMode: () => void;
   enterObserverMode: () => void;
   deleteAllRounds: () => void;
@@ -56,6 +73,8 @@ interface PokerTableContextProps {
   goToRound: (roundNumber: number) => void;
   deleteRound: (roundId: string) => Promise<boolean>;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
+  /** New chat messages on other rounds while viewing a different round (for round strip badges). */
+  chatNewMessageCountByRound: Record<number, number>;
   chatUnreadCount: number;
   markChatAsRead: () => void;
   isChatLoading: boolean;
@@ -87,19 +106,16 @@ interface PokerTableContextProps {
   isStartNewRoundDialogOpen: boolean;
   setStartNewRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onStartNewRoundRequest: () => void;
-  ticketQueue: TicketQueueItem[];
   addTicketToQueue: (ticketKey: string, ticketSummary: string | null) => Promise<void>;
-  removeTicketFromQueue: (id: string) => Promise<void>;
-  reorderQueue: (items: TicketQueueItem[]) => Promise<void>;
-  clearQueue: () => Promise<void>;
-  /** New active round for this ticket (other active rounds stay active); session current round updates for everyone; removes from queue. */
-  playQueueTicketNow: (item: TicketQueueItem) => Promise<void>;
-  /** Queue item id currently starting a round, or null. */
-  playQueueNowBusyId: string | null;
-  /** Observers and missing session cannot advance rounds from the queue. */
-  playQueueTicketNowDisabled: boolean;
+  addTicketsToQueueBatch: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
+  onPokerBack?: () => void;
+  pokerToolbarExtras?: ReactNode;
+
+  spotlightRoundNumber: number | null;
+  isSpotlightMine: boolean;
+  onSpotlightClick: () => void;
 }
 
 export const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
@@ -115,15 +131,18 @@ export const usePokerTable = () => {
 export interface PokerTableProviderProps {
   session: PokerSessionState | null;
   activeUserId: string | undefined;
+  /** Fallback display name for chat when the user has no selection row (e.g. observer or impersonation edge cases). */
+  activeUserDisplayName?: string;
   updateUserSelection: (points: number) => void;
   toggleLockUserSelection: () => void;
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
   nextRound: (ticketNumber?: string) => void;
   /** Add a new active round without deactivating existing active rounds (parallel rounds). */
-  startNewRound: (ticketNumber?: string) => void;
-  updateTicketNumber: (ticketNumber: string) => void;
-  updateSessionConfig: (config: { presence_enabled?: boolean; send_to_slack?: boolean; observer_ids?: string[] }) => void;
+  startNewRound: (ticketNumber?: string, ticketTitle?: string | null) => void;
+  startNewRounds?: (tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>) => Promise<void>;
+  updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
+  updateSessionConfig: (config: Partial<PokerSession>) => void;
   leaveObserverMode: () => void;
   enterObserverMode: () => void;
   deleteAllRounds: () => void;
@@ -139,32 +158,30 @@ export interface PokerTableProviderProps {
   isStartNewRoundDialogOpen: boolean;
   setStartNewRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onStartNewRoundRequest: () => void;
-  ticketQueue: {
-    queue: TicketQueueItem[];
-    addTicket: (ticketKey: string, ticketSummary: string | null) => Promise<void>;
-    removeTicket: (id: string) => Promise<void>;
-    reorderQueue: (items: TicketQueueItem[]) => Promise<void>;
-    clearQueue: () => Promise<void>;
-  };
   isQueuePanelOpen: boolean;
   setQueuePanelOpen: Dispatch<SetStateAction<boolean>>;
   pokerRouteContext?: PokerHistoryTeamRoute | null;
+  onPokerBack?: () => void;
+  pokerToolbarExtras?: ReactNode;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
   const {
-    session, activeUserId, teamId, isMobile,
+    session, activeUserId, activeUserDisplayName, teamId, isMobile,
     deleteAllRounds, updateSessionConfig, leaveObserverMode, enterObserverMode,
     nextRound,
     startNewRound,
+    startNewRounds,
     updateTicketNumber: updateLiveRoundTicketNumber,
     userRole, presentUserIds, requestedRoundNumber,
     isNextRoundDialogOpen, setNextRoundDialogOpen,
     onNextRoundRequest,
     isStartNewRoundDialogOpen, setStartNewRoundDialogOpen,
     onStartNewRoundRequest,
-    ticketQueue: ticketQueueHook, isQueuePanelOpen, setQueuePanelOpen,
+    isQueuePanelOpen, setQueuePanelOpen,
     pokerRouteContext,
+    onPokerBack,
+    pokerToolbarExtras,
   } = props;
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
@@ -204,10 +221,20 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       ? optimisticRoundsById[currentRound.id]
       : currentRound;
 
+  const mySpotlightClientId = usePokerSpotlightClientId();
+
+  const selectionChatName = effectiveCurrentRound?.selections?.[activeUserId || '']?.name?.trim();
+  const chatUserName =
+    selectionChatName && selectionChatName.length > 0
+      ? selectionChatName
+      : (activeUserDisplayName?.trim() || 'Player');
+
   const addTicketToQueue = useCallback(
     async (ticketKey: string, ticketSummary: string | null) => {
+      const normalizedTicketKey = ticketKey.trim();
+      if (!normalizedTicketKey) return;
       const sess = session;
-      const noTicketOnCurrentRound = sess && !String(sess.ticket_number ?? '').trim();
+      const noTicketOnCurrentRound = sess && isSyntheticRoundTicket(sess.ticket_number);
       if (noTicketOnCurrentRound) {
         const liveRoundId = sess.id;
         const baseRound =
@@ -216,22 +243,91 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
         if (baseRound) {
           setOptimisticRoundsById((prev) => ({
             ...prev,
-            [liveRoundId]: { ...baseRound, ticket_number: ticketKey },
+            [liveRoundId]: { ...baseRound, ticket_number: normalizedTicketKey, ticket_title: ticketSummary },
           }));
           if (currentRound?.id === liveRoundId && currentRound.is_active) {
-            setDisplayTicketNumber(ticketKey);
+            setDisplayTicketNumber(normalizedTicketKey);
           }
         }
-        await updateLiveRoundTicketNumber(ticketKey);
+        await updateLiveRoundTicketNumber(normalizedTicketKey, ticketSummary);
         return;
       }
-      await ticketQueueHook.addTicket(ticketKey, ticketSummary);
+      await startNewRound(normalizedTicketKey, ticketSummary);
     },
     [
       session,
       rounds,
       currentRound,
-      ticketQueueHook.addTicket,
+      startNewRound,
+      updateLiveRoundTicketNumber,
+    ]
+  );
+
+  const addTicketsToQueueBatch = useCallback(
+    async (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => {
+      const uniqueTicketMap = new Map<string, string | null>();
+      for (const ticket of tickets) {
+        const key = ticket.ticketKey.trim();
+        if (!key || uniqueTicketMap.has(key)) continue;
+        uniqueTicketMap.set(key, ticket.ticketSummary);
+      }
+      if (uniqueTicketMap.size === 0) return;
+
+      const normalizedTickets = Array.from(uniqueTicketMap.entries()).map(([ticketKey, ticketSummary]) => ({
+        ticketKey,
+        ticketSummary,
+      }));
+
+      const sess = session;
+      const noTicketOnCurrentRound = sess && isSyntheticRoundTicket(sess.ticket_number);
+      let startIndex = 0;
+
+      if (noTicketOnCurrentRound) {
+        const firstTicket = normalizedTickets[0];
+        if (firstTicket) {
+          const liveRoundId = sess.id;
+          const baseRound =
+            rounds.find((r) => r.id === liveRoundId) ??
+            (currentRound?.id === liveRoundId ? currentRound : undefined);
+          if (baseRound) {
+            setOptimisticRoundsById((prev) => ({
+              ...prev,
+              [liveRoundId]: {
+                ...baseRound,
+                ticket_number: firstTicket.ticketKey,
+                ticket_title: firstTicket.ticketSummary,
+              },
+            }));
+            if (currentRound?.id === liveRoundId && currentRound.is_active) {
+              setDisplayTicketNumber(firstTicket.ticketKey);
+            }
+          }
+          await updateLiveRoundTicketNumber(firstTicket.ticketKey, firstTicket.ticketSummary);
+          startIndex = 1;
+        }
+      }
+
+      const remaining = normalizedTickets.slice(startIndex).map((ticket) => ({
+        ticketNumber: ticket.ticketKey,
+        ticketTitle: ticket.ticketSummary,
+      }));
+      if (remaining.length === 0) return;
+
+      if (startNewRounds) {
+        await startNewRounds(remaining);
+        return;
+      }
+
+      for (const ticket of remaining) {
+        await startNewRound(ticket.ticketNumber, ticket.ticketTitle);
+      }
+    },
+    [
+      session,
+      rounds,
+      currentRound,
+      startNewRound,
+      startNewRounds,
       updateLiveRoundTicketNumber,
     ]
   );
@@ -291,6 +387,131 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
 
   const isViewingHistoryEffective = effectiveCurrentRound ? !effectiveCurrentRound.is_active : isViewingHistory;
 
+  const spotlightUserId = session?.spotlight_user_id ?? null;
+  const sessionSpotlightClientId = session?.spotlight_client_id ?? null;
+  const spotlightRoundNumber =
+    session?.spotlight_user_id != null && session?.spotlight_round_number != null
+      ? session.spotlight_round_number
+      : null;
+  /** Same user may only hold spotlight in one browser tab; `spotlight_client_id` null means legacy row before any client pinned it (any of that user's tabs may control until pinned). */
+  const isSpotlightMine = !!(
+    activeUserId &&
+    spotlightUserId === activeUserId &&
+    (sessionSpotlightClientId === null || sessionSpotlightClientId === mySpotlightClientId)
+  );
+
+  const spotlightOtherDisplayName = useMemo(() => {
+    if (!spotlightUserId) return '';
+    if (spotlightUserId === activeUserId) {
+      return isSpotlightMine ? '' : 'You (another window)';
+    }
+    const rn = session?.spotlight_round_number;
+    if (typeof rn === 'number') {
+      const spotlightRound = roundsForUI.find((r) => r.round_number === rn);
+      const fromSpotlightRound = spotlightRound?.selections?.[spotlightUserId]?.name?.trim();
+      if (fromSpotlightRound) return fromSpotlightRound;
+    }
+    const fromViewedRound = session?.selections?.[spotlightUserId]?.name?.trim();
+    if (fromViewedRound) return fromViewedRound;
+    for (const r of roundsForUI) {
+      const n = r.selections?.[spotlightUserId]?.name?.trim();
+      if (n) return n;
+    }
+    return '';
+  }, [
+    spotlightUserId,
+    activeUserId,
+    isSpotlightMine,
+    session?.selections,
+    session?.spotlight_round_number,
+    roundsForUI,
+  ]);
+
+  const [spotlightTakeoverOpen, setSpotlightTakeoverOpen] = useState(false);
+
+  const onSpotlightClick = useCallback(() => {
+    if (!session || !activeUserId || !effectiveCurrentRound) return;
+    const holder = session.spotlight_user_id ?? null;
+    const holderClient = session.spotlight_client_id ?? null;
+    const roundNum = effectiveCurrentRound.round_number;
+
+    if (holder === activeUserId) {
+      if (holderClient != null && holderClient !== mySpotlightClientId) {
+        setSpotlightTakeoverOpen(true);
+        return;
+      }
+      void updateSessionConfig({
+        spotlight_user_id: null,
+        spotlight_round_number: null,
+        spotlight_client_id: null,
+      });
+      return;
+    }
+    if (holder && holder !== activeUserId) {
+      setSpotlightTakeoverOpen(true);
+      return;
+    }
+    void updateSessionConfig({
+      spotlight_user_id: activeUserId,
+      spotlight_round_number: roundNum,
+      spotlight_client_id: mySpotlightClientId,
+    });
+  }, [session, activeUserId, effectiveCurrentRound, mySpotlightClientId, updateSessionConfig]);
+
+  const confirmSpotlightTakeover = useCallback(() => {
+    if (!session || !activeUserId || !effectiveCurrentRound) return;
+    setSpotlightTakeoverOpen(false);
+    void updateSessionConfig({
+      spotlight_user_id: activeUserId,
+      spotlight_round_number: effectiveCurrentRound.round_number,
+      spotlight_client_id: mySpotlightClientId,
+    });
+  }, [session, activeUserId, effectiveCurrentRound, mySpotlightClientId, updateSessionConfig]);
+
+  const cancelSpotlightTakeover = useCallback(() => {
+    setSpotlightTakeoverOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isSpotlightMine || !effectiveCurrentRound || activeUserId == null) return;
+    const rn = effectiveCurrentRound.round_number;
+    if (session?.spotlight_round_number === rn) return;
+
+    const t = window.setTimeout(() => {
+      void updateSessionConfig({
+        spotlight_round_number: rn,
+        spotlight_client_id: mySpotlightClientId,
+      });
+    }, 220);
+
+    return () => clearTimeout(t);
+  }, [
+    isSpotlightMine,
+    effectiveCurrentRound?.round_number,
+    activeUserId,
+    session?.spotlight_round_number,
+    mySpotlightClientId,
+    updateSessionConfig,
+  ]);
+
+  useEffect(() => {
+    if (session?.spotlight_follow_enabled === false) return;
+    if (!session?.spotlight_user_id || session.spotlight_round_number == null) return;
+    if (isSpotlightMine) return;
+
+    window.dispatchEvent(
+      new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
+        detail: { sessionId: session.session_id, roundNumber: session.spotlight_round_number },
+      })
+    );
+  }, [
+    session?.spotlight_follow_enabled,
+    session?.spotlight_user_id,
+    session?.spotlight_round_number,
+    isSpotlightMine,
+    session?.session_id,
+  ]);
+
   const handleNextRoundRequest = () => {
     // If we only have a single active round, "Next Round" creates a new one.
     if (activeRounds.length <= 1) {
@@ -346,6 +567,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const {
     messages: chatMessagesForRound,
     loading: isChatLoading,
+    newMessageCountByRound: chatNewMessageCountByRound,
     sendMessage,
     sendSystemMessage,
     addReaction,
@@ -355,7 +577,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session?.session_id || null,
     currentRound?.round_number || session?.round_number || 1,
     activeUserId,
-    effectiveCurrentRound?.selections?.[activeUserId || '']?.name
+    chatUserName
   );
 
   const currentRoundNumber = currentRound?.round_number ?? session?.round_number ?? 1;
@@ -377,6 +599,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const displaySession = useMemo(() => {
     if (!effectiveCurrentRound) return session;
     if (!session) return effectiveCurrentRound;
+    // effectiveCurrentRound carries history + optimisticRoundsById; the table's *ForSelectedRound
+    // handlers only update those + DB (not usePokerSession state). Spreading stale `session` last
+    // would clobber lock/points UI. Remote peers refresh via postgres_changes → fetchRounds
+    // (poker_session_rounds in supabase_realtime) and optional round_updated broadcast on session.
     return { ...session, ...effectiveCurrentRound };
   }, [session, effectiveCurrentRound]);
 
@@ -438,15 +664,18 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const updateTicketNumberForSelectedRound = async (ticketNumber: string) => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active) return;
 
+    const persisted =
+      ticketNumber.trim() || roundTicketPlaceholder(effectiveCurrentRound.round_number);
+
     // Optimistic UI: update immediately, then persist.
     setOptimisticRoundsById((prev) => ({
       ...prev,
-      [effectiveCurrentRound.id]: { ...effectiveCurrentRound, ticket_number: ticketNumber },
+      [effectiveCurrentRound.id]: { ...effectiveCurrentRound, ticket_number: persisted },
     }));
 
     const { error } = await supabase
       .from('poker_session_rounds')
-      .update({ ticket_number: ticketNumber })
+      .update({ ticket_number: persisted })
       .eq('id', effectiveCurrentRound.id);
 
     if (error) {
@@ -483,9 +712,15 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     //   (while editing) reflect immediately.
     // - If we're viewing history (inactive round), use `session.ticket_number` so the selector's
     //   "latest/current" chip doesn't get overwritten by history navigation.
+    const rawActive = displaySession?.ticket_number || '';
+    const rawLatest = session?.ticket_number || '';
     const nextTicketNumber = effectiveCurrentRound?.is_active
-      ? displaySession?.ticket_number || ''
-      : session?.ticket_number || '';
+      ? isSyntheticRoundTicket(rawActive)
+        ? ''
+        : rawActive
+      : isSyntheticRoundTicket(rawLatest)
+        ? ''
+        : rawLatest;
 
     setDisplayTicketNumber(nextTicketNumber);
   }, [displaySession?.ticket_number, session?.ticket_number, isTicketInputFocused, effectiveCurrentRound?.is_active]);
@@ -502,26 +737,6 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const observerIds = useMemo(() => (session as { observer_ids?: string[] } | null)?.observer_ids ?? [], [session]);
   const isObserver = !!(activeUserId && observerIds.includes(activeUserId));
   const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
-
-  const [playQueueNowBusyId, setPlayQueueNowBusyId] = useState<string | null>(null);
-  const playQueueNowLockRef = useRef(false);
-  const playQueueTicketNowDisabled = !session || isObserver;
-
-  const playQueueTicketNow = useCallback(
-    async (item: TicketQueueItem) => {
-      if (!session || isObserver || playQueueNowLockRef.current) return;
-      playQueueNowLockRef.current = true;
-      setPlayQueueNowBusyId(item.id);
-      try {
-        await startNewRound(item.ticket_key);
-        await ticketQueueHook.removeTicket(item.id);
-      } finally {
-        playQueueNowLockRef.current = false;
-        setPlayQueueNowBusyId(null);
-      }
-    },
-    [session, isObserver, startNewRound, ticketQueueHook.removeTicket]
-  );
 
   const updateUserSelectionForSelectedRound = async (points: number) => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
@@ -776,7 +991,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const handleTicketNumberBlur = () => {
     setIsTicketInputFocused(false);
     debouncedUpdateTicketNumber.cancel();
-    if (effectiveCurrentRound && displayTicketNumber !== (effectiveCurrentRound.ticket_number || '')) {
+    if (!effectiveCurrentRound) return;
+    const nextPersisted =
+      displayTicketNumber.trim() || roundTicketPlaceholder(effectiveCurrentRound.round_number);
+    if (nextPersisted !== effectiveCurrentRound.ticket_number) {
       updateTicketNumberForSelectedRound(displayTicketNumber);
     }
   }
@@ -817,6 +1035,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToRound,
     deleteRound,
     chatMessagesForRound,
+    chatNewMessageCountByRound,
     chatUnreadCount,
     markChatAsRead,
     isChatLoading,
@@ -847,21 +1066,40 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isStartNewRoundDialogOpen,
     setStartNewRoundDialogOpen,
     onStartNewRoundRequest,
-    ticketQueue: ticketQueueHook.queue,
     addTicketToQueue,
-    removeTicketFromQueue: ticketQueueHook.removeTicket,
-    reorderQueue: ticketQueueHook.reorderQueue,
-    clearQueue: ticketQueueHook.clearQueue,
-    playQueueTicketNow,
-    playQueueNowBusyId,
-    playQueueTicketNowDisabled,
+    addTicketsToQueueBatch,
     isQueuePanelOpen,
     setQueuePanelOpen,
+    onPokerBack,
+    pokerToolbarExtras,
+    spotlightRoundNumber,
+    isSpotlightMine,
+    onSpotlightClick,
   };
 
   return (
-    <PokerTableContext.Provider value={value}>
-      {children}
-    </PokerTableContext.Provider>
+    <>
+      <PokerTableContext.Provider value={value}>
+        {children}
+      </PokerTableContext.Provider>
+      <AlertDialog open={spotlightTakeoverOpen} onOpenChange={setSpotlightTakeoverOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Take spotlight?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {spotlightOtherDisplayName
+                ? spotlightOtherDisplayName === 'You (another window)'
+                  ? 'Spotlight is active in another window. Move it here?'
+                  : `${spotlightOtherDisplayName} is currently spotlighting a round. Do you want to take the spotlight?`
+                : 'Someone else is currently spotlighting a round. Do you want to take the spotlight?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelSpotlightTakeover}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSpotlightTakeover}>Take spotlight</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }; 

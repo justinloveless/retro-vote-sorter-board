@@ -1,6 +1,6 @@
 import * as React from "react";
 
-const COMPACT_VIEWPORT_HEIGHT = 850;
+const COMPACT_VIEWPORT_HEIGHT = 800 ;
 
 export function useIsCompactViewport() {
   const [isCompact, setIsCompact] = React.useState<boolean>(() =>

@@ -23,15 +23,18 @@ import {
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { TiptapEditor } from './TiptapEditor';
 import { QuickReactionPicker } from './QuickReactionPicker';
+import { displayTicketLabel } from '@/lib/pokerRoundTicketPlaceholder';
 
 interface PokerSessionChatProps {
   onResizeStart?: (e: React.MouseEvent) => void;
   embedded?: boolean;
+  wrapperClassName?: string;
 }
 
 export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   onResizeStart,
   embedded = false,
+  wrapperClassName,
 }) => {
   const {
     activeUserId,
@@ -49,8 +52,9 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   const currentUserId = activeUserId;
   const currentUserName = activeUserSelection?.name;
   const currentRoundNumber = currentRound?.round_number || 1;
-  const ticketNumber = currentRound?.ticket_number;
-  const chatTitle = ticketNumber ? `${ticketNumber} Chat` : `Round ${currentRoundNumber} Chat`;
+  const ticketLabel = displayTicketLabel(currentRound?.ticket_number);
+  const chatTitle =
+    ticketLabel === 'No ticket' ? `Round ${currentRoundNumber} Chat` : `${ticketLabel} Chat`;
 
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean | string>(false);
@@ -258,7 +262,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   return (
     <>
-      <Wrapper className="relative h-full flex flex-col">
+      <Wrapper className={`relative h-full flex flex-col ${wrapperClassName ?? ''}`}>
         {onResizeStart && (
           <div
             role="separator"
@@ -288,7 +292,7 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
           </CardHeader>
         )}
         <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
+          <ScrollArea ref={scrollAreaRef} className="neotro-scrollbar-radix flex-1 pr-4">
             {loading && messages.length === 0 ? (
               <div className="flex items-center justify-center h-20 text-muted-foreground">
                 Loading chat...

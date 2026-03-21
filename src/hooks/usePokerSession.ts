@@ -11,6 +11,7 @@ import {
   fetchLatestPokerSessionRowForTeam,
   pokerSessionSettingsFromPreviousRow,
 } from '@/lib/pokerSessionCloneSettings';
+import { roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
 
 // Define types for session state
 export interface PlayerSelection {
@@ -53,6 +54,13 @@ export interface PokerSession {
   presence_enabled?: boolean;
   send_to_slack?: boolean;
   observer_ids?: string[];
+  /** User currently holding spotlight; paired with `spotlight_round_number`. */
+  spotlight_user_id?: string | null;
+  /** Browser tab/window id for the client that holds spotlight (with `spotlight_user_id`). */
+  spotlight_client_id?: string | null;
+  spotlight_round_number?: number | null;
+  /** When true (default), other participants jump to `spotlight_round_number` when the holder changes rounds. */
+  spotlight_follow_enabled?: boolean;
 }
 
 // This is the composite type we'll use in the hook
@@ -228,6 +236,7 @@ export const usePokerSession = (
           session_id: sessionData.id,
           round_number: sessionData.current_round_number,
           selections: initialSelections,
+          ticket_number: roundTicketPlaceholder(sessionData.current_round_number),
           is_active: true,
           game_state: 'Selection',
         })
@@ -322,9 +331,19 @@ export const usePokerSession = (
         filter: `id=eq.${session.session_id}`
       },
       (payload) => {
+        const oldRow = payload.old as unknown as Record<string, unknown> | undefined;
+        const row = payload.new as unknown as Record<string, unknown>;
+        if (
+          oldRow &&
+          oldRow.current_round_number !== undefined &&
+          row.current_round_number !== undefined &&
+          oldRow.current_round_number !== row.current_round_number
+        ) {
+          void manageSession({ showLoading: false });
+          return;
+        }
         // Merge only poker_sessions columns. `prev.id` is the current round row id;
         // spreading payload.new would overwrite it with the session id and break updates.
-        const row = payload.new as unknown as Record<string, unknown>;
         setSession((prev) => {
           if (!prev) return null;
           return {
@@ -339,6 +358,22 @@ export const usePokerSession = (
               row.send_to_slack === null || row.send_to_slack === undefined
                 ? prev.send_to_slack
                 : (row.send_to_slack as boolean),
+            spotlight_user_id:
+              row.spotlight_user_id === undefined
+                ? prev.spotlight_user_id
+                : (row.spotlight_user_id as string | null),
+            spotlight_client_id:
+              row.spotlight_client_id === undefined
+                ? prev.spotlight_client_id
+                : (row.spotlight_client_id as string | null),
+            spotlight_round_number:
+              row.spotlight_round_number === undefined
+                ? prev.spotlight_round_number
+                : (row.spotlight_round_number as number | null),
+            spotlight_follow_enabled:
+              row.spotlight_follow_enabled === null || row.spotlight_follow_enabled === undefined
+                ? prev.spotlight_follow_enabled
+                : (row.spotlight_follow_enabled as boolean),
           };
         });
       }
@@ -363,14 +398,14 @@ export const usePokerSession = (
     channel.on(
       'broadcast',
       { event: 'round_updated' },
-      (payload) => {
-        // Ignore broadcast if it's from the current user
-        if (payload.senderUserId === currentUserId) return;
+      (msg) => {
+        const data = msg.payload as Record<string, unknown> | undefined;
+        if (!data) return;
+        if (data.senderUserId === currentUserId) return;
 
         setSession((prev) => {
           if (!prev) return null;
-          const raw = payload.payload as Record<string, unknown>;
-          const { senderUserId: _u, session_id: _sid, ...roundPatch } = raw;
+          const { senderUserId: _u, session_id: _sid, ...roundPatch } = data;
           return { ...prev, ...roundPatch, session_id: prev.session_id };
         });
       }
@@ -405,7 +440,7 @@ export const usePokerSession = (
         sessionChannelRef.current = null;
       }
     };
-  }, [session?.session_id, currentUserId, currentUserDisplayName, session?.presence_enabled]);
+  }, [session?.session_id, currentUserId, currentUserDisplayName, session?.presence_enabled, manageSession]);
 
   // Channel for round-specific updates is no longer needed for this approach.
   useEffect(() => {
@@ -498,6 +533,28 @@ export const usePokerSession = (
       console.error('Error updating session config', error);
       return;
     }
+    const hasSpotlightPatch =
+      newConfig.spotlight_user_id !== undefined ||
+      newConfig.spotlight_round_number !== undefined ||
+      newConfig.spotlight_client_id !== undefined;
+    if (hasSpotlightPatch && newConfig.observer_ids === undefined) {
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...(newConfig.spotlight_user_id !== undefined
+                ? { spotlight_user_id: newConfig.spotlight_user_id }
+                : {}),
+              ...(newConfig.spotlight_client_id !== undefined
+                ? { spotlight_client_id: newConfig.spotlight_client_id }
+                : {}),
+              ...(newConfig.spotlight_round_number !== undefined
+                ? { spotlight_round_number: newConfig.spotlight_round_number }
+                : {}),
+            }
+          : null
+      );
+    }
     // When observer_ids changes, sync current round selections (remove observers, add un-observers)
     if (newConfig.observer_ids !== undefined) {
       const effectiveTeamId = teamId || null;
@@ -529,9 +586,16 @@ export const usePokerSession = (
     }
   };
 
-  const updateTicketNumber = async (ticketNumber: string) => {
-    setSession(prev => prev ? { ...prev, ticket_number: ticketNumber } : null);
-    await updateRoundState({ ticket_number: ticketNumber });
+  const updateTicketNumber = async (ticketNumber: string, ticketTitle?: string | null) => {
+    if (!session) return;
+    const trimmed = ticketNumber.trim();
+    const persisted = trimmed || roundTicketPlaceholder(session.round_number);
+    setSession(prev =>
+      prev
+        ? { ...prev, ticket_number: persisted, ticket_title: ticketTitle ?? prev.ticket_title ?? null }
+        : null
+    );
+    await updateRoundState({ ticket_number: persisted, ticket_title: ticketTitle ?? null });
   };
   
   const playHand = async () => {
@@ -600,7 +664,7 @@ export const usePokerSession = (
         session_id: session.session_id,
         round_number: newRoundNumber,
         selections: resetSelections,
-        ticket_number: newTicketNumber || '',
+        ticket_number: newTicketNumber?.trim() || roundTicketPlaceholder(newRoundNumber),
         is_active: true,
         game_state: 'Selection',
     });
@@ -634,10 +698,12 @@ export const usePokerSession = (
     manageSession({ showLoading: false });
   };
 
-  const startNewRound = async (newTicketNumber?: string) => {
+  const startNewRound = async (newTicketNumber?: string, newTicketTitle?: string | null) => {
     if (!session) return;
 
     const newRoundNumber = session.round_number + 1;
+    const trimmedTicket = newTicketNumber?.trim() ?? '';
+    const ticketToStore = trimmedTicket || roundTicketPlaceholder(newRoundNumber);
     const effectiveTeamId = teamId || null;
     const observerIds: string[] = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
 
@@ -658,7 +724,8 @@ export const usePokerSession = (
       session_id: session.session_id,
       round_number: newRoundNumber,
       selections: resetSelections,
-      ticket_number: newTicketNumber || '',
+      ticket_number: ticketToStore,
+      ticket_title: newTicketTitle ?? null,
       is_active: true,
       game_state: 'Selection',
     });
@@ -683,6 +750,84 @@ export const usePokerSession = (
         type: 'broadcast',
         event: 'next_round_initiated',
         payload: { roundNumber: newRoundNumber },
+      });
+    }
+
+    manageSession({ showLoading: false });
+  };
+
+  const startNewRounds = async (
+    tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>
+  ) => {
+    if (!session) return;
+    const normalizedTickets = tickets
+      .map((t) => ({
+        ticketNumber: t.ticketNumber.trim(),
+        ticketTitle: t.ticketTitle ?? null,
+      }))
+      .filter((t) => t.ticketNumber);
+    if (normalizedTickets.length === 0) return;
+
+    const effectiveTeamId = teamId || null;
+    const observerIds: string[] = (session as PokerSessionState & { observer_ids?: string[] }).observer_ids ?? [];
+
+    let resetSelections: Selections;
+    if (effectiveTeamId) {
+      resetSelections = await fetchTeamSelections(effectiveTeamId, undefined, observerIds) ?? {};
+    } else {
+      resetSelections = {};
+      const observerSet = new Set(observerIds);
+      Object.entries(session.selections).forEach(([key, sel]) => {
+        if (!observerSet.has(key)) {
+          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
+        }
+      });
+    }
+
+    const { data: highestRoundData, error: highestRoundError } = await supabase
+      .from('poker_session_rounds')
+      .select('round_number')
+      .eq('session_id', session.session_id)
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (highestRoundError) {
+      console.error('Error loading highest round number', highestRoundError);
+      return;
+    }
+
+    const startingRoundNumber = Math.max(session.round_number, highestRoundData?.round_number ?? 0);
+    const roundsToInsert = normalizedTickets.map((ticket, index) => ({
+      session_id: session.session_id,
+      round_number: startingRoundNumber + index + 1,
+      selections: resetSelections,
+      ticket_number: ticket.ticketNumber,
+      ticket_title: ticket.ticketTitle,
+      is_active: true,
+      game_state: 'Selection' as const,
+    }));
+
+    const { error: newRoundsError } = await supabase
+      .from('poker_session_rounds')
+      .insert(roundsToInsert);
+
+    if (newRoundsError) {
+      console.error('Error creating new rounds', newRoundsError);
+      return;
+    }
+
+    const latestRoundNumber = startingRoundNumber + normalizedTickets.length;
+    await supabase
+      .from('poker_sessions')
+      .update({ current_round_number: latestRoundNumber })
+      .eq('id', session.session_id);
+
+    if (sessionChannelRef.current) {
+      await sessionChannelRef.current.send({
+        type: 'broadcast',
+        event: 'next_round_initiated',
+        payload: { roundNumber: latestRoundNumber },
       });
     }
 
@@ -714,6 +859,7 @@ export const usePokerSession = (
     playHand,
     nextRound,
     startNewRound,
+    startNewRounds,
     updateTicketNumber,
     presentUserIds: session?.presence_enabled === false ? allUserIds : presentUserIds,
     updateSessionConfig,

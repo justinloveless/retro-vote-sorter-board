@@ -262,12 +262,15 @@ export async function createNewRound(
       .eq('is_active', true);
 
     // Create new round
+    const effectiveTicket =
+      (ticketNumber && ticketNumber.trim()) || `round:${newRoundNumber}`;
+
     const { data: newRound, error } = await supabase
       .from('poker_session_rounds')
       .insert({
         session_id: sessionId,
         round_number: newRoundNumber,
-        ticket_number: ticketNumber,
+        ticket_number: effectiveTicket,
         ticket_title: ticketTitle,
         selections: {},
         game_state: 'Selection',
@@ -699,6 +702,9 @@ export async function updateSlackMessage(
 
 export function generateJiraUrl(team: Team, ticketNumber: string | null): string | null {
   if (!ticketNumber || !team.jira_domain) {
+    return null;
+  }
+  if (/^round:\d+$/i.test(ticketNumber.trim())) {
     return null;
   }
   

@@ -7,7 +7,7 @@ type NeotroPressableButtonProps = {
   isActive?: boolean;
   isDisabled?: boolean;
   activeShowsPressed?: boolean;
-  variant?: 'default' | 'destructive';
+  variant?: 'default' | 'destructive' | 'emerald' | 'gold';
   onClick?: (e?: React.MouseEvent) => void;
   type?: 'button' | 'submit';
   'aria-label'?: string;
@@ -43,15 +43,27 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
 
   const colorClasses = variant === 'destructive'
     ? 'bg-red-600 text-white hover:bg-red-700'
-    : isActive
-      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-      : 'bg-gray-500 text-white hover:bg-gray-600';
+    : variant === 'emerald'
+      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+      : variant === 'gold'
+        ? isActive
+          ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
+          : 'bg-gray-500 text-white hover:bg-gray-600'
+        : isActive
+          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+          : 'bg-gray-500 text-white hover:bg-gray-600';
 
   const shadowColor = variant === 'destructive'
     ? 'rgba(100,30,30,255)'
-    : isActive
-      ? `color-mix(in srgb, hsl(var(--primary)) 65%, black)`
-      : 'rgba(70,70,90,255)';
+    : variant === 'emerald'
+      ? 'rgba(5,100,75,255)'
+      : variant === 'gold'
+        ? isActive
+          ? 'rgba(180, 83, 9, 255)'
+          : 'rgba(70,70,90,255)'
+        : isActive
+          ? `color-mix(in srgb, hsl(var(--primary)) 65%, black)`
+          : 'rgba(70,70,90,255)';
 
   const sharedProps = {
     ref,
@@ -65,7 +77,7 @@ export const NeotroPressableButton = forwardRef<HTMLButtonElement | HTMLAnchorEl
       sizeClasses,
       colorClasses,
       showPressed ? 'translate-y-[4px]' : 'translate-y-0',
-      variant === 'default' && !isActive && !isDisabled && 'saturate-75',
+      (variant === 'default' || variant === 'gold') && !isActive && !isDisabled && 'saturate-75',
       isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none',
       className
     ),

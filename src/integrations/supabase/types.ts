@@ -713,6 +713,10 @@ export type Database = {
           presence_enabled: boolean | null
           room_id: string | null
           send_to_slack: boolean | null
+          spotlight_client_id: string | null
+          spotlight_follow_enabled: boolean
+          spotlight_round_number: number | null
+          spotlight_user_id: string | null
           team_id: string | null
           updated_at: string
         }
@@ -725,6 +729,10 @@ export type Database = {
           presence_enabled?: boolean | null
           room_id?: string | null
           send_to_slack?: boolean | null
+          spotlight_client_id?: string | null
+          spotlight_follow_enabled?: boolean
+          spotlight_round_number?: number | null
+          spotlight_user_id?: string | null
           team_id?: string | null
           updated_at?: string
         }
@@ -737,6 +745,10 @@ export type Database = {
           presence_enabled?: boolean | null
           room_id?: string | null
           send_to_slack?: boolean | null
+          spotlight_client_id?: string | null
+          spotlight_follow_enabled?: boolean
+          spotlight_round_number?: number | null
+          spotlight_user_id?: string | null
           team_id?: string | null
           updated_at?: string
         }

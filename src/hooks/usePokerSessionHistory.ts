@@ -59,6 +59,8 @@ export const usePokerSessionHistory = (
 
   // Preserve the user's selected round when we refetch due to realtime changes.
   const selectedRoundNumberRef = useRef<number | undefined>(initialRoundNumber);
+  /** Avoid clobbering in-app round navigation while `?round=` lags one frame behind `currentRoundIndex`. */
+  const lastAppliedUrlRoundRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +72,10 @@ export const usePokerSessionHistory = (
       cancelled = true;
     };
   }, [sessionId, teamRoute?.teamId, teamRoute?.slug]);
+
+  useEffect(() => {
+    lastAppliedUrlRoundRef.current = undefined;
+  }, [resolvedSessionPk]);
 
   const fetchRounds = useCallback(async () => {
     const pk = resolvedSessionPk;
@@ -173,6 +179,21 @@ export const usePokerSessionHistory = (
     if (round) selectedRoundNumberRef.current = round.round_number;
   }, [rounds, currentRoundIndex]);
 
+  useEffect(() => {
+    if (initialRoundNumber === undefined) {
+      lastAppliedUrlRoundRef.current = undefined;
+      return;
+    }
+    if (rounds.length === 0) return;
+    const idx = rounds.findIndex((r) => r.round_number === initialRoundNumber);
+    if (idx === -1) return;
+    if (lastAppliedUrlRoundRef.current === initialRoundNumber) return;
+
+    lastAppliedUrlRoundRef.current = initialRoundNumber;
+    selectedRoundNumberRef.current = initialRoundNumber;
+    setCurrentRoundIndex(idx);
+  }, [initialRoundNumber, rounds]);
+
   const saveCurrentRound = async (
     sessionId: string,
     roundNumber: number,
@@ -239,11 +260,58 @@ export const usePokerSessionHistory = (
       toast({ title: 'Cannot delete the last round', variant: 'destructive' });
       return false;
     }
+    const pk = resolvedSessionPk;
+    if (!pk) return false;
+
     try {
-      const { error } = await supabase
-        .from('poker_session_rounds')
-        .delete()
-        .eq('id', roundId);
+      const roundToDelete = rounds.find((round) => round.id === roundId);
+      if (!roundToDelete) {
+        toast({ title: 'Round not found', variant: 'destructive' });
+        return false;
+      }
+      const successTitle = roundToDelete.is_active ? 'Round cancelled' : 'Round deleted';
+      const remaining = rounds.filter((r) => r.id !== roundId);
+
+      const { data: sessionRow, error: sessionFetchError } = await supabase
+        .from('poker_sessions')
+        .select('current_round_number')
+        .eq('id', pk)
+        .single();
+
+      if (sessionFetchError || sessionRow == null) {
+        console.error('Error loading session for delete round', sessionFetchError);
+        toast({ title: 'Error cancelling round', variant: 'destructive' });
+        return false;
+      }
+
+      const pointerWasDeleted = sessionRow.current_round_number === roundToDelete.round_number;
+
+      if (pointerWasDeleted && remaining.length > 0) {
+        const newCurrent = Math.max(...remaining.map((r) => r.round_number));
+        const { error: sessionUpdateError } = await supabase
+          .from('poker_sessions')
+          .update({ current_round_number: newCurrent })
+          .eq('id', pk);
+        if (sessionUpdateError) {
+          console.error('Error repointing session after round delete', sessionUpdateError);
+          toast({ title: 'Error cancelling round', variant: 'destructive' });
+          return false;
+        }
+        await supabase.from('poker_session_rounds').update({ is_active: false }).eq('session_id', pk);
+        await supabase
+          .from('poker_session_rounds')
+          .update({ is_active: true })
+          .eq('session_id', pk)
+          .eq('round_number', newCurrent);
+
+        window.dispatchEvent(
+          new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
+            detail: { sessionId: pk, roundNumber: newCurrent },
+          })
+        );
+      }
+
+      const { error } = await supabase.from('poker_session_rounds').delete().eq('id', roundId);
 
       if (error) {
         console.error('Error deleting round:', error);
@@ -251,7 +319,7 @@ export const usePokerSessionHistory = (
         return false;
       }
 
-      toast({ title: 'Round deleted' });
+      toast({ title: successTitle });
       await fetchRounds();
       window.dispatchEvent(new Event('rounds-deleted'));
       return true;

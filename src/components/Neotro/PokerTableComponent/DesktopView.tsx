@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePokerTable } from './context';
+import { supabase } from '@/integrations/supabase/client';
+import { useJiraTicketMetadata, type JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
 import CardHandSelector from "@/components/Neotro/CardHandSelector";
 import PlayingCard from "@/components/Neotro/PlayingCards/PlayingCard";
 import PlayHandButton from "@/components/Neotro/PlayHandButton";
@@ -7,61 +9,58 @@ import CardState from "@/components/Neotro/PlayingCards/CardState";
 import NextRoundButton from "@/components/Neotro/NextRoundButton";
 import { PokerSessionChat } from "@/components/shared/PokerSessionChat";
 import { PokerConfig } from '../PokerConfig';
-import { Button } from '@/components/ui/button';
+import { TicketDetailsNeotroButton } from '@/components/Neotro/TicketDetailsNeotroButton';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Maximize2, Eye, GripVertical, RotateCcw } from 'lucide-react';
+import { Send, Maximize2, Eye, GripVertical, RotateCcw, Search, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PlayerSelection } from '@/hooks/usePokerSession';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
 import { EmbeddedTicketQueue } from '@/components/Neotro/EmbeddedTicketQueue';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsCompactViewport } from '@/hooks/use-compact-viewport';
-import { PokerBottomBar, type PanelVisibility } from '@/components/Neotro/PokerBottomBar';
+import {
+  DEFAULT_NEOTRO_PANEL_WIDTH,
+  MAX_NEOTRO_PANEL_WIDTH,
+  MIN_NEOTRO_PANEL_WIDTH,
+  type NeotroPokerPanelVisibility,
+  useNeotroPanelWidth,
+  usePersistedNeotroPokerPanelVisibility,
+  writePanelWidth,
+} from '@/hooks/use-persisted-neotro-poker-panels';
 import { RoundSelector } from '@/components/Neotro/RoundSelector';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
-import type { TicketQueueItem } from '@/hooks/useTicketQueue';
+import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
 function QueuePanelCard({
   teamId,
-  ticketQueue,
   rounds,
   addTicketToQueue,
-  removeTicketFromQueue,
-  reorderQueue,
-  clearQueue,
-  playQueueTicketNow,
-  playQueueTicketNowDisabled,
-  playQueueNowBusyId,
+  addTicketsToQueueBatch,
   displayTicketNumber,
   setDisplayTicketNumber,
   updateTicketNumber,
   isJiraConfigured,
   showJiraBrowser = true,
-  showQueue = true,
+  onMetadataFromBrowse,
   onResizeStart,
+  className,
 }: {
   teamId: string | undefined;
-  ticketQueue: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[];
   rounds: PokerSessionRound[];
   addTicketToQueue: (key: string, summary: string | null) => Promise<void>;
-  removeTicketFromQueue: (id: string) => Promise<void>;
-  reorderQueue: (items: { id: string; ticket_key: string; ticket_summary: string | null; position: number; team_id?: string; added_by?: string | null; created_at?: string }[]) => Promise<void>;
-  clearQueue: () => Promise<void>;
-  playQueueTicketNow: (item: TicketQueueItem) => void | Promise<void>;
-  playQueueTicketNowDisabled: boolean;
-  playQueueNowBusyId: string | null;
+  addTicketsToQueueBatch: (tickets: Array<{ ticketKey: string; ticketSummary: string | null }>) => Promise<void>;
   displayTicketNumber: string;
   setDisplayTicketNumber: (key: string) => void;
   updateTicketNumber: (key: string) => void;
   isJiraConfigured: boolean;
   showJiraBrowser?: boolean;
-  showQueue?: boolean;
+  onMetadataFromBrowse?: (meta: Record<string, JiraTicketMeta>) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
+  className?: string;
 }) {
   return (
-    <Card className="relative h-full flex flex-col">
+    <Card className={`relative h-full flex flex-col ${className ?? ''}`}>
       {onResizeStart && (
         <div
           role="separator"
@@ -78,24 +77,19 @@ function QueuePanelCard({
       <CardContent className="flex-1 flex flex-col min-h-0 p-4">
         {teamId ? (
           <EmbeddedTicketQueue
+            key={teamId}
             teamId={teamId}
             isJiraConfigured={isJiraConfigured}
             rounds={rounds}
             showJiraBrowser={showJiraBrowser}
-            showQueue={showQueue}
-            queue={ticketQueue as any}
             onAddTicket={addTicketToQueue}
-            onRemoveTicket={removeTicketFromQueue}
-            onReorderQueue={reorderQueue as any}
-            onClearQueue={clearQueue}
-            onPlayQueueTicketNow={playQueueTicketNow}
-            playQueueTicketNowDisabled={playQueueTicketNowDisabled}
-            playQueueNowBusyId={playQueueNowBusyId}
+            onAddTicketsBatch={addTicketsToQueueBatch}
             displayTicketNumber={displayTicketNumber}
             onSelectTicket={(ticketKey) => {
               setDisplayTicketNumber(ticketKey);
               updateTicketNumber(ticketKey);
             }}
+            onMetadataFromBrowse={onMetadataFromBrowse}
           />
         ) : (
           <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">
@@ -161,31 +155,21 @@ export const DesktopView: React.FC = () => {
         setNextRoundDialogOpen,
         onNextRoundRequest,
         onStartNewRoundRequest,
-        ticketQueue,
         addTicketToQueue,
-        removeTicketFromQueue,
-        reorderQueue,
-        clearQueue,
-        playQueueTicketNow,
-        playQueueTicketNowDisabled,
-        playQueueNowBusyId,
+        addTicketsToQueueBatch,
         isJiraConfigured,
         updateTicketNumber,
         chatUnreadCount,
         markChatAsRead,
         chatMessagesForRound,
         deleteRound,
+        onPokerBack,
+        pokerToolbarExtras,
     } = usePokerTable();
 
     const isCompact = useIsCompactViewport();
-    const [panelVisibility, setPanelVisibility] = useState<PanelVisibility>({
-        chat: true,
-        queue: true,
-        jiraBrowser: true,
-        roundSelector: true,
-        settings: true,
-    });
-    const togglePanel = useCallback((panel: keyof PanelVisibility) => {
+    const [panelVisibility, setPanelVisibility] = usePersistedNeotroPokerPanelVisibility();
+    const togglePanel = useCallback((panel: keyof NeotroPokerPanelVisibility) => {
         setPanelVisibility((prev) => {
             const next = { ...prev, [panel]: !prev[panel] };
             if (panel === 'chat' && next.chat) markChatAsRead();
@@ -197,24 +181,12 @@ export const DesktopView: React.FC = () => {
         if (panelVisibility.chat) markChatAsRead();
     }, [panelVisibility.chat, markChatAsRead, chatMessagesForRound.length]);
 
-    const PANEL_WIDTH_KEY = 'neotro-panel-width';
-    const DEFAULT_PANEL_WIDTH = 320;
-    const MIN_PANEL_WIDTH = 240;
-    const MAX_PANEL_WIDTH = 480;
-    const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-        if (typeof window === 'undefined') return DEFAULT_PANEL_WIDTH;
-        const stored = localStorage.getItem(`${PANEL_WIDTH_KEY}-left`);
-        return stored ? Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, Number(stored))) : DEFAULT_PANEL_WIDTH;
-    });
-    const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-        if (typeof window === 'undefined') return DEFAULT_PANEL_WIDTH;
-        const stored = localStorage.getItem(`${PANEL_WIDTH_KEY}-right`);
-        return stored ? Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, Number(stored))) : DEFAULT_PANEL_WIDTH;
-    });
+    const [leftPanelWidth, setLeftPanelWidth] = useNeotroPanelWidth('left');
+    const [rightPanelWidth, setRightPanelWidth] = useNeotroPanelWidth('right');
     const resizeSideRef = useRef<'left' | 'right' | null>(null);
     const startXRef = useRef(0);
     const startWidthRef = useRef(0);
-    const currentWidthRef = useRef({ left: DEFAULT_PANEL_WIDTH, right: DEFAULT_PANEL_WIDTH });
+    const currentWidthRef = useRef({ left: DEFAULT_NEOTRO_PANEL_WIDTH, right: DEFAULT_NEOTRO_PANEL_WIDTH });
 
     const [isResizing, setIsResizing] = useState(false);
 
@@ -235,7 +207,7 @@ export const DesktopView: React.FC = () => {
         const onMove = (e: MouseEvent) => {
             if (!resizeSideRef.current) return;
             const delta = resizeSideRef.current === 'left' ? e.clientX - startXRef.current : startXRef.current - e.clientX;
-            const next = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidthRef.current + delta));
+            const next = Math.min(MAX_NEOTRO_PANEL_WIDTH, Math.max(MIN_NEOTRO_PANEL_WIDTH, startWidthRef.current + delta));
             if (resizeSideRef.current === 'left') {
                 setLeftPanelWidth(next);
                 currentWidthRef.current.left = next;
@@ -249,7 +221,7 @@ export const DesktopView: React.FC = () => {
             resizeSideRef.current = null;
             if (side) {
                 const val = side === 'left' ? currentWidthRef.current.left : currentWidthRef.current.right;
-                localStorage.setItem(`${PANEL_WIDTH_KEY}-${side}`, String(val));
+                writePanelWidth(side, val);
             }
             setIsResizing(false);
             document.body.style.cursor = '';
@@ -274,7 +246,68 @@ export const DesktopView: React.FC = () => {
     const VISIBLE_STRIP = isCompact ? 4 : 10;
     const stackOverlap = scaledCardHeight - VISIBLE_STRIP;
 
-    const [ticketMetaByKey, setTicketMetaByKey] = useState<Record<string, { issueTypeIconUrl?: string; storyPoints?: number | null; summary?: string }>>({});
+    const [browseMeta, setBrowseMeta] = useState<Record<string, JiraTicketMeta>>({});
+    const browseMetaRef = useRef(browseMeta);
+    browseMetaRef.current = browseMeta;
+
+    const hookMeta = useJiraTicketMetadata(
+      isJiraConfigured ? undefined : teamId,
+      rounds,
+      displayTicketNumber
+    );
+
+    const ticketKeysForMetaDigest = useMemo(() => {
+      const fromRounds = rounds
+        .map((r) => r.ticket_number)
+        .filter((k): k is string => !!k && !isSyntheticRoundTicket(k));
+      const current = displayTicketNumber || '';
+      return Array.from(
+        new Set(
+          [...fromRounds, current].filter((k) => k && k !== 'No ticket' && !isSyntheticRoundTicket(k))
+        )
+      )
+        .sort()
+        .join(',');
+    }, [rounds, displayTicketNumber]);
+
+    const mergeBrowseMetadata = useCallback((meta: Record<string, JiraTicketMeta>) => {
+      setBrowseMeta((prev) => ({ ...prev, ...meta }));
+    }, []);
+
+    /** Batch fetch for keys not already in browse metadata (realtime rounds, etc.) — keysOnly skips full board JQL. */
+    useEffect(() => {
+      if (!teamId || !isJiraConfigured) return;
+      const keys = ticketKeysForMetaDigest ? ticketKeysForMetaDigest.split(',') : [];
+      const keysToFetch = keys.filter((k) => k && !browseMetaRef.current[k]);
+      if (keysToFetch.length === 0) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
+            body: { teamId, includeKeys: keysToFetch, keysOnly: true },
+          });
+          if (cancelled || error || data?.error) return;
+          const next: Record<string, JiraTicketMeta> = {};
+          for (const issue of data?.issues || []) {
+            if (issue?.key) {
+              next[issue.key] = {
+                summary: issue.summary ?? undefined,
+                storyPoints: issue.storyPoints ?? null,
+                issueTypeIconUrl: issue.issueTypeIconUrl,
+              };
+            }
+          }
+          if (cancelled || Object.keys(next).length === 0) return;
+          browseMetaRef.current = { ...browseMetaRef.current, ...next };
+          setBrowseMeta((prev) => ({ ...prev, ...next }));
+        } catch {
+          /* skip */
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [teamId, isJiraConfigured, ticketKeysForMetaDigest]);
+
+    const ticketMetaByKey = isJiraConfigured ? { ...hookMeta, ...browseMeta } : hookMeta;
 
     const currentPointsLabel = useMemo(() => {
         if (isViewingHistory && currentRound && currentRound.average_points > 0) {
@@ -285,135 +318,209 @@ export const DesktopView: React.FC = () => {
         if (displaySession.game_state === 'Playing' && displayWinningPoints > 0) {
             return `${displayWinningPoints} pts`;
         }
-        const livePoints = ticketMetaByKey[displayTicketNumber]?.storyPoints;
+        const rawForPoints = displayTicketNumber || displaySession?.ticket_number || '';
+        const livePoints = !isSyntheticRoundTicket(rawForPoints)
+          ? ticketMetaByKey[String(rawForPoints).trim()]?.storyPoints
+          : undefined;
         return livePoints != null ? `${livePoints} pts` : null;
-    }, [isViewingHistory, currentRound, displaySession.game_state, displayWinningPoints, ticketMetaByKey, displayTicketNumber]);
+    }, [
+        isViewingHistory,
+        currentRound,
+        displaySession.game_state,
+        displayWinningPoints,
+        ticketMetaByKey,
+        displayTicketNumber,
+        displaySession?.ticket_number,
+    ]);
 
     const currentTicketKey = displaySession?.ticket_number || displayTicketNumber;
     const currentTicketSummary = useMemo(() => {
-        const fromApi = ticketMetaByKey[currentTicketKey]?.summary;
+        const fromApi = !isSyntheticRoundTicket(currentTicketKey)
+          ? ticketMetaByKey[String(currentTicketKey || '').trim()]?.summary
+          : undefined;
         if (fromApi) return fromApi;
         const fromSession = (displaySession as { ticket_title?: string | null })?.ticket_title;
         if (fromSession) return fromSession;
-        const fromQueue = ticketQueue.find((t) => t.ticket_key === currentTicketKey)?.ticket_summary;
-        return fromQueue ?? null;
-    }, [ticketMetaByKey, displaySession, ticketQueue, currentTicketKey]);
-
-    // Derive ticket keys independently of ticketMetaByKey to avoid a
-    // fetch → state update → new keys → re-fetch infinite loop.
-    const ticketKeysForFetch = useMemo(() => {
-        const fromRounds = rounds
-            .map((r) => r.ticket_number)
-            .filter((k): k is string => !!k);
-        const current = displayTicketNumber || '';
-        return Array.from(new Set([...fromRounds, current].filter((k) => k && k !== 'No ticket'))).sort().join(',');
-    }, [rounds, displayTicketNumber]);
-
-    useEffect(() => {
-        const keys = ticketKeysForFetch ? ticketKeysForFetch.split(',') : [];
-
-        if (!teamId || keys.length === 0) {
-            setTicketMetaByKey({});
-            return;
-        }
-
-        const fetchIssueMetadata = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
-                    body: {
-                        teamId,
-                        includeKeys: keys,
-                    },
-                });
-
-                if (error || data?.error) {
-                    return;
-                }
-
-                const nextMap: Record<string, { issueTypeIconUrl?: string; storyPoints?: number | null; summary?: string }> = {};
-                for (const issue of data?.issues || []) {
-                    if (issue?.key) {
-                        nextMap[issue.key] = {
-                            issueTypeIconUrl: issue.issueTypeIconUrl,
-                            storyPoints: issue.storyPoints,
-                            summary: issue.summary,
-                        };
-                    }
-                }
-                setTicketMetaByKey(nextMap);
-            } catch {
-                // keep UI resilient if issue metadata is unavailable
-            }
-        };
-
-        fetchIssueMetadata();
-    }, [teamId, ticketKeysForFetch]);
+        return null;
+    }, [ticketMetaByKey, displaySession, currentTicketKey]);
 
     if (!displaySession || !session) return null;
 
+    const compactTicketStripLabel = displayTicketLabel(displaySession.ticket_number || displayTicketNumber);
+
     return (
         <div className={`poker-table relative flex flex-col flex-1 min-h-0 ${shake ? 'screen-shake' : ''}`}>
-            {panelVisibility.roundSelector && (
-                <RoundSelector
-                    rounds={rounds}
-                    session={session}
-                    displayTicketNumber={displayTicketNumber}
-                    displaySession={displaySession}
-                    displayWinningPoints={displayWinningPoints}
-                    currentRound={currentRound}
-                    isViewingHistory={isViewingHistory}
-                    teamId={teamId}
-                    ticketQueue={ticketQueue}
-                    goToRound={goToRound}
-                    goToCurrentRound={goToCurrentRound}
-                    deleteRound={deleteRound}
-                    isAdmin={userRole === 'admin' || userRole === 'owner'}
-                    onStartNewRoundRequest={onStartNewRoundRequest}
-                />
-            )}
+            <RoundSelector
+                rounds={rounds}
+                session={session}
+                displayTicketNumber={displayTicketNumber}
+                displaySession={displaySession}
+                displayWinningPoints={displayWinningPoints}
+                currentRound={currentRound}
+                isViewingHistory={isViewingHistory}
+                ticketMetaByKey={ticketMetaByKey}
+                goToRound={goToRound}
+                goToCurrentRound={goToCurrentRound}
+                deleteRound={deleteRound}
+                isAdmin={userRole === 'admin' || userRole === 'owner'}
+                onStartNewRoundRequest={onStartNewRoundRequest}
+                onBack={onPokerBack}
+                toolbarExtras={pokerToolbarExtras}
+                showRoundStrip
+                onSettingsClick={() => setIsSettingsOpen(true)}
+                isObserver={isObserver}
+                onEnterObserverMode={enterObserverMode}
+                onLeaveObserverMode={leaveObserverMode}
+            />
 
             <div className="flex flex-1 min-h-0 overflow-hidden relative">
-                {(panelVisibility.queue || (panelVisibility.jiraBrowser && isJiraConfigured)) && (
-                <div className="absolute left-0 top-0 bottom-0 flex flex-col z-10" style={{ width: leftPanelWidth }}>
-                    <div className="flex-grow overflow-hidden flex flex-col h-full justify-end p-4">
-                        <QueuePanelCard
-                                teamId={teamId}
-                                ticketQueue={ticketQueue}
-                                rounds={rounds}
-                                addTicketToQueue={addTicketToQueue}
-                                removeTicketFromQueue={removeTicketFromQueue}
-                                reorderQueue={reorderQueue}
-                                clearQueue={clearQueue}
-                                playQueueTicketNow={playQueueTicketNow}
-                                playQueueTicketNowDisabled={playQueueTicketNowDisabled}
-                                playQueueNowBusyId={playQueueNowBusyId}
-                                displayTicketNumber={displayTicketNumber}
-                                setDisplayTicketNumber={setDisplayTicketNumber}
-                                updateTicketNumber={updateTicketNumber}
-                                isJiraConfigured={isJiraConfigured}
-                                showJiraBrowser={panelVisibility.jiraBrowser}
-                                showQueue={panelVisibility.queue}
-                                onResizeStart={(e) => handleResizeStart('left', e)}
-                            />
-                    </div>
-                </div>
+                {isJiraConfigured && (
+                    <>
+                        <div
+                            className="absolute left-0 top-0 bottom-0 z-10 overflow-hidden transition-[width] duration-200 ease-out"
+                            style={{ width: panelVisibility.jiraBrowser ? leftPanelWidth : 0 }}
+                            aria-hidden={!panelVisibility.jiraBrowser}
+                        >
+                            <div
+                                className="relative flex h-full flex-col"
+                                style={{ width: leftPanelWidth }}
+                            >
+                                <div className="flex flex-grow flex-col justify-end overflow-hidden pr-4 pb-4 pt-4">
+                                    <QueuePanelCard
+                                        teamId={teamId}
+                                        rounds={rounds}
+                                        addTicketToQueue={addTicketToQueue}
+                                        addTicketsToQueueBatch={addTicketsToQueueBatch}
+                                        displayTicketNumber={displayTicketNumber}
+                                        setDisplayTicketNumber={setDisplayTicketNumber}
+                                        updateTicketNumber={updateTicketNumber}
+                                        isJiraConfigured={isJiraConfigured}
+                                        showJiraBrowser={true}
+                                        onMetadataFromBrowse={mergeBrowseMetadata}
+                                        onResizeStart={(e) => handleResizeStart('left', e)}
+                                        className="rounded-l-none"
+                                    />
+                                    {panelVisibility.jiraBrowser && (
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePanel('jiraBrowser')}
+                                            className="absolute right-2 top-1/2 z-20 flex h-10 w-6 -translate-y-1/2 items-center justify-center rounded-r-md border bg-card/90 shadow-md transition-colors hover:bg-accent/50"
+                                            aria-label="Collapse Jira panel"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        {!panelVisibility.jiraBrowser && (
+                            <button
+                                type="button"
+                                onClick={() => togglePanel('jiraBrowser')}
+                                className="absolute left-0 top-1/2 z-20 flex h-24 w-8 -translate-y-1/2 items-center justify-center rounded-r-lg border bg-card/80 shadow-md transition-colors hover:bg-accent/50"
+                                aria-label="Open Jira panel"
+                            >
+                                <Search className="h-4 w-4" />
+                            </button>
+                        )}
+                    </>
                 )}
 
-                <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden p-4">
-                    {(displaySession.game_state === 'Playing' || !isViewingHistory) && (
+                <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden pt-2 px-4 pb-4">
+                    {(displaySession.game_state === 'Playing' ||
+                        !isViewingHistory ||
+                        (isViewingHistory && isCompact)) && (
                         <div className={`flex flex-col items-center shrink-0 flex-none ${isCompact ? 'gap-1 pb-2' : 'gap-2 pb-4'}`}>
-                            <div className={`flex flex-col shrink-0 w-64 ${isCompact ? 'gap-1' : 'gap-2'}`}>
-                                <div className={`relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible ${isCompact ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}>
-                                    {teamId && (displaySession.ticket_number || displayTicketNumber) && (
+                            <div className={`flex flex-col shrink-0 ${isCompact ? 'w-full max-w-md gap-1' : 'w-64 gap-2'}`}>
+                                {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
+                                    <div className="flex flex-row items-stretch gap-2 w-full">
+                                        <PlayHandButton
+                                            onHandPlayed={playHand}
+                                            isHandPlayed={false}
+                                            className="flex-1 min-w-0"
+                                        />
+                                        {teamId &&
+                                        isJiraConfigured &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) ? (
+                                            <JiraIssueDrawer
+                                                issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                teamId={teamId}
+                                                trigger={
+                                                    <TicketDetailsNeotroButton className="flex-1 min-w-0" />
+                                                }
+                                            />
+                                        ) : (
+                                            <TicketDetailsNeotroButton
+                                                disabled
+                                                className="flex-1 min-w-0"
+                                                title={
+                                                    !teamId || !isJiraConfigured
+                                                        ? 'Jira is not available'
+                                                        : 'Select a ticket first'
+                                                }
+                                            />
+                                        )}
+                                    </div>
+                                ) : isCompact &&
+                                  (isViewingHistory ||
+                                      (!isViewingHistory && displaySession.game_state === 'Playing')) ? (
+                                    <div className="relative flex w-full flex-row items-center gap-2 rounded-lg bg-card/50 px-3 py-1.5">
+                                        {teamId &&
+                                        isJiraConfigured &&
+                                        !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
+                                            <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+                                                <JiraIssueDrawer
+                                                    issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
+                                                    teamId={teamId}
+                                                    trigger={
+                                                        <NeotroPressableButton
+                                                            variant="emerald"
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Expand Jira issue"
+                                                            title="Issue details"
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <div
+                                            className={`flex min-w-0 flex-1 items-center justify-center gap-2 ${
+                                                teamId &&
+                                                isJiraConfigured &&
+                                                !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber)
+                                                    ? 'pr-10'
+                                                    : ''
+                                            }`}
+                                        >
+                                            <span className="shrink-0 text-sm text-muted-foreground">
+                                                {isViewingHistory ? 'Viewing:' : 'Now Pointing:'}
+                                            </span>
+                                            <span
+                                                className="min-w-0 truncate text-center font-semibold text-foreground"
+                                                title={currentTicketSummary || compactTicketStripLabel}
+                                            >
+                                                {compactTicketStripLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : !isCompact ? (
+                                <div className="relative flex flex-col gap-1 bg-card/50 rounded-lg overflow-visible px-4 py-2.5">
+                                    {teamId &&
+                                    !isSyntheticRoundTicket(displaySession.ticket_number || displayTicketNumber) && (
                                         <div className="absolute top-2 right-2">
                                             <JiraIssueDrawer
                                                 issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                 teamId={teamId}
                                                 trigger={
                                                     <NeotroPressableButton
+                                                        variant="emerald"
                                                         size="sm"
                                                         activeShowsPressed={false}
                                                         aria-label="Expand Jira issue"
+                                                        title="Issue details"
                                                     >
                                                         <Maximize2 className="h-4 w-4" />
                                                     </NeotroPressableButton>
@@ -432,21 +539,22 @@ export const DesktopView: React.FC = () => {
                                                 onChange={(e) => handleTicketNumberChange(e.target.value)}
                                                 onFocus={handleTicketNumberFocus}
                                                 onBlur={handleTicketNumberBlur}
-                                                placeholder="No ticket"
+                                                placeholder={`Round ${displaySession.round_number ?? session?.current_round_number ?? 1}`}
                                                 className="font-semibold text-foreground leading-[1.75] bg-transparent border-b border-transparent hover:border-muted-foreground/30 focus:border-primary focus:outline-none min-w-[6rem] text-center"
                                             />
                                         ) : (
                                             <span className="font-semibold text-foreground leading-[1.75]">
-                                                {displaySession.ticket_number || displayTicketNumber || 'No ticket'}
+                                                {displayTicketLabel(displaySession.ticket_number || displayTicketNumber)}
                                             </span>
                                         )}
                                     </div>
                                     {currentTicketSummary && (
-                                        <span className={`text-sm font-normal text-muted-foreground italic text-center ${isCompact ? 'line-clamp-1' : 'line-clamp-2'}`}>
+                                        <span className="text-sm font-normal text-muted-foreground italic text-center line-clamp-2">
                                             {currentTicketSummary}
                                         </span>
                                     )}
                                 </div>
+                                ) : null}
                                 {displaySession.game_state === 'Playing' && (
                                     <div className={`relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1`}>
                                         <div className={`flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 ${isCompact ? 'px-3 py-1' : 'px-4 py-2'}`}>
@@ -462,6 +570,7 @@ export const DesktopView: React.FC = () => {
                                                                 size="sm"
                                                                 activeShowsPressed={false}
                                                                 aria-label="Replay"
+                                                                title="Replay round"
                                                                 onClick={replayRound}
                                                             >
                                                                 <RotateCcw className="h-4 w-4" />
@@ -485,18 +594,20 @@ export const DesktopView: React.FC = () => {
                                                 className="w-full"
                                             />
                                         </div>
-                                    ) : (
+                                    ) : !isCompact ? (
                                         <PlayHandButton
                                             onHandPlayed={playHand}
                                             isHandPlayed={false}
                                             className="w-full"
                                         />
-                                    )
+                                    ) : null
                                 )}
                             </div>
                         </div>
                     )}
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col items-center justify-end pb-2">
+                    <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+                        <div className="my-auto flex flex-col items-center gap-2 w-full min-h-0">
+                            <div className="min-h-0 w-full overflow-hidden flex flex-col items-center">
                         {displaySession.game_state === 'Playing' && cardGroups ? (
                             <TooltipProvider>
                             <div className={`flex flex-wrap items-end justify-center ${isCompact ? 'gap-x-4 gap-y-2' : 'gap-x-6 gap-y-4'}`}>
@@ -590,7 +701,7 @@ export const DesktopView: React.FC = () => {
                                 ))}
                             </div>
                         )}
-                    </div>
+                            </div>
                     {displaySession.game_state === 'Playing' ? (
                         <div className={`flex-shrink-0 flex items-center justify-center ${isCompact ? 'p-2 gap-2 flex-row flex-wrap' : 'p-4 pt-2 gap-2 flex-col'}`}>
                             <div className={isCompact ? 'flex flex-row flex-wrap items-center justify-center gap-2' : 'flex flex-col gap-2 w-full max-w-sm'}>
@@ -636,35 +747,45 @@ export const DesktopView: React.FC = () => {
                             </div>
                         </div>
                     ) : null}
-                </div>
-                {panelVisibility.chat && (
-                <div className="absolute right-0 top-0 bottom-0 flex flex-col z-10" style={{ width: rightPanelWidth }}>
-                    <div className="flex-1 min-w-0 h-full flex flex-col justify-end p-4">
-                        <PokerSessionChat onResizeStart={(e) => handleResizeStart('right', e)} />
+                        </div>
                     </div>
                 </div>
+                {panelVisibility.chat ? (
+                    <div className="absolute right-0 top-0 bottom-0 flex flex-col z-10" style={{ width: rightPanelWidth }}>
+                        <div className="flex-1 min-w-0 h-full flex flex-col justify-end pl-4 pt-4 pb-4 relative">
+                            <PokerSessionChat onResizeStart={(e) => handleResizeStart('right', e)} wrapperClassName="rounded-r-none" />
+                            <button
+                                type="button"
+                                onClick={() => togglePanel('chat')}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-10 w-6 flex items-center justify-center rounded-l-md border bg-card/90 shadow-md hover:bg-accent/50 transition-colors"
+                                aria-label="Collapse chat panel"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => { togglePanel('chat'); markChatAsRead(); }}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 h-24 w-8 flex items-center justify-center rounded-l-lg border bg-card/80 shadow-md hover:bg-accent/50 transition-colors relative"
+                        aria-label="Open chat panel"
+                    >
+                        <MessageCircle className="h-4 w-4" />
+                        {chatUnreadCount > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[1rem] px-1 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-medium">
+                                {chatUnreadCount > 9 ? '9+' : String(chatUnreadCount)}
+                            </span>
+                        )}
+                    </button>
                 )}
             </div>
 
-            <div className="flex-shrink-0 w-full min-w-0">
-                <TooltipProvider>
-                    <PokerBottomBar
-                        visibility={panelVisibility}
-                        onToggle={togglePanel}
-                        isJiraConfigured={isJiraConfigured}
-                        chatUnreadCount={chatUnreadCount}
-                        onSettingsClick={() => setIsSettingsOpen(true)}
-                        isObserver={isObserver}
-                        isViewingHistory={isViewingHistory}
-                        onEnterObserverMode={enterObserverMode}
-                        onLeaveObserverMode={leaveObserverMode}
-                    />
-                </TooltipProvider>
-            </div>
             <PokerConfig
                 config={{
                     presence_enabled: 'presence_enabled' in session && session.presence_enabled,
                     send_to_slack: 'send_to_slack' in session && session.send_to_slack,
+                    spotlight_follow_enabled: session.spotlight_follow_enabled !== false,
                     observer_ids: (session as { observer_ids?: string[] }).observer_ids,
                     selections: session.selections,
                     team_id: teamId,

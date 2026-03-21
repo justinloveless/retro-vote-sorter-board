@@ -19,7 +19,8 @@
 
 .poker-table {
   width: 100%;
-  overflow: hidden;
+  /* overflow-x only — full overflow:hidden clips NeotroPressableButton box-shadows */
+  overflow-x: hidden;
   font-family: "Neotro", sans-serif;
 }
 
@@ -253,4 +254,135 @@
   padding: 0;
   border-radius: 0;
   font-size: inherit;
+}
+
+/* Shared width for Neotro Jira + chat scrollbars (Radix default w-2.5 is ~10px; lock to match native) */
+:root {
+  --neotro-scrollbar-w: 7px;
+}
+
+/* Jira browse list — native overflow; hidden until hover on .neotro-jira-scroll-group */
+.neotro-jira-browse-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.neotro-jira-scroll-group:hover .neotro-jira-browse-scroll {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.58) hsl(var(--muted) / 0.4);
+}
+
+.neotro-jira-browse-scroll::-webkit-scrollbar {
+  width: var(--neotro-scrollbar-w);
+}
+
+.neotro-jira-browse-scroll::-webkit-scrollbar-track {
+  margin: 4px 0;
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.neotro-jira-scroll-group:hover .neotro-jira-browse-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.4);
+}
+
+.neotro-jira-browse-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.neotro-jira-scroll-group:hover .neotro-jira-browse-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.58);
+}
+
+.neotro-jira-scroll-group:hover .neotro-jira-browse-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.78);
+}
+
+/* Poker chat — Radix ScrollArea vertical bar (same width + tokens as Jira) */
+.neotro-scrollbar-radix [data-orientation="vertical"] {
+  width: var(--neotro-scrollbar-w) !important;
+  min-width: var(--neotro-scrollbar-w) !important;
+  max-width: var(--neotro-scrollbar-w) !important;
+  box-sizing: border-box;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.neotro-scrollbar-radix:hover [data-orientation="vertical"] {
+  background: hsl(var(--muted) / 0.4);
+}
+
+.neotro-scrollbar-radix [data-orientation="vertical"] [data-state]:not([data-orientation]) {
+  background: transparent !important;
+  border-radius: 9999px;
+}
+
+.neotro-scrollbar-radix:hover [data-orientation="vertical"] [data-state]:not([data-orientation]) {
+  background: hsl(var(--muted-foreground) / 0.58) !important;
+}
+
+.neotro-scrollbar-radix:hover [data-orientation="vertical"] [data-state]:not([data-orientation]):hover {
+  background: hsl(var(--muted-foreground) / 0.78) !important;
+}
+
+/* Spotlight overlay — cone only, floating above the round */
+/* One full pulse per 5s (dim → bright → dim) */
+@keyframes neotro-spotlight-breathe {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Same width as the round `<button>` (positioning context); percentage height is chip + extension */
+.neotro-spotlight-overlay {
+  position: absolute;
+  left: 0;
+  top: -8px;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  /* 8px above the round, ~20px below so the cone carries past the chip bottom */
+  height: calc(100% + 28px);
+  overflow: visible;
+  border-radius: 0;
+}
+
+/* Truncated cone: flat top edge (cut-off beam), sides open to full width at bottom */
+.neotro-spotlight-cone {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%);
+  background:
+    radial-gradient(
+      ellipse 92% 26% at 50% 0%,
+      rgba(255, 254, 245, 0.72) 0%,
+      rgba(255, 244, 190, 0.62) 22%,
+      rgba(255, 228, 130, 0.42) 48%,
+      rgba(250, 210, 80, 0.22) 68%,
+      rgba(250, 205, 75, 0.13) 78%,
+      rgba(250, 200, 65, 0.075) 86%,
+      rgba(250, 196, 62, 0.034) 92%,
+      rgba(250, 194, 58, 0.01) 97%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 248, 215, 0.72) 0%,
+      rgba(255, 232, 150, 0.5) 32%,
+      rgba(255, 214, 100, 0.32) 54%,
+      rgba(250, 200, 85, 0.19) 68%,
+      rgba(250, 195, 70, 0.1) 80%,
+      rgba(250, 192, 68, 0.05) 88%,
+      rgba(250, 188, 62, 0.022) 93%,
+      rgba(250, 186, 58, 0.007) 97%,
+      transparent 100%
+    );
+  filter: blur(1.85px);
+  animation: neotro-spotlight-breathe 5s ease-in-out infinite;
 }
