@@ -761,6 +761,7 @@ export const DesktopView: React.FC = () => {
                     ) : null}
                         </div>
                     </div>
+                    </DragToPlayProvider>
                 </div>
                 {panelVisibility.chat ? (
                     <div className="absolute right-0 top-0 bottom-0 flex flex-col z-10" style={{ width: rightPanelWidth }}>
