@@ -241,6 +241,13 @@ export const DesktopView: React.FC = () => {
         };
     }, [isResizing]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    const handleDragDrop = useCallback((points: number) => {
+        updateUserSelection(points);
+        setTimeout(() => toggleLockUserSelection(), 50);
+    }, [updateUserSelection, toggleLockUserSelection]);
+
+    const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
     const CARD_BASE_HEIGHT = 95;
     const desktopScale = totalPlayers <= 4 ? 1.6 : totalPlayers <= 6 ? 1.4 : totalPlayers <= 8 ? 1.2 : totalPlayers <= 12 ? 1.0 : 0.8;
     const scaledCardHeight = CARD_BASE_HEIGHT * desktopScale;
