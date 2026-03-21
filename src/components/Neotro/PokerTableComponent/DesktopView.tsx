@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DragToPlayProvider, DropZoneOverlay } from '@/components/Neotro/DragToPlay';
 import { usePokerTable } from './context';
 import { supabase } from '@/integrations/supabase/client';
 import { useJiraTicketMetadata, type JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
