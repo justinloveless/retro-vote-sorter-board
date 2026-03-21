@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import { getCardImage } from "./PlayingCards/cardImage";
 import LockInButton from "./LockInButton";
 import AbstainButton from "./AbstainButton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsCompactViewport } from "@/hooks/use-compact-viewport";
+import { useDragToPlay } from "./DragToPlay";
 
 interface CardHandSelectorProps {
   selectedPoints: number;
@@ -29,6 +30,9 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
   const isMobile = useIsMobile();
   const isCompact = useIsCompactViewport();
   const totalCards = pointOptions.length;
+  const dragCtx = useDragToPlay();
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
   
   // Fan layout: each card is rotated around the bottom center
   const maxFanAngle = isMobile ? 30 : 40; // total spread in degrees
@@ -36,6 +40,44 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
   const cardHeight = isMobile ? 64 : 86;
   // Overlap: ~1/3 of each card (negative margin so cards stack)
   const cardSpacing = -Math.round(cardWidth / 3);
+
+  const DRAG_THRESHOLD = 8;
+
+  const handlePointerDown = useCallback((points: number, e: React.PointerEvent) => {
+    if (isAbstained || isLockedIn || !dragCtx) return;
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    isDragging.current = false;
+    // Capture pointer so we get move/up even if pointer leaves the element
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [isAbstained, isLockedIn, dragCtx]);
+
+  const handlePointerMove = useCallback((points: number, e: React.PointerEvent) => {
+    if (!dragStartPos.current || !dragCtx) return;
+    const dx = e.clientX - dragStartPos.current.x;
+    const dy = e.clientY - dragStartPos.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (!isDragging.current && dist >= DRAG_THRESHOLD) {
+      isDragging.current = true;
+      dragCtx.startDrag(points, e.clientX, e.clientY, cardWidth * 1.3, cardHeight * 1.3);
+    }
+    if (isDragging.current) {
+      dragCtx.updateDrag(e.clientX, e.clientY);
+    }
+  }, [dragCtx, cardWidth, cardHeight]);
+
+  const handlePointerUp = useCallback((points: number, e: React.PointerEvent) => {
+    if (isDragging.current && dragCtx) {
+      dragCtx.endDrag();
+    } else if (dragStartPos.current) {
+      // It was a tap/click, not a drag
+      const isDisabled = isAbstained || isLockedIn;
+      if (!isDisabled) onSelectPoints(points);
+    }
+    dragStartPos.current = null;
+    isDragging.current = false;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+  }, [dragCtx, isAbstained, isLockedIn, onSelectPoints]);
 
   const fan = (
     <div
@@ -45,18 +87,20 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
       {pointOptions.map((points, index) => {
         const isSelected = selectedPoints === points;
         const isDisabled = isAbstained || isLockedIn;
+        const isBeingDragged = dragCtx?.dragState?.points === points;
 
         const angleStep = totalCards > 1 ? maxFanAngle / (totalCards - 1) : 0;
         const rotation = -maxFanAngle / 2 + angleStep * index;
 
         return (
-          <button
+          <div
             key={points}
-            onClick={() => !isDisabled && onSelectPoints(points)}
-            disabled={isDisabled}
-            className={`relative transition-all duration-300 ease-out flex-shrink-0 ${
-              isDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-            }`}
+            onPointerDown={(e) => handlePointerDown(points, e)}
+            onPointerMove={(e) => handlePointerMove(points, e)}
+            onPointerUp={(e) => handlePointerUp(points, e)}
+            className={`relative transition-all duration-300 ease-out flex-shrink-0 select-none ${
+              isDisabled ? "opacity-60 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"
+            } ${isBeingDragged ? "opacity-30 scale-90" : ""}`}
             style={{
               width: cardWidth,
               height: cardHeight,
@@ -65,24 +109,26 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
               transformOrigin: "bottom center",
               zIndex: index,
               filter: isSelected ? "drop-shadow(0 0 12px rgba(52, 152, 219, 0.8))" : "none",
+              touchAction: 'none',
             }}
           >
             <img
               src={getCardImage(points)}
               alt={`${points} points`}
-              className={`w-full h-full object-contain transition-transform duration-200 ${
+              className={`w-full h-full object-contain transition-transform duration-200 pointer-events-none ${
                 !isDisabled && !isSelected ? "hover:-translate-y-2" : ""
               }`}
               style={{
                 imageRendering: "pixelated",
               }}
+              draggable={false}
             />
-            {isSelected && (
+            {isSelected && !isBeingDragged && (
               <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 whitespace-nowrap">
                 {points} pts
               </div>
             )}
-          </button>
+          </div>
         );
       })}
     </div>

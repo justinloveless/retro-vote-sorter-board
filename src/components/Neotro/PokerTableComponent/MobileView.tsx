@@ -22,6 +22,7 @@ import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { TicketDetailsNeotroButton } from '@/components/Neotro/TicketDetailsNeotroButton';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
+import { DragToPlayProvider, DropZoneOverlay } from '@/components/Neotro/DragToPlay';
 import { useJiraTicketMetadata } from '@/hooks/use-jira-ticket-metadata';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
@@ -93,6 +94,15 @@ export const MobileView: React.FC = () => {
     const { height } = useWindowSize();
     const isCompact = useIsCompactViewport();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    
+
+    const handleDragDrop = useCallback((points: number) => {
+        updateUserSelection(points);
+        // Small delay so the selection registers before locking in
+        setTimeout(() => toggleLockUserSelection(), 50);
+    }, [updateUserSelection, toggleLockUserSelection]);
+
+    const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
 
     const handleSwipeLeft = useCallback(() => {
         if (canGoForward) goToNextRound();
@@ -358,7 +368,9 @@ export const MobileView: React.FC = () => {
                         )}
 
                         {/* Cards Area */}
-                        <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
+                        <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                        <div className="relative flex-1 flex items-center justify-center min-h-0 mb-6">
+                            <DropZoneOverlay />
                             {displaySession.game_state === 'Playing' && cardGroups ? (
                                 <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
                                     {cardGroups.map(({ points, selections }) => (
@@ -451,6 +463,7 @@ export const MobileView: React.FC = () => {
                                 />
                             </div>
                         )}
+                        </DragToPlayProvider>
                         {!isViewingHistory && isObserver && (
                             <div className="flex-shrink-0 flex flex-col items-center gap-2 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
                                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -696,7 +709,9 @@ export const MobileView: React.FC = () => {
                         )}
 
                         {/* Cards Area */}
-                        <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
+                        <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                        <div className="relative flex-1 flex items-center justify-center min-h-0 mb-6">
+                            <DropZoneOverlay />
                             {displaySession.game_state === 'Playing' && cardGroups ? (
                                 <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
                                     {cardGroups.map(({ points, selections }) => (
@@ -789,6 +804,7 @@ export const MobileView: React.FC = () => {
                                 />
                             </div>
                         )}
+                        </DragToPlayProvider>
                         {!isViewingHistory && isObserver && (
                             <div className="flex-shrink-0 flex flex-col items-center gap-2 rounded-lg bg-card/50 border border-primary/20 px-6 py-4">
                                 <div className="flex items-center gap-2 text-muted-foreground">

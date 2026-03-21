@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DragToPlayProvider, DropZoneOverlay } from '@/components/Neotro/DragToPlay';
 import { usePokerTable } from './context';
 import { supabase } from '@/integrations/supabase/client';
 import { useJiraTicketMetadata, type JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
@@ -240,6 +241,13 @@ export const DesktopView: React.FC = () => {
         };
     }, [isResizing]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    const handleDragDrop = useCallback((points: number) => {
+        updateUserSelection(points);
+        setTimeout(() => toggleLockUserSelection(), 50);
+    }, [updateUserSelection, toggleLockUserSelection]);
+
+    const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
     const CARD_BASE_HEIGHT = 95;
     const desktopScale = totalPlayers <= 4 ? 1.6 : totalPlayers <= 6 ? 1.4 : totalPlayers <= 8 ? 1.2 : totalPlayers <= 12 ? 1.0 : 0.8;
     const scaledCardHeight = CARD_BASE_HEIGHT * desktopScale;
@@ -607,9 +615,11 @@ export const DesktopView: React.FC = () => {
                             </div>
                         </div>
                     )}
+                    <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
                     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
                         <div className="my-auto flex flex-col items-center gap-2 w-full min-h-0">
-                            <div className="min-h-0 w-full overflow-hidden flex flex-col items-center">
+                            <div className="relative min-h-0 w-full overflow-hidden flex flex-col items-center">
+                                <DropZoneOverlay />
                         {displaySession.game_state === 'Playing' && cardGroups ? (
                             <TooltipProvider>
                             <div className={`flex flex-wrap items-end justify-center ${isCompact ? 'gap-x-4 gap-y-2' : 'gap-x-6 gap-y-4'}`}>
@@ -751,6 +761,7 @@ export const DesktopView: React.FC = () => {
                     ) : null}
                         </div>
                     </div>
+                    </DragToPlayProvider>
                 </div>
                 {panelVisibility.chat ? (
                     <div className="absolute right-0 top-0 bottom-0 flex flex-col z-10" style={{ width: rightPanelWidth }}>
