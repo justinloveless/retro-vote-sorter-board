@@ -35,6 +35,8 @@ interface PokerTableContextProps {
   session: PokerSessionState | null;
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
+  /** Set the user's card to these points and lock in one update (e.g. drag-to-play). */
+  lockInUserSelectionAtPoints: (points: number) => void;
   toggleLockUserSelection: () => void;
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
@@ -765,6 +767,33 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     }
   };
 
+  const lockInUserSelectionAtPointsForSelectedRound = async (points: number) => {
+    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
+
+    const selections = effectiveCurrentRound.selections || {};
+    const userSelection = selections[activeUserId] as PlayerSelection | undefined;
+    if (!userSelection || userSelection.locked || userSelection.points === -1) return;
+
+    const newSelections = {
+      ...selections,
+      [activeUserId]: { ...userSelection, points, locked: true },
+    };
+
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [effectiveCurrentRound.id]: { ...effectiveCurrentRound, selections: newSelections },
+    }));
+
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .update({ selections: newSelections })
+      .eq('id', effectiveCurrentRound.id);
+
+    if (error) {
+      console.error('Error locking in selection at points:', error);
+    }
+  };
+
   const toggleLockUserSelectionForSelectedRound = async () => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
@@ -1003,6 +1032,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session,
     activeUserId,
     updateUserSelection: updateUserSelectionForSelectedRound,
+    lockInUserSelectionAtPoints: lockInUserSelectionAtPointsForSelectedRound,
     toggleLockUserSelection: toggleLockUserSelectionForSelectedRound,
     toggleAbstainUserSelection: toggleAbstainUserSelectionForSelectedRound,
     playHand: playHandForSelectedRound,

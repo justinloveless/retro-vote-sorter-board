@@ -65,6 +65,7 @@ export const MobileView: React.FC = () => {
         toggleLockUserSelection,
         toggleAbstainUserSelection,
         updateUserSelection,
+        lockInUserSelectionAtPoints,
         displayTicketNumber,
         handleTicketNumberChange,
         handleTicketNumberFocus,
@@ -97,10 +98,8 @@ export const MobileView: React.FC = () => {
     
 
     const handleDragDrop = useCallback((points: number) => {
-        updateUserSelection(points);
-        // Small delay so the selection registers before locking in
-        setTimeout(() => toggleLockUserSelection(), 50);
-    }, [updateUserSelection, toggleLockUserSelection]);
+        lockInUserSelectionAtPoints(points);
+    }, [lockInUserSelectionAtPoints]);
 
     const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
 
