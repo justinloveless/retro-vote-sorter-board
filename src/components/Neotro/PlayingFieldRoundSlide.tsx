@@ -8,9 +8,11 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
+type SlideState = { dir: 1 | -1; outgoing: React.ReactNode };
+
 /**
  * Horizontal slide when the selected round index changes (round strip prev/next, swipe, or chip).
- * Forward: content enters from the right; backward: from the left.
+ * Forward: old exits left, new enters from the right; backward: old exits right, new from the left.
  */
 export function PlayingFieldRoundSlide({
   roundIndex,
@@ -21,53 +23,114 @@ export function PlayingFieldRoundSlide({
   className?: string;
   children: React.ReactNode;
 }) {
-  const prevIndexRef = useRef(roundIndex);
-  const directionRef = useRef(1);
   const skipFirst = useRef(true);
-  const [translateXPct, setTranslateXPct] = useState(0);
-  const [transitionOn, setTransitionOn] = useState(false);
+  const lastCommittedRoundRef = useRef(roundIndex);
+  const lastCommittedChildrenRef = useRef<React.ReactNode>(children);
+
+  const [slide, setSlide] = useState<SlideState | null>(null);
+  const [trackTranslatePct, setTrackTranslatePct] = useState(0);
+  const [trackTransitionOn, setTrackTransitionOn] = useState(false);
 
   useLayoutEffect(() => {
     if (skipFirst.current) {
       skipFirst.current = false;
-      prevIndexRef.current = roundIndex;
-      return;
-    }
-    if (prevIndexRef.current === roundIndex) return;
-
-    if (prefersReducedMotion()) {
-      prevIndexRef.current = roundIndex;
-      setTranslateXPct(0);
-      setTransitionOn(false);
+      lastCommittedRoundRef.current = roundIndex;
+      lastCommittedChildrenRef.current = children;
       return;
     }
 
-    directionRef.current = roundIndex > prevIndexRef.current ? 1 : -1;
-    prevIndexRef.current = roundIndex;
+    const committedRound = lastCommittedRoundRef.current;
 
-    setTransitionOn(false);
-    setTranslateXPct(directionRef.current * 100);
+    if (slide !== null) {
+      if (committedRound === roundIndex) return;
+      if (prefersReducedMotion()) {
+        lastCommittedRoundRef.current = roundIndex;
+        lastCommittedChildrenRef.current = children;
+        setSlide(null);
+        return;
+      }
+      const outgoing = lastCommittedChildrenRef.current;
+      const dir = (roundIndex > committedRound ? 1 : -1) as 1 | -1;
+      lastCommittedRoundRef.current = roundIndex;
+      lastCommittedChildrenRef.current = children;
+      setSlide({ dir, outgoing });
+      return;
+    }
+
+    if (committedRound !== roundIndex) {
+      if (prefersReducedMotion()) {
+        lastCommittedRoundRef.current = roundIndex;
+        lastCommittedChildrenRef.current = children;
+        return;
+      }
+      const outgoing = lastCommittedChildrenRef.current;
+      const dir = (roundIndex > committedRound ? 1 : -1) as 1 | -1;
+      lastCommittedRoundRef.current = roundIndex;
+      lastCommittedChildrenRef.current = children;
+      setSlide({ dir, outgoing });
+      return;
+    }
+
+    lastCommittedChildrenRef.current = children;
+  }, [roundIndex, children, slide]);
+
+  useLayoutEffect(() => {
+    if (slide === null) return;
+
+    setTrackTransitionOn(false);
+    setTrackTranslatePct(slide.dir === 1 ? 0 : -50);
 
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setTransitionOn(true);
-        setTranslateXPct(0);
+        setTrackTransitionOn(true);
+        setTrackTranslatePct(slide.dir === 1 ? -50 : 0);
       });
     });
 
     return () => cancelAnimationFrame(id);
-  }, [roundIndex]);
+  }, [slide]);
+
+  const onTrackTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName !== 'transform' || e.target !== e.currentTarget) return;
+    setSlide(null);
+    setTrackTransitionOn(false);
+    setTrackTranslatePct(0);
+  };
+
+  if (slide === null) {
+    return (
+      <div className={cn('min-w-0 w-full overflow-x-hidden', className)}>
+        <div className="min-w-0 w-full">{children}</div>
+      </div>
+    );
+  }
+
+  const { dir, outgoing } = slide;
+  const forward = dir === 1;
 
   return (
     <div className={cn('min-w-0 w-full overflow-x-hidden', className)}>
       <div
-        className={cn('will-change-transform', transitionOn && 'ease-out')}
+        className="flex w-[200%] will-change-transform flex-row"
         style={{
-          transform: `translateX(${translateXPct}%)`,
-          transition: transitionOn ? `transform ${SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` : 'none',
+          transform: `translateX(${trackTranslatePct}%)`,
+          transition: trackTransitionOn
+            ? `transform ${SLIDE_MS}ms ease-in-out`
+            : 'none',
         }}
+        onTransitionEnd={onTrackTransitionEnd}
       >
-        {children}
+        {forward ? (
+          <>
+            <div className="min-w-0 w-1/2 shrink-0 basis-1/2">{outgoing}</div>
+            <div className="min-w-0 w-1/2 shrink-0 basis-1/2">{children}</div>
+          </>
+        ) : (
+          <>
+            <div className="min-w-0 w-1/2 shrink-0 basis-1/2">{children}</div>
+            <div className="min-w-0 w-1/2 shrink-0 basis-1/2">{outgoing}</div>
+          </>
+        )}
       </div>
     </div>
   );
