@@ -31,6 +31,8 @@ const NeotroPage = () => {
   const [isMember, setIsMember] = useState(false);
   const { setHideEffects } = useBackground();
 
+  const teamPokerTabPath = teamId ? `/teams/${teamId}?tab=poker` : '/teams';
+
   useEffect(() => {
     if (localStorage.getItem(POKER_HIDE_BG_KEY) === 'true') {
       setHideEffects(true);
@@ -126,7 +128,7 @@ const NeotroPage = () => {
   if (!isMember) {
     return (
       <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
-        <AppHeader variant='back' />
+        <AppHeader variant="back" backTo={teamPokerTabPath} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md mx-auto px-4">
             <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -134,7 +136,7 @@ const NeotroPage = () => {
             <p className="text-muted-foreground">
               Only members of this team can participate in pointing sessions.
             </p>
-            <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+            <Button onClick={() => navigate(teamPokerTabPath)} variant="outline">Go Back</Button>
           </div>
         </div>
       </div>
@@ -144,7 +146,7 @@ const NeotroPage = () => {
   if (!isFeatureEnabled('poker_pointing_sessions')) {
     return (
       <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
-        <AppHeader variant='back' />
+        <AppHeader variant="back" backTo={teamPokerTabPath} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md mx-auto px-4">
             <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -152,7 +154,7 @@ const NeotroPage = () => {
             <p className="text-muted-foreground">
               Poker pointing sessions are currently disabled by an administrator.
             </p>
-            <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+            <Button onClick={() => navigate(teamPokerTabPath)} variant="outline">Go Back</Button>
           </div>
         </div>
       </div>
@@ -162,7 +164,7 @@ const NeotroPage = () => {
   if (!displaySession) {
     return (
       <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
-        <AppHeader variant="back" />
+        <AppHeader variant="back" backTo={teamPokerTabPath} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md mx-auto px-4">
             <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -172,7 +174,7 @@ const NeotroPage = () => {
             </p>
             <Button
               variant="outline"
-              onClick={() => navigate(teamId ? `/teams/${teamId}?tab=poker` : '/teams')}
+              onClick={() => navigate(teamPokerTabPath)}
             >
               Back to team
             </Button>
@@ -195,7 +197,7 @@ const NeotroPage = () => {
           userRole={currentRole}
           requestedRoundNumber={requestedRoundNumberFromUrl}
           pokerRouteContext={pokerRouteForHistory}
-          onPokerBack={() => navigate(-1)}
+          onPokerBack={() => navigate(teamPokerTabPath)}
           {...pokerActions}
         />
       </div>
