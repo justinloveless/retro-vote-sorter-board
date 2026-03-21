@@ -586,16 +586,36 @@ export const usePokerSession = (
     }
   };
 
-  const updateTicketNumber = async (ticketNumber: string, ticketTitle?: string | null) => {
+  const updateTicketNumber = async (
+    ticketNumber: string,
+    ticketTitle?: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => {
     if (!session) return;
     const trimmed = ticketNumber.trim();
     const persisted = trimmed || roundTicketPlaceholder(session.round_number);
-    setSession(prev =>
-      prev
-        ? { ...prev, ticket_number: persisted, ticket_title: ticketTitle ?? prev.ticket_title ?? null }
-        : null
-    );
-    await updateRoundState({ ticket_number: persisted, ticket_title: ticketTitle ?? null });
+    setSession((prev) => {
+      if (!prev) return null;
+      const next: PokerSessionState = {
+        ...prev,
+        ticket_number: persisted,
+        ticket_title: ticketTitle ?? prev.ticket_title ?? null,
+      };
+      if (ticketParent !== undefined) {
+        next.ticket_parent_key = ticketParent?.key ?? null;
+        next.ticket_parent_summary = ticketParent?.summary ?? null;
+      }
+      return next;
+    });
+    const payload: Partial<PokerSessionRound> = {
+      ticket_number: persisted,
+      ticket_title: ticketTitle ?? null,
+    };
+    if (ticketParent !== undefined) {
+      payload.ticket_parent_key = ticketParent?.key ?? null;
+      payload.ticket_parent_summary = ticketParent?.summary ?? null;
+    }
+    await updateRoundState(payload);
   };
   
   const playHand = async () => {
@@ -698,7 +718,11 @@ export const usePokerSession = (
     manageSession({ showLoading: false });
   };
 
-  const startNewRound = async (newTicketNumber?: string, newTicketTitle?: string | null) => {
+  const startNewRound = async (
+    newTicketNumber?: string,
+    newTicketTitle?: string | null,
+    ticketParent?: { key: string; summary: string } | null
+  ) => {
     if (!session) return;
 
     const newRoundNumber = session.round_number + 1;
@@ -726,13 +750,15 @@ export const usePokerSession = (
       selections: resetSelections,
       ticket_number: ticketToStore,
       ticket_title: newTicketTitle ?? null,
+      ticket_parent_key: ticketParent?.key ?? null,
+      ticket_parent_summary: ticketParent?.summary ?? null,
       is_active: true,
       game_state: 'Selection',
     });
 
     if (newRoundError) {
-      console.error('Error creating new round', newRoundError);
-      return;
+        console.error('Error creating new round', newRoundError);
+        return;
     }
 
     window.dispatchEvent(
@@ -757,13 +783,18 @@ export const usePokerSession = (
   };
 
   const startNewRounds = async (
-    tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>
+    tickets: Array<{
+      ticketNumber: string;
+      ticketTitle?: string | null;
+      ticketParent?: { key: string; summary: string } | null;
+    }>
   ) => {
     if (!session) return;
     const normalizedTickets = tickets
       .map((t) => ({
         ticketNumber: t.ticketNumber.trim(),
         ticketTitle: t.ticketTitle ?? null,
+        ticketParent: t.ticketParent,
       }))
       .filter((t) => t.ticketNumber);
     if (normalizedTickets.length === 0) return;
@@ -804,6 +835,8 @@ export const usePokerSession = (
       selections: resetSelections,
       ticket_number: ticket.ticketNumber,
       ticket_title: ticket.ticketTitle,
+      ticket_parent_key: ticket.ticketParent?.key ?? null,
+      ticket_parent_summary: ticket.ticketParent?.summary ?? null,
       is_active: true,
       game_state: 'Selection' as const,
     }));

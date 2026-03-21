@@ -18,9 +18,23 @@ interface PokerTableProps {
     toggleAbstainUserSelection: () => void;
     playHand: () => void;
     nextRound: (ticketNumber?: string) => void;
-    startNewRound: (ticketNumber?: string, ticketTitle?: string | null) => void;
-    startNewRounds?: (tickets: Array<{ ticketNumber: string; ticketTitle?: string | null }>) => Promise<void>;
-    updateTicketNumber: (ticketNumber: string, ticketTitle?: string | null) => void;
+    startNewRound: (
+        ticketNumber?: string,
+        ticketTitle?: string | null,
+        ticketParent?: { key: string; summary: string } | null
+    ) => void;
+    startNewRounds?: (
+        tickets: Array<{
+            ticketNumber: string;
+            ticketTitle?: string | null;
+            ticketParent?: { key: string; summary: string } | null;
+        }>
+    ) => Promise<void>;
+    updateTicketNumber: (
+        ticketNumber: string,
+        ticketTitle?: string | null,
+        ticketParent?: { key: string; summary: string } | null
+    ) => void;
     updateSessionConfig: (config: any) => void;
     deleteAllRounds: () => void;
     presentUserIds: string[];

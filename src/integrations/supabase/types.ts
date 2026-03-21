@@ -661,6 +661,8 @@ export type Database = {
           slack_channel_id: string | null
           slack_message_ts: string | null
           ticket_number: string | null
+          ticket_parent_key: string | null
+          ticket_parent_summary: string | null
           ticket_title: string | null
         }
         Insert: {
@@ -676,6 +678,8 @@ export type Database = {
           slack_channel_id?: string | null
           slack_message_ts?: string | null
           ticket_number?: string | null
+          ticket_parent_key?: string | null
+          ticket_parent_summary?: string | null
           ticket_title?: string | null
         }
         Update: {
@@ -691,6 +695,8 @@ export type Database = {
           slack_channel_id?: string | null
           slack_message_ts?: string | null
           ticket_number?: string | null
+          ticket_parent_key?: string | null
+          ticket_parent_summary?: string | null
           ticket_title?: string | null
         }
         Relationships: [

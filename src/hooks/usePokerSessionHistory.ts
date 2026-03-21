@@ -40,6 +40,9 @@ export interface PokerSessionRound {
   average_points: number;
   ticket_number: string | null;
   ticket_title: string | null;
+  /** Jira parent issue key (often epic) when known. */
+  ticket_parent_key?: string | null;
+  ticket_parent_summary?: string | null;
   completed_at: string;
   created_at: string;
   game_state: GameState;

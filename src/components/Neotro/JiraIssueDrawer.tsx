@@ -11,11 +11,30 @@ import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
+import { parentBadgeClassName } from '@/lib/parentBadgeTone';
+import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+/** Popover + cmdk: Radix ScrollArea for lists; pair with `container={jiraDialogPortalContainer}` on popovers inside the Jira dialog so wheel scroll is not blocked by modal scroll-lock. */
+const jiraPopoverListScrollClass = 'h-[min(60vh,320px)]';
 
 // Context to allow images inside parsed markup to open a shared preview dialog
 const ImagePreviewContext = React.createContext<((src: string) => void) | null>(null);
@@ -69,6 +88,8 @@ interface JiraIssueFields {
   assignee?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   reporter?: { displayName: string; avatarUrls?: Record<string, string> } | null;
   issuetype?: { name: string; iconUrl?: string };
+  /** Present when the issue is under a parent (same shape as Jira browse lists). */
+  parent?: { key: string; fields?: { summary?: string } } | null;
   labels?: string[];
   comment?: { comments: JiraComment[]; total: number };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -605,6 +626,15 @@ function stripHtmlForWikiParse(html: string): string {
     .trim();
 }
 
+function descriptionToEditableText(description: string | null): string {
+  if (!description) return '';
+  const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
+    return stripHtmlForWikiParse(normalized);
+  }
+  return normalized;
+}
+
 function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
@@ -649,9 +679,14 @@ function setCache(key: string, data: any) {
   jiraCache.set(key, { data, timestamp: Date.now() });
 }
 
+function invalidateJiraIssueCache(teamId: string, issueIdOrKey: string) {
+  jiraCache.delete(`${teamId}:${issueIdOrKey}`);
+}
+
 export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, trigger }) => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
@@ -660,6 +695,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [clicked, setClicked] = useState(false);
   const [noApiCredentials, setNoApiCredentials] = useState(false);
   const [canAccessTeamSettings, setCanAccessTeamSettings] = useState<boolean | null>(null);
+  /** Popovers must portal into the dialog panel so react-remove-scroll (dialog overlay) does not cancel wheel events on body. */
+  const [jiraDialogPortalContainer, setJiraDialogPortalContainer] = useState<HTMLDivElement | null>(null);
   const fetchRef = React.useRef<string | null>(null);
 
   useEffect(() => {
@@ -684,7 +721,10 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     return () => { cancelled = true; };
   }, [noApiCredentials, teamId, profile?.id]);
 
-  const fetchIssue = React.useCallback(async (openOnComplete: boolean) => {
+  const fetchIssue = React.useCallback(async (
+    openOnComplete: boolean,
+    options?: { skipCache?: boolean; keepPreviousData?: boolean },
+  ) => {
     if (!issueIdOrKey || !teamId) {
       if (openOnComplete) {
         setError("Ticket number or Team ID is missing.");
@@ -695,27 +735,29 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
     const cacheKey = `${teamId}:${issueIdOrKey}`;
 
-    // Check cache first
-    const cached = getCached(cacheKey);
-    if (cached) {
-      if (cached.shouldUseIframe) {
-        setJiraDomain(cached.domain);
-        setNoApiCredentials(true);
-      } else {
-        setIssueData(cached);
-        setJiraDomain(cached.domain || null);
+    if (!options?.skipCache) {
+      const cached = getCached(cacheKey);
+      if (cached) {
+        if (cached.shouldUseIframe) {
+          setJiraDomain(cached.domain);
+          setNoApiCredentials(true);
+        } else {
+          setIssueData(cached);
+          setJiraDomain(cached.domain || null);
+        }
+        if (openOnComplete) setIsOpen(true);
+        return;
       }
-      if (openOnComplete) setIsOpen(true);
-      return;
     }
 
-    // Deduplicate concurrent fetches
     if (fetchRef.current === cacheKey && !openOnComplete) return;
     fetchRef.current = cacheKey;
 
     setIsLoading(true);
     setError(null);
-    setIssueData(null);
+    if (!options?.keepPreviousData) {
+      setIssueData(null);
+    }
     setNoApiCredentials(false);
 
     try {
@@ -778,12 +820,406 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
     : null;
   const fields = issueData?.fields;
+  const canEditJira = !!(fields && issueData && !noApiCredentials);
   const storyPoints = fields ? getStoryPointsFromJiraFields(fields as Record<string, unknown>) : null;
   const statusColor = fields?.status?.statusCategory?.colorName
     ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
     : 'bg-muted text-muted-foreground';
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const openPreview = useCallback((src: string) => setPreviewImage(src), []);
+
+  const [descriptionEditing, setDescriptionEditing] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
+
+  const startDescriptionEdit = useCallback(() => {
+    if (!canEditJira || savingDescription || !fields) return;
+    setDescriptionDraft(descriptionToEditableText(fields.description));
+    setDescriptionEditing(true);
+  }, [canEditJira, savingDescription, fields]);
+  const onDescriptionViewClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!canEditJira || savingDescription) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('a[href], button, img')) return;
+      startDescriptionEdit();
+    },
+    [canEditJira, savingDescription, startDescriptionEdit],
+  );
+  const onDescriptionViewKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!canEditJira || savingDescription) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      startDescriptionEdit();
+    },
+    [canEditJira, savingDescription, startDescriptionEdit],
+  );
+
+  const [assignPopoverOpen, setAssignPopoverOpen] = useState(false);
+  const [assignSearch, setAssignSearch] = useState('');
+  const [assignUsers, setAssignUsers] = useState<Array<{ accountId: string; displayName: string; avatarUrls?: Record<string, string> }>>([]);
+  const [assignSearchLoading, setAssignSearchLoading] = useState(false);
+  const [savingAssignee, setSavingAssignee] = useState(false);
+  const [newCommentDraft, setNewCommentDraft] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+  const [pointsPopoverOpen, setPointsPopoverOpen] = useState(false);
+  const [pointsDraft, setPointsDraft] = useState('');
+  const [savingPoints, setSavingPoints] = useState(false);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [fieldOptions, setFieldOptions] = useState<{
+    priorities: Array<{ id: string; name: string; iconUrl?: string }>;
+    issueTypes: Array<{ id: string; name: string; iconUrl?: string }>;
+    transitions: Array<{ id: string; name: string; toStatusName?: string }>;
+  } | null>(null);
+  const [fieldOptionsLoading, setFieldOptionsLoading] = useState(false);
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const [priorityPopoverOpen, setPriorityPopoverOpen] = useState(false);
+  const [issueTypePopoverOpen, setIssueTypePopoverOpen] = useState(false);
+  const [savingJiraField, setSavingJiraField] = useState<'status' | 'priority' | 'issuetype' | null>(null);
+
+  const startTitleEdit = useCallback(() => {
+    if (!canEditJira || savingTitle || !fields) return;
+    setTitleDraft(fields.summary ?? '');
+    setTitleEditing(true);
+  }, [canEditJira, savingTitle, fields]);
+  const onTitleViewClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!canEditJira || savingTitle) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('a[href], button, img')) return;
+      startTitleEdit();
+    },
+    [canEditJira, savingTitle, startTitleEdit],
+  );
+  const onTitleViewKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!canEditJira || savingTitle) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      startTitleEdit();
+    },
+    [canEditJira, savingTitle, startTitleEdit],
+  );
+
+  const senderDisplayName =
+    profile?.full_name?.trim() ||
+    profile?.nickname?.trim() ||
+    user?.email ||
+    'Unknown user';
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDescriptionEditing(false);
+      setDescriptionDraft('');
+      setAssignPopoverOpen(false);
+      setPointsPopoverOpen(false);
+      setNewCommentDraft('');
+      setTitleEditing(false);
+      setTitleDraft('');
+      setStatusPopoverOpen(false);
+      setPriorityPopoverOpen(false);
+      setIssueTypePopoverOpen(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!assignPopoverOpen) setAssignSearch('');
+  }, [assignPopoverOpen]);
+
+  useEffect(() => {
+    if (!assignPopoverOpen || !teamId || !issueData?.key || noApiCredentials) return;
+    const delayMs = assignSearch.length === 0 ? 0 : 280;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setAssignSearchLoading(true);
+      try {
+        const { data, error: invokeError } = await supabase.functions.invoke('search-jira-assignable-users', {
+          body: { teamId, issueKey: issueData.key, query: assignSearch },
+        });
+        if (cancelled) return;
+        if (invokeError || data?.error) {
+          setAssignUsers([]);
+          return;
+        }
+        setAssignUsers(data?.users ?? []);
+      } finally {
+        if (!cancelled) setAssignSearchLoading(false);
+      }
+    }, delayMs);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [assignPopoverOpen, assignSearch, teamId, issueData?.key, noApiCredentials]);
+
+  useEffect(() => {
+    if (!pointsPopoverOpen) return;
+    setPointsDraft(storyPoints != null ? String(storyPoints) : '');
+  }, [pointsPopoverOpen, storyPoints]);
+
+  useEffect(() => {
+    if (!canEditJira || !teamId || !issueData?.key) {
+      setFieldOptions(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setFieldOptionsLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-jira-issue-field-options', {
+          body: { teamId, issueKey: issueData.key },
+        });
+        if (cancelled) return;
+        if (error || data?.error) {
+          setFieldOptions(null);
+          return;
+        }
+        setFieldOptions({
+          priorities: data.priorities ?? [],
+          issueTypes: data.issueTypes ?? [],
+          transitions: data.transitions ?? [],
+        });
+      } finally {
+        if (!cancelled) setFieldOptionsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [canEditJira, teamId, issueData?.key]);
+
+  const refreshFieldOptionsAfterUpdate = useCallback(async () => {
+    if (!teamId || !issueData?.key) return;
+    const { data, error } = await supabase.functions.invoke('get-jira-issue-field-options', {
+      body: { teamId, issueKey: issueData.key },
+    });
+    if (error || data?.error) return;
+    setFieldOptions({
+      priorities: data.priorities ?? [],
+      issueTypes: data.issueTypes ?? [],
+      transitions: data.transitions ?? [],
+    });
+  }, [teamId, issueData?.key]);
+
+  const handleSaveDescription = async () => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingDescription(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, description: descriptionDraft },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setDescriptionEditing(false);
+      toast({ title: 'Description updated' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update description',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingDescription(false);
+    }
+  };
+
+  const handleSaveTitle = async () => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      toast({ title: 'Title cannot be empty', variant: 'destructive' });
+      return;
+    }
+    if (trimmed.length > 255) {
+      toast({ title: 'Title must be 255 characters or fewer', variant: 'destructive' });
+      return;
+    }
+    setSavingTitle(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, summary: trimmed },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setTitleEditing(false);
+      toast({ title: 'Title updated' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update title',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingTitle(false);
+    }
+  };
+
+  const handleAssigneeSelect = async (accountId: string | null) => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingAssignee(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, assigneeAccountId: accountId },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setAssignPopoverOpen(false);
+      toast({ title: accountId ? 'Assignee updated' : 'Assignee cleared' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update assignee',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingAssignee(false);
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    const trimmed = newCommentDraft.trim();
+    if (!trimmed) return;
+    setSavingComment(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('add-jira-issue-comment', {
+        body: {
+          teamId,
+          issueKey: issueData.key,
+          commentText: trimmed,
+          senderDisplayName,
+        },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setNewCommentDraft('');
+      toast({ title: 'Comment posted' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to post comment',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleSavePoints = async () => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    const n = parseFloat(pointsDraft.trim());
+    if (Number.isNaN(n) || n < 0) {
+      toast({
+        title: 'Enter a valid non-negative number',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setSavingPoints(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue-points', {
+        body: { teamId, issueKey: issueData.key, points: n },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setPointsPopoverOpen(false);
+      toast({ title: 'Story points updated' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update story points',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingPoints(false);
+    }
+  };
+
+  const handleJiraTransition = async (transitionId: string) => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingJiraField('status');
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, transitionId },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setStatusPopoverOpen(false);
+      toast({ title: 'Status updated' });
+      await refreshFieldOptionsAfterUpdate();
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update status',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingJiraField(null);
+    }
+  };
+
+  const handleJiraPriorityChange = async (priorityId: string) => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingJiraField('priority');
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, priorityId },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setPriorityPopoverOpen(false);
+      toast({ title: 'Priority updated' });
+      await refreshFieldOptionsAfterUpdate();
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update priority',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingJiraField(null);
+    }
+  };
+
+  const handleJiraIssueTypeChange = async (issueTypeId: string) => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingJiraField('issuetype');
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
+        body: { teamId, issueKey: issueData.key, issueTypeId },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setIssueTypePopoverOpen(false);
+      toast({ title: 'Issue type updated' });
+      await refreshFieldOptionsAfterUpdate();
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update issue type',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingJiraField(null);
+    }
+  };
 
   // Build a map of Jira accountId -> displayName from issue data
   const userMap = React.useMemo(() => {
@@ -840,32 +1276,36 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent
-          className="sm:max-w-[60vw] overflow-y-auto overflow-x-hidden"
+          ref={setJiraDialogPortalContainer}
+          className="sm:max-w-[60vw] max-h-[90vh] min-h-0 overflow-x-hidden overflow-visible p-0 gap-0 flex flex-col"
           overlayClassName="bg-black/45"
         >
-          <DialogHeader>
-            <div className="flex items-center justify-between pr-6">
-              <DialogTitle className="text-lg">
-                {issueData?.key || issueIdOrKey || 'Jira Issue'}
-              </DialogTitle>
-              {externalUrl && (
-                <NeotroPressableButton
-                  href={externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  size="default"
-                  isActive
-                  activeShowsPressed={false}
-                  className="gap-1.5"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Open in Jira
-                </NeotroPressableButton>
-              )}
-            </div>
-          </DialogHeader>
+          {/* grid row minmax(0,1fr) gives ScrollArea a real height cap; flex-1 alone lets the area grow with content (no overflow → no scrollbar). */}
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+            <DialogHeader className="shrink-0 px-6 pt-6">
+              <div className="flex items-start justify-between gap-3 pr-6">
+                <DialogTitle className="text-lg">
+                  {issueData?.key || issueIdOrKey || 'Jira Issue'}
+                </DialogTitle>
+                {externalUrl && (
+                  <NeotroPressableButton
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="compact"
+                    isActive
+                    activeShowsPressed={false}
+                    className="gap-1.5 shrink-0"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open in Jira
+                  </NeotroPressableButton>
+                )}
+              </div>
+            </DialogHeader>
 
-          <div className="space-y-5">
+            <ScrollArea className="min-h-0 h-full w-full">
+          <div className="space-y-5 px-6 pb-6">
             {/* Error state */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
@@ -905,68 +1345,512 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
             {/* Issue details */}
             {fields && (
               <>
-                <h2 className="text-base font-semibold text-foreground leading-snug">
-                  {fields.summary}
-                </h2>
+                {titleEditing ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      maxLength={255}
+                      disabled={savingTitle}
+                      className="text-base font-semibold"
+                      aria-label="Issue title"
+                    />
+                    <p className="text-[11px] text-muted-foreground">{titleDraft.length}/255</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void handleSaveTitle()}
+                        disabled={savingTitle || !titleDraft.trim()}
+                      >
+                        {savingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={savingTitle}
+                        onClick={() => {
+                          setTitleEditing(false);
+                          setTitleDraft('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : canEditJira ? (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Edit title"
+                    onClick={onTitleViewClick}
+                    onKeyDown={onTitleViewKeyDown}
+                    className="rounded-lg p-2 -m-2 transition-colors flex items-start justify-between gap-2 cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <h2 className="text-base font-semibold text-foreground leading-snug flex-1 min-w-0">
+                      {fields.summary}
+                    </h2>
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                  </div>
+                ) : (
+                  <h2 className="text-base font-semibold text-foreground leading-snug">
+                    {fields.summary}
+                  </h2>
+                )}
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {fields.status && (
-                    <Badge variant="secondary" className={`${statusColor} text-xs`}>
-                      {fields.status.name}
-                    </Badge>
-                  )}
-                  {fields.issuetype && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      {fields.issuetype.iconUrl && (
-                        <img src={fields.issuetype.iconUrl} alt="" className="h-4 w-4" />
+                  {canEditJira ? (
+                    <>
+                      <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={fieldOptionsLoading || savingJiraField !== null}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium transition-colors',
+                              !(fieldOptionsLoading || savingJiraField) &&
+                                'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              (fieldOptionsLoading || savingJiraField) && 'opacity-70',
+                            )}
+                            aria-label="Change status"
+                          >
+                            {fields.status ? (
+                              <Badge variant="secondary" className={cn(statusColor, 'text-xs pointer-events-none')}>
+                                {fields.status.name}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">Status</span>
+                            )}
+                            {savingJiraField === 'status' && (
+                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          container={jiraDialogPortalContainer ?? undefined}
+                          className="w-[min(100vw-2rem,300px)] p-0"
+                          align="start"
+                        >
+                          <Command shouldFilter={false} className="overflow-visible">
+                            <ScrollArea className={jiraPopoverListScrollClass}>
+                              <CommandList className="max-h-none overflow-visible">
+                                {fieldOptionsLoading ? (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+                                ) : (
+                                  <>
+                                    <CommandGroup>
+                                      {(fieldOptions?.transitions ?? []).map((t) => (
+                                        <CommandItem
+                                          key={t.id}
+                                          value={`${t.id}-${t.name}`}
+                                          onSelect={() => void handleJiraTransition(t.id)}
+                                          disabled={savingJiraField !== null}
+                                        >
+                                          <span className="truncate">{t.toStatusName ?? t.name}</span>
+                                          {t.toStatusName && t.name && t.toStatusName !== t.name && (
+                                            <span className="text-muted-foreground text-xs truncate ml-1">({t.name})</span>
+                                          )}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                    {(fieldOptions?.transitions?.length ?? 0) === 0 && (
+                                      <CommandEmpty>No transitions available.</CommandEmpty>
+                                    )}
+                                  </>
+                                )}
+                              </CommandList>
+                            </ScrollArea>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+
+                      <Popover open={issueTypePopoverOpen} onOpenChange={setIssueTypePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={fieldOptionsLoading || savingJiraField !== null}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium transition-colors',
+                              !(fieldOptionsLoading || savingJiraField) &&
+                                'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              (fieldOptionsLoading || savingJiraField) && 'opacity-70',
+                            )}
+                            aria-label="Change issue type"
+                          >
+                            {fields.issuetype ? (
+                              <>
+                                {fields.issuetype.iconUrl && (
+                                  <img src={fields.issuetype.iconUrl} alt="" className="h-4 w-4 shrink-0" />
+                                )}
+                                <span className="text-muted-foreground truncate max-w-[140px]">{fields.issuetype.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">Issue type</span>
+                            )}
+                            {savingJiraField === 'issuetype' && (
+                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          container={jiraDialogPortalContainer ?? undefined}
+                          className="w-[min(100vw-2rem,300px)] p-0"
+                          align="start"
+                        >
+                          <Command shouldFilter={false} className="overflow-visible">
+                            <ScrollArea className={jiraPopoverListScrollClass}>
+                              <CommandList className="max-h-none overflow-visible">
+                                {fieldOptionsLoading ? (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+                                ) : (
+                                  <>
+                                    <CommandGroup>
+                                      {(fieldOptions?.issueTypes ?? []).map((it) => (
+                                        <CommandItem
+                                          key={it.id}
+                                          value={`${it.id}-${it.name}`}
+                                          onSelect={() => void handleJiraIssueTypeChange(it.id)}
+                                          disabled={savingJiraField !== null}
+                                        >
+                                          {it.iconUrl ? (
+                                            <img src={it.iconUrl} alt="" className="h-4 w-4 mr-2 shrink-0" />
+                                          ) : null}
+                                          <span className="truncate">{it.name}</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                    {(fieldOptions?.issueTypes?.length ?? 0) === 0 && (
+                                      <CommandEmpty>No issue types available.</CommandEmpty>
+                                    )}
+                                  </>
+                                )}
+                              </CommandList>
+                            </ScrollArea>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+
+                      <Popover open={priorityPopoverOpen} onOpenChange={setPriorityPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={fieldOptionsLoading || savingJiraField !== null}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium transition-colors',
+                              !(fieldOptionsLoading || savingJiraField) &&
+                                'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              (fieldOptionsLoading || savingJiraField) && 'opacity-70',
+                            )}
+                            aria-label="Change priority"
+                          >
+                            {fields.priority ? (
+                              <>
+                                {fields.priority.iconUrl && (
+                                  <img src={fields.priority.iconUrl} alt="" className="h-4 w-4 shrink-0" />
+                                )}
+                                <span className="text-muted-foreground truncate max-w-[120px]">{fields.priority.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">Priority</span>
+                            )}
+                            {savingJiraField === 'priority' && (
+                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          container={jiraDialogPortalContainer ?? undefined}
+                          className="w-[min(100vw-2rem,300px)] p-0"
+                          align="start"
+                        >
+                          <Command shouldFilter={false} className="overflow-visible">
+                            <ScrollArea className={jiraPopoverListScrollClass}>
+                              <CommandList className="max-h-none overflow-visible">
+                                {fieldOptionsLoading ? (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+                                ) : (
+                                  <>
+                                    <CommandGroup>
+                                      {(fieldOptions?.priorities ?? []).map((p) => (
+                                        <CommandItem
+                                          key={p.id}
+                                          value={`${p.id}-${p.name}`}
+                                          onSelect={() => void handleJiraPriorityChange(p.id)}
+                                          disabled={savingJiraField !== null}
+                                        >
+                                          {p.iconUrl ? (
+                                            <img src={p.iconUrl} alt="" className="h-4 w-4 mr-2 shrink-0" />
+                                          ) : null}
+                                          <span className="truncate">{p.name}</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                    {(fieldOptions?.priorities?.length ?? 0) === 0 && (
+                                      <CommandEmpty>No priorities available.</CommandEmpty>
+                                    )}
+                                  </>
+                                )}
+                              </CommandList>
+                            </ScrollArea>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </>
+                  ) : (
+                    <>
+                      {fields.status && (
+                        <Badge variant="secondary" className={`${statusColor} text-xs`}>
+                          {fields.status.name}
+                        </Badge>
                       )}
-                      <span>{fields.issuetype.name}</span>
-                    </div>
-                  )}
-                  {fields.priority && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      {fields.priority.iconUrl && (
-                        <img src={fields.priority.iconUrl} alt="" className="h-4 w-4" />
+                      {fields.issuetype && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {fields.issuetype.iconUrl && (
+                            <img src={fields.issuetype.iconUrl} alt="" className="h-4 w-4" />
+                          )}
+                          <span>{fields.issuetype.name}</span>
+                        </div>
                       )}
-                      <span>{fields.priority.name}</span>
-                    </div>
+                      {fields.priority && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {fields.priority.iconUrl && (
+                            <img src={fields.priority.iconUrl} alt="" className="h-4 w-4" />
+                          )}
+                          <span>{fields.priority.name}</span>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {storyPoints != null && (
-                    <Badge variant="outline" className="text-xs gap-1">
-                      <Layers className="h-3 w-3" />
-                      {storyPoints} pts
-                    </Badge>
+                  {canEditJira ? (
+                    <Popover open={pointsPopoverOpen} onOpenChange={setPointsPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={savingPoints}
+                          aria-label="Edit story points"
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium transition-colors',
+                            !savingPoints &&
+                              'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            savingPoints && 'opacity-70 cursor-wait',
+                          )}
+                        >
+                          <Layers className="h-3 w-3 shrink-0" />
+                          <span>{storyPoints != null ? `${storyPoints} pts` : 'Set points'}</span>
+                          {savingPoints && (
+                            <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        container={jiraDialogPortalContainer ?? undefined}
+                        className="w-[min(100vw-2rem,260px)] p-3"
+                        align="start"
+                      >
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="jira-drawer-points">Story points</Label>
+                            <Input
+                              id="jira-drawer-points"
+                              type="number"
+                              min={0}
+                              step={0.5}
+                              value={pointsDraft}
+                              onChange={(e) => setPointsDraft(e.target.value)}
+                              disabled={savingPoints}
+                              className="font-mono"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={savingPoints}
+                              onClick={() => void handleSavePoints()}
+                            >
+                              {savingPoints ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={savingPoints}
+                              onClick={() => setPointsPopoverOpen(false)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    storyPoints != null && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Layers className="h-3 w-3" />
+                        {storyPoints} pts
+                      </Badge>
+                    )
                   )}
                 </div>
 
                 <Separator />
 
-                {/* People */}
+                {/* People & parent */}
                 <div className="grid grid-cols-2 gap-3">
-                  {fields.assignee && (
-                    <div className="flex items-center gap-2">
-                      {fields.assignee.avatarUrls?.['24x24'] ? (
-                        <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
-                      ) : (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    {canEditJira ? (
+                      <Popover open={assignPopoverOpen} onOpenChange={setAssignPopoverOpen}>
+                        <div className="flex flex-col gap-1.5 min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Assignee</p>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={savingAssignee}
+                              aria-label="Change assignee"
+                              className={cn(
+                                'flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-transparent p-2 -m-2 text-left transition-colors',
+                                !savingAssignee &&
+                                  'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                savingAssignee && 'opacity-70 cursor-wait',
+                              )}
+                            >
+                              <div className="flex min-w-0 flex-1 items-center gap-2">
+                                {fields.assignee ? (
+                                  <>
+                                    {fields.assignee.avatarUrls?.['24x24'] ? (
+                                      <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full shrink-0" />
+                                    ) : (
+                                      <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    )}
+                                    <p className="text-sm text-foreground truncate">{fields.assignee.displayName}</p>
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">Unassigned</p>
+                                )}
+                              </div>
+                              {savingAssignee ? (
+                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                              ) : (
+                                <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                            </button>
+                          </PopoverTrigger>
+                        </div>
+                        <PopoverContent
+                          container={jiraDialogPortalContainer ?? undefined}
+                          className="w-[min(100vw-2rem,280px)] p-0"
+                          align="start"
+                        >
+                          <Command shouldFilter={false} className="overflow-visible">
+                            <CommandInput placeholder="Search users…" value={assignSearch} onValueChange={setAssignSearch} />
+                            <ScrollArea className="h-[min(50vh,280px)]">
+                              <CommandList className="max-h-none overflow-visible">
+                                {assignSearchLoading ? (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+                                ) : (
+                                  <>
+                                    <CommandGroup>
+                                      <CommandItem
+                                        value="__unassigned__"
+                                        onSelect={() => void handleAssigneeSelect(null)}
+                                        disabled={savingAssignee}
+                                      >
+                                        <User className="mr-2 h-4 w-4 opacity-50" />
+                                        Unassigned
+                                      </CommandItem>
+                                      {assignUsers.map((u) => (
+                                        <CommandItem
+                                          key={u.accountId}
+                                          value={`${u.displayName}-${u.accountId}`}
+                                          onSelect={() => void handleAssigneeSelect(u.accountId)}
+                                          disabled={savingAssignee}
+                                        >
+                                          {u.avatarUrls?.['24x24'] ? (
+                                            <img src={u.avatarUrls['24x24']} alt="" className="mr-2 h-5 w-5 rounded-full shrink-0" />
+                                          ) : (
+                                            <User className="mr-2 h-4 w-4 opacity-50 shrink-0" />
+                                          )}
+                                          <span className="truncate">{u.displayName}</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                    {assignUsers.length === 0 && (
+                                      <CommandEmpty>No matching users.</CommandEmpty>
+                                    )}
+                                  </>
+                                )}
+                              </CommandList>
+                            </ScrollArea>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <>
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Assignee</p>
-                        <p className="text-sm text-foreground">{fields.assignee.displayName}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {fields.assignee ? (
+                            <>
+                              {fields.assignee.avatarUrls?.['24x24'] ? (
+                                <img src={fields.assignee.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full shrink-0" />
+                              ) : (
+                                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                              )}
+                              <p className="text-sm text-foreground truncate">{fields.assignee.displayName}</p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">Unassigned</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {fields.reporter && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Reporter</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {fields.reporter.avatarUrls?.['24x24'] ? (
+                          <img src={fields.reporter.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full shrink-0" />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <p className="text-sm text-foreground truncate">{fields.reporter.displayName}</p>
                       </div>
                     </div>
                   )}
-                  {fields.reporter && (
-                    <div className="flex items-center gap-2">
-                      {fields.reporter.avatarUrls?.['24x24'] ? (
-                        <img src={fields.reporter.avatarUrls['24x24']} alt="" className="h-5 w-5 rounded-full" />
+                  {fields.parent?.key && (
+                    <div className="col-span-2 flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Parent</p>
+                      {jiraDomain ? (
+                        <a
+                          href={`${jiraDomain}/browse/${fields.parent.key}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 max-w-full self-start"
+                          title={fields.parent.key}
+                        >
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-sm font-medium border max-w-full truncate hover:opacity-90',
+                              parentBadgeClassName(fields.parent.key),
+                            )}
+                          >
+                            {(fields.parent.fields?.summary ?? '').trim() || fields.parent.key}
+                          </Badge>
+                        </a>
                       ) : (
-                        <User className="h-4 w-4 text-muted-foreground" />
+                        <Badge
+                          variant="outline"
+                          title={fields.parent.key}
+                          className={cn(
+                            'text-sm font-medium border max-w-full truncate self-start',
+                            parentBadgeClassName(fields.parent.key),
+                          )}
+                        >
+                          {(fields.parent.fields?.summary ?? '').trim() || fields.parent.key}
+                        </Badge>
                       )}
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Reporter</p>
-                        <p className="text-sm text-foreground">{fields.reporter.displayName}</p>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -995,53 +1879,135 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
                 {/* Description */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Description</p>
-                  {renderDescription(fields.description, fields.attachment)}
-                </div>
-                {/* Comments */}
-                {fields.comment && fields.comment.comments && fields.comment.comments.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="flex items-center gap-1 mb-3">
-                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          Comments ({fields.comment.comments.length})
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        {fields.comment.comments.map((comment) => {
-                          const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
-                          const initials = comment.author?.displayName
-                            ?.split(' ')
-                            .map(n => n[0])
-                            .join('')
-                            .slice(0, 2)
-                            .toUpperCase() || '?';
-                          const timeAgo = formatJiraDate(comment.created);
-
-                          return (
-                            <Card key={comment.id} className="p-3 gap-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Avatar className="h-5 w-5">
-                                  <AvatarImage src={avatarUrl} alt={comment.author?.displayName} />
-                                  <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs font-medium">{comment.author?.displayName}</span>
-                                <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo}</span>
-                              </div>
-                              <div className="text-sm break-words [overflow-wrap:anywhere]">
-                                {parseJiraWikiMarkup(comment.body, fields.attachment)}
-                              </div>
-                            </Card>
-                          );
-                        })}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Description</p>
+                    {canEditJira && !descriptionEditing && (
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                    )}
+                  </div>
+                  {descriptionEditing ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={descriptionDraft}
+                        onChange={(e) => setDescriptionDraft(e.target.value)}
+                        rows={10}
+                        className="font-mono text-sm min-h-[160px]"
+                        disabled={savingDescription}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void handleSaveDescription()}
+                          disabled={savingDescription}
+                        >
+                          {savingDescription ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={savingDescription}
+                          onClick={() => {
+                            setDescriptionEditing(false);
+                            setDescriptionDraft('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <div
+                      role={canEditJira ? 'button' : undefined}
+                      tabIndex={canEditJira && !savingDescription ? 0 : undefined}
+                      aria-label={canEditJira ? 'Edit description' : undefined}
+                      onClick={onDescriptionViewClick}
+                      onKeyDown={onDescriptionViewKeyDown}
+                      className={cn(
+                        'rounded-lg p-2 -m-2 transition-colors',
+                        canEditJira &&
+                          !savingDescription &&
+                          'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        savingDescription && 'pointer-events-none opacity-70',
+                      )}
+                    >
+                      {renderDescription(fields.description, fields.attachment)}
+                    </div>
+                  )}
+                </div>
+                {/* Comments */}
+                <Separator />
+                <div>
+                  <div className="flex items-center gap-1 mb-3">
+                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Comments ({fields.comment?.comments?.length ?? 0})
+                    </p>
+                  </div>
+                  {canEditJira && (
+                    <div className="space-y-2 mb-4">
+                      <Textarea
+                        placeholder="Write a comment…"
+                        value={newCommentDraft}
+                        onChange={(e) => setNewCommentDraft(e.target.value)}
+                        rows={4}
+                        className="text-sm min-h-[88px] resize-y"
+                        disabled={savingComment}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Jira will show:{' '}
+                        <span className="font-mono text-[10px] whitespace-pre-wrap break-words">
+                          {`-- This message was sent from Retroscope on behalf of ${senderDisplayName} --`}
+                        </span>
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingComment || !newCommentDraft.trim()}
+                        onClick={() => void handlePostComment()}
+                      >
+                        {savingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post comment'}
+                      </Button>
+                    </div>
+                  )}
+                  {(fields.comment?.comments?.length ?? 0) === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">No comments yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {(fields.comment?.comments ?? []).map((comment) => {
+                        const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
+                        const initials = comment.author?.displayName
+                          ?.split(' ')
+                          .map(n => n[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase() || '?';
+                        const timeAgo = formatJiraDate(comment.created);
+
+                        return (
+                          <Card key={comment.id} className="p-3 gap-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={avatarUrl} alt={comment.author?.displayName} />
+                                <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs font-medium">{comment.author?.displayName}</span>
+                              <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo}</span>
+                            </div>
+                            <div className="text-sm break-words [overflow-wrap:anywhere]">
+                              {parseJiraWikiMarkup(comment.body, fields.attachment)}
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </>
             )}
+          </div>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
