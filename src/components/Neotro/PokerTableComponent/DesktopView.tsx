@@ -615,9 +615,11 @@ export const DesktopView: React.FC = () => {
                             </div>
                         </div>
                     )}
+                    <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
                     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
                         <div className="my-auto flex flex-col items-center gap-2 w-full min-h-0">
-                            <div className="min-h-0 w-full overflow-hidden flex flex-col items-center">
+                            <div className="relative min-h-0 w-full overflow-hidden flex flex-col items-center">
+                                <DropZoneOverlay dropZoneRef={() => {}} />
                         {displaySession.game_state === 'Playing' && cardGroups ? (
                             <TooltipProvider>
                             <div className={`flex flex-wrap items-end justify-center ${isCompact ? 'gap-x-4 gap-y-2' : 'gap-x-6 gap-y-4'}`}>
