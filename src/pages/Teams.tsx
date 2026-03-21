@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,16 +13,7 @@ import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { AuthForm } from '@/components/AuthForm';
 import { AppHeader } from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
-
-const getFavoriteTeams = (userId: string): string[] => {
-  try {
-    return JSON.parse(localStorage.getItem(`favorite-teams-${userId}`) || '[]');
-  } catch { return []; }
-};
-
-const setFavoriteTeams = (userId: string, ids: string[]) => {
-  localStorage.setItem(`favorite-teams-${userId}`, JSON.stringify(ids));
-};
+import { supabase } from '@/integrations/supabase/client';
 
 const Teams = () => {
   const navigate = useNavigate();
@@ -33,16 +24,37 @@ const Teams = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
-  const [favorites, setFavorites] = useState<string[]>(() => user ? getFavoriteTeams(user.id) : []);
+  const [favorites, setFavorites] = useState<string[]>([]);
 
-  const toggleFavorite = useCallback((teamId: string) => {
+  useEffect(() => {
     if (!user) return;
-    setFavorites(prev => {
-      const next = prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId];
-      setFavoriteTeams(user.id, next);
-      return next;
-    });
+    const loadFavorites = async () => {
+      const { data } = await supabase
+        .from('user_favorite_teams')
+        .select('team_id')
+        .eq('user_id', user.id);
+      if (data) setFavorites(data.map(d => d.team_id));
+    };
+    loadFavorites();
   }, [user]);
+
+  const toggleFavorite = useCallback(async (teamId: string) => {
+    if (!user) return;
+    const isFav = favorites.includes(teamId);
+    // Optimistic update
+    setFavorites(prev => isFav ? prev.filter(id => id !== teamId) : [...prev, teamId]);
+    if (isFav) {
+      await supabase
+        .from('user_favorite_teams')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('team_id', teamId);
+    } else {
+      await supabase
+        .from('user_favorite_teams')
+        .insert({ user_id: user.id, team_id: teamId });
+    }
+  }, [user, favorites]);
 
   // Filter teams based on selected org, then sort favorites first
   const filteredTeams = useMemo(() => {
