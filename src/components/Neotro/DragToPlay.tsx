@@ -70,9 +70,11 @@ export const DragToPlayProvider: React.FC<DragToPlayProviderProps> = ({ children
     setIsOverDropZone(false);
   }, [onDrop, checkOverDropZone]);
 
+  const isDragging = dragState !== null;
+
   // Global pointer/touch move and up listeners when dragging
   useEffect(() => {
-    if (!dragState) return;
+    if (!isDragging) return;
     const onPointerMove = (e: PointerEvent) => {
       e.preventDefault();
       updateDrag(e.clientX, e.clientY);
@@ -89,7 +91,7 @@ export const DragToPlayProvider: React.FC<DragToPlayProviderProps> = ({ children
       window.removeEventListener('pointerup', onPointerUp, { capture: true });
       window.removeEventListener('pointercancel', onPointerUp, { capture: true });
     };
-  }, [dragState !== null, updateDrag, endDrag]);
+  }, [isDragging, updateDrag, endDrag]);
 
   return (
     <DragToPlayContext.Provider value={{ dragState, startDrag, updateDrag, endDrag, isOverDropZone, setDropZoneRef }}>
