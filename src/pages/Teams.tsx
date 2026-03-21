@@ -133,22 +133,35 @@ const Teams = () => {
           <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTeams.map((team) => (
-                <Card key={team.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card key={team.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <span className="truncate">{team.name}</span>
-                      {(team.role === 'owner' || team.role === 'admin') && (
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/teams/${team.id}/settings`);
+                            toggleFavorite(team.id);
                           }}
+                          className="h-8 w-8 p-0"
                         >
-                          <Settings className="h-4 w-4" />
+                          <Star className={`h-4 w-4 ${favorites.includes(team.id) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
                         </Button>
-                      )}
+                        {(team.role === 'owner' || team.role === 'admin') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/teams/${team.id}/settings`);
+                            }}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
