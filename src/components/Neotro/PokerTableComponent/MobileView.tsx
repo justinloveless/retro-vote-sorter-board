@@ -94,7 +94,6 @@ export const MobileView: React.FC = () => {
     const { height } = useWindowSize();
     const isCompact = useIsCompactViewport();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const dropZoneRef1 = useRef<HTMLDivElement | null>(null);
     const dropZoneRef2 = useRef<HTMLDivElement | null>(null);
 
     const handleDragDrop = useCallback((points: number) => {
