@@ -128,13 +128,13 @@ const FloatingCard: React.FC<{ dragState: DragState }> = ({ dragState }) => {
 };
 
 /** Drop zone overlay that appears on the playing field during drag */
-export const DropZoneOverlay: React.FC<{ dropZoneRef: (el: HTMLDivElement | null) => void }> = ({ dropZoneRef }) => {
+export const DropZoneOverlay: React.FC = () => {
   const ctx = useDragToPlay();
   if (!ctx || !ctx.dragState) return null;
 
   return (
     <div
-      ref={dropZoneRef}
+      ref={ctx.setDropZoneRef}
       className={`absolute inset-0 z-40 flex items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200 ${
         ctx.isOverDropZone
           ? 'border-primary bg-primary/20 backdrop-blur-sm'
