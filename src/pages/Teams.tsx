@@ -60,7 +60,6 @@ const Teams = () => {
         .insert({ user_id: user.id, team_id: teamId });
       if (error) console.error('Error adding favorite:', error);
     }
-    }
   }, [user, favorites]);
 
   // Filter teams based on selected org, then sort favorites first
