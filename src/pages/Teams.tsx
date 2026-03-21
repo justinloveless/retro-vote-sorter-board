@@ -29,11 +29,15 @@ const Teams = () => {
   useEffect(() => {
     if (!user) return;
     const loadFavorites = async () => {
-      const { data } = await supabase
-        .from('user_favorite_teams')
+      const { data, error } = await supabase
+        .from('user_favorite_teams' as any)
         .select('team_id')
         .eq('user_id', user.id);
-      if (data) setFavorites(data.map(d => d.team_id));
+      if (error) {
+        console.error('Error loading favorites:', error);
+        return;
+      }
+      if (data) setFavorites((data as any[]).map(d => d.team_id));
     };
     loadFavorites();
   }, [user]);
@@ -44,15 +48,17 @@ const Teams = () => {
     // Optimistic update
     setFavorites(prev => isFav ? prev.filter(id => id !== teamId) : [...prev, teamId]);
     if (isFav) {
-      await supabase
-        .from('user_favorite_teams')
+      const { error } = await supabase
+        .from('user_favorite_teams' as any)
         .delete()
         .eq('user_id', user.id)
         .eq('team_id', teamId);
+      if (error) console.error('Error removing favorite:', error);
     } else {
-      await supabase
-        .from('user_favorite_teams')
+      const { error } = await supabase
+        .from('user_favorite_teams' as any)
         .insert({ user_id: user.id, team_id: teamId });
+      if (error) console.error('Error adding favorite:', error);
     }
   }, [user, favorites]);
 
