@@ -69,6 +69,8 @@ interface PokerTableContextProps {
   isViewingHistory: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** Index into `rounds` for the selected round; changes when navigating history. */
+  currentRoundIndex: number;
   goToPreviousRound: () => void;
   goToNextRound: () => void;
   goToCurrentRound: () => void;
@@ -202,6 +204,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const {
     rounds,
     currentRound,
+    currentRoundIndex,
     isViewingHistory,
     canGoBack,
     canGoForward,
@@ -1059,6 +1062,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isViewingHistory: isViewingHistoryEffective,
     canGoBack,
     canGoForward,
+    currentRoundIndex,
     goToPreviousRound,
     goToNextRound,
     goToCurrentRound,
