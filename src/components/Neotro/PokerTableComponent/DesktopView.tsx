@@ -36,6 +36,7 @@ import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTick
 
 function QueuePanelCard({
   teamId,
+  pokerSessionId,
   rounds,
   addTicketToQueue,
   addTicketsToQueueBatch,
@@ -49,6 +50,7 @@ function QueuePanelCard({
   className,
 }: {
   teamId: string | undefined;
+  pokerSessionId?: string;
   rounds: PokerSessionRound[];
   addTicketToQueue: (
     key: string,
@@ -91,6 +93,7 @@ function QueuePanelCard({
           <EmbeddedTicketQueue
             key={teamId}
             teamId={teamId}
+            pokerSessionId={pokerSessionId}
             isJiraConfigured={isJiraConfigured}
             rounds={rounds}
             showJiraBrowser={showJiraBrowser}
@@ -274,7 +277,8 @@ export const DesktopView: React.FC = () => {
     const hookMeta = useJiraTicketMetadata(
       isJiraConfigured ? undefined : teamId,
       rounds,
-      displayTicketNumber
+      displayTicketNumber,
+      session?.session_id
     );
 
     const ticketKeysForMetaDigest = useMemo(() => {
@@ -328,31 +332,7 @@ export const DesktopView: React.FC = () => {
       return () => { cancelled = true; };
     }, [teamId, isJiraConfigured, ticketKeysForMetaDigest]);
 
-    const ticketMetaByKey = isJiraConfigured ? { ...hookMeta, ...browseMeta } : hookMeta;
-
-    const currentPointsLabel = useMemo(() => {
-        if (isViewingHistory && currentRound && currentRound.average_points > 0) {
-            return Number.isInteger(currentRound.average_points)
-                ? `${currentRound.average_points} pts`
-                : `${currentRound.average_points.toFixed(1)} pts`;
-        }
-        if (displaySession.game_state === 'Playing' && displayWinningPoints > 0) {
-            return `${displayWinningPoints} pts`;
-        }
-        const rawForPoints = displayTicketNumber || displaySession?.ticket_number || '';
-        const livePoints = !isSyntheticRoundTicket(rawForPoints)
-          ? ticketMetaByKey[String(rawForPoints).trim()]?.storyPoints
-          : undefined;
-        return livePoints != null ? `${livePoints} pts` : null;
-    }, [
-        isViewingHistory,
-        currentRound,
-        displaySession.game_state,
-        displayWinningPoints,
-        ticketMetaByKey,
-        displayTicketNumber,
-        displaySession?.ticket_number,
-    ]);
+    const ticketMetaByKey = isJiraConfigured ? { ...browseMeta, ...hookMeta } : hookMeta;
 
     const currentTicketKey = displaySession?.ticket_number || displayTicketNumber;
     const currentTicketSummary = useMemo(() => {
@@ -410,6 +390,7 @@ export const DesktopView: React.FC = () => {
                                 <div className="flex flex-grow flex-col justify-end overflow-hidden pr-4 pb-4 pt-4">
                                     <QueuePanelCard
                                         teamId={teamId}
+                                        pokerSessionId={session.session_id}
                                         rounds={rounds}
                                         addTicketToQueue={addTicketToQueue}
                                         addTicketsToQueueBatch={addTicketsToQueueBatch}
@@ -449,10 +430,7 @@ export const DesktopView: React.FC = () => {
                 )}
 
                 <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden pt-2 px-4 pb-4">
-                    {(displaySession.game_state === 'Playing' ||
-                        !isViewingHistory ||
-                        (isViewingHistory && isCompact)) && (
-                        <div className={`flex flex-col items-center shrink-0 flex-none ${isCompact ? 'gap-1 pb-2' : 'gap-2 pb-4'}`}>
+                    <div className={`flex flex-col items-center shrink-0 flex-none ${isCompact ? 'gap-1 pb-2' : 'gap-2 pb-4'}`}>
                             <div className={`flex flex-col shrink-0 ${isCompact ? 'w-full max-w-md gap-1' : 'w-64 gap-2'}`}>
                                 {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
                                     <div className="flex flex-row items-stretch gap-2 w-full">
@@ -467,6 +445,7 @@ export const DesktopView: React.FC = () => {
                                             <JiraIssueDrawer
                                                 issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                 teamId={teamId}
+                                                pokerSessionId={session.session_id}
                                                 trigger={
                                                     <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                 }
@@ -494,6 +473,7 @@ export const DesktopView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -536,6 +516,7 @@ export const DesktopView: React.FC = () => {
                                             <JiraIssueDrawer
                                                 issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                 teamId={teamId}
+                                                pokerSessionId={session.session_id}
                                                 trigger={
                                                     <NeotroPressableButton
                                                         variant="emerald"
@@ -583,28 +564,26 @@ export const DesktopView: React.FC = () => {
                                             <span className="text-sm text-muted-foreground">Winning Points:</span>
                                             <span className={`font-bold ${isCompact ? 'text-base' : 'text-xl'}`}>{displayWinningPoints} pts</span>
                                         </div>
-                                        {!isObserver && (
-                                            <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <NeotroPressableButton
-                                                                size="sm"
-                                                                activeShowsPressed={false}
-                                                                aria-label="Replay"
-                                                                title="Replay round"
-                                                                onClick={replayRound}
-                                                            >
-                                                                <RotateCcw className="h-4 w-4" />
-                                                            </NeotroPressableButton>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Replay</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                        )}
+                                        <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <NeotroPressableButton
+                                                            size="sm"
+                                                            activeShowsPressed={false}
+                                                            aria-label="Replay"
+                                                            title="Replay round"
+                                                            onClick={replayRound}
+                                                        >
+                                                            <RotateCcw className="h-4 w-4" />
+                                                        </NeotroPressableButton>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Replay</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
                                     </div>
                                 )}
                                 {!isViewingHistory && (
@@ -626,7 +605,6 @@ export const DesktopView: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                    )}
                     <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
                     <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
                     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">

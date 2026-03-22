@@ -253,15 +253,7 @@ export async function createNewRound(
       .update({ current_round_number: newRoundNumber })
       .eq('id', sessionId);
 
-    // Keep Slack "start round" behavior aligned with Next Round:
-    // only the newly created round is active.
-    await supabase
-      .from('poker_session_rounds')
-      .update({ is_active: false })
-      .eq('session_id', sessionId)
-      .eq('is_active', true);
-
-    // Create new round
+    // Create new round (parallel with any other active rounds)
     const effectiveTicket =
       (ticketNumber && ticketNumber.trim()) || `round:${newRoundNumber}`;
 

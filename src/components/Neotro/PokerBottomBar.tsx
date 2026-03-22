@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu, Sparkles } from 'lucide-react';
+import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu, Spotlight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
@@ -73,7 +73,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
                   onClick={onSpotlightClick}
                   aria-label={isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <Spotlight className="h-4 w-4" />
                 </NeotroPressableButton>
               </TooltipTrigger>
               <TooltipContent side="top">

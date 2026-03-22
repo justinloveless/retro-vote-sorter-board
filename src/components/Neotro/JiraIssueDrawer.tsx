@@ -11,14 +11,31 @@ import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil, Calendar } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { getStoryPointsFromJiraFields } from '@/lib/jiraStoryPoints';
 import { parentBadgeClassName } from '@/lib/parentBadgeTone';
+import { broadcastPokerSessionJiraStoryPoints } from '@/lib/pokerJiraStoryPointsBroadcast';
+import { getSprintBucketFromIssueFields } from '@/lib/jiraSprintFromFields';
+import {
+  buildSprintPickerDataFromCacheAndIssue,
+  getCachedTeamSprintPickerOptions,
+  setCachedTeamSprintPickerOptions,
+  type SprintPickerData,
+} from '@/lib/jiraSprintOptionsCache';
+import {
+  getCachedIssueFieldOptions,
+  setCachedIssueFieldOptions,
+  type JiraFieldOptionsPayload,
+} from '@/lib/jiraIssueFieldOptionsCache';
 import { cn } from '@/lib/utils';
+import { ensurePanelContrast } from '@/lib/jiraWiki/panelColors';
+import { stripHtmlForWikiParse } from '@/lib/jiraWiki/htmlStrip';
+import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly } from '@/lib/jiraWiki/segmentWiki';
+import { JiraIssueWikiEditor } from '@/components/Neotro/JiraIssueWikiEditor';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,6 +123,8 @@ interface JiraIssueData {
 interface JiraIssueDrawerProps {
   issueIdOrKey: string | null;
   teamId: string | null;
+  /** When set (poker table), story point saves broadcast to this session so all clients update immediately. */
+  pokerSessionId?: string | null;
   /** Custom trigger element; when provided, clicking it opens the preview instead of the default button */
   trigger?: React.ReactElement;
 }
@@ -136,121 +155,6 @@ const statusColorMap: Record<string, string> = {
 };
 
 /**
- * Parse a hex color to RGB values.
- */
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const cleaned = hex.replace('#', '');
-  const fullHex = cleaned.length === 3
-    ? cleaned.split('').map(c => c + c).join('')
-    : cleaned;
-  if (fullHex.length !== 6) return null;
-  return {
-    r: parseInt(fullHex.slice(0, 2), 16),
-    g: parseInt(fullHex.slice(2, 4), 16),
-    b: parseInt(fullHex.slice(4, 6), 16),
-  };
-}
-
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return { h: 0, s: 0, l };
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else h = ((r - g) / d + 4) / 6;
-  return { h, s, l };
-}
-
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  if (s === 0) { const v = Math.round(l * 255); return { r: v, g: v, b: v }; }
-  const hue2rgb = (p: number, q: number, t: number) => {
-    if (t < 0) t += 1; if (t > 1) t -= 1;
-    if (t < 1/6) return p + (q - p) * 6 * t;
-    if (t < 1/2) return q;
-    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-    return p;
-  };
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  return {
-    r: Math.round(hue2rgb(p, q, h + 1/3) * 255),
-    g: Math.round(hue2rgb(p, q, h) * 255),
-    b: Math.round(hue2rgb(p, q, h - 1/3) * 255),
-  };
-}
-
-function relativeLuminance(r: number, g: number, b: number): number {
-  const [rs, gs, bs] = [r, g, b].map(c => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-}
-
-function contrastRatio(l1: number, l2: number): number {
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-/**
- * Adjust a panel background color for readable contrast with the current
- * theme foreground. Works in HSL space so only lightness changes — hue and
- * saturation are preserved (saturation is slightly boosted to counteract
- * any washed-out appearance from lightness shifts).
- */
-function ensurePanelContrast(bgHex: string): string {
-  const bg = hexToRgb(bgHex);
-  if (!bg) return bgHex;
-
-  const fgColor = typeof window !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim()
-    : '';
-
-  let fgLum = 0;
-  if (fgColor) {
-    const temp = document.createElement('div');
-    temp.style.color = `hsl(${fgColor})`;
-    temp.style.display = 'none';
-    document.body.appendChild(temp);
-    const computed = getComputedStyle(temp).color;
-    document.body.removeChild(temp);
-    const rgbMatch = computed.match(/(\d+),\s*(\d+),\s*(\d+)/);
-    if (rgbMatch) {
-      fgLum = relativeLuminance(+rgbMatch[1], +rgbMatch[2], +rgbMatch[3]);
-    }
-  }
-
-  const bgLum = relativeLuminance(bg.r, bg.g, bg.b);
-  if (contrastRatio(fgLum, bgLum) >= 4.5) return bgHex;
-
-  // Work in HSL — only shift lightness, boost saturation to stay vivid
-  const hsl = rgbToHsl(bg.r, bg.g, bg.b);
-  const shouldLighten = fgLum < 0.5;
-  const step = shouldLighten ? 0.03 : -0.03;
-
-  // Boost saturation by up to 10% to keep colors vivid
-  const boostedS = Math.min(1, hsl.s * 1.1);
-  let l = hsl.l;
-
-  for (let i = 0; i < 40; i++) {
-    l = Math.min(1, Math.max(0, l + step));
-    const rgb = hslToRgb(hsl.h, boostedS, l);
-    const newLum = relativeLuminance(rgb.r, rgb.g, rgb.b);
-    if (contrastRatio(fgLum, newLum) >= 4.5) {
-      return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.45)`;
-    }
-  }
-
-  return `hsla(${Math.round(hsl.h * 360)}, ${Math.round(boostedS * 100)}%, ${Math.round(l * 100)}%, 0.45)`;
-}
-
-
-/**
  * Parse Jira wiki markup to React elements.
  * Handles: *bold*, {{inline code}}, h1.-h6. headers, # ordered lists, * unordered lists,
  * {panel:bgColor=...}...{panel} blocks, {noformat}...{noformat} code blocks,
@@ -262,70 +166,7 @@ function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): Reac
   // Normalize line endings and trim
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // Split by {panel} and {noformat} blocks
-  // Use a manual approach for robustness with nested braces
-  const segments: { type: 'text' | 'panel' | 'code'; content: string; attrs?: string }[] = [];
-  let remaining = normalized;
-
-  while (remaining.length > 0) {
-    // Find next block opener: {panel...} OR {noformat...}/{norformat...}
-    const noformatMatch = remaining.match(/\{(?:noformat|norformat)(?::([^}]*))?\}/i);
-    const noformatStart = noformatMatch ? remaining.indexOf(noformatMatch[0]) : Infinity;
-
-    const panelMatch = remaining.match(/\{panel(?::([^}]*))?\}/i);
-    const panelStart = panelMatch ? remaining.indexOf(panelMatch[0]) : Infinity;
-
-    const nextBlock = Math.min(noformatStart, panelStart);
-
-    if (nextBlock === Infinity) {
-      segments.push({ type: 'text', content: remaining });
-      break;
-    }
-
-    if (nextBlock > 0) {
-      segments.push({ type: 'text', content: remaining.slice(0, nextBlock) });
-    }
-
-    if (noformatStart <= panelStart) {
-      const openTag = remaining.slice(noformatStart).match(/^\{(?:noformat|norformat)(?::([^}]*))?\}/i);
-      if (!openTag) {
-        segments.push({ type: 'text', content: remaining });
-        break;
-      }
-
-      const attrs = openTag[1] || '';
-      const afterOpen = noformatStart + openTag[0].length;
-      const closeMatch = remaining.slice(afterOpen).match(/\{(?:noformat|norformat)\}/i);
-      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
-
-      if (closeIdx === -1) {
-        segments.push({ type: 'text', content: remaining.slice(noformatStart) });
-        break;
-      }
-
-      segments.push({ type: 'code', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + closeMatch![0].length);
-    } else {
-      const openTag = remaining.slice(panelStart).match(/^\{panel(?::([^}]*))?\}/i);
-      if (!openTag) {
-        segments.push({ type: 'text', content: remaining });
-        break;
-      }
-
-      const attrs = openTag[1] || '';
-      const afterOpen = panelStart + openTag[0].length;
-      const closeMatch = remaining.slice(afterOpen).match(/\{panel\}/i);
-      const closeIdx = closeMatch ? afterOpen + closeMatch.index! : -1;
-
-      if (closeIdx === -1) {
-        segments.push({ type: 'text', content: remaining.slice(panelStart) });
-        break;
-      }
-
-      segments.push({ type: 'panel', content: remaining.slice(afterOpen, closeIdx), attrs });
-      remaining = remaining.slice(closeIdx + closeMatch![0].length);
-    }
-  }
+  const segments = segmentJiraWikiTopLevel(normalized);
 
   segments.forEach((segment, segIdx) => {
     if (segment.type === 'panel') {
@@ -526,10 +367,10 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
 /** Parse inline markup: *bold*, _italic_, -strikethrough-, {{inline code}}, [text|url], !image!, {color} */
 function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactNode {
   // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
-  let cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
+  const cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
   // Tokenize: {{inline code}}, *bold*, _italic_, -strikethrough-, [text|url], [~accountid:xxx], !image!
-  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|(?<![-\w])-([^-]+)-(?![-\w])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?\!/g;
+  const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|(?<![-\w])-([^-]+)-(?![-\w])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?!/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
   let inlineMatch: RegExpExecArray | null;
@@ -606,35 +447,6 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-/** Strip HTML tags and decode entities, preserving structure for wiki markup parsing */
-function stripHtmlForWikiParse(html: string): string {
-  return html
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n +/g, '\n')
-    .replace(/ +\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function descriptionToEditableText(description: string | null): string {
-  if (!description) return '';
-  const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  if (/^\s*</.test(normalized) || /<(?:p|div|br|table|ul|ol)\b/i.test(normalized)) {
-    return stripHtmlForWikiParse(normalized);
-  }
-  return normalized;
-}
-
 function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
   if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
 
@@ -683,7 +495,7 @@ function invalidateJiraIssueCache(teamId: string, issueIdOrKey: string) {
   jiraCache.delete(`${teamId}:${issueIdOrKey}`);
 }
 
-export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, trigger }) => {
+export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, pokerSessionId, trigger }) => {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const { toast } = useToast();
@@ -820,6 +632,9 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     ? `${jiraDomain}/browse/${issueData?.key || issueIdOrKey}`
     : null;
   const fields = issueData?.fields;
+  const sprintBucket = fields
+    ? getSprintBucketFromIssueFields(fields as unknown as Record<string, unknown>)
+    : null;
   const canEditJira = !!(fields && issueData && !noApiCredentials);
   const storyPoints = fields ? getStoryPointsFromJiraFields(fields as Record<string, unknown>) : null;
   const statusColor = fields?.status?.statusCategory?.colorName
@@ -830,11 +645,15 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
   const [descriptionEditing, setDescriptionEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  /** Locked when entering edit mode so pasting unsupported wiki does not swap UI mid-edit. */
+  const [descriptionEditorKind, setDescriptionEditorKind] = useState<'rich' | 'raw' | null>(null);
   const [savingDescription, setSavingDescription] = useState(false);
 
   const startDescriptionEdit = useCallback(() => {
     if (!canEditJira || savingDescription || !fields) return;
-    setDescriptionDraft(descriptionToEditableText(fields.description));
+    const draft = normalizeDescriptionForEdit(fields.description);
+    setDescriptionDraft(draft);
+    setDescriptionEditorKind(canEditDescriptionRichly(draft) ? 'rich' : 'raw');
     setDescriptionEditing(true);
   }, [canEditJira, savingDescription, fields]);
   const onDescriptionViewClick = useCallback(
@@ -869,16 +688,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
-  const [fieldOptions, setFieldOptions] = useState<{
-    priorities: Array<{ id: string; name: string; iconUrl?: string }>;
-    issueTypes: Array<{ id: string; name: string; iconUrl?: string }>;
-    transitions: Array<{ id: string; name: string; toStatusName?: string }>;
-  } | null>(null);
+  const [fieldOptions, setFieldOptions] = useState<JiraFieldOptionsPayload | null>(null);
   const [fieldOptionsLoading, setFieldOptionsLoading] = useState(false);
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
   const [priorityPopoverOpen, setPriorityPopoverOpen] = useState(false);
   const [issueTypePopoverOpen, setIssueTypePopoverOpen] = useState(false);
   const [savingJiraField, setSavingJiraField] = useState<'status' | 'priority' | 'issuetype' | null>(null);
+
+  const [sprintPopoverOpen, setSprintPopoverOpen] = useState(false);
+  const [sprintPickerData, setSprintPickerData] = useState<SprintPickerData | null>(null);
+  const [sprintPickerLoading, setSprintPickerLoading] = useState(false);
+  const [savingSprint, setSavingSprint] = useState(false);
 
   const startTitleEdit = useCallback(() => {
     if (!canEditJira || savingTitle || !fields) return;
@@ -913,6 +733,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   useEffect(() => {
     if (!isOpen) {
       setDescriptionEditing(false);
+      setDescriptionEditorKind(null);
       setDescriptionDraft('');
       setAssignPopoverOpen(false);
       setPointsPopoverOpen(false);
@@ -922,6 +743,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       setStatusPopoverOpen(false);
       setPriorityPopoverOpen(false);
       setIssueTypePopoverOpen(false);
+      setSprintPopoverOpen(false);
     }
   }, [isOpen]);
 
@@ -965,9 +787,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       setFieldOptions(null);
       return;
     }
+
+    const cached = getCachedIssueFieldOptions(teamId, issueData.key);
+    if (cached) {
+      setFieldOptions(cached);
+      setFieldOptionsLoading(false);
+      return;
+    }
+
     let cancelled = false;
+    setFieldOptionsLoading(true);
     (async () => {
-      setFieldOptionsLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke('get-jira-issue-field-options', {
           body: { teamId, issueKey: issueData.key },
@@ -977,17 +807,75 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
           setFieldOptions(null);
           return;
         }
-        setFieldOptions({
+        const payload: JiraFieldOptionsPayload = {
           priorities: data.priorities ?? [],
           issueTypes: data.issueTypes ?? [],
           transitions: data.transitions ?? [],
-        });
+        };
+        setCachedIssueFieldOptions(teamId, issueData.key, payload);
+        setFieldOptions(payload);
       } finally {
         if (!cancelled) setFieldOptionsLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [canEditJira, teamId, issueData?.key]);
+
+  useEffect(() => {
+    if (!canEditJira || !teamId || !issueData?.key || noApiCredentials) {
+      setSprintPickerData(null);
+      return;
+    }
+
+    const cached = getCachedTeamSprintPickerOptions(teamId);
+    if (cached) {
+      if (fields) {
+        setSprintPickerData(
+          buildSprintPickerDataFromCacheAndIssue(
+            issueData.key,
+            fields as unknown as Record<string, unknown>,
+            cached,
+          ),
+        );
+      }
+      setSprintPickerLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSprintPickerLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-jira-sprint-options', {
+          body: { teamId, issueKey: issueData.key },
+        });
+        if (cancelled) return;
+        if (error || data?.error) {
+          setSprintPickerData(null);
+          return;
+        }
+        setCachedTeamSprintPickerOptions(teamId, {
+          boardId: data.boardId ?? null,
+          pickerSprints: data.pickerSprints ?? [],
+        });
+        setSprintPickerData(data as SprintPickerData);
+      } finally {
+        if (!cancelled) setSprintPickerLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canEditJira,
+    teamId,
+    issueData?.key,
+    noApiCredentials,
+    sprintBucket?.displayName,
+    sprintBucket?.sprintId,
+  ]);
 
   const refreshFieldOptionsAfterUpdate = useCallback(async () => {
     if (!teamId || !issueData?.key) return;
@@ -995,11 +883,13 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       body: { teamId, issueKey: issueData.key },
     });
     if (error || data?.error) return;
-    setFieldOptions({
+    const payload: JiraFieldOptionsPayload = {
       priorities: data.priorities ?? [],
       issueTypes: data.issueTypes ?? [],
       transitions: data.transitions ?? [],
-    });
+    };
+    setCachedIssueFieldOptions(teamId, issueData.key, payload);
+    setFieldOptions(payload);
   }, [teamId, issueData?.key]);
 
   const handleSaveDescription = async () => {
@@ -1014,6 +904,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       invalidateJiraIssueCache(teamId, issueIdOrKey);
       await fetchIssue(false, { skipCache: true, keepPreviousData: true });
       setDescriptionEditing(false);
+      setDescriptionEditorKind(null);
       toast({ title: 'Description updated' });
     } catch (e: unknown) {
       toast({
@@ -1116,25 +1007,38 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
   const handleSavePoints = async () => {
     if (!teamId || !issueData?.key || !issueIdOrKey) return;
-    const n = parseFloat(pointsDraft.trim());
-    if (Number.isNaN(n) || n < 0) {
-      toast({
-        title: 'Enter a valid non-negative number',
-        variant: 'destructive',
-      });
-      return;
+    const trimmed = pointsDraft.trim();
+    let pointsValue: number | null;
+    if (trimmed === '') {
+      pointsValue = null;
+    } else {
+      const n = parseFloat(trimmed);
+      if (Number.isNaN(n) || n < 0) {
+        toast({
+          title: 'Enter a valid non-negative number',
+          variant: 'destructive',
+        });
+        return;
+      }
+      pointsValue = n;
     }
     setSavingPoints(true);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue-points', {
-        body: { teamId, issueKey: issueData.key, points: n },
+        body: { teamId, issueKey: issueData.key, points: pointsValue },
       });
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
       invalidateJiraIssueCache(teamId, issueIdOrKey);
       await fetchIssue(false, { skipCache: true, keepPreviousData: true });
       setPointsPopoverOpen(false);
-      toast({ title: 'Story points updated' });
+      if (pokerSessionId) {
+        void broadcastPokerSessionJiraStoryPoints(pokerSessionId, {
+          issueKey: issueData.key,
+          points: pointsValue,
+        });
+      }
+      toast({ title: pointsValue === null ? 'Story points cleared' : 'Story points updated' });
     } catch (e: unknown) {
       toast({
         title: 'Failed to update story points',
@@ -1221,6 +1125,30 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     }
   };
 
+  const handleSprintChange = async (nextSprintId: number | null) => {
+    if (!teamId || !issueData?.key || !issueIdOrKey) return;
+    setSavingSprint(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue-sprint', {
+        body: { teamId, issueKey: issueData.key, sprintId: nextSprintId },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      invalidateJiraIssueCache(teamId, issueIdOrKey);
+      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+      setSprintPopoverOpen(false);
+      toast({ title: nextSprintId == null ? 'Moved to backlog' : 'Sprint updated' });
+    } catch (e: unknown) {
+      toast({
+        title: 'Failed to update sprint',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingSprint(false);
+    }
+  };
+
   // Build a map of Jira accountId -> displayName from issue data
   const userMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -1242,6 +1170,20 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     }
     return map;
   }, [fields]);
+
+  const sprintEditable = canEditJira && sprintPickerData?.boardId != null;
+  const sprintLabel =
+    sprintPickerData?.currentSprintName ?? sprintBucket?.displayName ?? '—';
+
+  const activeBoardSprintId = React.useMemo(
+    () =>
+      sprintPickerData?.pickerSprints?.find((s) => s.state?.toLowerCase() === 'active')?.id ??
+      null,
+    [sprintPickerData?.pickerSprints],
+  );
+  const issueInActiveSprint =
+    activeBoardSprintId != null &&
+    sprintPickerData?.currentSprintId === activeBoardSprintId;
 
   const triggerElement = trigger ? (
     React.cloneElement(trigger, {
@@ -1692,6 +1634,97 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                       </Badge>
                     )
                   )}
+                  {sprintEditable ? (
+                    <Popover open={sprintPopoverOpen} onOpenChange={setSprintPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={savingSprint || savingJiraField !== null}
+                          aria-label="Change sprint"
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium transition-colors max-w-[min(100%,220px)]',
+                            !(savingSprint || savingJiraField) &&
+                              'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            (savingSprint || savingJiraField) && 'opacity-70',
+                          )}
+                        >
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          <span className="truncate min-w-0">{sprintLabel}</span>
+                          {issueInActiveSprint && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 font-normal">
+                              Active
+                            </Badge>
+                          )}
+                          {savingSprint && (
+                            <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        container={jiraDialogPortalContainer ?? undefined}
+                        className="w-[min(100vw-2rem,300px)] p-0"
+                        align="start"
+                      >
+                        <Command shouldFilter={false} className="overflow-visible">
+                          <ScrollArea className={jiraPopoverListScrollClass}>
+                            <CommandList className="max-h-none overflow-visible">
+                              <CommandGroup>
+                                <CommandItem
+                                  value="__backlog__"
+                                  onSelect={() => void handleSprintChange(null)}
+                                  disabled={savingSprint}
+                                >
+                                  Backlog
+                                </CommandItem>
+                                {(sprintPickerData?.pickerSprints ?? []).map((s) => {
+                                  const isBoardActive = s.state?.toLowerCase() === 'active';
+                                  return (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={`${s.id}-${s.name}`}
+                                    onSelect={() => void handleSprintChange(s.id)}
+                                    disabled={savingSprint}
+                                  >
+                                    <div className="flex w-full min-w-0 items-center justify-between gap-2">
+                                      <span className="truncate">{s.name}</span>
+                                      {isBoardActive && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 font-normal">
+                                          Active
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </ScrollArea>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <span
+                      className="inline-flex max-w-[min(100%,220px)]"
+                      title={
+                        canEditJira && !sprintEditable && !sprintPickerLoading
+                          ? 'Configure a Jira board in Team Settings to change sprint here'
+                          : undefined
+                      }
+                    >
+                      <Badge variant="outline" className="text-xs gap-1 max-w-full">
+                        <Calendar className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{sprintLabel}</span>
+                        {issueInActiveSprint && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 font-normal">
+                            Active
+                          </Badge>
+                        )}
+                        {sprintPickerLoading && (
+                          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                        )}
+                      </Badge>
+                    </span>
+                  )}
                 </div>
 
                 <Separator />
@@ -1887,13 +1920,22 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   </div>
                   {descriptionEditing ? (
                     <div className="space-y-2">
-                      <Textarea
-                        value={descriptionDraft}
-                        onChange={(e) => setDescriptionDraft(e.target.value)}
-                        rows={10}
-                        className="font-mono text-sm min-h-[160px]"
-                        disabled={savingDescription}
-                      />
+                      {descriptionEditorKind === 'rich' ? (
+                        <JiraIssueWikiEditor
+                          key={`${issueData?.key ?? 'issue'}-desc`}
+                          initialValue={descriptionDraft}
+                          onChange={setDescriptionDraft}
+                          disabled={savingDescription}
+                        />
+                      ) : (
+                        <Textarea
+                          value={descriptionDraft}
+                          onChange={(e) => setDescriptionDraft(e.target.value)}
+                          rows={10}
+                          className="font-mono text-sm min-h-[160px]"
+                          disabled={savingDescription}
+                        />
+                      )}
                       <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
@@ -1910,6 +1952,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                           disabled={savingDescription}
                           onClick={() => {
                             setDescriptionEditing(false);
+                            setDescriptionEditorKind(null);
                             setDescriptionDraft('');
                           }}
                         >

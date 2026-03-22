@@ -694,7 +694,7 @@ export const usePokerSession = (
         return;
     }
 
-    // Sync: update history selection ref before postgres realtime can fire fetchRounds (race with selectedRoundNumberRef).
+    // Sync: update history selection ref before postgres realtime merge (race with selectedRoundNumberRef).
     window.dispatchEvent(
       new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
         detail: { sessionId: session.session_id, roundNumber: newRoundNumber },
@@ -851,6 +851,7 @@ export const usePokerSession = (
     }
 
     const latestRoundNumber = startingRoundNumber + normalizedTickets.length;
+
     await supabase
       .from('poker_sessions')
       .update({ current_round_number: latestRoundNumber })

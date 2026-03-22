@@ -2,7 +2,6 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
-import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
@@ -90,33 +89,6 @@ const NeotroPage = () => {
     [teamId, sessionId]
   );
 
-  // Use history hook to load specific rounds when requested (?round=)
-  const { rounds } = usePokerSessionHistory(
-    session?.session_id || null,
-    undefined,
-    pokerRouteForHistory
-  );
-
-  const requestedRound =
-    requestedRoundNumberFromUrl && rounds.length > 0
-      ? rounds.find((round) => round.round_number === requestedRoundNumberFromUrl)
-      : null;
-
-  // Determine which session data to use
-  const displaySession = requestedRound ? {
-    ...session,
-    ...requestedRound,
-    // Keep the session-level properties from the live session
-    session_id: session?.session_id,
-    room_id: session?.room_id,
-    current_round_number: session?.current_round_number,
-    presence_enabled: session?.presence_enabled,
-    send_to_slack: session?.send_to_slack,
-    spotlight_follow_enabled: session?.spotlight_follow_enabled,
-    // Override the round_number to match the requested round for chat and history
-    round_number: requestedRound.round_number
-  } : session;
-
   if (loadingAuth || loadingSession || loadingRole || loadingFlags) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -161,7 +133,7 @@ const NeotroPage = () => {
     );
   }
 
-  if (!displaySession) {
+  if (!session) {
     return (
       <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
         <AppHeader variant="back" backTo={teamPokerTabPath} />
@@ -188,7 +160,7 @@ const NeotroPage = () => {
     <div className="h-screen w-screen min-w-full flex flex-col neotro-full-width">
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <PokerTable
-          session={displaySession}
+          session={session}
           activeUserId={profile?.id}
           activeUserDisplayName={
             profile?.nickname || profile?.full_name || user?.email || 'Player'

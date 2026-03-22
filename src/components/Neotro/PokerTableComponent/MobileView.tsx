@@ -138,7 +138,7 @@ export const MobileView: React.FC = () => {
     const VISIBLE_STRIP = 8;
     const stackOverlap = scaledCardHeight - VISIBLE_STRIP;
 
-    const ticketMetaByKey = useJiraTicketMetadata(teamId, rounds, displayTicketNumber);
+    const ticketMetaByKey = useJiraTicketMetadata(teamId, rounds, displayTicketNumber, session?.session_id);
 
     const compactTicketStripLabel = useMemo(
         () => displayTicketLabel(displaySession?.ticket_number || displayTicketNumber),
@@ -186,9 +186,6 @@ export const MobileView: React.FC = () => {
                     {/* Mobile Main Content (short viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
                         <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
-                        {(displaySession.game_state === 'Playing' ||
-                            !isViewingHistory ||
-                            (isViewingHistory && isCompact)) && (
                             <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
                                 <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
                                     {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
@@ -204,6 +201,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                     }
@@ -231,6 +229,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -273,6 +272,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -320,28 +320,26 @@ export const MobileView: React.FC = () => {
                                                 <span className="text-sm text-muted-foreground">Winning Points:</span>
                                                 <span className="font-bold text-base">{displayWinningPoints} pts</span>
                                             </div>
-                                            {!isObserver && (
-                                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <NeotroPressableButton
-                                                                    size="sm"
-                                                                    activeShowsPressed={false}
-                                                                    aria-label="Replay"
-                                                                    title="Replay round"
-                                                                    onClick={replayRound}
-                                                                >
-                                                                    <RotateCcw className="h-4 w-4" />
-                                                                </NeotroPressableButton>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Replay</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </div>
-                                            )}
+                                            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <NeotroPressableButton
+                                                                size="sm"
+                                                                activeShowsPressed={false}
+                                                                aria-label="Replay"
+                                                                title="Replay round"
+                                                                onClick={replayRound}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4" />
+                                                            </NeotroPressableButton>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Replay</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                         </div>
                                     )}
                                     {!isViewingHistory && (
@@ -367,7 +365,6 @@ export const MobileView: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        )}
 
                         {/* Cards Area */}
                         <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
@@ -529,9 +526,6 @@ export const MobileView: React.FC = () => {
                     {/* Mobile Main Content (taller viewport) */}
                     <div className="flex-1 flex flex-col pt-1 px-4 pb-4" style={dragStyle}>
                         <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
-                        {(displaySession.game_state === 'Playing' ||
-                            !isViewingHistory ||
-                            (isViewingHistory && isCompact)) && (
                             <div className="flex flex-col items-center shrink-0 flex-none gap-1 pb-3">
                                 <div className="flex flex-col shrink-0 w-full max-w-xs gap-1">
                                     {isCompact && !isViewingHistory && displaySession.game_state !== 'Playing' ? (
@@ -547,6 +541,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                     }
@@ -574,6 +569,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -616,6 +612,7 @@ export const MobileView: React.FC = () => {
                                                 <JiraIssueDrawer
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
+                                                    pokerSessionId={session.session_id}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -663,28 +660,26 @@ export const MobileView: React.FC = () => {
                                                 <span className="text-sm text-muted-foreground">Winning Points:</span>
                                                 <span className="font-bold text-base">{displayWinningPoints} pts</span>
                                             </div>
-                                            {!isObserver && (
-                                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <NeotroPressableButton
-                                                                    size="sm"
-                                                                    activeShowsPressed={false}
-                                                                    aria-label="Replay"
-                                                                    title="Replay round"
-                                                                    onClick={replayRound}
-                                                                >
-                                                                    <RotateCcw className="h-4 w-4" />
-                                                                </NeotroPressableButton>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Replay</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </div>
-                                            )}
+                                            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <NeotroPressableButton
+                                                                size="sm"
+                                                                activeShowsPressed={false}
+                                                                aria-label="Replay"
+                                                                title="Replay round"
+                                                                onClick={replayRound}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4" />
+                                                            </NeotroPressableButton>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Replay</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                         </div>
                                     )}
                                     {!isViewingHistory && (
@@ -710,7 +705,6 @@ export const MobileView: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        )}
 
                         {/* Cards Area */}
                         <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Upload, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { broadcastPokerSessionJiraStoryPoints } from '@/lib/pokerJiraStoryPointsBroadcast';
 import { useToast } from '@/hooks/use-toast';
 import { usePokerTable } from './PokerTableComponent/context';
 import {
@@ -49,7 +50,7 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   compact = false,
 }) => {
   const { toast } = useToast();
-  const { activeUserSelection, sendSystemMessage } = usePokerTable();
+  const { activeUserSelection, sendSystemMessage, session } = usePokerTable();
   const defaultPoints = useMemo(
     () => (POINT_OPTIONS.includes(winningPoints) ? winningPoints : nearestPointOption(winningPoints)),
     [winningPoints]
@@ -81,6 +82,14 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
 
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
+
+      const resolvedKey = typeof data?.issueKey === 'string' ? data.issueKey : ticketNumber;
+      if (session?.session_id && resolvedKey) {
+        void broadcastPokerSessionJiraStoryPoints(session.session_id, {
+          issueKey: resolvedKey,
+          points: finalPoints,
+        });
+      }
 
       setIsSubmitted(true);
       toast({ title: `${ticketNumber} updated to ${finalPoints} pts in Jira` });
