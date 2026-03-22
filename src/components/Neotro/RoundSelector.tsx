@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Play, Ticket, Trash2, Settings, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Play, Power, Ticket, Trash2, Settings, Eye, EyeOff, Spotlight } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPointsWithMostVotes } from '@/hooks/usePokerSession';
+import type { PokerSessionState } from '@/hooks/usePokerSession';
+import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
 import type { JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
@@ -17,6 +18,8 @@ import {
 } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
+
+type PokerRoundGameStateMerge = Pick<PokerSessionState, 'game_state' | 'average_points' | 'selections'>;
 
 interface RoundSelectorProps {
   rounds: PokerSessionRound[];
@@ -78,22 +81,30 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     spotlightRoundNumber,
     isSpotlightMine,
     onSpotlightClick,
+    activateRoundById,
   } = usePokerTable();
 
   const currentPointsLabel = useMemo(() => {
-    if (isViewingHistory && currentRound && currentRound.average_points > 0) {
-      return Number.isInteger(currentRound.average_points)
-        ? `${currentRound.average_points} pts`
-        : `${currentRound.average_points.toFixed(1)} pts`;
+    const rawTicket = displayTicketNumber || currentRound?.ticket_number || '';
+    const storyPointsFromIssue = !isSyntheticRoundTicket(rawTicket)
+      ? ticketMetaByKey[String(rawTicket).trim()]?.storyPoints
+      : undefined;
+
+    if (isViewingHistory) {
+      if (storyPointsFromIssue != null) {
+        return `${storyPointsFromIssue} pts`;
+      }
+      if (currentRound && currentRound.average_points > 0) {
+        return Number.isInteger(currentRound.average_points)
+          ? `${currentRound.average_points} pts`
+          : `${currentRound.average_points.toFixed(1)} pts`;
+      }
+      return null;
     }
     if (displaySession?.game_state === 'Playing' && displayWinningPoints > 0) {
       return `${displayWinningPoints} pts`;
     }
-    const rawLive = displayTicketNumber || currentRound?.ticket_number || '';
-    const livePoints = !isSyntheticRoundTicket(rawLive)
-      ? ticketMetaByKey[String(rawLive).trim()]?.storyPoints
-      : undefined;
-    return livePoints != null ? `${livePoints} pts` : null;
+    return storyPointsFromIssue != null ? `${storyPointsFromIssue} pts` : null;
   }, [
     isViewingHistory,
     currentRound,
@@ -123,13 +134,10 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         const isLatestRound = round.round_number === stripCurrentNumber;
         const isSelectedRound = currentRound?.round_number === round.round_number;
         const ticketKey = displayTicketLabel(round.ticket_number);
-        const jiraPoints = !isSyntheticRoundTicket(round.ticket_number)
+        const storyPoints = !isSyntheticRoundTicket(round.ticket_number)
           ? ticketMetaByKey[String(round.ticket_number || '').trim()]?.storyPoints
           : undefined;
-        const modePoints = getPointsWithMostVotes(
-          Object.values(round.selections || {}) as { points: number }[]
-        );
-        const displayPoints = jiraPoints ?? (modePoints > 0 ? modePoints : null);
+        const displayPoints = storyPoints ?? null;
         return {
           id: `round-${round.id}`,
           roundId: round.id,
@@ -399,7 +407,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                     onClick={onSpotlightClick}
                     aria-label={isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <Spotlight className="h-4 w-4" />
                   </NeotroPressableButton>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -456,8 +464,21 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                 const isSelected = index === activeSnapIndex;
                 const isRoundActive = !!item.isActive;
                 const iconUrl = ticketMetaByKey[item.ticketKey]?.issueTypeIconUrl;
+                const roundRow = item.roundId ? rounds.find((r) => r.id === item.roundId) : undefined;
+                const mergedForStripRound: PokerRoundGameStateMerge | null = roundRow
+                  ? session
+                    ? ({ ...session, ...roundRow } as PokerRoundGameStateMerge)
+                    : (roundRow as PokerRoundGameStateMerge)
+                  : null;
+                const canActivateRound =
+                  !!roundRow &&
+                  !roundRow.is_active &&
+                  !!mergedForStripRound &&
+                  deriveDisplayGameState(mergedForStripRound, roundRow) === 'Selection';
+
                 const canDelete = isAdmin && deleteRound && item.roundId && ticketStripItems.filter(i => i.roundId).length > 1;
                 const deleteActionLabel = item.isActive ? 'Cancel round' : 'Delete round';
+                const showRoundContextMenu = !!item.roundId && (canDelete || canActivateRound);
                 const newChatCount =
                   item.roundNumber != null ? chatNewMessageCountByRound[item.roundNumber] ?? 0 : 0;
                 const isSpotlightRound =
@@ -519,22 +540,32 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                 );
                 return (
                   <div key={item.id} className="flex-none">
-                    {canDelete ? (
+                    {showRoundContextMenu ? (
                       <ContextMenu>
                         <ContextMenuTrigger asChild>
                           {chipButton}
                         </ContextMenuTrigger>
                         <ContextMenuContent>
-                          <ContextMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => deleteRound(item.roundId!)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            {deleteActionLabel}
-                          </ContextMenuItem>
+                          {canActivateRound && (
+                            <ContextMenuItem onClick={() => void activateRoundById(item.roundId!)}>
+                              <Power className="h-4 w-4 mr-2" />
+                              Activate round
+                            </ContextMenuItem>
+                          )}
+                          {canDelete && (
+                            <ContextMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => deleteRound(item.roundId!)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {deleteActionLabel}
+                            </ContextMenuItem>
+                          )}
                         </ContextMenuContent>
                       </ContextMenu>
-                    ) : chipButton}
+                    ) : (
+                      chipButton
+                    )}
                   </div>
                 );
               })}

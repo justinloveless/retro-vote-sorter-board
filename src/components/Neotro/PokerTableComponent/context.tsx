@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { isSyntheticRoundTicket, roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
 import { usePokerSpotlightClientId } from '@/hooks/use-poker-spotlight-client-id';
+import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
@@ -45,6 +46,8 @@ interface PokerTableContextProps {
    * so players can change their locked-in cards.
    */
   replayRound: () => void;
+  /** Set `is_active: true` on an inactive round that is still in Selection (strip context menu). */
+  activateRoundById: (roundId: string) => Promise<void>;
   nextRound: (ticketNumber?: string) => void;
   updateTicketNumber: (
     ticketNumber: string,
@@ -229,6 +232,35 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const { isJiraConfigured } = useJiraIntegration(teamId);
   const { sendPokerRoundToSlack } = usePokerSlackNotification();
 
+  const mySpotlightClientId = usePokerSpotlightClientId();
+  const spotlightUserId = session?.spotlight_user_id ?? null;
+  const sessionSpotlightClientId = session?.spotlight_client_id ?? null;
+  const spotlightRoundNumber =
+    session?.spotlight_user_id != null && session?.spotlight_round_number != null
+      ? session.spotlight_round_number
+      : null;
+  /** Same user may only hold spotlight in one browser tab; `spotlight_client_id` null means legacy row before any client pinned it (any of that user's tabs may control until pinned). */
+  const isSpotlightMine = !!(
+    activeUserId &&
+    spotlightUserId === activeUserId &&
+    (sessionSpotlightClientId === null || sessionSpotlightClientId === mySpotlightClientId)
+  );
+
+  /** URL `?round=` wins; otherwise new joiners land on the spotlight holder's round (not the last round in the list). */
+  const historyInitialRound = useMemo(() => {
+    if (requestedRoundNumber != null) return requestedRoundNumber;
+    if (session?.spotlight_follow_enabled === false) return undefined;
+    if (!spotlightUserId || session?.spotlight_round_number == null) return undefined;
+    if (isSpotlightMine) return undefined;
+    return session.spotlight_round_number;
+  }, [
+    requestedRoundNumber,
+    session?.spotlight_follow_enabled,
+    spotlightUserId,
+    session?.spotlight_round_number,
+    isSpotlightMine,
+  ]);
+
   const {
     rounds,
     currentRound,
@@ -243,7 +275,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     deleteRound,
   } = usePokerSessionHistory(
     session?.session_id || null,
-    requestedRoundNumber || undefined,
+    historyInitialRound ?? undefined,
     pokerRouteContext ?? null
   );
 
@@ -253,8 +285,6 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     currentRound && optimisticRoundsById[currentRound.id]
       ? optimisticRoundsById[currentRound.id]
       : currentRound;
-
-  const mySpotlightClientId = usePokerSpotlightClientId();
 
   const selectionChatName = effectiveCurrentRound?.selections?.[activeUserId || '']?.name?.trim();
   const chatUserName =
@@ -458,19 +488,6 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
 
   const isViewingHistoryEffective = effectiveCurrentRound ? !effectiveCurrentRound.is_active : isViewingHistory;
 
-  const spotlightUserId = session?.spotlight_user_id ?? null;
-  const sessionSpotlightClientId = session?.spotlight_client_id ?? null;
-  const spotlightRoundNumber =
-    session?.spotlight_user_id != null && session?.spotlight_round_number != null
-      ? session.spotlight_round_number
-      : null;
-  /** Same user may only hold spotlight in one browser tab; `spotlight_client_id` null means legacy row before any client pinned it (any of that user's tabs may control until pinned). */
-  const isSpotlightMine = !!(
-    activeUserId &&
-    spotlightUserId === activeUserId &&
-    (sessionSpotlightClientId === null || sessionSpotlightClientId === mySpotlightClientId)
-  );
-
   const spotlightOtherDisplayName = useMemo(() => {
     if (!spotlightUserId) return '';
     if (spotlightUserId === activeUserId) {
@@ -672,9 +689,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     if (!session) return effectiveCurrentRound;
     // effectiveCurrentRound carries history + optimisticRoundsById; the table's *ForSelectedRound
     // handlers only update those + DB (not usePokerSession state). Spreading stale `session` last
-    // would clobber lock/points UI. Remote peers refresh via postgres_changes → fetchRounds
+    // would clobber lock/points UI. Remote peers refresh via postgres_changes merging into rounds state
     // (poker_session_rounds in supabase_realtime) and optional round_updated broadcast on session.
-    return { ...session, ...effectiveCurrentRound };
+    const merged = { ...session, ...effectiveCurrentRound } as PokerSessionState;
+    const game_state = deriveDisplayGameState(merged, effectiveCurrentRound);
+    return game_state === merged.game_state ? merged : { ...merged, game_state };
   }, [session, effectiveCurrentRound]);
 
   /** Mode (most votes) - computed from selections so we always show correct value */
@@ -925,7 +944,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   };
 
   const playHandForSelectedRound = async () => {
-    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active) return;
+    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !session) return;
     if (effectiveCurrentRound.game_state === 'Playing') return;
 
     const newSelections = { ...(effectiveCurrentRound.selections || {}) } as Record<
@@ -1015,8 +1034,12 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   }, [effectiveCurrentRound]);
 
   const replayRoundForSelectedRound = async () => {
-    if (!effectiveCurrentRound) return;
-    if (effectiveCurrentRound.game_state !== 'Playing') return;
+    if (!effectiveCurrentRound || !session) return;
+
+    const mergedForDisplay = { ...session, ...effectiveCurrentRound } as PokerSessionState;
+    if (deriveDisplayGameState(mergedForDisplay, effectiveCurrentRound) !== 'Playing') return;
+
+    const reactivatingHistory = !effectiveCurrentRound.is_active;
 
     const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
 
@@ -1034,30 +1057,62 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     }
 
     const nextState = {
-      is_active: true,
       game_state: 'Selection' as const,
       selections: resetSelections,
       average_points: 0,
+      ...(reactivatingHistory ? { is_active: true as const } : {}),
     };
 
     // Reset auto-reveal guard so it can trigger again after replay.
     autoRevealTriggeredRef.current = null;
 
-    // Optimistic update so the hand UI flips back immediately.
+    const replayedRoundId = effectiveCurrentRound.id;
+
     setOptimisticRoundsById((prev) => ({
       ...prev,
-      [effectiveCurrentRound.id]: { ...(effectiveCurrentRound as PokerSessionRound), ...nextState },
+      [replayedRoundId]: {
+        ...((prev[replayedRoundId] ?? effectiveCurrentRound) as PokerSessionRound),
+        ...nextState,
+      },
     }));
 
     void sendSystemMessage(`<p>Round replayed by ${pressedBy}</p>`).catch(() => undefined);
 
+    try {
+      const { error } = await supabase
+        .from('poker_session_rounds')
+        .update(nextState)
+        .eq('id', replayedRoundId);
+
+      if (error) {
+        console.error('Error replaying round:', error);
+      }
+    } catch (e) {
+      console.error('Error replaying round:', e);
+    }
+  };
+
+  const activateRoundById = async (roundId: string) => {
+    const row = roundsForUI.find((r) => r.id === roundId);
+    if (!row || row.is_active) return;
+
+    const merged = (session
+      ? ({ ...session, ...row } as PokerSessionState)
+      : row) as Pick<PokerSessionState, 'game_state' | 'average_points' | 'selections'>;
+    if (deriveDisplayGameState(merged, row) !== 'Selection') return;
+
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [roundId]: { ...((prev[roundId] ?? row) as PokerSessionRound), is_active: true },
+    }));
+
     const { error } = await supabase
       .from('poker_session_rounds')
-      .update(nextState)
-      .eq('id', effectiveCurrentRound.id);
+      .update({ is_active: true })
+      .eq('id', roundId);
 
     if (error) {
-      console.error('Error replaying round:', error);
+      console.error('Error activating round:', error);
     }
   };
 
@@ -1106,6 +1161,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     toggleAbstainUserSelection: toggleAbstainUserSelectionForSelectedRound,
     playHand: playHandForSelectedRound,
     replayRound: replayRoundForSelectedRound,
+    activateRoundById,
     nextRound,
     updateTicketNumber: updateTicketNumberForSelectedRound,
     updateSessionConfig,

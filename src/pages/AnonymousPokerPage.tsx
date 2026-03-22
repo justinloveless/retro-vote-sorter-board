@@ -3,6 +3,15 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { usePokerSession } from '@/hooks/usePokerSession';
 import PokerTable from '@/components/Neotro/PokerTable';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { v4 as uuidv4 } from 'uuid';
@@ -58,7 +67,7 @@ const AnonymousPokerPage: React.FC = () => {
         }
     }, [user, profile, authLoading]);
 
-    const { session, loading: sessionLoading, ...pokerActions } = usePokerSession(
+    const { session, loading: sessionLoading, sessionDeletedRemotely, ...pokerActions } = usePokerSession(
         isIdentityReady ? roomId : null,
         player.id,
         player.name,
@@ -120,7 +129,26 @@ const AnonymousPokerPage: React.FC = () => {
                 <div className="flex-1 flex items-center justify-center">
                     <div className="text-lg text-gray-600 dark:text-gray-300">Loading Session...</div>
                 </div>
-            )
+            );
+        }
+
+        if (sessionDeletedRemotely) {
+            const goHome = () => navigate('/');
+            return (
+                <AlertDialog open={sessionDeletedRemotely} onOpenChange={(open) => { if (!open) goHome(); }}>
+                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Session deleted</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This poker session was removed. You will return to the home page.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogAction onClick={goHome}>OK</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            );
         }
 
         if (!session) {

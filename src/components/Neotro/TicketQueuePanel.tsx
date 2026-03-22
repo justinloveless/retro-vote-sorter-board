@@ -62,6 +62,8 @@ interface TicketQueuePanelProps {
   rounds?: PokerSessionRound[];
   /** When true, renders as bottom drawer (like Chat) instead of side sheet */
   isMobile?: boolean;
+  /** Poker session — story point edits broadcast to all clients in this session. */
+  pokerSessionId?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -148,6 +150,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   isOpen,
   onOpenChange,
   teamId,
+  pokerSessionId,
   onAddTicket,
   onAddTicketsBatch,
   rounds = [],
@@ -370,7 +373,13 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
       />
     );
     return teamId ? (
-      <JiraIssueDrawer key={issue.key} issueIdOrKey={issue.key} teamId={teamId} trigger={issueContent} />
+      <JiraIssueDrawer
+        key={issue.key}
+        issueIdOrKey={issue.key}
+        teamId={teamId}
+        pokerSessionId={pokerSessionId}
+        trigger={issueContent}
+      />
     ) : (
       <div key={issue.key}>{issueContent}</div>
     );

@@ -74,6 +74,7 @@ const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }
         setQueuePanelOpen,
         teamId,
         rounds,
+        session,
     } = usePokerTable();
     return (
         <TicketQueuePanel
@@ -81,6 +82,7 @@ const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }
             isOpen={isQueuePanelOpen}
             onOpenChange={setQueuePanelOpen}
             teamId={teamId}
+            pokerSessionId={session?.session_id}
             rounds={rounds}
             onAddTicket={addTicketToQueue}
             onAddTicketsBatch={addTicketsToQueueBatch}

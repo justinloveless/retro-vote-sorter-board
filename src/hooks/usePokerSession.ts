@@ -76,6 +76,8 @@ export const usePokerSession = (
 ) => {
   const [session, setSession] = useState<PokerSessionState | null>(null);
   const [loading, setLoading] = useState(true);
+  /** True when the row was removed in the DB (e.g. team admin deleted the session). */
+  const [sessionDeletedRemotely, setSessionDeletedRemotely] = useState(false);
   const { toast } = useToast();
   const sessionChannelRef = useRef<RealtimeChannel | null>(null);
   const roundChannelRef = useRef<RealtimeChannel | null>(null);
@@ -302,6 +304,10 @@ export const usePokerSession = (
   }, [roomId, currentUserId, currentUserDisplayName, toast, shouldCreate, teamId, fetchTeamSelections]);
 
   useEffect(() => {
+    setSessionDeletedRemotely(false);
+  }, [roomId]);
+
+  useEffect(() => {
     manageSession().catch(e => {
       console.error(e);
       toast({ title: 'Error loading session', description: e.message, variant: 'destructive' });
@@ -376,6 +382,21 @@ export const usePokerSession = (
                 : (row.spotlight_follow_enabled as boolean),
           };
         });
+      }
+    );
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'poker_sessions',
+        filter: `id=eq.${session.session_id}`,
+      },
+      () => {
+        setSessionDeletedRemotely(true);
+        setSession(null);
+        setLoading(false);
       }
     );
 
@@ -694,7 +715,7 @@ export const usePokerSession = (
         return;
     }
 
-    // Sync: update history selection ref before postgres realtime can fire fetchRounds (race with selectedRoundNumberRef).
+    // Sync: update history selection ref before postgres realtime merge (race with selectedRoundNumberRef).
     window.dispatchEvent(
       new CustomEvent(POKER_FOLLOW_CURRENT_ROUND_EVENT, {
         detail: { sessionId: session.session_id, roundNumber: newRoundNumber },
@@ -851,6 +872,7 @@ export const usePokerSession = (
     }
 
     const latestRoundNumber = startingRoundNumber + normalizedTickets.length;
+
     await supabase
       .from('poker_sessions')
       .update({ current_round_number: latestRoundNumber })
@@ -886,6 +908,7 @@ export const usePokerSession = (
   return {
     session,
     loading,
+    sessionDeletedRemotely,
     updateUserSelection,
     toggleLockUserSelection,
     toggleAbstainUserSelection,

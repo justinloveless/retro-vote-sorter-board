@@ -44,6 +44,8 @@ interface JiraIssue {
 
 interface EmbeddedTicketQueueProps {
   teamId: string | undefined;
+  /** Poker session id — story point edits broadcast to all clients in this session. */
+  pokerSessionId?: string;
   isJiraConfigured: boolean;
   onAddTicket: (
     key: string,
@@ -148,6 +150,7 @@ function SprintBucket({
 
 export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   teamId,
+  pokerSessionId,
   showJiraBrowser = true,
   isJiraConfigured,
   onAddTicket,
@@ -456,7 +459,13 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
       />
     );
     return teamId ? (
-      <JiraIssueDrawer key={issue.key} issueIdOrKey={issue.key} teamId={teamId} trigger={issueContent} />
+      <JiraIssueDrawer
+        key={issue.key}
+        issueIdOrKey={issue.key}
+        teamId={teamId}
+        pokerSessionId={pokerSessionId}
+        trigger={issueContent}
+      />
     ) : (
       <div key={issue.key}>{issueContent}</div>
     );
@@ -632,7 +641,13 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                     </div>
                   );
                   return teamId ? (
-                    <JiraIssueDrawer key={item.id} issueIdOrKey={item.ticket_key} teamId={teamId} trigger={card} />
+                    <JiraIssueDrawer
+                      key={item.id}
+                      issueIdOrKey={item.ticket_key}
+                      teamId={teamId}
+                      pokerSessionId={pokerSessionId}
+                      trigger={card}
+                    />
                   ) : (
                     <div key={item.id}>{card}</div>
                   );

@@ -2,13 +2,21 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
-import { usePokerSessionHistory } from '@/hooks/usePokerSessionHistory';
 import { AppHeader } from '@/components/AppHeader';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AlertCircle, Lock, ShieldAlert } from 'lucide-react';
 import { useBackground } from '@/contexts/BackgroundContext';
 
@@ -77,7 +85,7 @@ const NeotroPage = () => {
 
   // Team sessions are inserted in Team.tsx (or elsewhere) before opening this route; never
   // auto-create on a miss — that was creating a blank session whenever lookup returned no row.
-  const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
+  const { session, loading: loadingSession, sessionDeletedRemotely, ...pokerActions } = usePokerSession(
     (!loadingAuth && isMember) ? (sessionId?.trim() || null) : null,
     profile?.id,
     profile?.full_name || (user?.email || 'Player'),
@@ -89,33 +97,6 @@ const NeotroPage = () => {
     () => (teamId && sessionId ? { teamId, slug: sessionId } : null),
     [teamId, sessionId]
   );
-
-  // Use history hook to load specific rounds when requested (?round=)
-  const { rounds } = usePokerSessionHistory(
-    session?.session_id || null,
-    undefined,
-    pokerRouteForHistory
-  );
-
-  const requestedRound =
-    requestedRoundNumberFromUrl && rounds.length > 0
-      ? rounds.find((round) => round.round_number === requestedRoundNumberFromUrl)
-      : null;
-
-  // Determine which session data to use
-  const displaySession = requestedRound ? {
-    ...session,
-    ...requestedRound,
-    // Keep the session-level properties from the live session
-    session_id: session?.session_id,
-    room_id: session?.room_id,
-    current_round_number: session?.current_round_number,
-    presence_enabled: session?.presence_enabled,
-    send_to_slack: session?.send_to_slack,
-    spotlight_follow_enabled: session?.spotlight_follow_enabled,
-    // Override the round_number to match the requested round for chat and history
-    round_number: requestedRound.round_number
-  } : session;
 
   if (loadingAuth || loadingSession || loadingRole || loadingFlags) {
     return (
@@ -161,7 +142,26 @@ const NeotroPage = () => {
     );
   }
 
-  if (!displaySession) {
+  if (sessionDeletedRemotely) {
+    const goToTeamPoker = () => navigate(teamPokerTabPath);
+    return (
+      <AlertDialog open={sessionDeletedRemotely} onOpenChange={(open) => { if (!open) goToTeamPoker(); }}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Session deleted</AlertDialogTitle>
+            <AlertDialogDescription>
+              This poker session was removed. You will return to the team&apos;s poker tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={goToTeamPoker}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  if (!session) {
     return (
       <div className="h-screen w-screen flex flex-col pt-16 md:pt-0">
         <AppHeader variant="back" backTo={teamPokerTabPath} />
@@ -188,7 +188,7 @@ const NeotroPage = () => {
     <div className="h-screen w-screen min-w-full flex flex-col neotro-full-width">
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <PokerTable
-          session={displaySession}
+          session={session}
           activeUserId={profile?.id}
           activeUserDisplayName={
             profile?.nickname || profile?.full_name || user?.email || 'Player'

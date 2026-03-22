@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import { POKER_JIRA_STORY_POINTS_BROADCAST_EVENT } from '@/lib/pokerJiraStoryPointsBroadcast';
 
 export type JiraTicketMeta = {
   issueTypeIconUrl?: string;
@@ -12,11 +13,13 @@ export type JiraTicketMeta = {
 /**
  * Fetches Jira issue metadata for all ticket keys on the session rounds plus the current display key.
  * Single shared fetch for desktop/mobile layouts and RoundSelector.
+ * When `sessionId` is set, merges live story-point updates broadcast from this session (Jira submit / drawer).
  */
 export function useJiraTicketMetadata(
   teamId: string | undefined,
   rounds: PokerSessionRound[],
-  displayTicketNumber: string
+  displayTicketNumber: string,
+  sessionId?: string | null
 ): Record<string, JiraTicketMeta> {
   const [ticketMetaByKey, setTicketMetaByKey] = useState<Record<string, JiraTicketMeta>>({});
 
@@ -37,8 +40,12 @@ export function useJiraTicketMetadata(
   useEffect(() => {
     const keys = ticketKeysForFetch ? ticketKeysForFetch.split(',') : [];
 
-    if (!teamId || keys.length === 0) {
-      setTicketMetaByKey({});
+    if (keys.length === 0) {
+      if (!sessionId) setTicketMetaByKey({});
+      return;
+    }
+
+    if (!teamId) {
       return;
     }
 
@@ -73,7 +80,31 @@ export function useJiraTicketMetadata(
     };
 
     fetchIssueMetadata();
-  }, [teamId, ticketKeysForFetch]);
+  }, [teamId, ticketKeysForFetch, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const channel = supabase.channel(`poker_session:${sessionId}`);
+    channel.on(
+      'broadcast',
+      { event: POKER_JIRA_STORY_POINTS_BROADCAST_EVENT },
+      ({ payload }: { payload?: Record<string, unknown> }) => {
+        const issueKey = payload?.issueKey;
+        const points = payload?.points;
+        if (typeof issueKey !== 'string' || issueKey.length === 0) return;
+        if (points !== null && typeof points !== 'number') return;
+        setTicketMetaByKey((prev) => ({
+          ...prev,
+          [issueKey]: { ...prev[issueKey], storyPoints: points === null ? null : points },
+        }));
+      }
+    );
+    channel.subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
 
   return ticketMetaByKey;
 }

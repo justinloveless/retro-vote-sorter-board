@@ -5,66 +5,12 @@ import {
   getStoryPointsFromIssueFields,
   JIRA_STORY_POINT_FIELD_FALLBACK_IDS,
 } from '../_shared/jiraStoryPoints.ts';
+import { createGetSprintMeta } from '../_shared/jiraSprintFields.ts';
 
 const DEFAULT_STORY_POINTS_JQL_FIELD_NAME = 'Story Points';
 
 function escapeJqlString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
-function createGetSprintMeta(
-  sprintIdToName: Map<number | string, string>,
-  sprintIdToStartDate: Map<number | string, string>,
-) {
-  return (fields: Record<string, unknown> | null | undefined): { name: string | null; startDate: string | null } => {
-    const extract = (val: unknown): { name: string; startDate: string | null } | null => {
-      if (val == null) return null;
-      const arr = Array.isArray(val) ? val : [val];
-      for (let i = arr.length - 1; i >= 0; i--) {
-        const item = arr[i];
-        if (!item) continue;
-        if (typeof item === 'object' && item !== null) {
-          const o = item as Record<string, unknown>;
-          const state = typeof o.state === 'string' ? o.state : null;
-          if (state === 'closed') continue;
-          let name: string | null = null;
-          if (o.name != null) name = String(o.name);
-          let id: number | null = null;
-          if (o.id != null) {
-            const raw = typeof o.id === 'number' ? o.id : parseInt(String(o.id), 10);
-            id = !isNaN(raw) ? raw : null;
-          }
-          if (!name && id != null && sprintIdToName.has(id)) name = sprintIdToName.get(id)!;
-          let startDate: string | null = null;
-          if (typeof o.startDate === 'string' && o.startDate) startDate = o.startDate;
-          else if (id != null && sprintIdToStartDate.has(id)) startDate = sprintIdToStartDate.get(id)!;
-          if (name) return { name, startDate };
-        }
-        if (typeof item === 'string') {
-          const stateMatch = item.match(/state=([^,\]]+)/);
-          if (stateMatch && stateMatch[1].trim().toLowerCase() === 'closed') continue;
-          const nameMatch = item.match(/name=([^,\]]+)/);
-          if (nameMatch) return { name: nameMatch[1].trim(), startDate: null };
-          const idMatch = item.match(/id=(\d+)/);
-          if (idMatch) {
-            const id = parseInt(idMatch[1], 10);
-            if (sprintIdToName.has(id)) {
-              const sd = sprintIdToStartDate.has(id) ? sprintIdToStartDate.get(id)! : null;
-              return { name: sprintIdToName.get(id)!, startDate: sd };
-            }
-          }
-        }
-      }
-      return null;
-    };
-    for (const [key, value] of Object.entries(fields || {})) {
-      if (value == null) continue;
-      if (!key.startsWith('customfield_') && key !== 'sprint') continue;
-      const meta = extract(value);
-      if (meta) return meta;
-    }
-    return { name: null, startDate: null };
-  };
 }
 
 // deno-lint-ignore no-explicit-any

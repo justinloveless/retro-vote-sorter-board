@@ -258,7 +258,6 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
                   </div>
                   {topicSummary && (
                     <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap min-w-0">
-                      <span className="text-muted-foreground shrink-0">Mostly about:</span>
                       {topicSummary.kind === 'various' ? (
                         <Badge
                           variant="outline"

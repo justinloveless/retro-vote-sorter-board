@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GameState } from './usePokerSession';
@@ -27,7 +28,7 @@ async function resolvePokerSessionPk(
   return hint && hint !== 'null' && hint !== 'undefined' ? hint : null;
 }
 
-/** Dispatched when the session advances so history can update `selectedRoundNumberRef` before `fetchRounds` races realtime. */
+/** Dispatched when the session advances so history can update `selectedRoundNumberRef` before realtime merge races the UI. */
 export const POKER_FOLLOW_CURRENT_ROUND_EVENT = 'poker-follow-current-round';
 
 export type PokerFollowCurrentRoundDetail = { sessionId: string; roundNumber: number };
@@ -49,6 +50,95 @@ export interface PokerSessionRound {
   is_active: boolean;
 }
 
+type RoundRowRecord = Record<string, unknown>;
+
+function isCompleteRoundRowForMerge(
+  row: RoundRowRecord | null | undefined,
+  sessionPk: string
+): row is RoundRowRecord & { id: string; session_id: string; round_number: number } {
+  return (
+    row != null &&
+    typeof row.id === 'string' &&
+    row.id.length > 0 &&
+    typeof row.session_id === 'string' &&
+    row.session_id === sessionPk &&
+    typeof row.round_number === 'number'
+  );
+}
+
+function toPokerSessionRound(row: RoundRowRecord): PokerSessionRound {
+  return row as unknown as PokerSessionRound;
+}
+
+function pickRoundIndexForRounds(
+  data: PokerSessionRound[],
+  desiredRoundNumber: number | undefined,
+  initialRoundNumber: number | undefined
+): number {
+  if (data.length === 0) return 0;
+  const desired = desiredRoundNumber ?? initialRoundNumber;
+  if (desired !== undefined) {
+    const targetIndex = data.findIndex((round) => round.round_number === desired);
+    if (targetIndex !== -1) return targetIndex;
+  }
+  if (initialRoundNumber !== undefined) {
+    return data.length - 1;
+  }
+  return data.length - 1;
+}
+
+type ApplyRealtimeResult = { ok: true; next: PokerSessionRound[] } | { ok: false };
+
+function applyRealtimePayload(
+  prev: PokerSessionRound[],
+  payload: RealtimePostgresChangesPayload<RoundRowRecord>,
+  sessionPk: string
+): ApplyRealtimeResult {
+  if (payload.errors?.length) {
+    return { ok: false };
+  }
+
+  if (payload.eventType === 'UPDATE') {
+    const row = payload.new;
+    if (!isCompleteRoundRowForMerge(row, sessionPk)) {
+      return { ok: false };
+    }
+    const idx = prev.findIndex((r) => r.id === row.id);
+    if (idx === -1) {
+      return { ok: false };
+    }
+    const merged = { ...prev[idx], ...row } as PokerSessionRound;
+    const next = [...prev];
+    next[idx] = merged;
+    next.sort((a, b) => a.round_number - b.round_number);
+    return { ok: true, next };
+  }
+
+  if (payload.eventType === 'INSERT') {
+    const row = payload.new;
+    if (!isCompleteRoundRowForMerge(row, sessionPk)) {
+      return { ok: false };
+    }
+    if (prev.some((r) => r.id === row.id)) {
+      return { ok: true, next: prev };
+    }
+    const next = [...prev, toPokerSessionRound(row)].sort((a, b) => a.round_number - b.round_number);
+    return { ok: true, next };
+  }
+
+  if (payload.eventType === 'DELETE') {
+    const oldRow = payload.old;
+    const id = oldRow && typeof oldRow.id === 'string' ? oldRow.id : null;
+    if (!id) {
+      return { ok: false };
+    }
+    const next = prev.filter((r) => r.id !== id);
+    return { ok: true, next };
+  }
+
+  return { ok: false };
+}
+
 export const usePokerSessionHistory = (
   sessionId: string | null,
   initialRoundNumber?: number,
@@ -64,6 +154,14 @@ export const usePokerSessionHistory = (
   const selectedRoundNumberRef = useRef<number | undefined>(initialRoundNumber);
   /** Avoid clobbering in-app round navigation while `?round=` lags one frame behind `currentRoundIndex`. */
   const lastAppliedUrlRoundRef = useRef<number | undefined>(undefined);
+  const roundsRef = useRef<PokerSessionRound[]>([]);
+  const fetchRoundsRef = useRef<() => Promise<void>>(async () => undefined);
+  const initialRoundNumberRef = useRef(initialRoundNumber);
+  initialRoundNumberRef.current = initialRoundNumber;
+
+  useEffect(() => {
+    roundsRef.current = rounds;
+  }, [rounds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,35 +196,24 @@ export const usePokerSessionHistory = (
         return;
       }
 
-      setRounds(data || []);
-      
-      if (data && data.length > 0) {
-        const desiredRoundNumber = selectedRoundNumberRef.current ?? initialRoundNumber;
-        const targetIndex =
-          desiredRoundNumber !== undefined
-            ? data.findIndex((round) => round.round_number === desiredRoundNumber)
-            : -1;
+      const list = data || [];
+      setRounds(list);
 
-        if (targetIndex !== -1) {
-          setCurrentRoundIndex(targetIndex);
-        } else if (initialRoundNumber !== undefined) {
-          // If specified round not found, default to latest
-          setCurrentRoundIndex(data.length - 1);
-        } else {
-          // Set to the latest round by default
-          setCurrentRoundIndex(data.length - 1);
-        }
-      } else {
-        // If no rounds, reset index
-        setCurrentRoundIndex(0);
-      }
+      const idx = pickRoundIndexForRounds(
+        list,
+        selectedRoundNumberRef.current,
+        initialRoundNumberRef.current
+      );
+      setCurrentRoundIndex(idx);
     } catch (error) {
       console.error('Error fetching rounds:', error);
       toast({ title: 'Error fetching history', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [resolvedSessionPk, initialRoundNumber, toast]);
+  }, [resolvedSessionPk, toast]);
+
+  fetchRoundsRef.current = fetchRounds;
 
   useEffect(() => {
     if (!resolvedSessionPk) {
@@ -137,42 +224,59 @@ export const usePokerSessionHistory = (
 
     void fetchRounds();
 
+    const pk = resolvedSessionPk;
+
     const handleFollowCurrentRound = (e: Event) => {
       const ce = e as CustomEvent<PokerFollowCurrentRoundDetail>;
       const { sessionId: sid, roundNumber } = ce.detail || ({} as PokerFollowCurrentRoundDetail);
-      if (sid !== resolvedSessionPk || typeof roundNumber !== 'number') return;
+      if (sid !== pk || typeof roundNumber !== 'number') return;
       selectedRoundNumberRef.current = roundNumber;
-      void fetchRounds();
+      const idx = roundsRef.current.findIndex((r) => r.round_number === roundNumber);
+      if (idx !== -1) {
+        setCurrentRoundIndex(idx);
+        return;
+      }
+      void fetchRoundsRef.current();
     };
     window.addEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
 
+    const handlePostgresChange = (payload: RealtimePostgresChangesPayload<RoundRowRecord>) => {
+      const applied = applyRealtimePayload(roundsRef.current, payload, pk);
+      if (!applied.ok) {
+        void fetchRoundsRef.current();
+        return;
+      }
+      const { next } = applied;
+      roundsRef.current = next;
+      setRounds(next);
+      const idx = pickRoundIndexForRounds(
+        next,
+        selectedRoundNumberRef.current,
+        initialRoundNumberRef.current
+      );
+      setCurrentRoundIndex(idx);
+    };
+
     const channel = supabase
-      .channel(`poker_session_rounds-changes-for-${resolvedSessionPk}`)
+      .channel(`poker_session_rounds-changes-for-${pk}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'poker_session_rounds',
-          filter: `session_id=eq.${resolvedSessionPk}`,
+          filter: `session_id=eq.${pk}`,
         },
-        () => {
-          void fetchRounds();
-        }
+        handlePostgresChange
       )
       .subscribe();
-    
-    // Listen for the custom event to refetch rounds
-    const handleRoundEnded = () => void fetchRounds();
-    window.addEventListener('round-ended', handleRoundEnded);
 
-    const handleRoundsDeleted = () => void fetchRounds();
+    const handleRoundsDeleted = () => void fetchRoundsRef.current();
     window.addEventListener('rounds-deleted', handleRoundsDeleted);
 
     return () => {
       window.removeEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
       supabase.removeChannel(channel);
-      window.removeEventListener('round-ended', handleRoundEnded);
       window.removeEventListener('rounds-deleted', handleRoundsDeleted);
     };
   }, [resolvedSessionPk, fetchRounds]);
@@ -223,8 +327,6 @@ export const usePokerSessionHistory = (
         return false;
       }
 
-      // Refresh the rounds list
-      await fetchRounds();
       return true;
     } catch (error) {
       console.error('Error saving round:', error);
@@ -322,9 +424,18 @@ export const usePokerSessionHistory = (
         return false;
       }
 
+      const nextRounds = remaining;
+      roundsRef.current = nextRounds;
+      setRounds(nextRounds);
+      setCurrentRoundIndex(
+        pickRoundIndexForRounds(
+          nextRounds,
+          selectedRoundNumberRef.current,
+          initialRoundNumberRef.current
+        )
+      );
+
       toast({ title: successTitle });
-      await fetchRounds();
-      window.dispatchEvent(new Event('rounds-deleted'));
       return true;
     } catch (error) {
       console.error('Error deleting round:', error);

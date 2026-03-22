@@ -9,8 +9,15 @@ Deno.serve(async (req) => {
   try {
     const { teamId, issueKey, points } = await req.json();
 
-    if (!teamId || !issueKey || points == null) {
-      throw new Error('Missing required parameters: teamId, issueKey, and points');
+    if (!teamId || !issueKey) {
+      throw new Error('Missing required parameters: teamId and issueKey');
+    }
+    if (points !== null && points !== undefined) {
+      if (typeof points !== 'number' || !Number.isFinite(points) || points < 0) {
+        throw new Error('points must be null (clear) or a valid non-negative number');
+      }
+    } else if (points === undefined) {
+      throw new Error('Missing required parameter: points (use null to clear)');
     }
 
     const supabaseClient = createClient(
@@ -69,7 +76,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         fields: {
-          [pointsFieldKey]: points,
+          [pointsFieldKey]: points === null ? null : points,
         },
       }),
     });
