@@ -8,6 +8,15 @@ import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AlertCircle, Lock, ShieldAlert } from 'lucide-react';
 import { useBackground } from '@/contexts/BackgroundContext';
 
@@ -76,7 +85,7 @@ const NeotroPage = () => {
 
   // Team sessions are inserted in Team.tsx (or elsewhere) before opening this route; never
   // auto-create on a miss — that was creating a blank session whenever lookup returned no row.
-  const { session, loading: loadingSession, ...pokerActions } = usePokerSession(
+  const { session, loading: loadingSession, sessionDeletedRemotely, ...pokerActions } = usePokerSession(
     (!loadingAuth && isMember) ? (sessionId?.trim() || null) : null,
     profile?.id,
     profile?.full_name || (user?.email || 'Player'),
@@ -130,6 +139,25 @@ const NeotroPage = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (sessionDeletedRemotely) {
+    const goToTeamPoker = () => navigate(teamPokerTabPath);
+    return (
+      <AlertDialog open={sessionDeletedRemotely} onOpenChange={(open) => { if (!open) goToTeamPoker(); }}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Session deleted</AlertDialogTitle>
+            <AlertDialogDescription>
+              This poker session was removed. You will return to the team&apos;s poker tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={goToTeamPoker}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     );
   }
 
