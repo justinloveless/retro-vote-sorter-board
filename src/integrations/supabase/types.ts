@@ -618,13 +618,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_session"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "poker_sessions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "poker_session_chat_message_reactions_message_id_fkey"
             columns: ["message_id"]
             isOneToOne: false

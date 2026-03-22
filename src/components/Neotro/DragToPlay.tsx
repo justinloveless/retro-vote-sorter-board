@@ -137,7 +137,7 @@ export const DropZoneOverlay: React.FC = () => {
   return (
     <div
       ref={ctx.setDropZoneRef}
-      className={`absolute inset-0 z-40 flex items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200 ${
+      className={`absolute inset-0 z-[5] flex items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200 ${
         ctx.isOverDropZone
           ? 'border-primary bg-primary/20 backdrop-blur-sm'
           : 'border-muted-foreground/40 bg-muted/10 backdrop-blur-[2px]'

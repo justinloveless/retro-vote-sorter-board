@@ -96,7 +96,7 @@ export function useJiraTicketMetadata(
         if (points !== null && typeof points !== 'number') return;
         setTicketMetaByKey((prev) => ({
           ...prev,
-          [issueKey]: { ...prev[issueKey], storyPoints: points === null ? null : points },
+          [issueKey]: { ...prev[issueKey], storyPoints: (points === null ? null : points) as number },
         }));
       }
     );
