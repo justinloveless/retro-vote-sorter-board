@@ -13,6 +13,15 @@ function escapeJqlString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+/** If the user typed a bare issue key, fetch it by key — board JQL sprint/issuetype filters often hide those issues. */
+function issueKeyFromSearchText(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  const m = t.match(/^([A-Za-z][A-Za-z0-9_]*)-(\d+)$/);
+  if (!m) return null;
+  return `${m[1].toUpperCase()}-${m[2]}`;
+}
+
 /** Project key from board config — needed when team stores numeric Agile board id (invalid in `project = "…"` JQL). */
 async function fetchJiraBoardLocationProjectKey(
   baseUrl: string,
@@ -226,7 +235,10 @@ Deno.serve(async (req) => {
     } else if (pointsFilter && /^\d+(?:\.\d+)?$/.test(pointsFilter)) {
       jqlParts.push(`${storyPointsJqlField} = ${pointsFilter}`);
     }
-    if (searchText) jqlParts.push(`(summary ~ "${searchText}" OR key ~ "${searchText}")`);
+    if (searchText) {
+      const st = escapeJqlString(String(searchText));
+      jqlParts.push(`(summary ~ "${st}" OR key ~ "${st}")`);
+    }
 
     if (resolvedBoardId == null && projectKeyForJql) {
       try {
@@ -322,6 +334,22 @@ Deno.serve(async (req) => {
       }
       if (batch.length === 0 || !data.nextPageToken) break;
       nextPageToken = data.nextPageToken;
+    }
+
+    const searchIssueKey = issueKeyFromSearchText(searchText);
+    const keyMatchesConfiguredProject =
+      !projectKeyForJql ||
+      searchIssueKey == null ||
+      searchIssueKey.toUpperCase().startsWith(`${projectKeyForJql.toUpperCase()}-`);
+    if (searchIssueKey && keyMatchesConfiguredProject && !seenKeys.has(searchIssueKey)) {
+      const byKey = await fetchIssuesByKeyChunks(baseUrl, authHeaders, fieldsParam, [searchIssueKey]);
+      for (const i of byKey) {
+        const k = i?.key as string | undefined;
+        if (k && !seenKeys.has(k)) {
+          seenKeys.add(k);
+          allIssues.push(i);
+        }
+      }
     }
 
     if (Array.isArray(includeKeys) && includeKeys.length > 0) {
