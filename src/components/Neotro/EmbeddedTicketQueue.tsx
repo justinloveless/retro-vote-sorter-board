@@ -199,9 +199,10 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   const pendingBrowseScrollRestoreRef = useRef(false);
 
   const browseIssues = useMemo(() => {
-    if (!hidePointedOrPointing) return issues;
+    const searching = !!searchText.trim();
+    if (searching || !hidePointedOrPointing) return issues;
     return issues.filter((i) => getJiraBrowseDisabledReason(i.key, rounds) === null);
-  }, [issues, hidePointedOrPointing, rounds]);
+  }, [issues, hidePointedOrPointing, rounds, searchText]);
 
   const issuesBySprint = useMemo(() => buildJiraBrowseIssuesBySprint(browseIssues), [browseIssues]);
 

@@ -236,8 +236,15 @@ Deno.serve(async (req) => {
       jqlParts.push(`${storyPointsJqlField} = ${pointsFilter}`);
     }
     if (searchText) {
-      const st = escapeJqlString(String(searchText));
-      jqlParts.push(`(summary ~ "${st}" OR key ~ "${st}")`);
+      const raw = String(searchText).trim();
+      const st = escapeJqlString(raw);
+      const exactKey = issueKeyFromSearchText(raw);
+      // `~` is for text fields; issue keys need `issuekey =` or Jira returns no rows for key-style searches.
+      if (exactKey) {
+        jqlParts.push(`(summary ~ "${st}" OR issuekey = "${escapeJqlString(exactKey)}")`);
+      } else {
+        jqlParts.push(`summary ~ "${st}"`);
+      }
     }
 
     if (resolvedBoardId == null && projectKeyForJql) {
