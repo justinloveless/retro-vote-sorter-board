@@ -109,11 +109,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { teamId, searchText, statusFilter, pointsFilter, includeKeys, keysOnly } = await req.json();
+    const { teamId, searchText, statusFilter, pointsFilter, includeKeys, keysOnly, sprintScopeFilter } =
+      await req.json();
 
     if (!teamId) {
       throw new Error('Missing required parameter: teamId');
     }
+
+    const sprintScope =
+      sprintScopeFilter === 'open-backlog' || sprintScopeFilter === 'all'
+        ? sprintScopeFilter
+        : 'board-open-backlog';
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -222,7 +228,9 @@ Deno.serve(async (req) => {
       jqlParts.push(`project = "${escapeJqlString(projectKeyForJql)}"`);
     }
     jqlParts.push('issuetype NOT IN (Epic, subtaskIssueTypes())');
-    jqlParts.push('(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)');
+    if (sprintScope !== 'all') {
+      jqlParts.push('(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)');
+    }
     if (statusFilter === 'all') {
       // no status
     } else if (statusFilter) {
@@ -294,7 +302,7 @@ Deno.serve(async (req) => {
             if (s?.name) sprintIdToName.set(s.id, s.name);
             if (typeof s?.startDate === 'string' && s.startDate) sprintIdToStartDate.set(s.id, s.startDate);
           }
-          if (openSprints.length > 0) {
+          if (sprintScope === 'board-open-backlog' && openSprints.length > 0) {
             // deno-lint-ignore no-explicit-any
             sprintJql = `(sprint in (${openSprints.map((s: any) => s.id).join(', ')}) OR sprint is EMPTY)`;
           }

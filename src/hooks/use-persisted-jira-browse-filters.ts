@@ -6,18 +6,22 @@ const DEFAULTS = {
   searchText: '',
   statusFilter: 'not-done',
   pointsFilter: 'unestimated',
+  /** Matches get-jira-board-issues sprintScopeFilter */
+  sprintScopeFilter: 'board-open-backlog' as const,
   showFilters: false,
   hidePointedOrPointing: true,
 } as const;
 
-/** Must match STATUS_OPTIONS / POINTS_OPTIONS / hidePointedOrPointing in EmbeddedTicketQueue & TicketQueuePanel */
+/** Must match STATUS_OPTIONS / POINTS_OPTIONS / SPRINT_SCOPE_OPTIONS / hidePointedOrPointing in EmbeddedTicketQueue & TicketQueuePanel */
 const ALLOWED_STATUS = new Set<string>(['not-done', 'all', 'To Do', 'In Progress', 'Done']);
 const ALLOWED_POINTS = new Set<string>(['any', 'unestimated', '1', '2', '3', '5', '8', '13', '21']);
+const ALLOWED_SPRINT_SCOPE = new Set<string>(['board-open-backlog', 'open-backlog', 'all']);
 
 type FiltersState = {
   searchText: string;
   statusFilter: string;
   pointsFilter: string;
+  sprintScopeFilter: string;
   showFilters: boolean;
   hidePointedOrPointing: boolean;
 };
@@ -37,12 +41,16 @@ function readFilters(teamId: string): FiltersState {
       typeof parsed.pointsFilter === 'string' && ALLOWED_POINTS.has(parsed.pointsFilter)
         ? parsed.pointsFilter
         : DEFAULTS.pointsFilter;
+    const sprintScopeFilter =
+      typeof parsed.sprintScopeFilter === 'string' && ALLOWED_SPRINT_SCOPE.has(parsed.sprintScopeFilter)
+        ? parsed.sprintScopeFilter
+        : DEFAULTS.sprintScopeFilter;
     const showFilters = typeof parsed.showFilters === 'boolean' ? parsed.showFilters : DEFAULTS.showFilters;
     const hidePointedOrPointing =
       typeof parsed.hidePointedOrPointing === 'boolean'
         ? parsed.hidePointedOrPointing
         : DEFAULTS.hidePointedOrPointing;
-    return { searchText, statusFilter, pointsFilter, showFilters, hidePointedOrPointing };
+    return { searchText, statusFilter, pointsFilter, sprintScopeFilter, showFilters, hidePointedOrPointing };
   } catch {
     return { ...DEFAULTS };
   }
@@ -74,6 +82,13 @@ export function usePersistedJiraBrowseFilters(teamId: string | undefined) {
     setFilters((prev) => ({ ...prev, pointsFilter: typeof v === 'function' ? v(prev.pointsFilter) : v }));
   }, []);
 
+  const setSprintScopeFilter = useCallback((v: SetStateAction<string>) => {
+    setFilters((prev) => ({
+      ...prev,
+      sprintScopeFilter: typeof v === 'function' ? v(prev.sprintScopeFilter) : v,
+    }));
+  }, []);
+
   const setShowFilters = useCallback((v: SetStateAction<boolean>) => {
     setFilters((prev) => ({ ...prev, showFilters: typeof v === 'function' ? v(prev.showFilters) : v }));
   }, []);
@@ -92,6 +107,8 @@ export function usePersistedJiraBrowseFilters(teamId: string | undefined) {
     setStatusFilter,
     pointsFilter: filters.pointsFilter,
     setPointsFilter,
+    sprintScopeFilter: filters.sprintScopeFilter,
+    setSprintScopeFilter,
     showFilters: filters.showFilters,
     setShowFilters,
     hidePointedOrPointing: filters.hidePointedOrPointing,
