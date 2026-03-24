@@ -86,6 +86,12 @@ const POINTS_OPTIONS = [
   { value: '21', label: '21 pts' },
 ];
 
+const SPRINT_SCOPE_OPTIONS = [
+  { value: 'board-open-backlog', label: 'Board sprints + backlog' },
+  { value: 'open-backlog', label: 'Any open sprint + backlog' },
+  { value: 'all', label: 'All sprints (incl. closed)' },
+];
+
 function SprintBucket({
   name,
   count,
@@ -165,6 +171,8 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     setStatusFilter,
     pointsFilter,
     setPointsFilter,
+    sprintScopeFilter,
+    setSprintScopeFilter,
     showFilters,
     setShowFilters,
     hidePointedOrPointing,
@@ -203,9 +211,10 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   }, [drawerWidth]);
 
   const browseIssues = useMemo(() => {
-    if (!hidePointedOrPointing) return issues;
+    const searching = !!searchText.trim();
+    if (searching || !hidePointedOrPointing) return issues;
     return issues.filter((i) => getJiraBrowseDisabledReason(i.key, rounds) === null);
-  }, [issues, hidePointedOrPointing, rounds]);
+  }, [issues, hidePointedOrPointing, rounds, searchText]);
 
   const issuesBySprint = useMemo(() => buildJiraBrowseIssuesBySprint(browseIssues), [browseIssues]);
 
@@ -236,6 +245,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
           searchText: searchText || undefined,
           statusFilter: apiStatusFilter,
           pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
+          sprintScopeFilter,
           includeKeys,
         },
       });
@@ -248,13 +258,13 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, searchText, statusFilter, pointsFilter]);
+  }, [teamId, searchText, statusFilter, pointsFilter, sprintScopeFilter]);
 
   useEffect(() => {
     if (isOpen && teamId && isJiraConfigured) {
       fetchAllIssues();
     }
-  }, [isOpen, teamId, isJiraConfigured, statusFilter, pointsFilter, fetchAllIssues]);
+  }, [isOpen, teamId, isJiraConfigured, statusFilter, pointsFilter, sprintScopeFilter, fetchAllIssues]);
 
   const handleAddManualTicket = async () => {
     const key = manualTicketKey.trim();
@@ -441,6 +451,18 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
                 </SelectContent>
               </Select>
             </div>
+            <Select value={sprintScopeFilter} onValueChange={setSprintScopeFilter}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Sprint scope" />
+              </SelectTrigger>
+              <SelectContent>
+                {SPRINT_SCOPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-sm">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="ticket-queue-jira-hide-pointed"

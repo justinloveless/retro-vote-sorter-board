@@ -13,6 +13,33 @@ function escapeJqlString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+/** If the user typed a bare issue key, fetch it by key — board JQL sprint/issuetype filters often hide those issues. */
+function issueKeyFromSearchText(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  const m = t.match(/^([A-Za-z][A-Za-z0-9_]*)-(\d+)$/);
+  if (!m) return null;
+  return `${m[1].toUpperCase()}-${m[2]}`;
+}
+
+/** Project key from board config — needed when team stores numeric Agile board id (invalid in `project = "…"` JQL). */
+async function fetchJiraBoardLocationProjectKey(
+  baseUrl: string,
+  authHeaders: Record<string, string>,
+  boardId: number,
+): Promise<string | undefined> {
+  try {
+    const res = await fetch(`${baseUrl}/rest/agile/1.0/board/${boardId}`, { headers: authHeaders });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const loc = data?.location as { projectKey?: string; key?: string } | undefined;
+    const pk = loc?.projectKey || loc?.key;
+    return typeof pk === 'string' && pk.trim() ? pk.trim() : undefined;
+  } catch (_) {
+    return undefined;
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 function mapIssueToBrowseRow(issue: any, getSprintMeta: ReturnType<typeof createGetSprintMeta>, storyPointsFieldId: string | null) {
   const fields = issue.fields as Record<string, unknown>;
@@ -82,11 +109,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { teamId, searchText, statusFilter, pointsFilter, includeKeys, keysOnly } = await req.json();
+    const { teamId, searchText, statusFilter, pointsFilter, includeKeys, keysOnly, sprintScopeFilter } =
+      await req.json();
 
     if (!teamId) {
       throw new Error('Missing required parameter: teamId');
     }
+
+    const sprintScope =
+      sprintScopeFilter === 'open-backlog' || sprintScopeFilter === 'all'
+        ? sprintScopeFilter
+        : 'board-open-backlog';
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -114,7 +147,11 @@ Deno.serve(async (req) => {
     const auth = btoa(`${jira_email}:${jira_api_key}`);
     const authHeaders = { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' };
     const baseUrl = jira_domain.replace(/\/$/, '');
-    const projectKey = jira_board_id || jira_ticket_prefix;
+    const trimmedBoardSetting = (jira_board_id || '').trim();
+    const trimmedTicketPrefix = (jira_ticket_prefix || '').trim();
+    const boardIdNum = parseInt(trimmedBoardSetting, 10);
+    const isNumericBoardId =
+      trimmedBoardSetting !== '' && !isNaN(boardIdNum) && String(boardIdNum) === trimmedBoardSetting;
 
     let sprintFieldId: string | null = null;
     let storyPointsFieldId: string | null = null;
@@ -176,10 +213,24 @@ Deno.serve(async (req) => {
 
     const storyPointsJqlField = `"${escapeJqlString(DEFAULT_STORY_POINTS_JQL_FIELD_NAME)}"`;
 
+    /** Jira `project` JQL must use a project key, not a numeric Agile board id (teams often store board id in jira_board_id). */
+    let resolvedBoardId: number | undefined = isNumericBoardId ? boardIdNum : undefined;
+    let projectKeyForJql: string | undefined;
+    if (isNumericBoardId) {
+      projectKeyForJql =
+        (await fetchJiraBoardLocationProjectKey(baseUrl, authHeaders, boardIdNum)) || trimmedTicketPrefix || undefined;
+    } else {
+      projectKeyForJql = trimmedBoardSetting || trimmedTicketPrefix || undefined;
+    }
+
     const jqlParts: string[] = [];
-    if (projectKey) jqlParts.push(`project = "${projectKey}"`);
+    if (projectKeyForJql) {
+      jqlParts.push(`project = "${escapeJqlString(projectKeyForJql)}"`);
+    }
     jqlParts.push('issuetype NOT IN (Epic, subtaskIssueTypes())');
-    jqlParts.push('(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)');
+    if (sprintScope !== 'all') {
+      jqlParts.push('(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)');
+    }
     if (statusFilter === 'all') {
       // no status
     } else if (statusFilter) {
@@ -192,16 +243,24 @@ Deno.serve(async (req) => {
     } else if (pointsFilter && /^\d+(?:\.\d+)?$/.test(pointsFilter)) {
       jqlParts.push(`${storyPointsJqlField} = ${pointsFilter}`);
     }
-    if (searchText) jqlParts.push(`(summary ~ "${searchText}" OR key ~ "${searchText}")`);
+    if (searchText) {
+      const raw = String(searchText).trim();
+      const st = escapeJqlString(raw);
+      const exactKey = issueKeyFromSearchText(raw);
+      // `~` is for text fields; issue keys need `issuekey =` or Jira returns no rows for key-style searches.
+      if (exactKey) {
+        jqlParts.push(`(summary ~ "${st}" OR issuekey = "${escapeJqlString(exactKey)}")`);
+      } else {
+        jqlParts.push(`summary ~ "${st}"`);
+      }
+    }
 
-    const boardIdNum = parseInt(jira_board_id || '', 10);
-    const isNumericBoardId = !isNaN(boardIdNum) && String(boardIdNum) === (jira_board_id || '').trim();
-    let resolvedBoardId: number | undefined;
-    if (isNumericBoardId) {
-      resolvedBoardId = boardIdNum;
-    } else if (projectKey) {
+    if (resolvedBoardId == null && projectKeyForJql) {
       try {
-        const boardsRes = await fetch(`${baseUrl}/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(projectKey)}&maxResults=100`, { headers: authHeaders });
+        const boardsRes = await fetch(
+          `${baseUrl}/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(projectKeyForJql)}&maxResults=100`,
+          { headers: authHeaders },
+        );
         if (boardsRes.ok) {
           const boardsData = await boardsRes.json();
           const boards = boardsData?.values || [];
@@ -214,7 +273,7 @@ Deno.serve(async (req) => {
           if (allRes.ok) {
             const allData = await allRes.json();
             const boards = allData?.values || [];
-            const pkUpper = projectKey.toUpperCase();
+            const pkUpper = projectKeyForJql.toUpperCase();
             const match = boards.find((b: { location?: { projectKey?: string; key?: string } }) => {
               const pk = b?.location?.projectKey || b?.location?.key;
               return pk && pk.toUpperCase() === pkUpper;
@@ -243,7 +302,7 @@ Deno.serve(async (req) => {
             if (s?.name) sprintIdToName.set(s.id, s.name);
             if (typeof s?.startDate === 'string' && s.startDate) sprintIdToStartDate.set(s.id, s.startDate);
           }
-          if (openSprints.length > 0) {
+          if (sprintScope === 'board-open-backlog' && openSprints.length > 0) {
             // deno-lint-ignore no-explicit-any
             sprintJql = `(sprint in (${openSprints.map((s: any) => s.id).join(', ')}) OR sprint is EMPTY)`;
           }
@@ -290,6 +349,22 @@ Deno.serve(async (req) => {
       }
       if (batch.length === 0 || !data.nextPageToken) break;
       nextPageToken = data.nextPageToken;
+    }
+
+    const searchIssueKey = issueKeyFromSearchText(searchText);
+    const keyMatchesConfiguredProject =
+      !projectKeyForJql ||
+      searchIssueKey == null ||
+      searchIssueKey.toUpperCase().startsWith(`${projectKeyForJql.toUpperCase()}-`);
+    if (searchIssueKey && keyMatchesConfiguredProject && !seenKeys.has(searchIssueKey)) {
+      const byKey = await fetchIssuesByKeyChunks(baseUrl, authHeaders, fieldsParam, [searchIssueKey]);
+      for (const i of byKey) {
+        const k = i?.key as string | undefined;
+        if (k && !seenKeys.has(k)) {
+          seenKeys.add(k);
+          allIssues.push(i);
+        }
+      }
     }
 
     if (Array.isArray(includeKeys) && includeKeys.length > 0) {
