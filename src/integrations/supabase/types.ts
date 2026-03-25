@@ -318,6 +318,90 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flag_team_overrides: {
+        Row: {
+          created_at: string
+          flag_name: string
+          id: string
+          state: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          flag_name: string
+          id?: string
+          state: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          flag_name?: string
+          id?: string
+          state?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_team_overrides_flag_name_fkey"
+            columns: ["flag_name"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["flag_name"]
+          },
+          {
+            foreignKeyName: "feature_flag_team_overrides_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flag_user_overrides: {
+        Row: {
+          created_at: string
+          flag_name: string
+          id: string
+          state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          flag_name: string
+          id?: string
+          state: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          flag_name?: string
+          id?: string
+          state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_user_overrides_flag_name_fkey"
+            columns: ["flag_name"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["flag_name"]
+          },
+          {
+            foreignKeyName: "feature_flag_user_overrides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_reports: {
         Row: {
           created_at: string

@@ -74,6 +74,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const showOrganizationSelector =
         flagsLoading || isFeatureEnabled(FEATURE_ORGANIZATION_SELECTOR_ENABLED);
     const isOrgAdminOrOwner = selectedOrgRole === 'owner' || selectedOrgRole === 'admin';
+    const isInAdminSection = location.pathname.startsWith('/admin');
 
     const renderOrgSelector = () => {
         if (!user || !hasOrgs || !showOrganizationSelector) return null;
@@ -169,7 +170,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
 
             {user ? (
                 <>
-                    {profile?.role === 'admin' && location.pathname !== '/admin' && (
+                    {profile?.role === 'admin' && !isInAdminSection && (
                         <Button variant="outline" onClick={() => navigate('/admin')} className="justify-start">
                             <Shield className="h-4 w-4 mr-2" />
                             Admin
@@ -240,7 +241,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                         </Tooltip>
                     </TooltipProvider>
 
-                    {profile?.role === 'admin' && location.pathname !== '/admin' && (
+                    {profile?.role === 'admin' && !isInAdminSection && (
                         <Button variant="outline" onClick={() => navigate('/admin')}>
                             <Shield className="h-4 w-4 mr-2" />
                             Admin

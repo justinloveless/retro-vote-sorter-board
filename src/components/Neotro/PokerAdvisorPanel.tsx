@@ -34,11 +34,11 @@ function useRelativeTimeTick(active: boolean) {
 export const PokerAdvisorPanel: React.FC = () => {
   const { flags, isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
   const globalFlagOn = flags[FEATURE_POKER_LOCAL_ADVISOR] === true;
-  const featureResolved = !flagsLoading && isFeatureEnabled(FEATURE_POKER_LOCAL_ADVISOR);
-  const tierBlocks = !flagsLoading && globalFlagOn && !featureResolved;
 
   const { profile } = useAuth();
   const { displaySession, effectiveCurrentRound, teamId } = usePokerTable();
+  const featureResolved = !flagsLoading && isFeatureEnabled(FEATURE_POKER_LOCAL_ADVISOR, { teamId });
+  const tierBlocks = !flagsLoading && globalFlagOn && !featureResolved;
   const { paused, setPaused } = usePokerAdvisorPause();
 
   const [collapsed, setCollapsed] = useState(() => {
