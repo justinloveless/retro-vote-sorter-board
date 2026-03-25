@@ -50,7 +50,7 @@ const AdminPage: React.FC = () => {
                             <CardDescription>{section.description}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Button asChild>
+                            <Button asChild className="w-full sm:w-auto">
                                 <Link to={section.to}>Open {section.title}</Link>
                             </Button>
                         </CardContent>
@@ -62,9 +62,9 @@ const AdminPage: React.FC = () => {
                     <CardTitle>Quick Access</CardTitle>
                     <CardDescription>Use direct links for repeated admin workflows.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
+                <CardContent className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     {ADMIN_SECTIONS.map((section) => (
-                        <Button key={`quick-${section.to}`} variant="outline" asChild>
+                        <Button key={`quick-${section.to}`} variant="outline" asChild className="w-full sm:w-auto">
                             <Link to={section.to}>{section.title}</Link>
                         </Button>
                     ))}

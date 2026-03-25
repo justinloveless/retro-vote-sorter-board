@@ -72,14 +72,14 @@ export const AdminManageTeamMembers: React.FC = () => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Find Team</Label>
-          <div className="flex gap-2">
-            <Input value={teamQuery} onChange={(e) => setTeamQuery(e.target.value)} placeholder="Search by team name" />
-            <Button onClick={loadTeams}>Search</Button>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <Input className="min-w-0 flex-1" value={teamQuery} onChange={(e) => setTeamQuery(e.target.value)} placeholder="Search by team name" />
+            <Button className="w-full shrink-0 sm:w-auto" onClick={loadTeams}>Search</Button>
           </div>
-          <div className="flex gap-2 items-center">
-            <Label className="min-w-[80px]">Team</Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Label className="sm:min-w-[80px]">Team</Label>
             <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Select a team" />
               </SelectTrigger>
               <SelectContent>
@@ -93,15 +93,15 @@ export const AdminManageTeamMembers: React.FC = () => {
 
         {selectedTeamId && (
           <div className="space-y-3">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1 space-y-2">
                 <Label>User (email or user id)</Label>
                 <Input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="alice@example.com or UUID" />
               </div>
-              <div className="w-40 space-y-2">
+              <div className="w-full space-y-2 sm:w-40 sm:shrink-0">
                 <Label>Role</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as any)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -110,19 +110,19 @@ export const AdminManageTeamMembers: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={addMember} disabled={loading || !userInput.trim()}>Add</Button>
+              <Button className="w-full sm:w-auto" onClick={addMember} disabled={loading || !userInput.trim()}>Add</Button>
             </div>
 
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">Members</div>
               <div className="space-y-2 max-h-80 overflow-auto">
                 {members.map(m => (
-                  <div key={m.id} className="flex items-center justify-between rounded border p-2">
-                    <div className="text-sm">
+                  <div key={m.id} className="flex flex-col gap-2 rounded border p-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 text-sm">
                       <div className="font-medium">{m.full_name || '(no name)'} <span className="text-xs text-muted-foreground">({m.role})</span></div>
-                      <div className="text-xs text-muted-foreground">{m.email || m.user_id}</div>
+                      <div className="break-all text-xs text-muted-foreground">{m.email || m.user_id}</div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => removeMember(m)} disabled={loading}>Remove</Button>
+                    <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => removeMember(m)} disabled={loading}>Remove</Button>
                   </div>
                 ))}
                 {members.length === 0 && <div className="text-sm text-muted-foreground">No members</div>}

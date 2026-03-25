@@ -142,9 +142,9 @@ export const TierLimitsManager: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs value={activeTier} onValueChange={(value) => setActiveTier(value as keyof AllTierLimits)}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
             {(['free', 'pro', 'business', 'enterprise'] as const).map((tier) => (
-              <TabsTrigger key={tier} value={tier}>
+              <TabsTrigger key={tier} value={tier} className="text-xs sm:text-sm">
                 {TIER_LABELS[tier]}
               </TabsTrigger>
             ))}
@@ -160,7 +160,7 @@ export const TierLimitsManager: React.FC = () => {
                 <Icon className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-foreground">{TIER_LABELS[activeTier]}</h3>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs">Max Teams</Label>
                   <Input

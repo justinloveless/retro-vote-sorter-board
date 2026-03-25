@@ -61,18 +61,18 @@ export const ImpersonateUser: React.FC = () => {
       <CardContent>
         <div className="space-y-4">
           {isImpersonating && (
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+            <div className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={(profile as any)?.avatar_url || ''} />
                   <AvatarFallback>{((profile as any)?.full_name || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-medium">Currently impersonating</div>
-                  <div className="text-xs text-muted-foreground">{(profile as any)?.full_name || (profile as any)?.id}</div>
+                  <div className="break-words text-xs text-muted-foreground">{(profile as any)?.full_name || (profile as any)?.id}</div>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={stopImpersonating}>
+              <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={stopImpersonating}>
                 <X className="h-4 w-4 mr-2" /> Stop
               </Button>
             </div>
@@ -91,27 +91,25 @@ export const ImpersonateUser: React.FC = () => {
             <div className="space-y-2 max-h-64 overflow-auto">
               {results.map((r) => (
                 <div key={r.id} className="rounded border p-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-8 w-8">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <Avatar className="h-8 w-8 shrink-0">
                         <AvatarImage src={r.avatar_url || ''} />
                         <AvatarFallback>{(r.full_name || r.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-sm font-medium">{r.full_name || '(no name)'} {r.role ? <span className="text-xs text-muted-foreground">({r.role})</span> : null}</div>
-                        <div className="text-xs text-muted-foreground">{r.email || 'no email'}</div>
-                        <div className="text-[10px] text-muted-foreground">{r.id}</div>
+                        <div className="break-all text-xs text-muted-foreground">{r.email || 'no email'}</div>
+                        <div className="break-all text-[10px] text-muted-foreground">{r.id}</div>
                         {r.teams?.length ? (
-                          <div className="mt-1 text-xs">
+                          <div className="mt-1 break-words text-xs">
                             <span className="text-muted-foreground">Teams: </span>
                             {r.teams.map(t => t.name).join(', ')}
                           </div>
                         ) : null}
                       </div>
                     </div>
-                    <div>
-                      <Button size="sm" onClick={() => handleImpersonate(r.id)}>Impersonate</Button>
-                    </div>
+                    <Button size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => handleImpersonate(r.id)}>Impersonate</Button>
                   </div>
                 </div>
               ))}

@@ -82,10 +82,10 @@ export const AdminSubscriptionManager: React.FC = () => {
       </CardHeader>
       <CardContent>
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="users"><Search className="h-4 w-4 mr-1" />Users</TabsTrigger>
-            <TabsTrigger value="subscribers"><Users className="h-4 w-4 mr-1" />Subscribers</TabsTrigger>
-            <TabsTrigger value="promos"><Tag className="h-4 w-4 mr-1" />Promos</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 sm:grid-cols-3">
+            <TabsTrigger value="users" className="justify-center"><Search className="h-4 w-4 shrink-0 sm:mr-1" /><span>Users</span></TabsTrigger>
+            <TabsTrigger value="subscribers" className="justify-center"><Users className="h-4 w-4 shrink-0 sm:mr-1" /><span>Subscribers</span></TabsTrigger>
+            <TabsTrigger value="promos" className="justify-center"><Tag className="h-4 w-4 shrink-0 sm:mr-1" /><span>Promos</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-4"><UserSearchTab /></TabsContent>
@@ -119,14 +119,15 @@ const UserSearchTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <Input
+          className="min-w-0 flex-1"
           placeholder="Search by email..."
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
         />
-        <Button onClick={searchUsers} disabled={loading} size="sm">
+        <Button onClick={searchUsers} disabled={loading} size="sm" className="w-full shrink-0 sm:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </div>
@@ -225,14 +226,14 @@ const UserSubscriptionPanel: React.FC<{ user: { id: string; email: string }; onC
 
   return (
     <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
-      <div className="flex items-center justify-between">
-        <h4 className="font-medium text-sm">{user.email}</h4>
-        <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="min-w-0 break-words font-medium text-sm">{user.email}</h4>
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={onClose}><X className="h-4 w-4" /></Button>
       </div>
 
       {sub ? (
         <>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <div>
               <span className="text-muted-foreground">Plan:</span>{' '}
               <Badge variant="secondary">{PRICE_TO_PLAN[sub.price_id] || sub.price_id}</Badge>
@@ -243,13 +244,13 @@ const UserSubscriptionPanel: React.FC<{ user: { id: string; email: string }; onC
                 {sub.cancel_at_period_end ? 'Canceling' : sub.status}
               </Badge>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <span className="text-muted-foreground">Period ends:</span>{' '}
               {new Date(sub.current_period_end * 1000).toLocaleDateString()}
             </div>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button size="sm" variant="outline" onClick={() => setChangePlanOpen(true)}>Change Plan</Button>
             <Button size="sm" variant="destructive" onClick={() => setCancelOpen(true)}>Cancel</Button>
             {customerId && <Button size="sm" variant="outline" onClick={() => setApplyCouponOpen(true)}>Apply Coupon</Button>}
@@ -289,11 +290,11 @@ const UserSubscriptionPanel: React.FC<{ user: { id: string; email: string }; onC
             <DialogTitle>Cancel Subscription</DialogTitle>
             <DialogDescription>Choose how to cancel for {user.email}</DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" disabled={actionLoading} onClick={() => handleCancel(false)}>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:flex-1" disabled={actionLoading} onClick={() => handleCancel(false)}>
               Cancel at Period End
             </Button>
-            <Button variant="destructive" className="flex-1" disabled={actionLoading} onClick={() => handleCancel(true)}>
+            <Button variant="destructive" className="w-full sm:flex-1" disabled={actionLoading} onClick={() => handleCancel(true)}>
               Cancel Immediately
             </Button>
           </div>
@@ -380,14 +381,14 @@ const SubscribersTab: React.FC = () => {
       ) : (
         <div className="border rounded-md divide-y max-h-80 overflow-y-auto">
           {subscribers.map(s => (
-            <div key={s.subscription_id} className="px-3 py-2 text-sm flex items-center justify-between">
-              <div>
-                <span className="font-medium">{s.email}</span>
-                <span className="ml-2">
+            <div key={s.subscription_id} className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <span className="break-words font-medium">{s.email}</span>
+                <span className="ml-2 inline-block align-middle">
                   <Badge variant="secondary" className="text-xs">{PRICE_TO_PLAN[s.price_id] || 'Unknown'}</Badge>
                 </span>
               </div>
-              <div className="text-muted-foreground text-xs">
+              <div className="shrink-0 text-xs text-muted-foreground">
                 {s.cancel_at_period_end ? 'Canceling' : `Renews ${new Date(s.current_period_end * 1000).toLocaleDateString()}`}
               </div>
             </div>
@@ -444,19 +445,19 @@ const PromosTab: React.FC = () => {
           {coupons.map(c => {
             const promoCode = promoCodes.find(p => p.coupon.id === c.id);
             return (
-              <div key={c.id} className="px-3 py-2 text-sm flex items-center justify-between">
-                <div>
+              <div key={c.id} className="flex flex-col gap-2 px-3 py-2 text-sm sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="font-medium">{c.name || c.id}</span>
-                  <Badge variant="secondary" className="ml-2 text-xs">
+                  <Badge variant="secondary" className="text-xs">
                     {c.percent_off ? `${c.percent_off}% off` : c.amount_off ? `$${(c.amount_off / 100).toFixed(0)} off` : ''}
                   </Badge>
-                  <span className="text-muted-foreground ml-2 text-xs">{c.duration}{c.duration_in_months ? ` (${c.duration_in_months}mo)` : ''}</span>
+                  <span className="text-xs text-muted-foreground">{c.duration}{c.duration_in_months ? ` (${c.duration_in_months}mo)` : ''}</span>
                   {promoCode && (
-                    <Badge variant="outline" className="ml-2 text-xs font-mono">{promoCode.code}</Badge>
+                    <Badge variant="outline" className="max-w-full break-all text-xs font-mono">{promoCode.code}</Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs">{c.times_redeemed} used</span>
+                <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                  <span className="text-xs text-muted-foreground">{c.times_redeemed} used</span>
                   <Button size="icon" variant="ghost" onClick={() => deleteCoupon(c.id)} className="h-7 w-7">
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
@@ -521,7 +522,7 @@ const CreateCouponDialog: React.FC<{ open: boolean; onOpenChange: (o: boolean) =
 
           <div>
             <Label>Discount Type</Label>
-            <RadioGroup value={discountType} onValueChange={(v: any) => setDiscountType(v)} className="flex gap-4 mt-1">
+            <RadioGroup value={discountType} onValueChange={(v: any) => setDiscountType(v)} className="mt-1 flex flex-col gap-3 sm:flex-row sm:gap-4">
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="percent" id="pct" />
                 <Label htmlFor="pct">Percentage</Label>
