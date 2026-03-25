@@ -23,6 +23,12 @@ import Billing from "./pages/Billing";
 import Notifications from "./pages/Notifications";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
+import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
+import AdminFeatureFlagsPage from "./pages/admin/AdminFeatureFlagsPage";
+import AdminTierLimitsPage from "./pages/admin/AdminTierLimitsPage";
+import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
+import AdminUsersTeamsPage from "./pages/admin/AdminUsersTeamsPage";
+import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import OrgDashboard from "./pages/OrgDashboard";
 import OrgAdmin from "./pages/OrgAdmin";
 import OrgInviteAccept from "./pages/OrgInviteAccept";
@@ -35,18 +41,18 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <ThemeProvider>
-      <BackgroundProvider>
-        <FeatureFlagProvider>
-          <OrgSelectorProvider>
-          <TeamDataProvider>
-            <TooltipProvider>
-              <AudioPlayerProvider>
-              <GlobalBackground />
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <ThemeProvider>
+        <BackgroundProvider>
+          <FeatureFlagProvider>
+            <OrgSelectorProvider>
+            <TeamDataProvider>
+              <TooltipProvider>
+                <AudioPlayerProvider>
+                <GlobalBackground />
+                <Toaster />
+                <Sonner />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/retro/:roomId" element={<Retro />} />
@@ -70,19 +76,25 @@ const App = () => (
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminLayout />}>
                     <Route index element={<AdminPage />} />
+                    <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+                    <Route path="feature-flags" element={<AdminFeatureFlagsPage />} />
+                    <Route path="tier-limits" element={<AdminTierLimitsPage />} />
+                    <Route path="notifications" element={<AdminNotificationsPage />} />
+                    <Route path="users-teams" element={<AdminUsersTeamsPage />} />
+                    <Route path="integrations" element={<AdminIntegrationsPage />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </BrowserRouter>
-              </AudioPlayerProvider>
-            </TooltipProvider>
-          </TeamDataProvider>
-          </OrgSelectorProvider>
-        </FeatureFlagProvider>
-      </BackgroundProvider>
-    </ThemeProvider>
-    </AuthProvider>
+                </AudioPlayerProvider>
+              </TooltipProvider>
+            </TeamDataProvider>
+            </OrgSelectorProvider>
+          </FeatureFlagProvider>
+        </BackgroundProvider>
+      </ThemeProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Zap, Crown, Building2, Sparkles } from 'lucide-react';
@@ -42,6 +43,7 @@ const TIER_LABELS = { free: 'Free', pro: 'Pro', business: 'Business', enterprise
 export const TierLimitsManager: React.FC = () => {
   const [limits, setLimits] = useState<AllTierLimits>(DEFAULT_LIMITS);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [activeTier, setActiveTier] = useState<keyof AllTierLimits>('free');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -139,15 +141,24 @@ export const TierLimitsManager: React.FC = () => {
         <CardDescription>Configure features, limits, and feature flag access for each subscription tier. Use blank or 0 for unlimited.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {(['free', 'pro', 'business', 'enterprise'] as const).map((tier) => {
-          const Icon = TIER_ICONS[tier];
-          const config = limits[tier] || DEFAULT_LIMITS[tier];
+        <Tabs value={activeTier} onValueChange={(value) => setActiveTier(value as keyof AllTierLimits)}>
+          <TabsList className="grid w-full grid-cols-4">
+            {(['free', 'pro', 'business', 'enterprise'] as const).map((tier) => (
+              <TabsTrigger key={tier} value={tier}>
+                {TIER_LABELS[tier]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {(() => {
+          const Icon = TIER_ICONS[activeTier];
+          const config = limits[activeTier] || DEFAULT_LIMITS[activeTier];
           const tierFlags = config.featureFlags || {};
           return (
-            <div key={tier} className="border rounded-lg p-4 space-y-4">
+            <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2">
                 <Icon className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">{TIER_LABELS[tier]}</h3>
+                <h3 className="font-semibold text-foreground">{TIER_LABELS[activeTier]}</h3>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -156,7 +167,7 @@ export const TierLimitsManager: React.FC = () => {
                     type="number"
                     min="0"
                     value={config.maxTeams ?? ''}
-                    onChange={(e) => updateLimit(tier, 'maxTeams', e.target.value)}
+                    onChange={(e) => updateLimit(activeTier, 'maxTeams', e.target.value)}
                     placeholder="Unlimited"
                   />
                 </div>
@@ -166,7 +177,7 @@ export const TierLimitsManager: React.FC = () => {
                     type="number"
                     min="0"
                     value={config.maxMembersPerTeam ?? ''}
-                    onChange={(e) => updateLimit(tier, 'maxMembersPerTeam', e.target.value)}
+                    onChange={(e) => updateLimit(activeTier, 'maxMembersPerTeam', e.target.value)}
                     placeholder="Unlimited"
                   />
                 </div>
@@ -176,7 +187,7 @@ export const TierLimitsManager: React.FC = () => {
                     type="number"
                     min="0"
                     value={config.maxActiveBoards ?? ''}
-                    onChange={(e) => updateLimit(tier, 'maxActiveBoards', e.target.value)}
+                    onChange={(e) => updateLimit(activeTier, 'maxActiveBoards', e.target.value)}
                     placeholder="Unlimited"
                   />
                 </div>
@@ -192,7 +203,7 @@ export const TierLimitsManager: React.FC = () => {
                       >
                         <Checkbox
                           checked={tierFlags[flag.flag_name] ?? false}
-                          onCheckedChange={(checked) => toggleFeatureFlag(tier, flag.flag_name, !!checked)}
+                          onCheckedChange={(checked) => toggleFeatureFlag(activeTier, flag.flag_name, !!checked)}
                         />
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground">{flag.flag_name}</span>
@@ -208,12 +219,12 @@ export const TierLimitsManager: React.FC = () => {
                 <textarea
                   className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px]"
                   value={config.features.join('\n')}
-                  onChange={(e) => updateFeatures(tier, e.target.value)}
+                  onChange={(e) => updateFeatures(activeTier, e.target.value)}
                 />
               </div>
             </div>
           );
-        })}
+        })()}
         <Button onClick={handleSave} disabled={saving} className="w-full">
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
           Save Tier Configuration
