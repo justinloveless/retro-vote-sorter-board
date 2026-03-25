@@ -130,6 +130,48 @@ export type Database = {
           },
         ]
       }
+      consultation_requests: {
+        Row: {
+          attachments: Json
+          company: string
+          created_at: string
+          description: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          property_type: string
+          service_type: string
+          upload_token: string
+        }
+        Insert: {
+          attachments?: Json
+          company?: string
+          created_at?: string
+          description: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          property_type: string
+          service_type: string
+          upload_token?: string
+        }
+        Update: {
+          attachments?: Json
+          company?: string
+          created_at?: string
+          description?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          property_type?: string
+          service_type?: string
+          upload_token?: string
+        }
+        Relationships: []
+      }
       endorsement_settings: {
         Row: {
           created_at: string
@@ -1699,11 +1741,19 @@ export type Database = {
         Returns: Json
       }
       cleanup_stale_poker_sessions: { Args: never; Returns: undefined }
+      consultation_upload_path_allowed: {
+        Args: { p_object_name: string }
+        Returns: boolean
+      }
       create_columns_from_template: {
         Args: { board_id: string; template_id: string }
         Returns: undefined
       }
       create_default_columns: { Args: { board_id: string }; Returns: undefined }
+      finalize_consultation_attachments: {
+        Args: { p_attachments: Json; p_token: string }
+        Returns: undefined
+      }
       get_current_tenant_id: { Args: never; Returns: string }
       get_org_team_invite: { Args: { invite_code: string }; Returns: Json }
       get_readiness_summary: {
