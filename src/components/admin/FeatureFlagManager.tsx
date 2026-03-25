@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface FeatureFlag {
   flag_name: string;
@@ -75,6 +77,7 @@ export const FeatureFlagManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [updatingOverrides, setUpdatingOverrides] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const resolveOverrideLabels = async (nextUserOverrides: UserOverride[], nextTeamOverrides: TeamOverride[]) => {
     const uniqueUserIds = Array.from(new Set(nextUserOverrides.map((item) => item.user_id).filter(Boolean)));
@@ -402,47 +405,93 @@ export const FeatureFlagManager: React.FC = () => {
             <CardDescription>{filteredFlags.length} matching flags</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Flag</TableHead>
-                  <TableHead>Global</TableHead>
-                  <TableHead>User overrides</TableHead>
-                  <TableHead>Team overrides</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {isMobile ? (
+              <div className="space-y-2">
                 {filteredFlags.map((flag) => {
                   const counts = overrideCounts[flag.flag_name] || { user: 0, team: 0 };
                   const isSelected = selectedFlagName === flag.flag_name;
                   return (
-                    <TableRow
+                    <div
                       key={flag.flag_name}
-                      className={isSelected ? 'bg-muted/50' : undefined}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedFlagName(flag.flag_name)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedFlagName(flag.flag_name);
+                        }
+                      }}
+                      className={cn(
+                        'rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        isSelected ? 'border-primary bg-muted/50' : 'border-border'
+                      )}
                     >
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{flag.flag_name}</div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="break-words font-medium">{flag.flag_name}</div>
                           {flag.description && (
-                            <p className="text-xs text-muted-foreground">{flag.description}</p>
+                            <p className="break-words text-xs text-muted-foreground">{flag.description}</p>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={flag.is_enabled}
-                          onCheckedChange={(checked) => handleToggle(flag.flag_name, checked)}
-                          onClick={(event) => event.stopPropagation()}
-                        />
-                      </TableCell>
-                      <TableCell>{counts.user}</TableCell>
-                      <TableCell>{counts.team}</TableCell>
-                    </TableRow>
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                          <Switch
+                            checked={flag.is_enabled}
+                            onCheckedChange={(checked) => handleToggle(flag.flag_name, checked)}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span>User overrides: {counts.user}</span>
+                        <span>Team overrides: {counts.team}</span>
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Flag</TableHead>
+                    <TableHead>Global</TableHead>
+                    <TableHead>User overrides</TableHead>
+                    <TableHead>Team overrides</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredFlags.map((flag) => {
+                    const counts = overrideCounts[flag.flag_name] || { user: 0, team: 0 };
+                    const isSelected = selectedFlagName === flag.flag_name;
+                    return (
+                      <TableRow
+                        key={flag.flag_name}
+                        className={isSelected ? 'bg-muted/50' : undefined}
+                        onClick={() => setSelectedFlagName(flag.flag_name)}
+                      >
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{flag.flag_name}</div>
+                            {flag.description && (
+                              <p className="text-xs text-muted-foreground">{flag.description}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={flag.is_enabled}
+                            onCheckedChange={(checked) => handleToggle(flag.flag_name, checked)}
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </TableCell>
+                        <TableCell>{counts.user}</TableCell>
+                        <TableCell>{counts.team}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -582,15 +631,15 @@ export const FeatureFlagManager: React.FC = () => {
                       {selectedUserOverrides.map((override) => (
                         <div
                           key={override.id}
-                          className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+                          className="flex flex-col gap-2 rounded border px-2 py-2 text-xs sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span>
+                          <span className="min-w-0 break-words">
                             <span className="font-medium">
                               {userLabelById[override.user_id] || '(unknown user)'}
                             </span>
                             <span className="font-mono text-muted-foreground"> - {override.user_id}</span>
                           </span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-2">
                             <Badge variant={override.state === 'enabled' ? 'default' : 'secondary'}>
                               {override.state}
                             </Badge>
@@ -613,15 +662,15 @@ export const FeatureFlagManager: React.FC = () => {
                       {selectedTeamOverrides.map((override) => (
                         <div
                           key={override.id}
-                          className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+                          className="flex flex-col gap-2 rounded border px-2 py-2 text-xs sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span>
+                          <span className="min-w-0 break-words">
                             <span className="font-medium">
                               {teamNameById[override.team_id] || '(unknown team)'}
                             </span>
                             <span className="font-mono text-muted-foreground"> - {override.team_id}</span>
                           </span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-2">
                             <Badge variant={override.state === 'enabled' ? 'default' : 'secondary'}>
                               {override.state}
                             </Badge>
@@ -647,7 +696,7 @@ export const FeatureFlagManager: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-1">
             {userOverrides.slice(0, 8).map((override) => (
-              <div key={override.id} className="text-xs text-muted-foreground">
+              <div key={override.id} className="break-words text-xs text-muted-foreground">
                 <span className="font-medium">{override.flag_name}</span> - {userLabelById[override.user_id] || '(unknown user)'} ({override.user_id}) - {override.state}
               </div>
             ))}
@@ -660,7 +709,7 @@ export const FeatureFlagManager: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-1">
             {teamOverrides.slice(0, 8).map((override) => (
-              <div key={override.id} className="text-xs text-muted-foreground">
+              <div key={override.id} className="break-words text-xs text-muted-foreground">
                 <span className="font-medium">{override.flag_name}</span> - {teamNameById[override.team_id] || '(unknown team)'} ({override.team_id}) - {override.state}
               </div>
             ))}

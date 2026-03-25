@@ -4,7 +4,7 @@ import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
 
 const AdminFeatureFlagsPage: React.FC = () => {
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader>
         <CardTitle>Feature Flags</CardTitle>
         <CardDescription>
