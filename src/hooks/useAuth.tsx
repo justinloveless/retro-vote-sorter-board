@@ -11,6 +11,11 @@ export interface Profile {
   role: 'user' | 'admin' | null;
   theme_preference: string | null;
   background_preference: any | null;
+  poker_advisor_enabled?: boolean | null;
+  poker_advisor_base_url?: string | null;
+  poker_advisor_cli_preset?: string | null;
+  poker_advisor_data_sharing_acknowledged_at?: string | null;
+  poker_advisor_personal_prompt?: string | null;
 }
 
 interface AuthContextType {
@@ -25,6 +30,8 @@ interface AuthContextType {
   startImpersonating: (userId: string) => Promise<void>;
   stopImpersonating: () => void;
   refreshImpersonatedProfile: () => Promise<void>;
+  /** Re-fetch profile from DB (use after schema changes or when cache may be stale). */
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,17 +72,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(session?.user ?? null);
   const [loading, setLoading] = useState(!session);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    // Check if we already have this profile cached and it's the same user
-    if (profile && profile.id === userId) {
-      // We already have this user's profile loaded, no need to fetch again
-      return;
-    }
+  const PROFILE_SELECT =
+    'id, full_name, nickname, avatar_url, role, theme_preference, background_preference, poker_advisor_enabled, poker_advisor_base_url, poker_advisor_cli_preset, poker_advisor_data_sharing_acknowledged_at, poker_advisor_personal_prompt';
 
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data: profileData, error } = await supabase
         .from('profiles')
-        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
+        .select(PROFILE_SELECT)
         .eq('id', userId)
         .single();
 
@@ -89,7 +93,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('profile');
       setProfile(null);
     }
-  }, [profile]);
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const uid = impersonatedProfile?.id ?? user?.id;
+    if (!uid) return;
+    try {
+      const { data, error } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', uid).single();
+      if (error) throw error;
+      if (impersonatedProfile) {
+        localStorage.setItem('impersonated_profile', JSON.stringify(data));
+        setImpersonatedProfile(data);
+      } else {
+        localStorage.setItem('profile', JSON.stringify(data));
+        setProfile(data);
+      }
+    } catch {
+      // no-op
+    }
+  }, [user?.id, impersonatedProfile?.id]);
 
   useEffect(() => {
     const {
@@ -159,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
+        .select(PROFILE_SELECT)
         .eq('id', impersonatedProfile.id)
         .single();
       if (error) throw error;
@@ -176,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, nickname, avatar_url, role, theme_preference, background_preference')
+        .select(PROFILE_SELECT)
         .eq('id', userId)
         .single();
       if (error) throw error;
@@ -204,7 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startImpersonating,
     stopImpersonating,
     // Expose helper for components that want to refresh the impersonated profile
-    refreshImpersonatedProfile
+    refreshImpersonatedProfile,
+    refreshProfile,
   };
 
   return (
