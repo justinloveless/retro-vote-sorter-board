@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AuthForm } from '@/components/AuthForm';
 import { AppearanceSettings } from '@/components/account/AppearanceSettings';
+import { PokerAdvisorSettings } from '@/components/account/PokerAdvisorSettings';
 import { EndorsementsReceived } from '@/components/account/EndorsementsReceived';
 import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
@@ -410,6 +411,10 @@ const Account = () => {
 
         <div className="mt-6">
           <AppearanceSettings />
+        </div>
+
+        <div className="mt-6">
+          <PokerAdvisorSettings />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

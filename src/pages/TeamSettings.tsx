@@ -63,7 +63,8 @@ const TeamSettingsPage = () => {
           name: data.name || '',
           description: data.description || '',
           slack_bot_token: data.slack_bot_token || '',
-          slack_channel_id: data.slack_channel_id || ''
+          slack_channel_id: data.slack_channel_id || '',
+          poker_advisor_team_prompt: data.poker_advisor_team_prompt || '',
         });
         setJiraSettings({
           jira_domain: data.jira_domain || '',
@@ -105,6 +106,7 @@ const TeamSettingsPage = () => {
         description: teamSettings.description.trim() || null,
         slack_bot_token: teamSettings.slack_bot_token.trim() || null,
         slack_channel_id: teamSettings.slack_channel_id.trim() || null,
+        poker_advisor_team_prompt: teamSettings.poker_advisor_team_prompt.trim() || null,
         ...jiraSettings
       };
 

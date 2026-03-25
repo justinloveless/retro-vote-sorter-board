@@ -849,6 +849,11 @@ export type Database = {
           full_name: string | null
           id: string
           nickname: string | null
+          poker_advisor_base_url: string | null
+          poker_advisor_cli_preset: string | null
+          poker_advisor_data_sharing_acknowledged_at: string | null
+          poker_advisor_enabled: boolean
+          poker_advisor_personal_prompt: string | null
           role: string
           tenant_id: string | null
           theme_preference: string | null
@@ -861,6 +866,11 @@ export type Database = {
           full_name?: string | null
           id: string
           nickname?: string | null
+          poker_advisor_base_url?: string | null
+          poker_advisor_cli_preset?: string | null
+          poker_advisor_data_sharing_acknowledged_at?: string | null
+          poker_advisor_enabled?: boolean
+          poker_advisor_personal_prompt?: string | null
           role?: string
           tenant_id?: string | null
           theme_preference?: string | null
@@ -873,6 +883,11 @@ export type Database = {
           full_name?: string | null
           id?: string
           nickname?: string | null
+          poker_advisor_base_url?: string | null
+          poker_advisor_cli_preset?: string | null
+          poker_advisor_data_sharing_acknowledged_at?: string | null
+          poker_advisor_enabled?: boolean
+          poker_advisor_personal_prompt?: string | null
           role?: string
           tenant_id?: string | null
           theme_preference?: string | null
@@ -1517,6 +1532,7 @@ export type Database = {
           jira_ticket_prefix: string | null
           name: string
           organization_id: string | null
+          poker_advisor_team_prompt: string | null
           slack_bot_token: string | null
           slack_channel_id: string | null
           slack_webhook_url: string | null
@@ -1535,6 +1551,7 @@ export type Database = {
           jira_ticket_prefix?: string | null
           name: string
           organization_id?: string | null
+          poker_advisor_team_prompt?: string | null
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
@@ -1553,6 +1570,7 @@ export type Database = {
           jira_ticket_prefix?: string | null
           name?: string
           organization_id?: string | null
+          poker_advisor_team_prompt?: string | null
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null

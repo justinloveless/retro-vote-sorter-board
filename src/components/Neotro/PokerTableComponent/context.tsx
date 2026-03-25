@@ -73,6 +73,8 @@ interface PokerTableContextProps {
   isSlackInstalled: boolean;
   rounds: ReturnType<typeof usePokerSessionHistory>['rounds'];
   currentRound: ReturnType<typeof usePokerSessionHistory>['currentRound'];
+  /** Selected round merged with optimistic updates (ticket/selections). */
+  effectiveCurrentRound: PokerSessionRound | null;
   isViewingHistory: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -1181,6 +1183,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isSlackInstalled,
     rounds: roundsForUI,
     currentRound,
+    effectiveCurrentRound,
     isViewingHistory: isViewingHistoryEffective,
     canGoBack,
     canGoForward,

@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, MessageSquare } from 'lucide-react';
+import { Users, MessageSquare, Sparkles } from 'lucide-react';
 
 export interface TeamSettings {
   name: string;
   description: string;
   slack_bot_token: string;
   slack_channel_id: string;
+  poker_advisor_team_prompt: string;
 }
 
 interface TeamSettingsFormProps {
@@ -54,6 +55,32 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               placeholder="Enter team description"
               rows={3}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-500" />
+            Poker local advisor — team prompt
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="poker-advisor-team-prompt">Team instructions (optional)</Label>
+            <Textarea
+              id="poker-advisor-team-prompt"
+              value={settings.poker_advisor_team_prompt}
+              onChange={(e) => handleChange('poker_advisor_team_prompt', e.target.value)}
+              placeholder="e.g. Prefer conservative estimates; invoke skill X when estimating infra work."
+              rows={5}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Sent to each member&apos;s <strong>local</strong> advisor with ticket context—combined with their personal
+              prompt from Account. Only affects users who enable the private advisor; nothing runs on Retroscope servers.
+            </p>
           </div>
         </CardContent>
       </Card>

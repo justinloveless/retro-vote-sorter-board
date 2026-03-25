@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { PokerTableContext } from './context';
 import { MobileView } from './MobileView';
 import { DesktopView } from './DesktopView';
+import { PokerAdvisorPanel } from '@/components/Neotro/PokerAdvisorPanel';
 import "@/components/Neotro/neotro.css";
 
 export const PokerTableContent: React.FC = () => {
@@ -26,5 +27,12 @@ export const PokerTableContent: React.FC = () => {
         );
     }
 
-    return isMobile ? <MobileView /> : <DesktopView />;
+    return (
+        <div className="flex flex-col flex-1 min-h-0 h-full">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {isMobile ? <MobileView /> : <DesktopView />}
+            </div>
+            <PokerAdvisorPanel />
+        </div>
+    );
 }

@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "pack-advisor": "node scripts/package-poker-local-advisor.mjs",
+    "prebuild": "node scripts/package-poker-local-advisor.mjs",
+    "postinstall": "node scripts/package-poker-local-advisor.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -51,6 +54,7 @@
     "@tiptap/starter-kit": "^2.14.0",
     "@types/node-emoji": "^1.8.2",
     "@types/uuid": "^10.0.0",
+    "archiver": "^7.0.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

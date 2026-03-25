@@ -123,7 +123,9 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, [flags, tierFeatureFlags, tier]);
 
     return (
-        <FeatureFlagContext.Provider value={{ flags, isFeatureEnabled, loading: loading || tierLoading }}>
+        <FeatureFlagContext.Provider
+            value={{ flags, isFeatureEnabled, loading: loading || tierLoading }}
+        >
             {children}
         </FeatureFlagContext.Provider>
     );
