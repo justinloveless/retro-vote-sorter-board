@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -578,13 +577,11 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
   };
 
   return (
-    <Card className="bg-white/50 dark:bg-gray-800/50">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3">
+      {timeLeft > 0 ? (
+        <>
           <Timer className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-          
-          {timeLeft > 0 ? (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
               <span className="text-lg font-mono font-bold">
                 {formatTime(timeLeft)}
               </span>
@@ -638,19 +635,21 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
                   </span>
                 </div>
               )}
-
             </div>
-          ) : (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  disabled={isAnonymousUser}
-                >
-                  Set Timer
-                </Button>
-              </DialogTrigger>
+        </>
+      ) : (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={isAnonymousUser}
+              aria-label="Set timer"
+              title="Set timer"
+            >
+              <Timer className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Set Retro Timer</DialogTitle>
@@ -821,25 +820,23 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
                 </div>
               </DialogContent>
             </Dialog>
-          )}
-          
-          {isAnonymousUser && (
-            <span className="text-xs text-gray-500">
-              (Sign in to use timer)
-            </span>
-          )}
-        </div>
-        
-        {/* Hidden audio element for playback */}
-        {uploadedAudioUrl && (
-          <audio
-            ref={audioRef}
-            src={uploadedAudioUrl}
-            preload="metadata"
-            style={{ display: 'none' }}
-          />
-        )}
-      </CardContent>
-    </Card>
+      )}
+
+      {isAnonymousUser && (
+        <span className="text-xs text-gray-500">
+          (Sign in to use timer)
+        </span>
+      )}
+
+      {/* Hidden audio element for playback */}
+      {uploadedAudioUrl && (
+        <audio
+          ref={audioRef}
+          src={uploadedAudioUrl}
+          preload="metadata"
+          style={{ display: 'none' }}
+        />
+      )}
+    </div>
   );
 };
