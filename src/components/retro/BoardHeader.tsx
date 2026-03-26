@@ -114,7 +114,11 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-4">
-          <RetroTimer presenceChannel={presenceChannel} />
+          <RetroTimer
+            presenceChannel={presenceChannel}
+            boardConfig={boardConfig}
+            onPersistTimerState={onUpdateBoardConfig}
+          />
 
           <SentimentDisplay items={items} />
 

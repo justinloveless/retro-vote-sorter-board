@@ -73,6 +73,12 @@ interface RetroBoardConfig {
   enforce_stage_readiness: boolean | null;
   allow_self_votes?: boolean | null;
   vote_emoji?: string | null;
+  timer_started_at?: string | null;
+  timer_duration_seconds?: number;
+  timer_time_left_seconds?: number;
+  timer_is_running?: boolean;
+  timer_music_enabled?: boolean;
+  timer_music_offset_seconds?: number;
 }
 
 interface ActiveUser {
@@ -420,6 +426,12 @@ export const useRetroBoard = (roomId: string) => {
     })
     .on('broadcast', { event: 'focus-card' }, ({ payload }) => {
       setFocusedItemId(payload?.itemId ?? null);
+    })
+    .on('broadcast', { event: 'retro-timer-changed' }, ({ payload }) => {
+      const timerChangeEvent = new CustomEvent('retro-timer-changed', {
+        detail: payload
+      });
+      window.dispatchEvent(timerChangeEvent);
     });
 
     // Database changes
@@ -496,11 +508,29 @@ export const useRetroBoard = (roomId: string) => {
       }, (payload) => {
         const updatedConfig = payload.new as RetroBoardConfig;
         setBoardConfig(current => current ? { ...current, ...updatedConfig } : updatedConfig);
-        toast({
-          title: 'Board settings updated',
-          description: 'Configuration changes have been applied.',
-          duration: 2500,
+        const timerFields: (keyof RetroBoardConfig)[] = [
+          'timer_started_at',
+          'timer_duration_seconds',
+          'timer_time_left_seconds',
+          'timer_is_running',
+          'timer_music_enabled',
+          'timer_music_offset_seconds',
+        ];
+        const changedKeys = Object.keys(payload.new).filter((key) => {
+          const oldValue = (payload.old as Record<string, unknown>)[key];
+          const newValue = (payload.new as Record<string, unknown>)[key];
+          return oldValue !== newValue;
         });
+        const hasNonTimerChanges = changedKeys.some(
+          (key) => !timerFields.includes(key as keyof RetroBoardConfig)
+        );
+        if (hasNonTimerChanges) {
+          toast({
+            title: 'Board settings updated',
+            description: 'Configuration changes have been applied.',
+            duration: 2500,
+          });
+        }
       })
       .on('postgres_changes', { 
         event: 'UPDATE', 

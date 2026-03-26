@@ -4,13 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2 } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RetroTimerProps {
   presenceChannel?: any;
+  boardConfig?: {
+    timer_started_at?: string | null;
+    timer_duration_seconds?: number;
+    timer_time_left_seconds?: number;
+    timer_is_running?: boolean;
+    timer_music_enabled?: boolean;
+    timer_music_offset_seconds?: number;
+  } | null;
+  onPersistTimerState?: (config: {
+    timer_started_at?: string | null;
+    timer_duration_seconds?: number;
+    timer_time_left_seconds?: number;
+    timer_is_running?: boolean;
+    timer_music_enabled?: boolean;
+    timer_music_offset_seconds?: number;
+  }) => void;
 }
 
 interface TimerBroadcastPayload {
@@ -19,14 +35,38 @@ interface TimerBroadcastPayload {
   durationSeconds: number;
   timeLeft: number;
   isRunning: boolean;
+  musicEnabled: boolean;
+  musicOffsetSeconds: number;
 }
+
+const TIMER_VOLUME_KEY = 'retroTimerVolume';
+const TIMER_MUTED_KEY = 'retroTimerMuted';
+const TIMER_PREVIOUS_VOLUME_KEY = 'retroTimerPreviousVolume';
+const TIMER_AUDIO_PRIMED_KEY = 'retroTimerAudioPrimed';
 
 const getTimeLeftFromStart = (startedAt: string, durationSeconds: number) => {
   const elapsedSeconds = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
   return Math.max(durationSeconds - elapsedSeconds, 0);
 };
 
-export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
+const getSyncedMusicPosition = (
+  startedAt: string,
+  musicOffsetSeconds: number,
+  audioDuration?: number
+) => {
+  const elapsedSeconds = (Date.now() - new Date(startedAt).getTime()) / 1000;
+  const rawPosition = Math.max(musicOffsetSeconds + elapsedSeconds, 0);
+  if (audioDuration && Number.isFinite(audioDuration) && audioDuration > 0) {
+    return rawPosition % audioDuration;
+  }
+  return rawPosition;
+};
+
+export const RetroTimer: React.FC<RetroTimerProps> = ({
+  presenceChannel,
+  boardConfig,
+  onPersistTimerState,
+}) => {
   const { user } = useAuth();
   const isAnonymousUser = !user;
   
@@ -38,9 +78,26 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
-  const [volume, setVolume] = useState(0.3);
-  const [isMuted, setIsMuted] = useState(false);
-  const [previousVolume, setPreviousVolume] = useState(0.3);
+  const [musicOffsetSeconds, setMusicOffsetSeconds] = useState(0);
+  const [volume, setVolume] = useState(() => {
+    if (typeof window === 'undefined') return 0.3;
+    const storedVolume = Number(window.localStorage.getItem(TIMER_VOLUME_KEY));
+    return Number.isFinite(storedVolume) ? Math.max(0, Math.min(1, storedVolume)) : 0.3;
+  });
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(TIMER_MUTED_KEY) === 'true';
+  });
+  const [audioInteractionRequired, setAudioInteractionRequired] = useState(false);
+  const [audioPrimed, setAudioPrimed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(TIMER_AUDIO_PRIMED_KEY) === 'true';
+  });
+  const [previousVolume, setPreviousVolume] = useState(() => {
+    if (typeof window === 'undefined') return 0.3;
+    const storedPreviousVolume = Number(window.localStorage.getItem(TIMER_PREVIOUS_VOLUME_KEY));
+    return Number.isFinite(storedPreviousVolume) ? Math.max(0, Math.min(1, storedPreviousVolume)) : 0.3;
+  });
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -68,34 +125,49 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
   useEffect(() => {
     if (musicEnabled && isRunning && uploadedAudioUrl) {
       if (audioRef.current) {
+        if (startedAt) {
+          const targetPosition = getSyncedMusicPosition(
+            startedAt,
+            musicOffsetSeconds,
+            audioRef.current.duration
+          );
+          if (Math.abs((audioRef.current.currentTime || 0) - targetPosition) > 0.75) {
+            audioRef.current.currentTime = targetPosition;
+          }
+        }
+
         // Set volume based on mute state
         audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.loop = true;
         
         // Only start playing if not already playing
         if (audioRef.current.paused) {
-          audioRef.current.play().catch(error => {
+          audioRef.current.play().then(() => {
+            setAudioInteractionRequired(false);
+          }).catch(error => {
             console.log('Audio playback failed:', error);
-            toast({
-              title: "Audio playback failed",
-              description: "Could not play background music.",
-              variant: "destructive",
-            });
+            setPreviousVolume(volume);
+            setIsMuted(true);
+            setAudioInteractionRequired(true);
           });
         }
       }
     } else if (audioRef.current && !isRunning) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      if (timeLeft === 0) {
+        audioRef.current.currentTime = 0;
+      }
     }
 
     return () => {
       if (audioRef.current && !isRunning) {
         audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+        if (timeLeft === 0) {
+          audioRef.current.currentTime = 0;
+        }
       }
     };
-  }, [musicEnabled, isRunning, uploadedAudioUrl, volume, isMuted]);
+  }, [musicEnabled, isRunning, uploadedAudioUrl, volume, isMuted, startedAt, musicOffsetSeconds, timeLeft]);
 
   // Update audio volume when volume or mute state changes
   useEffect(() => {
@@ -104,10 +176,51 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
     }
   }, [volume, isMuted]);
 
+  // Persist per-browser volume controls.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(TIMER_VOLUME_KEY, volume.toString());
+    window.localStorage.setItem(TIMER_MUTED_KEY, String(isMuted));
+    window.localStorage.setItem(TIMER_PREVIOUS_VOLUME_KEY, previousVolume.toString());
+  }, [volume, isMuted, previousVolume]);
+
+  // Prime audio after any interaction so future timer starts can autoplay.
+  useEffect(() => {
+    if (audioPrimed || !uploadedAudioUrl || !audioRef.current) return;
+    const primeAudio = () => {
+      if (!audioRef.current || audioPrimed) return;
+      const previousMuted = audioRef.current.muted;
+      const previousVolume = audioRef.current.volume;
+      audioRef.current.muted = true;
+      audioRef.current.volume = 0;
+      audioRef.current.play().then(() => {
+        audioRef.current?.pause();
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.muted = previousMuted;
+          audioRef.current.volume = previousVolume;
+        }
+        setAudioPrimed(true);
+        window.localStorage.setItem(TIMER_AUDIO_PRIMED_KEY, 'true');
+      }).catch((error) => {
+        console.error('Audio priming failed:', error);
+      });
+    };
+
+    window.addEventListener('pointerdown', primeAudio, { once: true });
+    window.addEventListener('keydown', primeAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', primeAudio);
+      window.removeEventListener('keydown', primeAudio);
+    };
+  }, [audioPrimed, uploadedAudioUrl]);
+
   const applyTimerState = useCallback((payload: TimerBroadcastPayload) => {
     setStartedAt(payload.startedAt);
     setDurationSeconds(payload.durationSeconds);
     setIsRunning(payload.isRunning);
+    setMusicEnabled(payload.musicEnabled);
+    setMusicOffsetSeconds(payload.musicOffsetSeconds);
     if (payload.isRunning && payload.startedAt) {
       setTimeLeft(getTimeLeftFromStart(payload.startedAt, payload.durationSeconds));
       return;
@@ -115,28 +228,59 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
     setTimeLeft(payload.timeLeft);
   }, []);
 
+  const persistTimerState = useCallback((payload: TimerBroadcastPayload) => {
+    if (!onPersistTimerState) return;
+    onPersistTimerState({
+      timer_started_at: payload.startedAt,
+      timer_duration_seconds: payload.durationSeconds,
+      timer_time_left_seconds: payload.timeLeft,
+      timer_is_running: payload.isRunning,
+      timer_music_enabled: payload.musicEnabled,
+      timer_music_offset_seconds: payload.musicOffsetSeconds,
+    });
+  }, [onPersistTimerState]);
+
   const broadcastTimerState = useCallback(async (payload: TimerBroadcastPayload) => {
     if (!presenceChannel) return;
-    await presenceChannel.send({
-      type: 'broadcast',
-      event: 'retro-timer-changed',
-      payload,
-    });
+    try {
+      await presenceChannel.send({
+        type: 'broadcast',
+        event: 'retro-timer-changed',
+        payload,
+      });
+    } catch (error) {
+      console.error('Failed to broadcast timer state:', error);
+    }
   }, [presenceChannel]);
 
   useEffect(() => {
-    if (!presenceChannel) return;
-    const timerBroadcastHandler = ({ payload }: { payload?: TimerBroadcastPayload }) => {
-      if (!payload) return;
-      applyTimerState(payload);
+    const timerBroadcastHandler = (event: Event) => {
+      const customEvent = event as CustomEvent<TimerBroadcastPayload | undefined>;
+      if (!customEvent.detail) return;
+      applyTimerState(customEvent.detail);
     };
 
-    presenceChannel.on('broadcast', { event: 'retro-timer-changed' }, timerBroadcastHandler);
-
+    window.addEventListener('retro-timer-changed', timerBroadcastHandler);
     return () => {
-      presenceChannel.off('broadcast', { event: 'retro-timer-changed' }, timerBroadcastHandler);
+      window.removeEventListener('retro-timer-changed', timerBroadcastHandler);
     };
-  }, [presenceChannel, applyTimerState]);
+  }, [applyTimerState]);
+
+  useEffect(() => {
+    if (!boardConfig) return;
+    const savedTimeLeft = boardConfig.timer_time_left_seconds ?? 0;
+    const savedDuration = boardConfig.timer_duration_seconds ?? savedTimeLeft;
+    const savedPayload: TimerBroadcastPayload = {
+      action: savedTimeLeft > 0 ? 'pause' : 'reset',
+      startedAt: boardConfig.timer_started_at ?? null,
+      durationSeconds: savedDuration,
+      timeLeft: savedTimeLeft,
+      isRunning: !!boardConfig.timer_is_running,
+      musicEnabled: !!boardConfig.timer_music_enabled,
+      musicOffsetSeconds: boardConfig.timer_music_offset_seconds ?? 0,
+    };
+    applyTimerState(savedPayload);
+  }, [boardConfig, applyTimerState]);
 
   // Timer logic (latency-aware while running)
   useEffect(() => {
@@ -148,6 +292,16 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
             setIsRunning(false);
             setStartedAt(null);
             setDurationSeconds(0);
+            setMusicOffsetSeconds(0);
+            persistTimerState({
+              action: 'reset',
+              startedAt: null,
+              durationSeconds: 0,
+              timeLeft: 0,
+              isRunning: false,
+              musicEnabled,
+              musicOffsetSeconds: 0,
+            });
             toast({
               title: "Time's up!",
               description: "Your retro timer has finished.",
@@ -162,6 +316,16 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setIsRunning(false);
+            setMusicOffsetSeconds(0);
+            persistTimerState({
+              action: 'reset',
+              startedAt: null,
+              durationSeconds: 0,
+              timeLeft: 0,
+              isRunning: false,
+              musicEnabled,
+              musicOffsetSeconds: 0,
+            });
             toast({
               title: "Time's up!",
               description: "Your retro timer has finished.",
@@ -182,7 +346,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, toast, startedAt, durationSeconds]);
+  }, [isRunning, timeLeft, toast, startedAt, durationSeconds, musicEnabled, persistTimerState]);
 
   const handleAudioUpload = async () => {
     if (!audioFile || !user) return;
@@ -270,15 +434,19 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
   const startTimer = async () => {
     const nextDurationSeconds = timeLeft === 0 ? (minutes * 60 + seconds) : timeLeft;
     const nextStartedAt = new Date().toISOString();
+    const nextMusicOffsetSeconds = timeLeft === 0 ? 0 : musicOffsetSeconds;
     const nextPayload: TimerBroadcastPayload = {
       action: 'start',
       startedAt: nextStartedAt,
       durationSeconds: nextDurationSeconds,
       timeLeft: nextDurationSeconds,
       isRunning: true,
+      musicEnabled,
+      musicOffsetSeconds: nextMusicOffsetSeconds,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
+    persistTimerState(nextPayload);
     setIsDialogOpen(false);
   };
 
@@ -286,15 +454,21 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
     const nextTimeLeft = startedAt && durationSeconds > 0
       ? getTimeLeftFromStart(startedAt, durationSeconds)
       : timeLeft;
+    const nextMusicOffsetSeconds = startedAt
+      ? getSyncedMusicPosition(startedAt, musicOffsetSeconds, audioRef.current?.duration)
+      : musicOffsetSeconds;
     const nextPayload: TimerBroadcastPayload = {
       action: 'pause',
       startedAt: null,
       durationSeconds: 0,
       timeLeft: nextTimeLeft,
       isRunning: false,
+      musicEnabled,
+      musicOffsetSeconds: nextMusicOffsetSeconds,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
+    persistTimerState(nextPayload);
   };
 
   const resetTimer = async () => {
@@ -304,9 +478,12 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
       durationSeconds: 0,
       timeLeft: 0,
       isRunning: false,
+      musicEnabled,
+      musicOffsetSeconds: 0,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
+    persistTimerState(nextPayload);
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -316,6 +493,22 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
   };
 
   const toggleMusic = () => {
+    if (audioInteractionRequired && isMuted) {
+      const restoredVolume = previousVolume > 0 ? previousVolume : volume;
+      setIsMuted(false);
+      setVolume(restoredVolume);
+      setAudioInteractionRequired(false);
+      if (audioRef.current && musicEnabled && isRunning) {
+        audioRef.current.play().catch((error) => {
+          console.error('Audio playback failed after manual unmute:', error);
+          setPreviousVolume(restoredVolume);
+          setIsMuted(true);
+          setAudioInteractionRequired(true);
+        });
+      }
+      return;
+    }
+
     if (isMuted) {
       // Unmute: restore previous volume
       setIsMuted(false);
@@ -329,6 +522,9 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
 
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume);
+    if (newVolume > 0) {
+      setPreviousVolume(newVolume);
+    }
     if (newVolume > 0 && isMuted) {
       setIsMuted(false);
     } else if (newVolume === 0 && !isMuted) {
@@ -372,10 +568,32 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
                 onClick={toggleMusic}
                 disabled={isAnonymousUser || !uploadedAudioUrl}
                 className={musicEnabled && !isMuted ? 'bg-indigo-100 dark:bg-indigo-900' : ''}
-                title={isMuted ? 'Unmute music' : 'Mute music'}
+                title={audioInteractionRequired ? 'Interact with the page to enable music playback' : (isMuted ? 'Unmute music' : 'Mute music')}
               >
                 {isMuted ? <VolumeX className="h-4 w-4" /> : <Music className="h-4 w-4" />}
+                {audioInteractionRequired && (
+                  <AlertTriangle className="h-3 w-3 ml-1 text-amber-500" />
+                )}
               </Button>
+
+              {musicEnabled && uploadedAudioUrl && (
+                <div className="flex items-center gap-2 min-w-40">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                    className="w-24"
+                    aria-label="Timer music volume"
+                  />
+                  <span className="text-xs text-gray-500 w-10 text-right">
+                    {isMuted ? 0 : Math.round(volume * 100)}%
+                  </span>
+                </div>
+              )}
+
             </div>
           ) : (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

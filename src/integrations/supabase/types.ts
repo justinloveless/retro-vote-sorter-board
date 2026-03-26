@@ -1017,6 +1017,12 @@ export type Database = {
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           sort_chronologically: boolean | null
+          timer_duration_seconds: number
+          timer_is_running: boolean
+          timer_music_enabled: boolean
+          timer_music_offset_seconds: number
+          timer_started_at: string | null
+          timer_time_left_seconds: number
           updated_at: string
           vote_emoji: string | null
           voting_enabled: boolean | null
@@ -1032,6 +1038,12 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           sort_chronologically?: boolean | null
+          timer_duration_seconds?: number
+          timer_is_running?: boolean
+          timer_music_enabled?: boolean
+          timer_music_offset_seconds?: number
+          timer_started_at?: string | null
+          timer_time_left_seconds?: number
           updated_at?: string
           vote_emoji?: string | null
           voting_enabled?: boolean | null
@@ -1047,6 +1059,12 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           sort_chronologically?: boolean | null
+          timer_duration_seconds?: number
+          timer_is_running?: boolean
+          timer_music_enabled?: boolean
+          timer_music_offset_seconds?: number
+          timer_started_at?: string | null
+          timer_time_left_seconds?: number
           updated_at?: string
           vote_emoji?: string | null
           voting_enabled?: boolean | null
