@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Edit, LogOut, Moon, Sun, Home, Bell } from 'lucide-react';
@@ -18,6 +19,7 @@ interface BoardHeaderProps {
   board: any;
   profile: any;
   user: any;
+  userName: string;
   activeUsers: any[];
   boardConfig: any;
   anonymousName: string;
@@ -47,6 +49,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   board,
   profile,
   user,
+  userName,
   activeUsers,
   boardConfig,
   anonymousName,
@@ -76,16 +79,20 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
     setEditingTitle(false);
   };
 
+  const headerCenterSlot = typeof document !== 'undefined'
+    ? document.getElementById('app-header-center-slot')
+    : null;
+
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex-1">
+      {headerCenterSlot && createPortal(
+        <div className="flex flex-col items-center text-center max-w-[60vw]">
           {editingTitle && !isAnonymousUser ? (
             <div className="flex items-center gap-2">
               <Input
                 value={titleText}
                 onChange={(e) => setTitleText(e.target.value)}
-                className="text-3xl font-bold border-none bg-transparent text-gray-900 dark:text-gray-100 p-0"
+                className="h-9 text-xl font-bold border-none bg-transparent text-gray-900 dark:text-gray-100 p-0 text-center"
                 onBlur={handleTitleEdit}
                 onKeyPress={(e) => e.key === 'Enter' && handleTitleEdit()}
                 autoFocus
@@ -93,7 +100,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{board?.title || 'RetroScope Session'}</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">{board?.title || 'RetroScope Session'}</h1>
               {!isAnonymousUser && (
                 <Button
                   variant="ghost"
@@ -105,36 +112,29 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
               )}
             </div>
           )}
-          <p className="text-gray-600 dark:text-gray-400">Board ID: {board?.room_id}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Board ID: {board?.room_id}</p>
           {isAnonymousUser && (
-            <p className="text-sm text-orange-600 dark:text-orange-400">
+            <p className="text-xs text-orange-600 dark:text-orange-400">
               You're viewing as: {anonymousName} (Guest)
             </p>
           )}
+        </div>,
+        headerCenterSlot
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <div className="min-w-0">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {isAnonymousUser
+              ? `You are participating as a guest. Your contributions will be anonymous.`
+              : `You are signed in as ${userName}.`}
+          </span>
         </div>
-
         <div className="flex items-center gap-4">
-          <RetroTimer
-            presenceChannel={presenceChannel}
-            boardConfig={boardConfig}
-            onPersistTimerState={onUpdateBoardConfig}
-          />
-
-          <SentimentDisplay items={items} />
-
           <ActiveUsers users={activeUsers} />
 
           {!isAnonymousUser && (
             <div className="flex items-center gap-2">
-              <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
-              {isFeatureEnabled('admin_mention_scanner') && profile?.role === 'admin' && teamMembers.length > 0 && (
-                <MentionScanner
-                  items={items}
-                  columns={columns}
-                  teamMembers={teamMembers}
-                  onUpdateItem={onUpdateItem}
-                />
-              )}
               {isFeatureEnabled('admin_edit_all') && onToggleAdminEditMode && (
                 <div className="flex items-center gap-1.5 ml-1">
                   <Switch
@@ -148,12 +148,28 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   </Label>
                 </div>
               )}
+              {isFeatureEnabled('admin_mention_scanner') && profile?.role === 'admin' && teamMembers.length > 0 && (
+                <MentionScanner
+                  items={items}
+                  columns={columns}
+                  teamMembers={teamMembers}
+                  onUpdateItem={onUpdateItem}
+                />
+              )}
+              <RetroTimer
+                presenceChannel={presenceChannel}
+                boardConfig={boardConfig}
+                onPersistTimerState={onUpdateBoardConfig}
+              />
               {/* Notify Team bell opens the existing dialog in RetroRoom via custom event */}
               <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-notify-team'))} title="Notify Team">
                 <Bell className="h-4 w-4" />
               </Button>
+              <BoardConfig config={boardConfig} onUpdateConfig={onUpdateBoardConfig} />
             </div>
           )}
+
+          <SentimentDisplay items={items} />
         </div>
       </div>
 

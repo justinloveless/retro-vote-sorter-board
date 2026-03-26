@@ -46,9 +46,8 @@ export const BoardConfig: React.FC<BoardConfigProps> = ({ config, onUpdateConfig
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" size="icon" aria-label="Board settings" title="Board settings">
           <Settings className="h-4 w-4" />
-          Board Settings
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">

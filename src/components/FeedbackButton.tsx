@@ -8,9 +8,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Github } from 'lucide-react';
 
-interface Props { }
+interface Props {
+  variant?: React.ComponentProps<typeof Button>['variant'];
+  size?: React.ComponentProps<typeof Button>['size'];
+  className?: string;
+  onOpenRequested?: () => void;
+}
 
-export const FeedbackButton: React.FC<Props> = () => {
+export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 'sm', className, onOpenRequested }) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -84,7 +89,10 @@ export const FeedbackButton: React.FC<Props> = () => {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="inline-flex items-center gap-2">
+      <Button variant={variant} size={size} onClick={() => {
+        onOpenRequested?.();
+        setOpen(true);
+      }} className={className || 'inline-flex items-center gap-2'}>
         <Github className="h-4 w-4" />
         Feedback
       </Button>

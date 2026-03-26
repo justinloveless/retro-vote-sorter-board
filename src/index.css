@@ -73,3 +73,47 @@ html {
     @apply bg-background text-foreground;
   }
 }
+
+/* Global scrollbar styling (horizontal + vertical) */
+:root {
+  --app-scrollbar-size: 7px;
+  --app-scrollbar-track: hsl(var(--muted) / 0.4);
+  --app-scrollbar-thumb: hsl(var(--muted-foreground) / 0.58);
+  --app-scrollbar-thumb-hover: hsl(var(--muted-foreground) / 0.78);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--app-scrollbar-size);
+  height: var(--app-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+*:hover::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+}
+
+*:hover::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
+}

@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrgSelector } from '@/contexts/OrgSelectorContext';
@@ -68,6 +69,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     }, [isImpersonating, profile?.id]);
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
     const { organizations, selectedOrgId, selectedOrg, selectedOrgRole, setSelectedOrgId, hasOrgs } = useOrgSelector();
     const { isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
@@ -225,50 +227,80 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                             <Button variant="ghost" size="sm" onClick={stopImpersonating}>Stop</Button>
                         </div>
                     )}
-                    <FeedbackButton />
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
-                                    <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    {profile?.role === 'admin' && !isInAdminSection && (
-                        <Button variant="outline" onClick={() => navigate('/admin')}>
-                            <Shield className="h-4 w-4 mr-2" />
-                            Admin
-                        </Button>
-                    )}
                     {isOrgAdminOrOwner && selectedOrg && (
                         <Button variant="outline" onClick={() => navigate(`/org/${selectedOrg.slug}/admin`)}>
                             <Building2 className="h-4 w-4 mr-2" />
                             Org Settings
                         </Button>
                     )}
-                    {location.pathname !== '/teams' && (
-                        <Button variant="outline" onClick={() => navigate('/teams')}>
-                            <Users className="h-4 w-4 mr-2" />
-                            My Teams
-                        </Button>
-                    )}
-                    {location.pathname !== '/account' && (
-                        <Button variant="outline" onClick={() => navigate('/account')}>
-                            <User className="h-4 w-4 mr-2" />
-                            Account
-                        </Button>
-                    )}
-                    <Button variant="outline" onClick={signOut}>
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Sign Out
-                    </Button>
+                    <Popover open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                            aria-label="Open profile menu"
+                                        >
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
+                                                <AvatarFallback>{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
+                                    <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <PopoverContent align="end" className="w-56 p-2">
+                            <div className="flex flex-col gap-1">
+                                {profile?.role === 'admin' && !isInAdminSection && (
+                                    <Button variant="ghost" className="w-full justify-start" onClick={() => {
+                                        navigate('/admin');
+                                        setProfileMenuOpen(false);
+                                    }}>
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        Admin
+                                    </Button>
+                                )}
+                                {location.pathname !== '/teams' && (
+                                    <Button variant="ghost" className="w-full justify-start" onClick={() => {
+                                        navigate('/teams');
+                                        setProfileMenuOpen(false);
+                                    }}>
+                                        <Users className="h-4 w-4 mr-2" />
+                                        My Teams
+                                    </Button>
+                                )}
+                                {location.pathname !== '/account' && (
+                                    <Button variant="ghost" className="w-full justify-start" onClick={() => {
+                                        navigate('/account');
+                                        setProfileMenuOpen(false);
+                                    }}>
+                                        <User className="h-4 w-4 mr-2" />
+                                        Account
+                                    </Button>
+                                )}
+                                <FeedbackButton
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start"
+                                    onOpenRequested={() => setProfileMenuOpen(false)}
+                                />
+                                <Button variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700" onClick={() => {
+                                    setProfileMenuOpen(false);
+                                    signOut();
+                                }}>
+                                    <LogOut className="h-4 w-4 mr-2" />
+                                    Sign Out
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                 </>
             ) : (
                 location.pathname !== '/account' && (
@@ -286,12 +318,12 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     );
 
     return (
-        <header className={`flex justify-between items-center p-4 md:p-6 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
+        <header className={`flex justify-between items-center px-4 py-2 md:px-6 md:py-3 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
             <div className="flex items-center space-x-4">
                 {!isMobile && renderOrgSelector()}
                 {renderLeftContent()}
             </div>
-            <div className="flex-grow flex justify-center">
+            <div id="app-header-center-slot" className="flex-grow flex justify-center">
                 {children}
             </div>
             <div className="flex items-center space-x-2">

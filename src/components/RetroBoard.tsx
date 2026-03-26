@@ -280,6 +280,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           board={board}
           profile={profile}
           user={user}
+          userName={userName}
           activeUsers={activeUsers}
           boardConfig={boardConfig}
           anonymousName={anonymousName}
@@ -297,15 +298,6 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           onToggleAdminEditMode={isAdmin ? () => setAdminEditMode(prev => !prev) : undefined}
           presenceChannel={presenceChannel}
         />
-
-        {/* User Name Display */}
-        <div className="mb-4">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            {isAnonymousUser
-              ? `You are participating as a guest. Your contributions will be anonymous.`
-              : `You are signed in as ${userName}.`}
-          </span>
-        </div>
 
         {/* Focused Card Banner */}
         {focusedItemId && (() => {
