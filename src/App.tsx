@@ -37,7 +37,13 @@ import { AudioPlayerProvider } from "./context/AudioPlayerContext";
 import { AuthProvider } from "./hooks/useAuth";
 import { TeamDataProvider } from "./contexts/TeamDataContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
