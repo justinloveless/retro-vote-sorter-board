@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AlertCircle, Lock, ShieldAlert } from 'lucide-react';
 import { useBackground } from '@/contexts/BackgroundContext';
+import { trackRecentActivity } from '@/lib/recentActivity';
 
 const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
 
@@ -97,6 +98,13 @@ const NeotroPage = () => {
     () => (teamId && sessionId ? { teamId, slug: sessionId } : null),
     [teamId, sessionId]
   );
+
+  useEffect(() => {
+    if (!profile?.id || !session?.session_id) return;
+    trackRecentActivity(profile.id, 'poker_session', session.session_id).catch((error) => {
+      console.error('Failed to track recent poker activity:', error);
+    });
+  }, [profile?.id, session?.session_id]);
 
   if (loadingAuth || loadingSession || loadingRole || loadingFlags) {
     return (

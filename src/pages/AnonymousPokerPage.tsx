@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { trackRecentActivity } from '@/lib/recentActivity';
 
 // Helper function to get or create anonymous user identity
 const getAnonymousUser = () => {
@@ -73,6 +74,13 @@ const AnonymousPokerPage: React.FC = () => {
         player.name,
         isCreating
     );
+
+    useEffect(() => {
+        if (!profile?.id || !session?.session_id) return;
+        trackRecentActivity(profile.id, 'poker_session', session.session_id).catch((error) => {
+            console.error('Failed to track recent quick poker activity:', error);
+        });
+    }, [profile?.id, session?.session_id]);
 
     const copyLink = () => {
         navigator.clipboard.writeText(window.location.href);

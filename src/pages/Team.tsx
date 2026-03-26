@@ -25,6 +25,7 @@ import {
   fetchLatestPokerSessionRowForTeam,
   pokerSessionSettingsFromPreviousRow,
 } from '@/lib/pokerSessionCloneSettings';
+import { trackRecentActivity } from '@/lib/recentActivity';
 
 const Team = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -109,6 +110,13 @@ const Team = () => {
       navigate('/teams');
     }
   }, [teamLoading, team, teamId, profile, navigate, toast]);
+
+  useEffect(() => {
+    if (!profile?.id || !team?.id) return;
+    trackRecentActivity(profile.id, 'team', team.id).catch((error) => {
+      console.error('Failed to track recent team activity:', error);
+    });
+  }, [profile?.id, team?.id]);
 
   const handleSignOut = async () => {
     await signOut();
