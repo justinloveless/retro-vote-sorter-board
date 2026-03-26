@@ -10,6 +10,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [isTeamMember, setIsTeamMember] = useState(false);
   const { toast } = useToast();
+  const userId = user?.id ?? null;
 
   const checkRoomAccess = async () => {
     if (!roomId) {
@@ -51,9 +52,9 @@ export const useRoomAccess = (roomId: string, user: any) => {
         setIsPrivate(board.is_private);
 
         // Check if user is a team member for this board
-        if (board.team_id && user && board.teams) {
+        if (board.team_id && userId && board.teams) {
           const teamMembers = board.teams.team_members || [];
-          const isMember = teamMembers.some((member: any) => member.user_id === user.id);
+          const isMember = teamMembers.some((member: any) => member.user_id === userId);
           setIsTeamMember(isMember);
 
           if (board.is_private && board.password_hash) {
@@ -90,7 +91,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
               .insert([{
                 room_id: roomId,
                 title: newBoardTitle,
-                creator_id: user?.id || null,
+                creator_id: userId,
                 is_private: false,
               }])
               .select()
@@ -187,7 +188,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
 
   useEffect(() => {
     checkRoomAccess();
-  }, [roomId, user]);
+  }, [roomId, userId]);
 
   return {
     boardData,
