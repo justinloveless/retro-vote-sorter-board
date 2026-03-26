@@ -18,6 +18,7 @@ interface RetroTimerProps {
     timer_is_running?: boolean;
     timer_music_enabled?: boolean;
     timer_music_offset_seconds?: number;
+    timer_alarm_enabled?: boolean;
   } | null;
   onPersistTimerState?: (config: {
     timer_started_at?: string | null;
@@ -26,6 +27,7 @@ interface RetroTimerProps {
     timer_is_running?: boolean;
     timer_music_enabled?: boolean;
     timer_music_offset_seconds?: number;
+    timer_alarm_enabled?: boolean;
   }) => void;
 }
 
@@ -37,6 +39,7 @@ interface TimerBroadcastPayload {
   isRunning: boolean;
   musicEnabled: boolean;
   musicOffsetSeconds: number;
+  alarmEnabled: boolean;
 }
 
 const TIMER_VOLUME_KEY = 'retroTimerVolume';
@@ -62,6 +65,33 @@ const getSyncedMusicPosition = (
   return rawPosition;
 };
 
+const playTimerAlarm = () => {
+  if (typeof window === 'undefined') return;
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextCtor) return;
+
+  const ctx = new AudioContextCtor();
+  const sequence = [0, 0.18, 0.36];
+
+  sequence.forEach((offset) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(880, ctx.currentTime + offset);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
+    gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + offset + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.14);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + offset);
+    osc.stop(ctx.currentTime + offset + 0.15);
+  });
+
+  window.setTimeout(() => {
+    ctx.close().catch(() => {});
+  }, 1000);
+};
+
 export const RetroTimer: React.FC<RetroTimerProps> = ({
   presenceChannel,
   boardConfig,
@@ -79,6 +109,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [musicOffsetSeconds, setMusicOffsetSeconds] = useState(0);
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [volume, setVolume] = useState(() => {
     if (typeof window === 'undefined') return 0.3;
     const storedVolume = Number(window.localStorage.getItem(TIMER_VOLUME_KEY));
@@ -221,6 +252,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
     setIsRunning(payload.isRunning);
     setMusicEnabled(payload.musicEnabled);
     setMusicOffsetSeconds(payload.musicOffsetSeconds);
+    setAlarmEnabled(payload.alarmEnabled);
     if (payload.isRunning && payload.startedAt) {
       setTimeLeft(getTimeLeftFromStart(payload.startedAt, payload.durationSeconds));
       return;
@@ -237,6 +269,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       timer_is_running: payload.isRunning,
       timer_music_enabled: payload.musicEnabled,
       timer_music_offset_seconds: payload.musicOffsetSeconds,
+      timer_alarm_enabled: payload.alarmEnabled,
     });
   }, [onPersistTimerState]);
 
@@ -278,6 +311,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       isRunning: !!boardConfig.timer_is_running,
       musicEnabled: !!boardConfig.timer_music_enabled,
       musicOffsetSeconds: boardConfig.timer_music_offset_seconds ?? 0,
+      alarmEnabled: boardConfig.timer_alarm_enabled ?? true,
     };
     applyTimerState(savedPayload);
   }, [boardConfig, applyTimerState]);
@@ -301,11 +335,15 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
               isRunning: false,
               musicEnabled,
               musicOffsetSeconds: 0,
+              alarmEnabled,
             });
             toast({
               title: "Time's up!",
               description: "Your retro timer has finished.",
             });
+            if (alarmEnabled) {
+              playTimerAlarm();
+            }
             setTimeLeft(0);
             return;
           }
@@ -325,11 +363,15 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
               isRunning: false,
               musicEnabled,
               musicOffsetSeconds: 0,
+              alarmEnabled,
             });
             toast({
               title: "Time's up!",
               description: "Your retro timer has finished.",
             });
+            if (alarmEnabled) {
+              playTimerAlarm();
+            }
             return 0;
           }
           return prev - 1;
@@ -346,7 +388,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, toast, startedAt, durationSeconds, musicEnabled, persistTimerState]);
+  }, [isRunning, timeLeft, toast, startedAt, durationSeconds, musicEnabled, alarmEnabled, persistTimerState]);
 
   const handleAudioUpload = async () => {
     if (!audioFile || !user) return;
@@ -443,6 +485,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       isRunning: true,
       musicEnabled,
       musicOffsetSeconds: nextMusicOffsetSeconds,
+      alarmEnabled,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
@@ -465,6 +508,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       isRunning: false,
       musicEnabled,
       musicOffsetSeconds: nextMusicOffsetSeconds,
+      alarmEnabled,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
@@ -480,6 +524,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       isRunning: false,
       musicEnabled,
       musicOffsetSeconds: 0,
+      alarmEnabled,
     };
     applyTimerState(nextPayload);
     await broadcastTimerState(nextPayload);
@@ -731,6 +776,19 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
                     />
                     <label htmlFor="music" className="text-sm">
                       Play background music {!uploadedAudioUrl && '(upload audio first)'}
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="timer-alarm"
+                      checked={alarmEnabled}
+                      onChange={(e) => setAlarmEnabled(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="timer-alarm" className="text-sm">
+                      Play alarm when timer ends
                     </label>
                   </div>
                   
