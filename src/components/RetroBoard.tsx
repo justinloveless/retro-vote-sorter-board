@@ -295,6 +295,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
           broadcastReadinessChange={isArchived ? undefined : broadcastReadinessChange}
           adminEditMode={adminEditMode}
           onToggleAdminEditMode={isAdmin ? () => setAdminEditMode(prev => !prev) : undefined}
+          presenceChannel={presenceChannel}
         />
 
         {/* User Name Display */}

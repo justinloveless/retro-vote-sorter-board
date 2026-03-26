@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,24 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
-export const RetroTimer: React.FC = () => {
+interface RetroTimerProps {
+  presenceChannel?: any;
+}
+
+interface TimerBroadcastPayload {
+  action: 'start' | 'pause' | 'reset';
+  startedAt: string | null;
+  durationSeconds: number;
+  timeLeft: number;
+  isRunning: boolean;
+}
+
+const getTimeLeftFromStart = (startedAt: string, durationSeconds: number) => {
+  const elapsedSeconds = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  return Math.max(durationSeconds - elapsedSeconds, 0);
+};
+
+export const RetroTimer: React.FC<RetroTimerProps> = ({ presenceChannel }) => {
   const { user } = useAuth();
   const isAnonymousUser = !user;
   
@@ -17,6 +34,8 @@ export const RetroTimer: React.FC = () => {
   const [seconds, setSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [volume, setVolume] = useState(0.3);
@@ -85,10 +104,61 @@ export const RetroTimer: React.FC = () => {
     }
   }, [volume, isMuted]);
 
-  // Timer logic
+  const applyTimerState = useCallback((payload: TimerBroadcastPayload) => {
+    setStartedAt(payload.startedAt);
+    setDurationSeconds(payload.durationSeconds);
+    setIsRunning(payload.isRunning);
+    if (payload.isRunning && payload.startedAt) {
+      setTimeLeft(getTimeLeftFromStart(payload.startedAt, payload.durationSeconds));
+      return;
+    }
+    setTimeLeft(payload.timeLeft);
+  }, []);
+
+  const broadcastTimerState = useCallback(async (payload: TimerBroadcastPayload) => {
+    if (!presenceChannel) return;
+    await presenceChannel.send({
+      type: 'broadcast',
+      event: 'retro-timer-changed',
+      payload,
+    });
+  }, [presenceChannel]);
+
+  useEffect(() => {
+    if (!presenceChannel) return;
+    const timerBroadcastHandler = ({ payload }: { payload?: TimerBroadcastPayload }) => {
+      if (!payload) return;
+      applyTimerState(payload);
+    };
+
+    presenceChannel.on('broadcast', { event: 'retro-timer-changed' }, timerBroadcastHandler);
+
+    return () => {
+      presenceChannel.off('broadcast', { event: 'retro-timer-changed' }, timerBroadcastHandler);
+    };
+  }, [presenceChannel, applyTimerState]);
+
+  // Timer logic (latency-aware while running)
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
+        if (startedAt && durationSeconds > 0) {
+          const calculatedTimeLeft = getTimeLeftFromStart(startedAt, durationSeconds);
+          if (calculatedTimeLeft <= 0) {
+            setIsRunning(false);
+            setStartedAt(null);
+            setDurationSeconds(0);
+            toast({
+              title: "Time's up!",
+              description: "Your retro timer has finished.",
+            });
+            setTimeLeft(0);
+            return;
+          }
+          setTimeLeft(calculatedTimeLeft);
+          return;
+        }
+
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setIsRunning(false);
@@ -112,7 +182,7 @@ export const RetroTimer: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, toast]);
+  }, [isRunning, timeLeft, toast, startedAt, durationSeconds]);
 
   const handleAudioUpload = async () => {
     if (!audioFile || !user) return;
@@ -197,21 +267,46 @@ export const RetroTimer: React.FC = () => {
     }
   };
 
-  const startTimer = () => {
-    if (timeLeft === 0) {
-      setTimeLeft(minutes * 60 + seconds);
-    }
-    setIsRunning(true);
+  const startTimer = async () => {
+    const nextDurationSeconds = timeLeft === 0 ? (minutes * 60 + seconds) : timeLeft;
+    const nextStartedAt = new Date().toISOString();
+    const nextPayload: TimerBroadcastPayload = {
+      action: 'start',
+      startedAt: nextStartedAt,
+      durationSeconds: nextDurationSeconds,
+      timeLeft: nextDurationSeconds,
+      isRunning: true,
+    };
+    applyTimerState(nextPayload);
+    await broadcastTimerState(nextPayload);
     setIsDialogOpen(false);
   };
 
-  const pauseTimer = () => {
-    setIsRunning(false);
+  const pauseTimer = async () => {
+    const nextTimeLeft = startedAt && durationSeconds > 0
+      ? getTimeLeftFromStart(startedAt, durationSeconds)
+      : timeLeft;
+    const nextPayload: TimerBroadcastPayload = {
+      action: 'pause',
+      startedAt: null,
+      durationSeconds: 0,
+      timeLeft: nextTimeLeft,
+      isRunning: false,
+    };
+    applyTimerState(nextPayload);
+    await broadcastTimerState(nextPayload);
   };
 
-  const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(0);
+  const resetTimer = async () => {
+    const nextPayload: TimerBroadcastPayload = {
+      action: 'reset',
+      startedAt: null,
+      durationSeconds: 0,
+      timeLeft: 0,
+      isRunning: false,
+    };
+    applyTimerState(nextPayload);
+    await broadcastTimerState(nextPayload);
   };
 
   const formatTime = (totalSeconds: number) => {
