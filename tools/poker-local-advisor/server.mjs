@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
  * Reference local advisor server for Retroscope poker.
+ * GET /health — fast liveness (no handler subprocess); JSON { ok: true }.
  * POST /advise — JSON body in, JSON { points, reasoning } out.
  *
  * Optional: POKER_ADVISOR_HANDLER=/path/to/executable
  *   Executable receives JSON on stdin; must print JSON on stdout.
+ * Optional: HOST=0.0.0.0 (default) listens on all interfaces; HOST=127.0.0.1 for loopback only.
  */
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 const PORT = Number(process.env.PORT || 17300);
+const HOST = process.env.HOST ?? '0.0.0.0';
 const HANDLER = process.env.POKER_ADVISOR_HANDLER || '';
 const LOG_TRUNC = 400;
 
@@ -41,7 +44,7 @@ function summarizeResponseForLog(result) {
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json; charset=utf-8',
   };
@@ -109,6 +112,8 @@ function runHandler(payloadStr) {
 }
 
 const server = http.createServer(async (req, res) => {
+  const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
+
   if (req.method === 'OPTIONS') {
     logLine('request', req.method, req.url ?? '', '(CORS preflight)');
     res.writeHead(204, corsHeaders());
@@ -116,7 +121,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method !== 'POST' || !req.url?.startsWith('/advise')) {
+  if ((req.method === 'GET' || req.method === 'HEAD') && pathname === '/health') {
+    res.writeHead(200, corsHeaders());
+    res.end(req.method === 'HEAD' ? '' : JSON.stringify({ ok: true, service: 'poker-local-advisor' }));
+    return;
+  }
+
+  if (req.method !== 'POST' || !pathname.startsWith('/advise')) {
     logLine('request', req.method, req.url ?? '', '→ 404 not found');
     res.writeHead(404, corsHeaders());
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -165,8 +176,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, HOST, () => {
   console.error(
-    `[poker-local-advisor] listening on http://127.0.0.1:${PORT}/advise (handler=${HANDLER || 'stub'})`,
+    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise; handler=${HANDLER || 'stub'})`,
   );
 });

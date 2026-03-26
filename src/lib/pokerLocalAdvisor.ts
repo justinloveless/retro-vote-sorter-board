@@ -1,9 +1,17 @@
 import type { GameState } from '@/hooks/usePokerSession';
 
+function advisorOrigin(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/$/, '');
+}
+
+/** GET target for a fast connection check (reference server implements this; avoids running the CLI). */
+export function normalizeHealthUrl(baseUrl: string): string {
+  return `${advisorOrigin(baseUrl)}/health`;
+}
+
 /** POST target for the local advisor server */
 export function normalizeAdviseUrl(baseUrl: string): string {
-  const t = baseUrl.trim().replace(/\/$/, '');
-  return `${t}/advise`;
+  return `${advisorOrigin(baseUrl)}/advise`;
 }
 
 export type PokerAdvisorRequestPayload = {
