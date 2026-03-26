@@ -56,6 +56,20 @@ function runGemini(bin, args) {
   });
 }
 
+/**
+ * @param {Record<string, unknown>} payload
+ */
+export async function runGeminiAdvisor(payload) {
+  const prompt = buildEstimationPrompt(payload);
+  const bin = process.env.GEMINI_BIN || 'gemini';
+  const extra = splitArgs(process.env.GEMINI_ARGS || '');
+  const args = ['-p', prompt, ...extra];
+
+  const out = await runGemini(bin, args);
+  const parsed = extractJsonObject(out);
+  return normalizeAdvisorResult(parsed);
+}
+
 async function main() {
   const raw = await readStdin();
   let payload = {};
@@ -66,14 +80,7 @@ async function main() {
     process.exit(1);
   }
 
-  const prompt = buildEstimationPrompt(payload);
-  const bin = process.env.GEMINI_BIN || 'gemini';
-  const extra = splitArgs(process.env.GEMINI_ARGS || '');
-  const args = ['-p', prompt, ...extra];
-
-  const out = await runGemini(bin, args);
-  const parsed = extractJsonObject(out);
-  const result = normalizeAdvisorResult(parsed);
+  const result = await runGeminiAdvisor(payload);
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

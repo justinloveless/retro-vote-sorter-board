@@ -12,9 +12,12 @@ import {
 } from '@/lib/pokerLocalAdvisor';
 import {
   getCachedAdviceForTicket,
+  getInFlightAdviceForTicket,
   invalidateAdviceCacheForTicket,
+  setInFlightAdviceForTicket,
   setCachedAdviceForTicket,
 } from '@/lib/pokerAdvisorCache';
+import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 
 const DEBOUNCE_MS = 450;
 
@@ -42,12 +45,16 @@ export function usePokerLocalAdvisor(options: {
   featureFlagOn: boolean;
   profile: Profile | null;
   teamId: string | undefined;
+  /** Poker session id — scopes the active-ticket prefetch queue. */
+  sessionId: string | null | undefined;
+  /** All rounds for the session — used to enqueue active tickets and resolve queue items. */
+  rounds: PokerSessionRound[];
   currentRound: PokerSessionRound | null;
   gameState: GameState;
   /** When true, no /advise requests are made (browser-local; see usePokerAdvisorPause). */
   paused: boolean;
 }) {
-  const { featureFlagOn, profile, teamId, currentRound, gameState, paused } = options;
+  const { featureFlagOn, profile, teamId, sessionId, rounds, currentRound, gameState, paused } = options;
 
   const enabled =
     !!featureFlagOn &&
@@ -79,154 +86,268 @@ export function usePokerLocalAdvisor(options: {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
-  const runFetch = useCallback(async (forceRefresh = false) => {
-    const fetchForKey = stableKey;
+  const viewingRoundIdRef = useRef<string | null>(null);
+  const viewingTicketKeyRef = useRef('');
+  viewingRoundIdRef.current = currentRound?.id ?? null;
+  viewingTicketKeyRef.current = ticketKey;
 
-    if (!enabled || !baseUrl) {
-      setStatus('idle');
-      setAdvice(null);
-      setAdviceReceivedAt(null);
-      setLastError(null);
-      return;
-    }
+  const roundsRef = useRef(rounds);
+  roundsRef.current = rounds;
 
-    if (pausedRef.current) {
-      setStatus('idle');
-      setLastError(null);
-      return;
-    }
+  const prefetchQueueRef = useRef<string[]>([]);
+  /** Per round id, last ticket key we queued — re-queue when the ticket on an active round changes. */
+  const lastQueuedTicketByRoundRef = useRef<Map<string, string>>(new Map());
+  const drainingPrefetchRef = useRef(false);
 
-    if (!forceRefresh) {
-      const hit = getCachedAdviceForTicket(ticketKey);
-      if (hit) {
-        setAdvice(hit.advice);
-        setAdviceReceivedAt(hit.receivedAt);
-        setStatus('ok');
+  const runAdvisorNetworkOnce = useCallback(
+    (round: PokerSessionRound, payloadGameState: GameState) => {
+      const tk = (round.ticket_number || '').trim();
+      const rid = round.id;
+      const rnum = round.round_number;
+
+      return (async () => {
+        let description: string | null = null;
+        if (teamId && tk && tk !== '—') {
+          description = await optionalJiraDescription(teamId, tk);
+        }
+
+        let teamPrompt: string | null = null;
+        if (teamId) {
+          const { data } = await supabase
+            .from('teams')
+            .select('poker_advisor_team_prompt')
+            .eq('id', teamId)
+            .maybeSingle();
+          const raw = data?.poker_advisor_team_prompt;
+          teamPrompt = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+        }
+
+        const personalRaw = profile?.poker_advisor_personal_prompt;
+        const personalPrompt =
+          typeof personalRaw === 'string' && personalRaw.trim() ? personalRaw.trim() : null;
+
+        const payload: PokerAdvisorRequestPayload = {
+          roundId: rid,
+          ticketKey: tk,
+          ticketTitle: round.ticket_title ?? null,
+          parentKey: round.ticket_parent_key ?? null,
+          parentSummary: round.ticket_parent_summary ?? null,
+          description,
+          roundNumber: rnum,
+          gameState: payloadGameState,
+          teamPrompt,
+          personalPrompt,
+          combinedPrompt: combineAdvisorPrompts(teamPrompt, personalPrompt),
+        };
+
+        const url = normalizeAdviseUrl(baseUrl);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let parsed: unknown;
+        try {
+          parsed = text ? JSON.parse(text) : {};
+        } catch {
+          throw new Error('Local advisor did not return valid JSON.');
+        }
+        if (!res.ok) {
+          const errMsg =
+            typeof parsed === 'object' && parsed && 'error' in parsed && typeof (parsed as { error?: string }).error === 'string'
+              ? (parsed as { error: string }).error
+              : `HTTP ${res.status}`;
+          throw new Error(errMsg);
+        }
+
+        const norm = normalizeAdvisorResponse(parsed);
+        if (!norm || norm.error) {
+          throw new Error(norm?.error || 'Invalid response');
+        }
+
+        const receivedAt = Date.now();
+        setCachedAdviceForTicket(tk, norm, receivedAt);
+        return { advice: norm, receivedAt };
+      })();
+    },
+    [baseUrl, teamId, profile?.poker_advisor_personal_prompt],
+  );
+
+  const runFetch = useCallback(
+    async (forceRefresh = false) => {
+      const fetchForKey = stableKey;
+
+      if (!enabled || !baseUrl) {
+        setStatus('idle');
+        setAdvice(null);
+        setAdviceReceivedAt(null);
         setLastError(null);
         return;
       }
-    }
 
-    setStatus('loading');
-    setLastError(null);
+      if (pausedRef.current) {
+        setStatus('idle');
+        setLastError(null);
+        return;
+      }
 
-    let description: string | null = null;
-    if (teamId && ticketKey && ticketKey !== '—') {
-      description = await optionalJiraDescription(teamId, ticketKey);
-    }
+      if (!currentRound) {
+        return;
+      }
 
-    let teamPrompt: string | null = null;
-    if (teamId) {
-      const { data } = await supabase
-        .from('teams')
-        .select('poker_advisor_team_prompt')
-        .eq('id', teamId)
-        .maybeSingle();
-      const raw = data?.poker_advisor_team_prompt;
-      teamPrompt = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
-    }
+      if (!forceRefresh) {
+        const hit = getCachedAdviceForTicket(ticketKey);
+        if (hit) {
+          setAdvice(hit.advice);
+          setAdviceReceivedAt(hit.receivedAt);
+          setStatus('ok');
+          setLastError(null);
+          return;
+        }
 
-    if (pausedRef.current) {
-      setStatus('idle');
+        const inFlight = getInFlightAdviceForTicket(ticketKey);
+        if (inFlight) {
+          setStatus('loading');
+          setLastError(null);
+          try {
+            const { advice: norm, receivedAt } = await inFlight;
+            if (pausedRef.current) return;
+            if (fetchForKey !== liveStableKeyRef.current) return;
+            if (norm.roundId && norm.roundId !== roundId) return;
+            setAdvice(norm);
+            setAdviceReceivedAt(receivedAt);
+            setStatus('ok');
+          } catch (e) {
+            if (pausedRef.current) return;
+            if (fetchForKey !== liveStableKeyRef.current) {
+              return;
+            }
+            setAdvice(null);
+            setAdviceReceivedAt(null);
+            setLastError(e instanceof Error ? e.message : 'Request failed');
+            setStatus('error');
+          }
+          return;
+        }
+      }
+
+      // Don't start network calls for non-active/history tickets.
+      // Cached/in-flight responses are still handled above; manual refresh (forceRefresh=true) can override.
+      if (!forceRefresh && !currentRound.is_active) {
+        setStatus('idle');
+        setLastError(null);
+        return;
+      }
+
+      setStatus('loading');
       setLastError(null);
-      return;
-    }
 
-    const personalRaw = profile?.poker_advisor_personal_prompt;
-    const personalPrompt =
-      typeof personalRaw === 'string' && personalRaw.trim() ? personalRaw.trim() : null;
+      const requestPromise = runAdvisorNetworkOnce(currentRound, gameState);
 
-    if (pausedRef.current) {
-      setStatus('idle');
-      setLastError(null);
-      return;
-    }
+      setInFlightAdviceForTicket(ticketKey, requestPromise);
 
-    const payload: PokerAdvisorRequestPayload = {
+      try {
+        const { advice: norm, receivedAt } = await requestPromise;
+        if (pausedRef.current) return;
+        if (fetchForKey !== liveStableKeyRef.current) return;
+        if (norm.roundId && norm.roundId !== roundId) return;
+        setAdvice(norm);
+        setAdviceReceivedAt(receivedAt);
+        setStatus('ok');
+      } catch (e) {
+        if (pausedRef.current) return;
+        if (fetchForKey !== liveStableKeyRef.current) return;
+        setAdvice(null);
+        setAdviceReceivedAt(null);
+        setLastError(e instanceof Error ? e.message : 'Request failed');
+        setStatus('error');
+      }
+    },
+    [
+      enabled,
+      baseUrl,
+      currentRound,
+      gameState,
+      stableKey,
       roundId,
       ticketKey,
-      ticketTitle: currentRound?.ticket_title ?? null,
-      parentKey: currentRound?.ticket_parent_key ?? null,
-      parentSummary: currentRound?.ticket_parent_summary ?? null,
-      description,
-      roundNumber,
-      gameState,
-      teamPrompt,
-      personalPrompt,
-      combinedPrompt: combineAdvisorPrompts(teamPrompt, personalPrompt),
-    };
+      runAdvisorNetworkOnce,
+    ],
+  );
 
+  const drainPrefetchQueue = useCallback(async () => {
+    if (!enabled || !baseUrl || pausedRef.current) return;
+    if (drainingPrefetchRef.current) return;
+    drainingPrefetchRef.current = true;
     try {
-      const url = normalizeAdviseUrl(baseUrl);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      let parsed: unknown;
-      try {
-        parsed = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error('Local advisor did not return valid JSON.');
-      }
-      if (!res.ok) {
-        const errMsg =
-          typeof parsed === 'object' && parsed && 'error' in parsed && typeof (parsed as { error?: string }).error === 'string'
-            ? (parsed as { error: string }).error
-            : `HTTP ${res.status}`;
-        throw new Error(errMsg);
-      }
+      while (prefetchQueueRef.current.length > 0) {
+        const rid = prefetchQueueRef.current.shift()!;
+        const round = roundsRef.current.find((r) => r.id === rid);
+        if (!round?.is_active) continue;
+        const tk = (round.ticket_number || '').trim();
+        if (!tk || isSyntheticRoundTicket(tk)) continue;
+        if (getCachedAdviceForTicket(tk)) continue;
+        if (getInFlightAdviceForTicket(tk)) continue;
 
-      const norm = normalizeAdvisorResponse(parsed);
-      if (!norm || norm.error) {
-        if (!pausedRef.current && fetchForKey === liveStableKeyRef.current) {
+        const requestPromise = runAdvisorNetworkOnce(round, round.game_state);
+        setInFlightAdviceForTicket(tk, requestPromise);
+
+        try {
+          const { advice: norm, receivedAt } = await requestPromise;
+          if (pausedRef.current) continue;
+          if (viewingRoundIdRef.current !== round.id) continue;
+          if (viewingTicketKeyRef.current !== tk) continue;
+          if (norm.roundId && norm.roundId !== round.id) continue;
+          setAdvice(norm);
+          setAdviceReceivedAt(receivedAt);
+          setStatus('ok');
+          setLastError(null);
+        } catch (e) {
+          if (pausedRef.current) continue;
+          if (viewingRoundIdRef.current !== round.id) continue;
+          if (viewingTicketKeyRef.current !== tk) continue;
           setAdvice(null);
           setAdviceReceivedAt(null);
-          setLastError(norm?.error || 'Invalid response');
+          setLastError(e instanceof Error ? e.message : 'Request failed');
           setStatus('error');
         }
-        return;
       }
-
-      // Always persist successful advice for this request's ticket, even if the user navigated
-      // away before the response arrived (otherwise round 18's result is lost when returning later).
-      const receivedAt = Date.now();
-      setCachedAdviceForTicket(ticketKey, norm, receivedAt);
-
-      if (pausedRef.current) return;
-      if (fetchForKey !== liveStableKeyRef.current) return;
-      if (norm.roundId && norm.roundId !== roundId) return;
-
-      setAdvice(norm);
-      setAdviceReceivedAt(receivedAt);
-      setStatus('ok');
-    } catch (e) {
-      if (pausedRef.current) return;
-      if (fetchForKey !== liveStableKeyRef.current) {
-        return;
-      }
-      setAdvice(null);
-      setAdviceReceivedAt(null);
-      setLastError(e instanceof Error ? e.message : 'Request failed');
-      setStatus('error');
+    } finally {
+      drainingPrefetchRef.current = false;
     }
-  }, [
-    enabled,
-    baseUrl,
-    teamId,
-    profile?.poker_advisor_personal_prompt,
-    stableKey,
-    roundId,
-    ticketKey,
-    currentRound?.ticket_title,
-    currentRound?.ticket_parent_key,
-    currentRound?.ticket_parent_summary,
-    roundNumber,
-    gameState,
-  ]);
+  }, [enabled, baseUrl, runAdvisorNetworkOnce]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const sid = sessionId?.trim() || null;
+
+  useEffect(() => {
+    prefetchQueueRef.current = [];
+    lastQueuedTicketByRoundRef.current.clear();
+  }, [sid]);
+
+  useEffect(() => {
+    if (!enabled || !sid) return;
+
+    for (const r of rounds) {
+      if (!r.is_active) continue;
+      const tk = (r.ticket_number || '').trim();
+      if (!tk || isSyntheticRoundTicket(tk)) continue;
+      const prev = lastQueuedTicketByRoundRef.current.get(r.id);
+      if (prev === tk) continue;
+      lastQueuedTicketByRoundRef.current.set(r.id, tk);
+      prefetchQueueRef.current.push(r.id);
+    }
+
+    void drainPrefetchQueue();
+  }, [enabled, sid, rounds, drainPrefetchQueue]);
+
+  useEffect(() => {
+    if (!paused) {
+      void drainPrefetchQueue();
+    }
+  }, [paused, drainPrefetchQueue]);
 
   useEffect(() => {
     if (!enabled) {

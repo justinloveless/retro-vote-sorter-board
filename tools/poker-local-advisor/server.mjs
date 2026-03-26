@@ -4,17 +4,97 @@
  * GET /health — fast liveness (no handler subprocess); JSON { ok: true }.
  * POST /advise — JSON body in, JSON { points, reasoning } out.
  *
- * Optional: POKER_ADVISOR_HANDLER=/path/to/executable
- *   Executable receives JSON on stdin; must print JSON on stdout.
+ * Optional: --handler <name|path>
+ *   Built-ins: claude-code (or claude), gemini-cli (or gemini), stub
+ *   Or path to an executable: receives JSON on stdin; prints JSON on stdout.
+ * Optional: POKER_ADVISOR_HANDLER=/path/to/executable (used when --handler is omitted)
  * Optional: HOST=0.0.0.0 (default) listens on all interfaces; HOST=127.0.0.1 for loopback only.
  */
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
+import { runClaudeAdvisor } from './handlers/claude-code.mjs';
+import { runGeminiAdvisor } from './handlers/gemini-cli.mjs';
+
 const PORT = Number(process.env.PORT || 17300);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const HANDLER = process.env.POKER_ADVISOR_HANDLER || '';
 const LOG_TRUNC = 400;
+
+/** @typedef {{ kind: 'stub' } | { kind: 'builtin', run: (p: Record<string, unknown>) => Promise<Record<string, unknown>> } | { kind: 'external', path: string }} ResolvedHandler */
+
+/**
+ * @param {string[]} argv
+ */
+function parseServerArgs(argv) {
+  let handlerFlag;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--help' || a === '-h') {
+      return { help: true };
+    }
+    if (a === '--handler') {
+      handlerFlag = argv[++i];
+      if (handlerFlag === undefined) {
+        console.error('[poker-local-advisor] error: --handler requires a value');
+        process.exit(1);
+      }
+      continue;
+    }
+    if (a.startsWith('--handler=')) {
+      handlerFlag = a.slice('--handler='.length);
+      if (!handlerFlag) {
+        console.error('[poker-local-advisor] error: --handler= requires a value');
+        process.exit(1);
+      }
+      continue;
+    }
+    console.error(`[poker-local-advisor] error: unknown argument: ${a}`);
+    console.error('Try: node server.mjs --help');
+    process.exit(1);
+  }
+  return { help: false, handlerFlag };
+}
+
+function printHelp() {
+  console.error(`Usage: node server.mjs [--handler <name|path>]
+
+  --handler   Built-in: claude-code | claude | gemini-cli | gemini | stub
+              Or path to an executable (stdin JSON → stdout JSON).
+              If omitted, uses env POKER_ADVISOR_HANDLER, else stub mode.
+
+Environment: PORT (default 17300), HOST (default 0.0.0.0), POKER_ADVISOR_HANDLER
+`);
+}
+
+const cli = parseServerArgs(process.argv.slice(2));
+if (cli.help) {
+  printHelp();
+  process.exit(0);
+}
+
+const handlerSpec =
+  cli.handlerFlag !== undefined ? cli.handlerFlag : process.env.POKER_ADVISOR_HANDLER || '';
+
+/**
+ * @param {string} spec
+ * @returns {ResolvedHandler}
+ */
+function resolveHandler(spec) {
+  const trimmed = (spec || '').trim();
+  if (!trimmed) return { kind: 'stub' };
+  const lower = trimmed.toLowerCase();
+  if (lower === 'stub' || lower === 'none') return { kind: 'stub' };
+  if (lower === 'claude-code' || lower === 'claude') {
+    return { kind: 'builtin', run: runClaudeAdvisor };
+  }
+  if (lower === 'gemini-cli' || lower === 'gemini') {
+    return { kind: 'builtin', run: runGeminiAdvisor };
+  }
+  return { kind: 'external', path: trimmed };
+}
+
+/** @type {ResolvedHandler} */
+const RESOLVED_HANDLER = resolveHandler(handlerSpec);
 
 function logLine(...args) {
   console.error('[poker-local-advisor]', ...args);
@@ -55,8 +135,16 @@ function stubResponse(body) {
   return {
     points: 5,
     reasoning:
-      `Stub response for ${key}. Set POKER_ADVISOR_HANDLER to a script that calls your CLI and prints JSON with points and reasoning.`,
+      `Stub response for ${key}. Run with --handler claude-code or --handler gemini-cli, set POKER_ADVISOR_HANDLER to a custom executable, or see README.`,
   };
+}
+
+function handlerLabel() {
+  if (RESOLVED_HANDLER.kind === 'stub') return 'stub';
+  if (RESOLVED_HANDLER.kind === 'builtin') {
+    return RESOLVED_HANDLER.run === runClaudeAdvisor ? 'claude-code' : 'gemini-cli';
+  }
+  return RESOLVED_HANDLER.path;
 }
 
 /** Merge request correlation into the response so clients can match async results to a round. */
@@ -77,8 +165,12 @@ function attachCorrelation(parsed, result) {
 }
 
 function runHandler(payloadStr) {
+  if (RESOLVED_HANDLER.kind !== 'external') {
+    return Promise.reject(new Error('runHandler requires an external handler'));
+  }
+  const exe = RESOLVED_HANDLER.path;
   return new Promise((resolve, reject) => {
-    const child = spawn(HANDLER, [], {
+    const child = spawn(exe, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
     });
@@ -156,7 +248,11 @@ const server = http.createServer(async (req, res) => {
 
   try {
     let result;
-    if (HANDLER) {
+    if (RESOLVED_HANDLER.kind === 'builtin') {
+      result = await RESOLVED_HANDLER.run(
+        /** @type {Record<string, unknown>} */ (parsed),
+      );
+    } else if (RESOLVED_HANDLER.kind === 'external') {
       result = await runHandler(body);
     } else {
       result = stubResponse(parsed);
@@ -178,6 +274,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.error(
-    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise; handler=${HANDLER || 'stub'})`,
+    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise; handler=${handlerLabel()})`,
   );
 });

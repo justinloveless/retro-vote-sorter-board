@@ -44,18 +44,33 @@ cd tools/poker-local-advisor
 node server.mjs
 ```
 
-Defaults: `PORT=17300`, stub mode unless `POKER_ADVISOR_HANDLER` is set.
+Defaults: `PORT=17300`, stub mode unless you pass **`--handler`** or set **`POKER_ADVISOR_HANDLER`**.
+
+### `--handler` (recommended)
+
+Built-in advisors run in-process (no wrapper script or env var needed):
+
+```bash
+cd tools/poker-local-advisor
+node server.mjs --handler claude-code
+# or: --handler claude
+
+node server.mjs --handler gemini-cli
+# or: --handler gemini
+```
+
+You can still point at a custom executable (stdin JSON → stdout JSON): `node server.mjs --handler /path/to/my-handler`.
 
 ### Environment
 
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Listen port (default `17300`) |
-| `POKER_ADVISOR_HANDLER` | Optional path to an executable. Receives the JSON request body on **stdin**; must print **one JSON object** on **stdout** (same shape as response above). |
+| `POKER_ADVISOR_HANDLER` | Optional path to an executable, used when **`--handler` is omitted**. Receives the JSON request body on **stdin**; must print **one JSON object** on **stdout** (same shape as response above). |
 
 ### Bundled handlers (Claude Code & Gemini CLI)
 
-These scripts read the same JSON stdin as the server, call the respective CLI with a planning-poker prompt, then print normalized JSON to stdout.
+The same logic lives in [`handlers/claude-code.mjs`](handlers/claude-code.mjs) and [`handlers/gemini-cli.mjs`](handlers/gemini-cli.mjs). The server imports these when you use `--handler claude-code` or `--handler gemini-cli`. You can also run those `.mjs` files standalone (stdin JSON → stdout JSON) or use the shell wrappers below.
 
 | Script | CLI | Requirements |
 |--------|-----|----------------|
@@ -66,10 +81,10 @@ These scripts read the same JSON stdin as the server, call the respective CLI wi
 cd tools/poker-local-advisor
 chmod +x handlers/run-claude-code.sh handlers/run-gemini-cli.sh
 
-# Claude Code (default binary name: claude)
+# Equivalent to: node server.mjs --handler claude-code
 POKER_ADVISOR_HANDLER="$(pwd)/handlers/run-claude-code.sh" node server.mjs
 
-# Or Gemini CLI
+# Or Gemini
 POKER_ADVISOR_HANDLER="$(pwd)/handlers/run-gemini-cli.sh" node server.mjs
 ```
 
@@ -97,7 +112,8 @@ echo "$INPUT" | your-cli --json
 
 ```bash
 chmod +x handler.sh
-POKER_ADVISOR_HANDLER=./handler.sh node server.mjs
+node server.mjs --handler ./handler.sh
+# or: POKER_ADVISOR_HANDLER=./handler.sh node server.mjs
 ```
 
 ## Account settings
