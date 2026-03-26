@@ -40,6 +40,7 @@ interface BoardHeaderProps {
   }) => Promise<void>;
   adminEditMode?: boolean;
   onToggleAdminEditMode?: () => void;
+  presenceChannel?: any;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -61,6 +62,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   broadcastReadinessChange,
   adminEditMode,
   onToggleAdminEditMode,
+  presenceChannel,
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -112,7 +114,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-4">
-          <RetroTimer />
+          <RetroTimer presenceChannel={presenceChannel} />
 
           <SentimentDisplay items={items} />
 
