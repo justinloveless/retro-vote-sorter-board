@@ -36,7 +36,7 @@ export const PokerAdvisorPanel: React.FC = () => {
   const globalFlagOn = flags[FEATURE_POKER_LOCAL_ADVISOR] === true;
 
   const { profile } = useAuth();
-  const { displaySession, effectiveCurrentRound, teamId } = usePokerTable();
+  const { displaySession, effectiveCurrentRound, teamId, session, rounds } = usePokerTable();
   const featureResolved = !flagsLoading && isFeatureEnabled(FEATURE_POKER_LOCAL_ADVISOR, { teamId });
   const tierBlocks = !flagsLoading && globalFlagOn && !featureResolved;
   const { paused, setPaused } = usePokerAdvisorPause();
@@ -67,6 +67,8 @@ export const PokerAdvisorPanel: React.FC = () => {
     featureFlagOn: featureResolved,
     profile,
     teamId,
+    sessionId: session?.session_id ?? null,
+    rounds,
     currentRound: effectiveCurrentRound,
     gameState,
     paused,
@@ -127,6 +129,11 @@ export const PokerAdvisorPanel: React.FC = () => {
               </span>
             )}
           </span>
+          {collapsed && advisor.requestsActive && advisor.status === 'loading' && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0" role="status" aria-label="Contacting local advisor">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+            </span>
+          )}
         </span>
         {collapsed ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
       </button>

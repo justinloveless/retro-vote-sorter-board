@@ -19,12 +19,13 @@ node server.mjs
 
 By default it listens on **http://127.0.0.1:17300** (only your machine).
 
-Optional: use a Claude or Gemini handler (see `README.md` inside the folder):
+Optional: use the built-in Claude or Gemini advisor (see `README.md` in the folder):
 
 ```bash
-chmod +x handlers/run-claude-code.sh
-POKER_ADVISOR_HANDLER="$(pwd)/handlers/run-claude-code.sh" node server.mjs
+node server.mjs --handler claude-code
 ```
+
+(`--handler gemini-cli` for Gemini. You can still set `POKER_ADVISOR_HANDLER` to a custom script if you prefer.)
 
 ## 3. Connect Retroscope
 
