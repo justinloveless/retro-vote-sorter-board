@@ -11,7 +11,7 @@ import { useAuth, type Profile } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { FEATURE_POKER_LOCAL_ADVISOR } from '@/constants/featureFlags';
-import { combineAdvisorPrompts, normalizeAdviseUrl } from '@/lib/pokerLocalAdvisor';
+import { combineAdvisorPrompts, normalizeAdviseUrl, normalizeHealthUrl } from '@/lib/pokerLocalAdvisor';
 import { PokerLocalAdvisorDownload } from '@/components/account/PokerLocalAdvisorDownload';
 import { usePokerAdvisorPause } from '@/hooks/usePokerAdvisorPause';
 
@@ -90,30 +90,41 @@ export const PokerAdvisorSettings: React.FC = () => {
     }
     setTesting(true);
     try {
-      const url = normalizeAdviseUrl(baseUrl);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roundId: 'connection-test',
-          ticketKey: 'TEST-1',
-          ticketTitle: 'Connection test',
-          parentKey: null,
-          parentSummary: null,
-          description: null,
-          roundNumber: 1,
-          gameState: 'Selection',
-          teamPrompt: null,
-          personalPrompt: personalPrompt.trim() || null,
-          combinedPrompt: combineAdvisorPrompts(null, personalPrompt.trim() || null),
-        }),
-      });
+      const healthUrl = normalizeHealthUrl(baseUrl);
+      let res = await fetch(healthUrl, { method: 'GET' });
+      let usedLegacyAdvise = false;
+      if (res.status === 404) {
+        usedLegacyAdvise = true;
+        const url = normalizeAdviseUrl(baseUrl);
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roundId: 'connection-test',
+            ticketKey: 'TEST-1',
+            ticketTitle: 'Connection test',
+            parentKey: null,
+            parentSummary: null,
+            description: null,
+            roundNumber: 1,
+            gameState: 'Selection',
+            teamPrompt: null,
+            personalPrompt: personalPrompt.trim() || null,
+            combinedPrompt: combineAdvisorPrompts(null, personalPrompt.trim() || null),
+          }),
+        });
+      }
       const text = await res.text();
       if (!res.ok) {
         throw new Error(text || `HTTP ${res.status}`);
       }
-      JSON.parse(text);
-      toast({ title: 'Local server responded', description: 'Received JSON from your advisor endpoint.' });
+      if (text) JSON.parse(text);
+      toast({
+        title: 'Local server responded',
+        description: usedLegacyAdvise
+          ? 'Received JSON from your advisor endpoint.'
+          : 'Reference server is reachable (GET /health).',
+      });
     } catch (e: unknown) {
       toast({
         title: 'Connection failed',
