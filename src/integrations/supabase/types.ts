@@ -1017,6 +1017,7 @@ export type Database = {
           retro_stages_enabled: boolean | null
           show_author_names: boolean | null
           sort_chronologically: boolean | null
+          timer_alarm_enabled: boolean
           timer_duration_seconds: number
           timer_is_running: boolean
           timer_music_enabled: boolean
@@ -1038,6 +1039,7 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           sort_chronologically?: boolean | null
+          timer_alarm_enabled?: boolean
           timer_duration_seconds?: number
           timer_is_running?: boolean
           timer_music_enabled?: boolean
@@ -1059,6 +1061,7 @@ export type Database = {
           retro_stages_enabled?: boolean | null
           show_author_names?: boolean | null
           sort_chronologically?: boolean | null
+          timer_alarm_enabled?: boolean
           timer_duration_seconds?: number
           timer_is_running?: boolean
           timer_music_enabled?: boolean

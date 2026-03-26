@@ -79,6 +79,7 @@ interface RetroBoardConfig {
   timer_is_running?: boolean;
   timer_music_enabled?: boolean;
   timer_music_offset_seconds?: number;
+  timer_alarm_enabled?: boolean;
 }
 
 interface ActiveUser {
@@ -515,6 +516,7 @@ export const useRetroBoard = (roomId: string) => {
           'timer_is_running',
           'timer_music_enabled',
           'timer_music_offset_seconds',
+          'timer_alarm_enabled',
         ];
         const changedKeys = Object.keys(payload.new).filter((key) => {
           const oldValue = (payload.old as Record<string, unknown>)[key];
