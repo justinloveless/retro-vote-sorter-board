@@ -21,6 +21,7 @@ import NeotroPage from "./pages/NeotroPage";
 import AnonymousPokerPage from "./pages/AnonymousPokerPage";
 import Billing from "./pages/Billing";
 import Notifications from "./pages/Notifications";
+import Dashboard from "./pages/Dashboard";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminPage from "./pages/AdminPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
@@ -64,6 +65,7 @@ const App = () => (
                   <Route path="/retro/:roomId" element={<Retro />} />
                   <Route path="/poker/:roomId" element={<AnonymousPokerPage />} />
                   <Route path="/teams" element={<Teams />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/teams/:teamId" element={<Team />} />
                   <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />
                   <Route path="/teams/:teamId/poker/:sessionId" element={<NeotroPage />} />

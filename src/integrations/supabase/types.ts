@@ -1784,6 +1784,33 @@ export type Database = {
           },
         ]
       }
+      user_recent_activity: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          last_accessed_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          last_accessed_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          last_accessed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_favorite_teams: {
         Row: {
           created_at: string

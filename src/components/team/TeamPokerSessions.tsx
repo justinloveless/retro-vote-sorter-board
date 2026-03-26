@@ -40,6 +40,126 @@ interface PokerSessionRow {
   > | null;
 }
 
+export type PokerSessionListItem = PokerSessionRow;
+
+const roundRowsOrCount = (session: PokerSessionListItem) => {
+  const embedded = session.poker_session_rounds;
+  if (!embedded?.length) return { total: 0, rows: [] as PokerRoundForListStats[] };
+  return { total: embedded.length, rows: embedded as PokerRoundForListStats[] };
+};
+
+interface PokerSessionListCardProps {
+  session: PokerSessionListItem;
+  onOpen: () => void;
+  canDeleteSessions?: boolean;
+  onDelete?: () => void;
+  showIcon?: boolean;
+  showActions?: boolean;
+  subtitle?: string;
+}
+
+export const PokerSessionListCard: React.FC<PokerSessionListCardProps> = ({
+  session,
+  onOpen,
+  canDeleteSessions = false,
+  onDelete,
+  showIcon = true,
+  showActions = true,
+  subtitle,
+}) => {
+  const { total: roundCount, rows: roundRows } = roundRowsOrCount(session);
+  const pointedCount = countPointedStories(roundRows);
+  const topicSummary = getSessionTopicSummary75Percent(roundRows);
+
+  return (
+    <Card
+      className="cursor-pointer hover:shadow-md transition-shadow border-border"
+      onClick={onOpen}
+    >
+      <CardContent className="p-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          {showIcon && (
+            <div className="h-10 w-10 shrink-0 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <Spade className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="font-medium flex items-center gap-2">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              {format(new Date(session.created_at), 'MMMM d, yyyy')}
+            </div>
+            {subtitle && (
+              <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+            )}
+            <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
+              <Hash className="h-3 w-3 shrink-0" />
+              {pointedCount}/{roundCount} {roundCount === 1 ? 'story' : 'stories'} pointed
+              <span className="mx-1">·</span>
+              Started {format(new Date(session.created_at), 'h:mm a')}
+            </div>
+            {topicSummary && (
+              <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap min-w-0">
+                {topicSummary.kind === 'various' ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
+                      parentBadgeClassName('__various_topics__'),
+                    )}
+                  >
+                    various topics
+                  </Badge>
+                ) : (
+                  topicSummary.topics.map((t) => (
+                    <Badge
+                      key={`${t.toneKey}-${t.label}`}
+                      variant="outline"
+                      title={
+                        t.toneKey !== SESSION_TOPIC_UNSCOPED_TONE_KEY ? t.toneKey : undefined
+                      }
+                      className={cn(
+                        'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
+                        parentBadgeClassName(sessionTopicBadgeToneForParentClass(t.toneKey)),
+                      )}
+                    >
+                      {t.label}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {showActions && (
+          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {canDeleteSessions && onDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                aria-label="Delete poker session"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950"
+              onClick={onOpen}
+            >
+              Join
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 interface TeamPokerSessionsProps {
   teamId: string;
   onCreateSession: () => void;
@@ -65,12 +185,6 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     return [...prev, row].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  };
-
-  const roundRowsOrCount = (session: PokerSessionRow) => {
-    const embedded = session.poker_session_rounds;
-    if (!embedded?.length) return { total: 0, rows: [] as PokerRoundForListStats[] };
-    return { total: embedded.length, rows: embedded as PokerRoundForListStats[] };
   };
 
   useEffect(() => {
@@ -231,92 +345,15 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     <>
       <div className="space-y-3">
         {sessions.map((session) => {
-          const { total: roundCount, rows: roundRows } = roundRowsOrCount(session);
-          const pointedCount = countPointedStories(roundRows);
-          const topicSummary = getSessionTopicSummary75Percent(roundRows);
           return (
-          <Card
-            key={session.id}
-            className="cursor-pointer hover:shadow-md transition-shadow border-border"
-            onClick={() => navigate(`/teams/${teamId}/poker/${pokerSessionPathSlug(session)}`)}
-          >
-            <CardContent className="p-4 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <Spade className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-medium flex items-center gap-2">
-                    <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    {format(new Date(session.created_at), 'MMMM d, yyyy')}
-                  </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                    <Hash className="h-3 w-3 shrink-0" />
-                    {pointedCount}/{roundCount} {roundCount === 1 ? 'story' : 'stories'} pointed
-                    <span className="mx-1">·</span>
-                    Started {format(new Date(session.created_at), 'h:mm a')}
-                  </div>
-                  {topicSummary && (
-                    <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap min-w-0">
-                      {topicSummary.kind === 'various' ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
-                            parentBadgeClassName('__various_topics__'),
-                          )}
-                        >
-                          various topics
-                        </Badge>
-                      ) : (
-                        topicSummary.topics.map((t) => (
-                          <Badge
-                            key={`${t.toneKey}-${t.label}`}
-                            variant="outline"
-                            title={
-                              t.toneKey !== SESSION_TOPIC_UNSCOPED_TONE_KEY ? t.toneKey : undefined
-                            }
-                            className={cn(
-                              'text-xs px-2 py-0.5 font-medium border min-w-0 max-w-[14rem] truncate',
-                              parentBadgeClassName(sessionTopicBadgeToneForParentClass(t.toneKey)),
-                            )}
-                          >
-                            {t.label}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                {canDeleteSessions && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    aria-label="Delete poker session"
-                    onClick={() => setSessionPendingDelete(session)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-950"
-                  onClick={() =>
-                    navigate(`/teams/${teamId}/poker/${pokerSessionPathSlug(session)}`)
-                  }
-                >
-                  Join
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
+            <PokerSessionListCard
+              key={session.id}
+              session={session}
+              onOpen={() => navigate(`/teams/${teamId}/poker/${pokerSessionPathSlug(session)}`)}
+              canDeleteSessions={canDeleteSessions}
+              onDelete={() => setSessionPendingDelete(session)}
+            />
+          );
         })}
       </div>
 

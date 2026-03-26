@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2 } from 'lucide-react';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2, LayoutDashboard } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
@@ -59,8 +59,8 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             }
             try {
                 const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
-                if (error) throw error as any;
-                setImpersonatedEmail((data as any) || null);
+                if (error) throw error;
+                setImpersonatedEmail(typeof data === 'string' ? data : null);
             } catch {
                 setImpersonatedEmail(null);
             }
@@ -106,9 +106,13 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             case 'home':
                 if (location.pathname === '/') return null;
                 return (
-                    <Button variant="ghost" onClick={() => navigate('/')}>
-                        <Home className="h-4 w-4 mr-2" />
-                        Home
+                    <Button variant="ghost" onClick={() => navigate(user ? '/dashboard' : '/')}>
+                        {user ? (
+                            <LayoutDashboard className="h-4 w-4 mr-2" />
+                        ) : (
+                            <Home className="h-4 w-4 mr-2" />
+                        )}
+                        {user ? 'Dashboard' : 'Home'}
                     </Button>
                 );
             case 'back':
@@ -157,9 +161,13 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
             </Button>
 
             {variant === 'home' && location.pathname !== '/' && (
-                <Button variant="ghost" onClick={() => navigate('/')} className="justify-start">
-                    <Home className="h-4 w-4 mr-2" />
-                    Home
+                <Button variant="ghost" onClick={() => navigate(user ? '/dashboard' : '/')} className="justify-start">
+                    {user ? (
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                    ) : (
+                        <Home className="h-4 w-4 mr-2" />
+                    )}
+                    {user ? 'Dashboard' : 'Home'}
                 </Button>
             )}
 
@@ -188,6 +196,12 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                         <Button variant="outline" onClick={() => navigate('/teams')} className="justify-start">
                             <Users className="h-4 w-4 mr-2" />
                             My Teams
+                        </Button>
+                    )}
+                    {location.pathname !== '/dashboard' && (
+                        <Button variant="outline" onClick={() => navigate('/dashboard')} className="justify-start">
+                            <LayoutDashboard className="h-4 w-4 mr-2" />
+                            Dashboard
                         </Button>
                     )}
                     {location.pathname !== '/account' && (
@@ -274,6 +288,15 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                                     }}>
                                         <Users className="h-4 w-4 mr-2" />
                                         My Teams
+                                    </Button>
+                                )}
+                                {location.pathname !== '/dashboard' && (
+                                    <Button variant="ghost" className="w-full justify-start" onClick={() => {
+                                        navigate('/dashboard');
+                                        setProfileMenuOpen(false);
+                                    }}>
+                                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                                        Dashboard
                                     </Button>
                                 )}
                                 {location.pathname !== '/account' && (
