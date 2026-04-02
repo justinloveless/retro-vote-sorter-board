@@ -171,6 +171,7 @@ export const DesktopView: React.FC = () => {
         enterObserverMode,
         setNextRoundDialogOpen,
         onNextRoundRequest,
+        onEndRoundOnly,
         onStartNewRoundRequest,
         addTicketToQueue,
         addTicketsToQueueBatch,
@@ -184,6 +185,22 @@ export const DesktopView: React.FC = () => {
         onPokerBack,
         pokerToolbarExtras,
     } = usePokerTable();
+
+    const activeRoundsSorted = useMemo(
+        () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+        [rounds]
+    );
+
+    const selectedRoundNumber =
+        currentRound?.round_number ??
+        session?.current_round_number ??
+        session?.round_number ??
+        1;
+
+    const isOnLastActiveRound =
+        !isViewingHistory &&
+        activeRoundsSorted.length >= 1 &&
+        activeRoundsSorted[activeRoundsSorted.length - 1]?.round_number === selectedRoundNumber;
 
     const isCompact = useIsCompactViewport();
     const [panelVisibility, setPanelVisibility] = usePersistedNeotroPokerPanelVisibility();
@@ -589,11 +606,33 @@ export const DesktopView: React.FC = () => {
                                 {!isViewingHistory && (
                                     displaySession.game_state === 'Playing' ? (
                                         <div className={`flex items-center justify-center ${isCompact ? 'py-1' : 'gap-2 py-2'}`}>
-                                            <NextRoundButton
-                                                onHandPlayed={onNextRoundRequest}
-                                                isHandPlayed={true}
-                                                className="w-full"
-                                            />
+                                            {isOnLastActiveRound ? (
+                                                <>
+                                                    <NextRoundButton
+                                                        onHandPlayed={onEndRoundOnly}
+                                                        isHandPlayed={true}
+                                                        className="w-full"
+                                                        label="End"
+                                                        systemMessagePrefix="Round ended by"
+                                                    />
+                                                    <NextRoundButton
+                                                        onHandPlayed={() => {
+                                                            onEndRoundOnly();
+                                                            onStartNewRoundRequest();
+                                                        }}
+                                                        isHandPlayed={true}
+                                                        className="w-full"
+                                                        label="Continue"
+                                                        systemMessagePrefix="Round ended by"
+                                                    />
+                                                </>
+                                            ) : (
+                                                <NextRoundButton
+                                                    onHandPlayed={onNextRoundRequest}
+                                                    isHandPlayed={true}
+                                                    className="w-full"
+                                                />
+                                            )}
                                         </div>
                                     ) : !isCompact ? (
                                         <PlayHandButton

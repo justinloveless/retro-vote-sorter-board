@@ -93,6 +93,7 @@ interface PokerTableContextProps {
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
   sendSystemMessage: (messageText: string) => Promise<boolean>;
+  sendBotMessage: (botName: string, messageText: string) => Promise<string | null>;
   addReaction: (messageId: string, emoji: string) => Promise<void>;
   removeReaction: (messageId: string, emoji: string) => Promise<void>;
   uploadChatImage: (file: File) => Promise<string | null>;
@@ -116,6 +117,8 @@ interface PokerTableContextProps {
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onNextRoundRequest: () => void;
+  /** End/deactivate the current round without creating a new one. */
+  onEndRoundOnly: () => void;
   isStartNewRoundDialogOpen: boolean;
   setStartNewRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onStartNewRoundRequest: () => void;
@@ -602,6 +605,38 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session?.session_id,
   ]);
 
+  const deactivateCurrentRound = () => {
+    const currentRoundId = effectiveCurrentRound?.id;
+    if (!currentRoundId) return Promise.resolve();
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [currentRoundId]: { ...(effectiveCurrentRound as PokerSessionRound), is_active: false },
+    }));
+    return supabase
+      .from('poker_session_rounds')
+      .update({ is_active: false })
+      .eq('id', currentRoundId)
+      .then(({ error }) => {
+        if (error) console.error('Error deactivating current round:', error);
+      })
+      .catch((e) => {
+        console.error('Unexpected error deactivating current round:', e);
+      });
+  };
+
+  /** Deactivates current round and navigates to next active without creating a new one. */
+  const handleEndRoundOnly = () => {
+    const currentRoundNumber = effectiveCurrentRound?.round_number;
+
+    // Find the next active round to navigate to (skip the current one).
+    const remaining = activeRounds.filter((r) => r.round_number !== currentRoundNumber);
+    const navigateTo = remaining.length > 0 ? remaining[0] : null;
+
+    void deactivateCurrentRound().then(() => {
+      if (navigateTo) goToRound(navigateTo.round_number);
+    });
+  };
+
   const handleNextRoundRequest = () => {
     // If we only have a single active round, "Next Round" creates a new one.
     if (activeRounds.length <= 1) {
@@ -634,24 +669,9 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       return;
     }
 
-    void (async () => {
-      try {
-        setOptimisticRoundsById((prev) => ({
-          ...prev,
-          [currentRoundId]: { ...(effectiveCurrentRound as PokerSessionRound), is_active: false },
-        }));
-        const { error } = await supabase
-          .from('poker_session_rounds')
-          .update({ is_active: false })
-          .eq('id', currentRoundId);
-
-        if (error) console.error('Error deactivating current round:', error);
-      } catch (e) {
-        console.error('Unexpected error deactivating current round:', e);
-      } finally {
-        goToRound(next.round_number);
-      }
-    })();
+    void deactivateCurrentRound().then(() => {
+      goToRound(next.round_number);
+    });
   };
 
   const {
@@ -660,6 +680,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     newMessageCountByRound: chatNewMessageCountByRound,
     sendMessage,
     sendSystemMessage,
+    sendBotMessage,
     addReaction,
     removeReaction,
     uploadImage: uploadChatImage,
@@ -1200,6 +1221,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isChatLoading,
     sendMessage,
     sendSystemMessage,
+    sendBotMessage,
     addReaction,
     removeReaction,
     uploadChatImage,
@@ -1222,6 +1244,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
     onNextRoundRequest: handleNextRoundRequest,
+    onEndRoundOnly: handleEndRoundOnly,
     isStartNewRoundDialogOpen,
     setStartNewRoundDialogOpen,
     onStartNewRoundRequest,

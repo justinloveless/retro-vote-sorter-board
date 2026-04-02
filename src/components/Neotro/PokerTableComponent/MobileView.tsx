@@ -76,6 +76,7 @@ export const MobileView: React.FC = () => {
         activeUserId,
         userRole,
         onNextRoundRequest,
+        onEndRoundOnly,
         onStartNewRoundRequest,
         setQueuePanelOpen,
         isQueuePanelOpen,
@@ -95,6 +96,23 @@ export const MobileView: React.FC = () => {
         pokerToolbarExtras,
     } = usePokerTable();
     const { height } = useWindowSize();
+
+    const activeRoundsSorted = useMemo(
+        () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+        [rounds]
+    );
+
+    const selectedRoundNumber =
+        currentRound?.round_number ??
+        session?.current_round_number ??
+        session?.round_number ??
+        1;
+
+    const isOnLastActiveRound =
+        !isViewingHistory &&
+        activeRoundsSorted.length >= 1 &&
+        activeRoundsSorted[activeRoundsSorted.length - 1]?.round_number === selectedRoundNumber;
+
     const isCompact = useIsCompactViewport();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     
@@ -345,13 +363,35 @@ export const MobileView: React.FC = () => {
                                     {!isViewingHistory && (
                                         displaySession.game_state === 'Playing' ? (
                                             <div className="flex items-center justify-center py-1">
-                                                <NextRoundButton
-                                                    onHandPlayed={onNextRoundRequest}
-                                                    isHandPlayed={displaySession.game_state === 'Playing'}
-                                                    className="w-full"
-                                                    label="Next Round"
-                                                    systemMessagePrefix="Round completed by"
-                                                />
+                                                {isOnLastActiveRound ? (
+                                                    <div className="flex w-full items-center justify-center gap-2">
+                                                        <NextRoundButton
+                                                            onHandPlayed={onEndRoundOnly}
+                                                            isHandPlayed={displaySession.game_state === 'Playing'}
+                                                            className="w-full"
+                                                            label="End round"
+                                                            systemMessagePrefix="Round ended by"
+                                                        />
+                                                        <NextRoundButton
+                                                            onHandPlayed={() => {
+                                                                onEndRoundOnly();
+                                                                onStartNewRoundRequest();
+                                                            }}
+                                                            isHandPlayed={displaySession.game_state === 'Playing'}
+                                                            className="w-full"
+                                                            label="End + start another"
+                                                            systemMessagePrefix="Round ended by"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <NextRoundButton
+                                                        onHandPlayed={onNextRoundRequest}
+                                                        isHandPlayed={displaySession.game_state === 'Playing'}
+                                                        className="w-full"
+                                                        label="Next Round"
+                                                        systemMessagePrefix="Round completed by"
+                                                    />
+                                                )}
                                             </div>
                                         ) : !isCompact ? (
                                             <div className="flex items-center justify-center py-1">
@@ -685,13 +725,35 @@ export const MobileView: React.FC = () => {
                                     {!isViewingHistory && (
                                         displaySession.game_state === 'Playing' ? (
                                             <div className="flex items-center justify-center py-1">
-                                                <NextRoundButton
-                                                    onHandPlayed={onNextRoundRequest}
-                                                    isHandPlayed={displaySession.game_state === 'Playing'}
-                                                    className="w-full"
-                                                    label="Next Round"
-                                                    systemMessagePrefix="Round completed by"
-                                                />
+                                                {isOnLastActiveRound ? (
+                                                    <div className="flex w-full items-center justify-center gap-2">
+                                                        <NextRoundButton
+                                                            onHandPlayed={onEndRoundOnly}
+                                                            isHandPlayed={displaySession.game_state === 'Playing'}
+                                                            className="w-full"
+                                                            label="End round"
+                                                            systemMessagePrefix="Round ended by"
+                                                        />
+                                                        <NextRoundButton
+                                                            onHandPlayed={() => {
+                                                                onEndRoundOnly();
+                                                                onStartNewRoundRequest();
+                                                            }}
+                                                            isHandPlayed={displaySession.game_state === 'Playing'}
+                                                            className="w-full"
+                                                            label="End + start another"
+                                                            systemMessagePrefix="Round ended by"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <NextRoundButton
+                                                        onHandPlayed={onNextRoundRequest}
+                                                        isHandPlayed={displaySession.game_state === 'Playing'}
+                                                        className="w-full"
+                                                        label="Next Round"
+                                                        systemMessagePrefix="Round completed by"
+                                                    />
+                                                )}
                                             </div>
                                         ) : !isCompact ? (
                                             <div className="flex items-center justify-center py-1">

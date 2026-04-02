@@ -4,7 +4,7 @@ import { SmilePlus, X } from 'lucide-react';
 
 interface QuickReactionPickerProps {
   onEmojiSelect: (emoji: string) => void;
-  onShowMore: () => void;
+  onShowMore: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onClose: () => void;
 }
 
@@ -25,7 +25,7 @@ export const QuickReactionPicker: React.FC<QuickReactionPickerProps> = ({ onEmoj
         </Button>
       ))}
       <div className="border-l border-muted-foreground/40 h-5 mx-1" />
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-foreground hover:text-foreground" onClick={onShowMore}>
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-foreground hover:text-foreground" onClick={(e) => onShowMore(e)}>
         <SmilePlus className="h-4 w-4" />
       </Button>
       <Button variant="ghost" size="icon" className="h-7 w-7 text-foreground hover:text-foreground" onClick={onClose}>

@@ -2,33 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Profile } from '@/hooks/useAuth';
 import type { GameState } from '@/hooks/usePokerSession';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  normalizeContextUrl,
-  normalizeContextResponse,
-  normalizeAdviseUrl,
-  normalizeAdvisorResponse,
-  type PokerAdvisorRequestPayload,
-  type PokerAdvisorQAItem,
-  type PokerAdvisorResponse,
-} from '@/lib/pokerLocalAdvisor';
-import {
-  getCachedAdviceForTicket,
-  getInFlightAdviceForTicket,
-  invalidateAdviceCacheForTicket,
-  setInFlightAdviceForTicket,
-  setCachedAdviceForTicket,
-} from '@/lib/pokerAdvisorCache';
-import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
-import { buildPokerAdvisorRequestPayload, fetchRoundQa, hashQa } from '@/hooks/_pokerLocalAdvisorPayload';
+import { normalizeContextUrl, normalizeContextResponse, type PokerAdvisorContextResponse } from '@/lib/pokerLocalAdvisor';
 import {
   getCachedContextForTicket,
   getInFlightContextForTicket,
+  invalidateContextCacheForTicket,
   setCachedContextForTicket,
   setInFlightContextForTicket,
 } from '@/lib/pokerAdvisorContextCache';
+import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import { buildPokerAdvisorRequestPayload, fetchRoundQa, hashQa } from '@/hooks/_pokerLocalAdvisorPayload';
 
 const DEBOUNCE_MS = 450;
+const MAX_CONTEXT_CHARS = 24000;
 
 function buildScopedTicketKeyBase(options: {
   teamId: string | undefined;
@@ -44,22 +30,16 @@ function buildScopedTicketKeyBase(options: {
   return `${tid}|${sid}|${tk}`;
 }
 
-export function usePokerLocalAdvisor(options: {
+export function usePokerLocalAdvisorContext(options: {
   featureFlagOn: boolean;
   profile: Profile | null;
   teamId: string | undefined;
-  /** Poker session id — scopes the active-ticket prefetch queue. */
   sessionId: string | null | undefined;
-  /** All rounds for the session — used to enqueue active tickets and resolve queue items. */
   rounds: PokerSessionRound[];
   currentRound: PokerSessionRound | null;
   gameState: GameState;
-  /** When true, no /advise requests are made (browser-local; see usePokerAdvisorPause). */
   paused: boolean;
-  /** When false, advisor only runs for the currently viewed ticket (no active-ticket prefetch). */
   prefetchActiveTickets: boolean;
-  /** When true, estimates come from POST /context (which must include points+reasoning). */
-  estimateFromContext: boolean;
 }) {
   const {
     featureFlagOn,
@@ -71,7 +51,6 @@ export function usePokerLocalAdvisor(options: {
     gameState,
     paused,
     prefetchActiveTickets,
-    estimateFromContext,
   } = options;
 
   const enabled =
@@ -84,21 +63,16 @@ export function usePokerLocalAdvisor(options: {
   const sid = sessionId?.trim() || null;
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
-  const [advice, setAdvice] = useState<PokerAdvisorResponse | null>(null);
-  /** Epoch ms when the current `advice` was received (from network or cache). */
-  const [adviceReceivedAt, setAdviceReceivedAt] = useState<number | null>(null);
+  const [context, setContext] = useState<PokerAdvisorContextResponse | null>(null);
+  const [contextReceivedAt, setContextReceivedAt] = useState<number | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
   const ticketKey = (currentRound?.ticket_number || '').trim() || '—';
   const roundId = currentRound?.id ?? '';
   const roundNumber = currentRound?.round_number ?? 1;
 
-  const stableKey = useMemo(
-    () => `${roundId}|${ticketKey}|${gameState}`,
-    [roundId, ticketKey, gameState],
-  );
+  const stableKey = useMemo(() => `${roundId}|${ticketKey}|${gameState}`, [roundId, ticketKey, gameState]);
 
-  /** Latest round context — compared after async work so stale responses are dropped. */
   const liveStableKeyRef = useRef(stableKey);
   liveStableKeyRef.current = stableKey;
 
@@ -114,34 +88,25 @@ export function usePokerLocalAdvisor(options: {
   roundsRef.current = rounds;
 
   const prefetchQueueRef = useRef<string[]>([]);
-  /** Per round id, last ticket key we queued — re-queue when the ticket on an active round changes. */
   const lastQueuedTicketByRoundRef = useRef<Map<string, string>>(new Map());
   const drainingPrefetchRef = useRef(false);
 
-  const runAdvisorNetworkOnce = useCallback(
-    (
-      round: PokerSessionRound,
-      payloadGameState: GameState,
-      qa: PokerAdvisorQAItem[],
-      cacheKeyBase: string,
-      cacheKeyFull: string,
-    ) => {
-      const tk = (round.ticket_number || '').trim();
-      const rid = round.id;
-      const rnum = round.round_number;
-
+  const runContextNetworkOnce = useCallback(
+    (round: PokerSessionRound, payloadGameState: GameState, cacheKeyBase: string, cacheKeyFull: string) => {
+      const fetchForKey = stableKey;
       return (async () => {
-        const payload: PokerAdvisorRequestPayload = await buildPokerAdvisorRequestPayload({
+        const qa = sid ? await fetchRoundQa(sid, round.round_number) : [];
+        const payload = await buildPokerAdvisorRequestPayload({
           round,
           gameState: payloadGameState,
           profile,
           teamId,
-          sessionId: sessionId?.trim() || null,
+          sessionId: sid,
           qa,
-          includeQa: !estimateFromContext,
+          includeQa: true,
         });
 
-        const url = estimateFromContext ? normalizeContextUrl(baseUrl) : normalizeAdviseUrl(baseUrl);
+        const url = normalizeContextUrl(baseUrl);
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -162,34 +127,28 @@ export function usePokerLocalAdvisor(options: {
           throw new Error(errMsg);
         }
 
-        let norm: PokerAdvisorResponse | null = null;
-        if (estimateFromContext) {
-          const ctx = normalizeContextResponse(parsed);
-          if (!ctx || ctx.error) {
-            throw new Error(ctx?.error || 'Invalid response');
-          }
-          // Share the /context response via the context cache so the Context panel can reuse it.
-          setCachedContextForTicket(cacheKeyFull, ctx, Date.now());
-          setCachedContextForTicket(cacheKeyBase, ctx, Date.now());
-          if (typeof ctx.points === 'number' && Number.isFinite(ctx.points) && typeof ctx.reasoning === 'string') {
-            norm = { mode: 'advice', points: ctx.points, reasoning: ctx.reasoning, abstain: ctx.abstain === true };
-          } else {
-            throw new Error('Context response did not include points/reasoning.');
-          }
-        } else {
-          norm = normalizeAdvisorResponse(parsed);
-          if (!norm || norm.error) {
-            throw new Error(norm?.error || 'Invalid response');
-          }
+        const norm = normalizeContextResponse(parsed);
+        if (!norm || norm.error) {
+          throw new Error(norm?.error || 'Invalid response');
         }
 
+        const clipped: PokerAdvisorContextResponse = {
+          ...norm,
+          context: (norm.context || '').slice(0, MAX_CONTEXT_CHARS),
+        };
+
         const receivedAt = Date.now();
-        setCachedAdviceForTicket(cacheKeyFull, norm, receivedAt);
-        setCachedAdviceForTicket(cacheKeyBase, norm, receivedAt);
-        return { advice: norm, receivedAt };
+        setCachedContextForTicket(cacheKeyFull, clipped, receivedAt);
+        setCachedContextForTicket(cacheKeyBase, clipped, receivedAt);
+
+        if (pausedRef.current) return { context: clipped, receivedAt };
+        if (fetchForKey !== liveStableKeyRef.current) return { context: clipped, receivedAt };
+        if (clipped.roundId && clipped.roundId !== roundId) return { context: clipped, receivedAt };
+
+        return { context: clipped, receivedAt };
       })();
     },
-    [baseUrl, teamId, profile, sessionId, estimateFromContext],
+    [baseUrl, profile, teamId, sid, stableKey, roundId],
   );
 
   const runFetch = useCallback(
@@ -198,8 +157,8 @@ export function usePokerLocalAdvisor(options: {
 
       if (!enabled || !baseUrl) {
         setStatus('idle');
-        setAdvice(null);
-        setAdviceReceivedAt(null);
+        setContext(null);
+        setContextReceivedAt(null);
         setLastError(null);
         return;
       }
@@ -210,77 +169,40 @@ export function usePokerLocalAdvisor(options: {
         return;
       }
 
-      if (!currentRound) {
-        return;
-      }
+      if (!currentRound) return;
 
       const qa = sid ? await fetchRoundQa(sid, roundNumber) : [];
       const qaHash = hashQa(qa);
       const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
       const cacheKeyFull = qa.length ? `${cacheKeyBase}|${qaHash}` : cacheKeyBase;
 
-      if (estimateFromContext && !forceRefresh) {
-        // If /context is already in-flight (from the Context panel), wait on it to avoid a second request.
-        const inFlightCtx = getInFlightContextForTicket(cacheKeyFull);
-        if (inFlightCtx) {
-          setStatus('loading');
-          setLastError(null);
-          try {
-            const { context: ctx, receivedAt } = await inFlightCtx;
-            if (pausedRef.current) return;
-            if (fetchForKey !== liveStableKeyRef.current) return;
-            if (ctx.roundId && ctx.roundId !== roundId) return;
-            if (typeof ctx.points === 'number' && Number.isFinite(ctx.points) && typeof ctx.reasoning === 'string') {
-              const norm: PokerAdvisorResponse = {
-                mode: 'advice',
-                points: ctx.points,
-                reasoning: ctx.reasoning,
-                abstain: ctx.abstain === true,
-              };
-              setAdvice(norm);
-              setAdviceReceivedAt(receivedAt);
-              setStatus('ok');
-              setLastError(null);
-              // Mirror into advice cache for consistency.
-              setCachedAdviceForTicket(cacheKeyFull, norm, receivedAt);
-              setCachedAdviceForTicket(cacheKeyBase, norm, receivedAt);
-              return;
-            }
-          } catch (e) {
-            // fall through to normal path
-          }
-        }
-      }
-
       if (!forceRefresh) {
-        const hit = getCachedAdviceForTicket(cacheKeyFull) ?? getCachedAdviceForTicket(cacheKeyBase);
+        const hit = getCachedContextForTicket(cacheKeyFull) ?? getCachedContextForTicket(cacheKeyBase);
         if (hit) {
-          setAdvice(hit.advice);
-          setAdviceReceivedAt(hit.receivedAt);
+          setContext(hit.context);
+          setContextReceivedAt(hit.receivedAt);
           setStatus('ok');
           setLastError(null);
           return;
         }
 
-        const inFlight = getInFlightAdviceForTicket(cacheKeyFull) ?? getInFlightAdviceForTicket(cacheKeyBase);
+        const inFlight = getInFlightContextForTicket(cacheKeyFull) ?? getInFlightContextForTicket(cacheKeyBase);
         if (inFlight) {
           setStatus('loading');
           setLastError(null);
           try {
-            const { advice: norm, receivedAt } = await inFlight;
+            const { context: norm, receivedAt } = await inFlight;
             if (pausedRef.current) return;
             if (fetchForKey !== liveStableKeyRef.current) return;
             if (norm.roundId && norm.roundId !== roundId) return;
-            setAdvice(norm);
-            setAdviceReceivedAt(receivedAt);
+            setContext(norm);
+            setContextReceivedAt(receivedAt);
             setStatus('ok');
           } catch (e) {
             if (pausedRef.current) return;
-            if (fetchForKey !== liveStableKeyRef.current) {
-              return;
-            }
-            setAdvice(null);
-            setAdviceReceivedAt(null);
+            if (fetchForKey !== liveStableKeyRef.current) return;
+            setContext(null);
+            setContextReceivedAt(null);
             setLastError(e instanceof Error ? e.message : 'Request failed');
             setStatus('error');
           }
@@ -288,8 +210,6 @@ export function usePokerLocalAdvisor(options: {
         }
       }
 
-      // Don't start network calls for non-active/history tickets.
-      // Cached/in-flight responses are still handled above; manual refresh (forceRefresh=true) can override.
       if (!forceRefresh && !currentRound.is_active) {
         setStatus('idle');
         setLastError(null);
@@ -299,35 +219,22 @@ export function usePokerLocalAdvisor(options: {
       setStatus('loading');
       setLastError(null);
 
-      const requestPromise = runAdvisorNetworkOnce(currentRound, gameState, qa, cacheKeyBase, cacheKeyFull);
-
-      setInFlightAdviceForTicket(cacheKeyFull, requestPromise);
-      if (estimateFromContext) {
-        // Also track /context inflight so the Context panel and advisor share the same network work.
-        setInFlightContextForTicket(
-          cacheKeyFull,
-          requestPromise.then(({ advice, receivedAt }) => {
-            const ctx = getCachedContextForTicket(cacheKeyFull) ?? getCachedContextForTicket(cacheKeyBase);
-            if (ctx) return { context: ctx.context, receivedAt };
-            // Minimal fallback: synthesize empty context so inflight resolves.
-            return { context: { mode: 'context', context: '', ...(advice.mode === 'advice' ? advice : {}) }, receivedAt };
-          }),
-        );
-      }
+      const requestPromise = runContextNetworkOnce(currentRound, gameState, cacheKeyBase, cacheKeyFull);
+      setInFlightContextForTicket(cacheKeyFull, requestPromise);
 
       try {
-        const { advice: norm, receivedAt } = await requestPromise;
+        const { context: norm, receivedAt } = await requestPromise;
         if (pausedRef.current) return;
         if (fetchForKey !== liveStableKeyRef.current) return;
         if (norm.roundId && norm.roundId !== roundId) return;
-        setAdvice(norm);
-        setAdviceReceivedAt(receivedAt);
+        setContext(norm);
+        setContextReceivedAt(receivedAt);
         setStatus('ok');
       } catch (e) {
         if (pausedRef.current) return;
         if (fetchForKey !== liveStableKeyRef.current) return;
-        setAdvice(null);
-        setAdviceReceivedAt(null);
+        setContext(null);
+        setContextReceivedAt(null);
         setLastError(e instanceof Error ? e.message : 'Request failed');
         setStatus('error');
       }
@@ -339,8 +246,11 @@ export function usePokerLocalAdvisor(options: {
       gameState,
       stableKey,
       roundId,
+      roundNumber,
       ticketKey,
-      runAdvisorNetworkOnce,
+      runContextNetworkOnce,
+      sid,
+      teamId,
     ],
   );
 
@@ -357,28 +267,28 @@ export function usePokerLocalAdvisor(options: {
         if (!tk || isSyntheticRoundTicket(tk)) continue;
         // Prefetch ignores Q&A context (best-effort); cache keys are scoped by ticketKey only here.
         const prefetchKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey: tk });
-        if (getCachedAdviceForTicket(prefetchKeyBase)) continue;
-        if (getInFlightAdviceForTicket(prefetchKeyBase)) continue;
+        if (getCachedContextForTicket(prefetchKeyBase)) continue;
+        if (getInFlightContextForTicket(prefetchKeyBase)) continue;
 
-        const requestPromise = runAdvisorNetworkOnce(round, round.game_state, [], prefetchKeyBase, prefetchKeyBase);
-        setInFlightAdviceForTicket(prefetchKeyBase, requestPromise);
+        const requestPromise = runContextNetworkOnce(round, round.game_state, prefetchKeyBase, prefetchKeyBase);
+        setInFlightContextForTicket(prefetchKeyBase, requestPromise);
 
         try {
-          const { advice: norm, receivedAt } = await requestPromise;
+          const { context: norm, receivedAt } = await requestPromise;
           if (pausedRef.current) continue;
           if (viewingRoundIdRef.current !== round.id) continue;
           if (viewingTicketKeyRef.current !== tk) continue;
           if (norm.roundId && norm.roundId !== round.id) continue;
-          setAdvice(norm);
-          setAdviceReceivedAt(receivedAt);
+          setContext(norm);
+          setContextReceivedAt(receivedAt);
           setStatus('ok');
           setLastError(null);
         } catch (e) {
           if (pausedRef.current) continue;
           if (viewingRoundIdRef.current !== round.id) continue;
           if (viewingTicketKeyRef.current !== tk) continue;
-          setAdvice(null);
-          setAdviceReceivedAt(null);
+          setContext(null);
+          setContextReceivedAt(null);
           setLastError(e instanceof Error ? e.message : 'Request failed');
           setStatus('error');
         }
@@ -386,7 +296,7 @@ export function usePokerLocalAdvisor(options: {
     } finally {
       drainingPrefetchRef.current = false;
     }
-  }, [enabled, baseUrl, runAdvisorNetworkOnce, teamId, sid]);
+  }, [enabled, baseUrl, runContextNetworkOnce, teamId, sid]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -423,8 +333,8 @@ export function usePokerLocalAdvisor(options: {
     if (!enabled) {
       if (timerRef.current) clearTimeout(timerRef.current);
       setStatus('idle');
-      setAdvice(null);
-      setAdviceReceivedAt(null);
+      setContext(null);
+      setContextReceivedAt(null);
       setLastError(null);
       return;
     }
@@ -433,32 +343,31 @@ export function usePokerLocalAdvisor(options: {
       if (timerRef.current) clearTimeout(timerRef.current);
       setLastError(null);
       const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
-      const hit = getCachedAdviceForTicket(cacheKeyBase);
+      const hit = getCachedContextForTicket(cacheKeyBase);
       if (hit) {
-        setAdvice(hit.advice);
-        setAdviceReceivedAt(hit.receivedAt);
+        setContext(hit.context);
+        setContextReceivedAt(hit.receivedAt);
         setStatus('ok');
       } else {
-        setAdvice(null);
-        setAdviceReceivedAt(null);
+        setContext(null);
+        setContextReceivedAt(null);
         setStatus('idle');
       }
       return;
     }
 
     setLastError(null);
-
     const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
-    const cached = getCachedAdviceForTicket(cacheKeyBase);
+    const cached = getCachedContextForTicket(cacheKeyBase);
     if (cached) {
-      setAdvice(cached.advice);
-      setAdviceReceivedAt(cached.receivedAt);
+      setContext(cached.context);
+      setContextReceivedAt(cached.receivedAt);
       setStatus('ok');
       return;
     }
 
-    setAdvice(null);
-    setAdviceReceivedAt(null);
+    setContext(null);
+    setContextReceivedAt(null);
     setStatus('idle');
 
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -474,20 +383,19 @@ export function usePokerLocalAdvisor(options: {
 
   const refresh = useCallback(() => {
     const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId, ticketKey });
-    invalidateAdviceCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
+    invalidateContextCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
     if (pausedRef.current) return;
     void runFetch(true);
   }, [runFetch, ticketKey, teamId, sessionId]);
 
   return {
     enabled,
-    /** True when profile allows advisor and pause is off — requests may run. */
     requestsActive: enabled && !paused,
-    showPanel: featureFlagOn,
     status,
-    advice,
-    adviceReceivedAt,
+    context,
+    contextReceivedAt,
     lastError,
     refresh,
   };
 }
+

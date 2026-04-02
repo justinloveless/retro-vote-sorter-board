@@ -34,8 +34,10 @@ import {
 import { cn } from '@/lib/utils';
 import { ensurePanelContrast } from '@/lib/jiraWiki/panelColors';
 import { stripHtmlForWikiParse } from '@/lib/jiraWiki/htmlStrip';
-import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly } from '@/lib/jiraWiki/segmentWiki';
+import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly, adfToWikiMarkup } from '@/lib/jiraWiki/segmentWiki';
 import { JiraIssueWikiEditor } from '@/components/Neotro/JiraIssueWikiEditor';
+import { AtlaskitDescriptionEditor } from '@/components/Neotro/AtlaskitDescriptionEditor';
+import type { AtlaskitDescriptionEditorHandle } from '@/components/Neotro/AtlaskitDescriptionEditor';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,7 +101,8 @@ interface JiraComment {
 
 interface JiraIssueFields {
   summary: string;
-  description: string | null;
+  description: unknown;
+  created?: string;
   status?: { name: string; statusCategory?: { colorName: string } };
   priority?: { name: string; iconUrl?: string };
   assignee?: { displayName: string; avatarUrls?: Record<string, string> } | null;
@@ -142,6 +145,15 @@ function formatJiraDate(dateStr: string): string {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 30) return `${diffDays}d ago`;
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatJiraDateTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   } catch {
     return dateStr;
   }
@@ -369,6 +381,55 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   const cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
+  /**
+   * Jira sometimes renders bare `text|https://url` as a link (no brackets).
+   * We support that here, but only when the RHS looks like an http(s) URL.
+   *
+   * Important: we only apply this transformation to plain-text segments (not inside other tokens),
+   * so it won't interfere with existing `[text|url]`, `!img|opts!`, or `{{code}}`.
+   */
+  const pushTextWithBareLinks = (
+    parts: React.ReactNode[],
+    raw: string,
+    keySeed: string,
+  ) => {
+    // Prefix is preserved (whitespace or "(") so we don't lose spacing.
+    // Keep the match conservative so we don't accidentally convert table-like content.
+    const re = /(^|[\s(])([^|\n<>\[\]]{1,120}?)\|(https?:\/\/[^\s<>()]+)(?=($|[\s).,!?]))/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let n = 0;
+    while ((m = re.exec(raw)) !== null) {
+      const fullIdx = m.index;
+      if (fullIdx > last) parts.push(raw.slice(last, fullIdx));
+
+      const prefix = m[1] ?? '';
+      const label = (m[2] ?? '').trim();
+      const url = m[3] ?? '';
+
+      if (prefix) parts.push(prefix);
+      if (!label) {
+        parts.push(m[0]);
+      } else {
+        parts.push(
+          <a
+            key={`${keySeed}-bare-${n}-${fullIdx}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+          >
+            {label}
+          </a>
+        );
+      }
+
+      last = fullIdx + m[0].length;
+      n++;
+    }
+    if (last < raw.length) parts.push(raw.slice(last));
+  };
+
   // Tokenize: {{inline code}}, *bold*, _italic_, -strikethrough-, [text|url], [~accountid:xxx], !image!
   const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|(?<![-\w])-([^-]+)-(?![-\w])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?!/g;
   const parts: React.ReactNode[] = [];
@@ -377,7 +438,7 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
 
   while ((inlineMatch = tokenRegex.exec(cleaned)) !== null) {
     if (inlineMatch.index > lastIdx) {
-      parts.push(cleaned.slice(lastIdx, inlineMatch.index));
+      pushTextWithBareLinks(parts, cleaned.slice(lastIdx, inlineMatch.index), `txt-${inlineMatch.index}`);
     }
 
     if (inlineMatch[1] !== undefined) {
@@ -441,14 +502,47 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
     lastIdx = inlineMatch.index + inlineMatch[0].length;
   }
   if (lastIdx < cleaned.length) {
-    parts.push(cleaned.slice(lastIdx));
+    pushTextWithBareLinks(parts, cleaned.slice(lastIdx), `txt-${lastIdx}`);
   }
 
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
-  if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+function isAdfDoc(v: unknown): v is { type: 'doc'; version?: number } {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  return r.type === 'doc';
+}
+
+type AdfRendererComponent = React.ComponentType<{ document: unknown }>;
+
+function renderDescription(
+  description: unknown,
+  attachments?: JiraAttachment[],
+  AtlaskitRendererComponent?: AdfRendererComponent | null,
+): React.ReactNode {
+  if (description == null || description === '') {
+    return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+  }
+
+  if (isAdfDoc(description)) {
+    if (AtlaskitRendererComponent) {
+      return (
+        <div className="text-sm overflow-x-hidden break-words [&_*]:max-w-full">
+          <AtlaskitRendererComponent document={description} />
+        </div>
+      );
+    }
+    const wikiMarkup = adfToWikiMarkup(description);
+    if (wikiMarkup) {
+      return <div className="space-y-1 break-words overflow-wrap-anywhere [overflow-wrap:anywhere]">{parseJiraWikiMarkup(wikiMarkup, attachments)}</div>;
+    }
+    return <p className="text-sm text-muted-foreground italic">Loading rich description…</p>;
+  }
+
+  if (typeof description !== 'string') {
+    return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+  }
 
   // Normalize line endings
   const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -573,7 +667,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     setNoApiCredentials(false);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue', {
+      const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue-v3', {
         body: { issueIdOrKey, teamId },
       });
 
@@ -646,14 +740,51 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [descriptionEditing, setDescriptionEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
   /** Locked when entering edit mode so pasting unsupported wiki does not swap UI mid-edit. */
-  const [descriptionEditorKind, setDescriptionEditorKind] = useState<'rich' | 'raw' | null>(null);
+  const [descriptionEditorKind, setDescriptionEditorKind] = useState<'rich' | 'raw' | 'adf' | null>(null);
+  /** Holds the original ADF document when editing an ADF description (for WYSIWYG init). */
+  const [descriptionAdf, setDescriptionAdf] = useState<unknown>(null);
+  const atlaskitEditorRef = useRef<AtlaskitDescriptionEditorHandle>(null);
   const [savingDescription, setSavingDescription] = useState(false);
+  const [adfRendererComponent, setAdfRendererComponent] = useState<AdfRendererComponent | null>(null);
+  const [adfRendererLoadFailed, setAdfRendererLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isAdfDoc(fields?.description)) return;
+    if (adfRendererComponent || adfRendererLoadFailed) return;
+    let cancelled = false;
+    import('prosemirror-state').then(({ Selection }) => {
+      const orig = Selection.jsonID;
+      Selection.jsonID = function (id: string, cls: any) {
+        try { return orig.call(this, id, cls); } catch { return cls; }
+      };
+    }).catch(() => {}).then(() => import('@atlaskit/renderer'))
+      .then((mod) => {
+        if (cancelled) return;
+        setAdfRendererComponent(() => mod.ReactRenderer as AdfRendererComponent);
+        setAdfRendererLoadFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAdfRendererLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, fields?.description, adfRendererComponent, adfRendererLoadFailed]);
 
   const startDescriptionEdit = useCallback(() => {
     if (!canEditJira || savingDescription || !fields) return;
-    const draft = normalizeDescriptionForEdit(fields.description);
-    setDescriptionDraft(draft);
-    setDescriptionEditorKind(canEditDescriptionRichly(draft) ? 'rich' : 'raw');
+    if (isAdfDoc(fields.description)) {
+      setDescriptionAdf(fields.description);
+      setDescriptionDraft('');
+      setDescriptionEditorKind('adf');
+    } else {
+      setDescriptionAdf(null);
+      const draft = normalizeDescriptionForEdit(fields.description);
+      setDescriptionDraft(draft);
+      setDescriptionEditorKind(canEditDescriptionRichly(draft) ? 'rich' : 'raw');
+    }
     setDescriptionEditing(true);
   }, [canEditJira, savingDescription, fields]);
   const onDescriptionViewClick = useCallback(
@@ -896,8 +1027,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     if (!teamId || !issueData?.key || !issueIdOrKey) return;
     setSavingDescription(true);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
-        body: { teamId, issueKey: issueData.key, description: descriptionDraft },
+      let body: Record<string, unknown>;
+      if (descriptionEditorKind === 'adf') {
+        const adfValue = await atlaskitEditorRef.current?.getAdfValue();
+        if (!adfValue) throw new Error('Could not retrieve editor content');
+        body = { teamId, issueKey: issueData.key, descriptionAdf: adfValue };
+      } else {
+        body = { teamId, issueKey: issueData.key, description: descriptionDraft };
+      }
+      const fnName = descriptionEditorKind === 'adf' ? 'update-jira-issue-v2' : 'update-jira-issue';
+      const { data, error: invokeError } = await supabase.functions.invoke(fnName, {
+        body,
       });
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
@@ -905,6 +1045,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       await fetchIssue(false, { skipCache: true, keepPreviousData: true });
       setDescriptionEditing(false);
       setDescriptionEditorKind(null);
+      setDescriptionAdf(null);
       toast({ title: 'Description updated' });
     } catch (e: unknown) {
       toast({
@@ -1851,6 +1992,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                       </div>
                     </div>
                   )}
+                  {fields.created && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Created</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-sm text-foreground truncate" title={fields.created}>
+                          {formatJiraDateTime(fields.created)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {fields.parent?.key && (
                     <div className="col-span-2 flex flex-col gap-1.5">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Parent</p>
@@ -1920,7 +2072,14 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                   </div>
                   {descriptionEditing ? (
                     <div className="space-y-2">
-                      {descriptionEditorKind === 'rich' ? (
+                      {descriptionEditorKind === 'adf' ? (
+                        <AtlaskitDescriptionEditor
+                          ref={atlaskitEditorRef}
+                          key={`${issueData?.key ?? 'issue'}-adf-desc`}
+                          defaultValue={descriptionAdf}
+                          disabled={savingDescription}
+                        />
+                      ) : descriptionEditorKind === 'rich' ? (
                         <JiraIssueWikiEditor
                           key={`${issueData?.key ?? 'issue'}-desc`}
                           initialValue={descriptionDraft}
@@ -1954,6 +2113,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                             setDescriptionEditing(false);
                             setDescriptionEditorKind(null);
                             setDescriptionDraft('');
+                            setDescriptionAdf(null);
                           }}
                         >
                           Cancel
@@ -1975,7 +2135,11 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                         savingDescription && 'pointer-events-none opacity-70',
                       )}
                     >
-                      {renderDescription(fields.description, fields.attachment)}
+                      {renderDescription(
+                        fields.description,
+                        fields.attachment,
+                        adfRendererComponent,
+                      )}
                     </div>
                   )}
                 </div>
