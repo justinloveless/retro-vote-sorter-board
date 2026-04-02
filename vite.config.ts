@@ -13,6 +13,9 @@ export default defineConfig(({ mode, command }) => {
     server: {
       host: "::",
       port: 8081,
+      // If 8081 is already taken (stale `vite`, `vite preview`, another app), fail instead of
+      // silently using 8082+ — avoids “I ran dev but still see an old build on :8081”.
+      strictPort: true,
     },
     build: {
       rollupOptions: {

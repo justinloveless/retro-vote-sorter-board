@@ -19,8 +19,14 @@ import {
   setInFlightAdviceForTicket,
   setCachedAdviceForTicket,
 } from '@/lib/pokerAdvisorCache';
+import { invalidateSplitDetailsCacheForTicket } from '@/lib/pokerAdvisorSplitDetailsCache';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
-import { buildPokerAdvisorRequestPayload, fetchRoundQa, hashQa } from '@/hooks/_pokerLocalAdvisorPayload';
+import {
+  buildPokerAdvisorRequestPayload,
+  buildScopedTicketKeyBase,
+  fetchRoundQa,
+  hashQa,
+} from '@/hooks/_pokerLocalAdvisorPayload';
 import {
   getCachedContextForTicket,
   getInFlightContextForTicket,
@@ -29,20 +35,6 @@ import {
 } from '@/lib/pokerAdvisorContextCache';
 
 const DEBOUNCE_MS = 450;
-
-function buildScopedTicketKeyBase(options: {
-  teamId: string | undefined;
-  sessionId: string | null | undefined;
-  ticketKey: string;
-}): string {
-  const { teamId, sessionId, ticketKey } = options;
-  const tk = (ticketKey || '').trim();
-  if (!tk || tk === '—') return '—';
-  const tid = (teamId || '').trim();
-  const sid = (sessionId || '').trim();
-  if (!tid || !sid) return tk;
-  return `${tid}|${sid}|${tk}`;
-}
 
 export function usePokerLocalAdvisor(options: {
   featureFlagOn: boolean;
@@ -172,7 +164,13 @@ export function usePokerLocalAdvisor(options: {
           setCachedContextForTicket(cacheKeyFull, ctx, Date.now());
           setCachedContextForTicket(cacheKeyBase, ctx, Date.now());
           if (typeof ctx.points === 'number' && Number.isFinite(ctx.points) && typeof ctx.reasoning === 'string') {
-            norm = { mode: 'advice', points: ctx.points, reasoning: ctx.reasoning, abstain: ctx.abstain === true };
+            norm = {
+              mode: 'advice',
+              points: ctx.points,
+              reasoning: ctx.reasoning,
+              abstain: ctx.abstain === true,
+              splits: ctx.splits,
+            };
           } else {
             throw new Error('Context response did not include points/reasoning.');
           }
@@ -236,6 +234,7 @@ export function usePokerLocalAdvisor(options: {
                 points: ctx.points,
                 reasoning: ctx.reasoning,
                 abstain: ctx.abstain === true,
+                splits: ctx.splits,
               };
               setAdvice(norm);
               setAdviceReceivedAt(receivedAt);
@@ -475,6 +474,7 @@ export function usePokerLocalAdvisor(options: {
   const refresh = useCallback(() => {
     const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId, ticketKey });
     invalidateAdviceCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
+    invalidateSplitDetailsCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
     if (pausedRef.current) return;
     void runFetch(true);
   }, [runFetch, ticketKey, teamId, sessionId]);

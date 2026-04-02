@@ -15,7 +15,8 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { runClaudeAdvisor } from './handlers/claude-code.mjs';
 import { runClaudeContext } from './handlers/claude-code-context.mjs';
-import { runGeminiAdvisor } from './handlers/gemini-cli.mjs';
+import { runClaudeSplitDetails } from './handlers/claude-code-split-details.mjs';
+import { runGeminiAdvisor, runGeminiSplitDetails } from './handlers/gemini-cli.mjs';
 
 const PORT = Number(process.env.PORT || 17300);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -135,9 +136,12 @@ function corsHeaders() {
 function stubResponse(body) {
   const key = body?.ticketKey ?? 'unknown';
   return {
+    mode: 'advice',
     points: 5,
     reasoning:
       `Stub response for ${key}. Run with --handler claude-code or --handler gemini-cli, set POKER_ADVISOR_HANDLER to a custom executable, or see README.`,
+    abstain: false,
+    splits: [],
   };
 }
 
@@ -146,6 +150,22 @@ function stubContextResponse(body) {
   return {
     mode: 'context',
     context: `Stub context for ${key}. Run with --handler claude-code and update to a server that supports POST /context.`,
+    points: 5,
+    reasoning: 'Stub estimate; use a real handler for points and splits.',
+    abstain: false,
+    splits: [],
+  };
+}
+
+function stubSplitDetailsResponse(body) {
+  const st = typeof body?.splitTitle === 'string' ? body.splitTitle.trim() : '';
+  const summary = (st || 'Split story').slice(0, 255);
+  return {
+    mode: 'split_details',
+    summary,
+    description: st
+      ? `Stub split details for: ${st}. Run with --handler claude-code or gemini-cli for full text.`
+      : 'Stub split details. Run with --handler claude-code or gemini-cli for full text.',
   };
 }
 
@@ -231,8 +251,9 @@ const server = http.createServer(async (req, res) => {
 
   const isAdvise = req.method === 'POST' && pathname.startsWith('/advise');
   const isContext = req.method === 'POST' && pathname.startsWith('/context');
+  const isSplitDetails = req.method === 'POST' && pathname.startsWith('/split-details');
 
-  if (!isAdvise && !isContext) {
+  if (!isAdvise && !isContext && !isSplitDetails) {
     logLine('request', req.method, req.url ?? '', '→ 404 not found');
     res.writeHead(404, corsHeaders());
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -248,7 +269,10 @@ const server = http.createServer(async (req, res) => {
   try {
     parsed = body ? JSON.parse(body) : {};
   } catch (err) {
-    logLine(`request POST ${isContext ? '/context' : '/advise'} invalid JSON`, err instanceof Error ? err.message : err);
+    logLine(
+      `request POST ${isContext ? '/context' : isSplitDetails ? '/split-details' : '/advise'} invalid JSON`,
+      err instanceof Error ? err.message : err,
+    );
     logLine('raw body (first 500 chars):', body.slice(0, 500));
     res.writeHead(400, corsHeaders());
     const errBody = JSON.stringify({ error: 'Invalid JSON body' });
@@ -257,7 +281,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  logLine(`request POST ${isContext ? '/context' : '/advise'}`, JSON.stringify(summarizeForLog(parsed), null, 2));
+  logLine(
+    `request POST ${isContext ? '/context' : isSplitDetails ? '/split-details' : '/advise'}`,
+    JSON.stringify(summarizeForLog(parsed), null, 2),
+  );
 
   try {
     let result;
@@ -269,6 +296,24 @@ const server = http.createServer(async (req, res) => {
       } else {
         res.writeHead(400, corsHeaders());
         res.end(JSON.stringify({ error: 'POST /context requires --handler claude-code (Claude Code CLI).' }));
+        return;
+      }
+    } else if (isSplitDetails) {
+      if (RESOLVED_HANDLER.kind === 'builtin' && RESOLVED_HANDLER.run === runClaudeAdvisor) {
+        result = await runClaudeSplitDetails(/** @type {Record<string, unknown>} */ (parsed));
+      } else if (RESOLVED_HANDLER.kind === 'builtin' && RESOLVED_HANDLER.run === runGeminiAdvisor) {
+        result = await runGeminiSplitDetails(/** @type {Record<string, unknown>} */ (parsed));
+      } else if (RESOLVED_HANDLER.kind === 'external') {
+        result = await runHandler(body);
+      } else if (RESOLVED_HANDLER.kind === 'stub') {
+        result = stubSplitDetailsResponse(parsed);
+      } else {
+        res.writeHead(400, corsHeaders());
+        res.end(
+          JSON.stringify({
+            error: 'POST /split-details requires --handler claude-code, gemini-cli, stub, or an external executable.',
+          }),
+        );
         return;
       }
     } else {
@@ -299,6 +344,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.error(
-    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise; handler=${handlerLabel()})`,
+    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise, POST /context, POST /split-details; handler=${handlerLabel()})`,
   );
 });

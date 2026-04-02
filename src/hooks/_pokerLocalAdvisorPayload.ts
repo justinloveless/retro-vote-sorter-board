@@ -49,6 +49,21 @@ export function hashQa(qa: PokerAdvisorQAItem[]): string {
   return (h >>> 0).toString(36);
 }
 
+/** Scopes advisor/context/split caches to team + session + ticket (matches usePokerLocalAdvisor). */
+export function buildScopedTicketKeyBase(options: {
+  teamId: string | undefined;
+  sessionId: string | null | undefined;
+  ticketKey: string;
+}): string {
+  const { teamId, sessionId, ticketKey } = options;
+  const tk = (ticketKey || '').trim();
+  if (!tk || tk === '—') return '—';
+  const tid = (teamId || '').trim();
+  const sid = (sessionId || '').trim();
+  if (!tid || !sid) return tk;
+  return `${tid}|${sid}|${tk}`;
+}
+
 async function optionalJiraDescription(teamId: string | undefined, ticketKey: string): Promise<string | null> {
   if (!teamId || !ticketKey?.trim()) return null;
   try {

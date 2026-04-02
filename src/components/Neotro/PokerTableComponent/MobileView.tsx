@@ -94,6 +94,7 @@ export const MobileView: React.FC = () => {
         deleteRound,
         onPokerBack,
         pokerToolbarExtras,
+        addTicketToQueue,
     } = usePokerTable();
     const { height } = useWindowSize();
 
@@ -220,6 +221,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                     }
@@ -248,6 +250,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -291,6 +294,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -582,6 +586,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                     }
@@ -610,6 +615,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -653,6 +659,7 @@ export const MobileView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -917,6 +924,8 @@ export const MobileView: React.FC = () => {
                             onTicketNumberFocus={handleTicketNumberFocus}
                             onTicketNumberBlur={handleTicketNumberBlur}
                             teamId={teamId}
+                            pokerSessionId={session?.session_id}
+                            onIssueCreated={addTicketToQueue}
                         />
                         <div className='flex justify-end pt-2'>
                             <Button variant="outline" size="sm" onClick={() => { setIsDrawerOpen(false); setIsSettingsOpen(true); }}>

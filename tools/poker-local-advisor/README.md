@@ -51,6 +51,30 @@ Generate a **ticket context summary** for the current round (displayed in the Ad
 | `ticketKey` | string | Echoed from the request |
 | `roundNumber` | number | Echoed from the request |
 
+### `POST /split-details`
+
+Draft a **Jira summary and description** for one proposed split line (used when creating a split story from the poker advisor UI).
+
+**Request** (`application/json`): same fields as `POST /advise`, plus:
+
+| Field | Type | Description |
+|--------|------|-------------|
+| `splitTitle` | string | Required. Advisor’s suggested sub-story title |
+| `splitPoints` | number (optional) | Fibonacci hint for this slice |
+
+**Response** (`application/json`):
+
+| Field | Type | Description |
+|--------|------|-------------|
+| `mode` | `"split_details"` | Response mode |
+| `summary` | string | Jira issue summary (≤255 chars) |
+| `description` | string | Body text for the Jira description |
+| `roundId`, `ticketKey`, `roundNumber` | echoed | Same as `/advise` when using the reference server |
+
+The Retroscope app opens a **preview** dialog for `summary` / `description`, then creates the issue via Supabase `create-jira-issue` with **`splitFromIssueKey`** (parent key; empty description on create), waits for Jira automations, **GET**s the new issue, **merges** any template-filled description with the approved body, and **PUT**s ADF via `update-jira-issue-v2`.
+
+**Handlers**: `claude-code` and `gemini-cli` built-ins, `stub`, or an **external** executable (stdin JSON → stdout JSON with the shape above).
+
 **CORS**: The server must respond with `Access-Control-Allow-Origin` suitable for your app (this implementation uses `*` for local development).
 
 ## Run

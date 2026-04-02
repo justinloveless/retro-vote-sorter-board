@@ -6,6 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Plus, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, ListPlus, Trash2, GripVertical } from 'lucide-react';
@@ -67,6 +70,8 @@ interface EmbeddedTicketQueueProps {
   showJiraBrowser?: boolean;
   /** Called when browse fetch completes — parent can merge this into shared ticket metadata to avoid duplicate get-jira-board-issues. */
   onMetadataFromBrowse?: (meta: Record<string, JiraTicketMeta>) => void;
+  /** After creating an issue from this panel, add it to the poker session (optional). */
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
 }
 
 const STATUS_OPTIONS = [
@@ -163,6 +168,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   onAddTicketsBatch,
   displayTicketNumber,
   onMetadataFromBrowse,
+  onIssueCreated,
   onSelectTicket,
   rounds = [],
 }) => {
@@ -198,6 +204,10 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
   const [collapsedBuckets, setCollapsedBuckets] = usePersistedJiraBrowseCollapsedBuckets(teamId);
   const [addingBucketId, setAddingBucketId] = useState<string | null>(null);
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [newTicketSummary, setNewTicketSummary] = useState('');
+  const [newTicketDescription, setNewTicketDescription] = useState('');
+  const [newTicketSaving, setNewTicketSaving] = useState(false);
   const { toast } = useToast();
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
@@ -360,6 +370,38 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
     });
   };
 
+  const handleCreateNewJiraTicket = async () => {
+    const sum = newTicketSummary.trim();
+    if (!teamId || !sum) return;
+    setNewTicketSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-jira-issue', {
+        body: {
+          teamId,
+          summary: sum,
+          description: newTicketDescription.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+      const key = typeof data?.key === 'string' ? data.key : '';
+      if (!key) throw new Error('No issue key returned');
+      toast({ title: `Created ${key}` });
+      setNewTicketOpen(false);
+      setNewTicketSummary('');
+      setNewTicketDescription('');
+      await onIssueCreated?.(key, sum);
+    } catch (e) {
+      toast({
+        title: 'Failed to create ticket',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setNewTicketSaving(false);
+    }
+  };
+
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
     await onAddTicket(issue.key, issue.summary, issue.parent);
@@ -474,6 +516,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
         issueIdOrKey={issue.key}
         teamId={teamId}
         pokerSessionId={pokerSessionId}
+        onIssueCreated={onIssueCreated}
         trigger={issueContent}
       />
     ) : (
@@ -656,6 +699,7 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
                       issueIdOrKey={item.ticket_key}
                       teamId={teamId}
                       pokerSessionId={pokerSessionId}
+                      onIssueCreated={onIssueCreated}
                       trigger={card}
                     />
                   ) : (
@@ -670,10 +714,24 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
 
   const jiraContent = (
     <div className="neotro-jira-scroll-group flex flex-1 flex-col min-h-0">
-      <div className="flex items-center gap-2 text-base font-semibold mb-2 shrink-0">
-                <Search className="h-5 w-5" />
-                Browse Jira
-              </div>
+      <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+        <div className="flex items-center gap-2 text-base font-semibold min-w-0">
+          <Search className="h-5 w-5 shrink-0" />
+          <span className="truncate">Browse Jira</span>
+        </div>
+        {isJiraConfigured && teamId ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs shrink-0 gap-1"
+            onClick={() => setNewTicketOpen(true)}
+          >
+            <Plus className="h-3 w-3" />
+            New ticket
+          </Button>
+        ) : null}
+      </div>
           <div className="space-y-2 shrink-0">
             <div className="flex flex-wrap gap-1">
               <Input
@@ -828,28 +886,82 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   );
 
   return (
-    <div className="flex flex-col h-full">
-      {showQueuePanel && showJiraPanel ? (
-        <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
-          {queuePanel}
-          <ResizableHandle withHandle className="shrink-0 my-2" />
-          <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col min-h-0 pl-2">
+    <>
+      <div className="flex flex-col h-full">
+        {showQueuePanel && showJiraPanel ? (
+          <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
+            {queuePanel}
+            <ResizableHandle withHandle className="shrink-0 my-2" />
+            <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col min-h-0 pl-2">
+              {jiraContent}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : showQueuePanel ? (
+          <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
+            {queuePanel}
+          </ResizablePanelGroup>
+        ) : showJiraPanel ? (
+          <div className="flex flex-col flex-1 min-h-0 pl-2">
             {jiraContent}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      ) : showQueuePanel ? (
-        <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
-          {queuePanel}
-        </ResizablePanelGroup>
-      ) : showJiraPanel ? (
-        <div className="flex flex-col flex-1 min-h-0 pl-2">
-          {jiraContent}
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
-          Enable Jira in team settings to browse issues.
-        </div>
-      )}
-    </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
+            Enable Jira in team settings to browse issues.
+          </div>
+        )}
+      </div>
+
+      <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Jira ticket</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="embed-new-ticket-summary">Summary</Label>
+              <Input
+                id="embed-new-ticket-summary"
+                value={newTicketSummary}
+                onChange={(e) => setNewTicketSummary(e.target.value.slice(0, 255))}
+                maxLength={255}
+                disabled={newTicketSaving}
+                placeholder="Short title"
+                className="text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">{newTicketSummary.length}/255</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="embed-new-ticket-desc">Description (optional)</Label>
+              <Textarea
+                id="embed-new-ticket-desc"
+                value={newTicketDescription}
+                onChange={(e) => setNewTicketDescription(e.target.value)}
+                disabled={newTicketSaving}
+                placeholder="Details, acceptance criteria…"
+                rows={5}
+                className="text-sm resize-y min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setNewTicketOpen(false)}
+              disabled={newTicketSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCreateNewJiraTicket()}
+              disabled={newTicketSaving || !newTicketSummary.trim()}
+            >
+              {newTicketSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create in Jira'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

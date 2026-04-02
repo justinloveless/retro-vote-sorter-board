@@ -62,9 +62,9 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
   return (
     <div className="w-full flex items-center justify-center gap-1 py-2 px-3 bg-background/80 backdrop-blur border-t border-border">
       {showObserverButton && (
-        <>
+        <div className="contents">
         {isMobile && (
-          <>
+          <div className="contents">
             <Tooltip>
               <TooltipTrigger asChild>
                 <NeotroPressableButton
@@ -80,7 +80,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
                 {isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
               </TooltipContent>
             </Tooltip>
-          </>
+          </div>
         )}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -97,7 +97,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
           </TooltipContent>
         </Tooltip>
         <div className="w-px h-5 bg-border mx-1" aria-hidden />
-        </>
+        </div>
       )}
       {panels.map(({ key, icon: Icon, label }) => {
         const isSettings = key === 'settings';
@@ -105,7 +105,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
         const showChatBadge = key === 'chat' && chatUnreadCount > 0;
         const badgeDisplay = chatUnreadCount > 9 ? '9+' : String(chatUnreadCount);
         return (
-        <React.Fragment key={key}>
+        <div key={key} className="contents">
         {isSettings && <div className="w-px h-5 bg-border mx-1" aria-hidden />}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -127,7 +127,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
             {isSettings ? 'Settings' : (visibility[key] ? 'Hide' : 'Show') + ' ' + label}
           </TooltipContent>
         </Tooltip>
-        </React.Fragment>
+        </div>
       );})}
     </div>
   );

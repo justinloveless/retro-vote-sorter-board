@@ -1,4 +1,4 @@
-import type { PokerAdvisorContextResponse } from '@/lib/pokerLocalAdvisor';
+import { coalesceContextSplits, type PokerAdvisorContextResponse } from '@/lib/pokerLocalAdvisor';
 
 const TTL_MS = 10 * 60 * 1000;
 const STORAGE_PREFIX = 'pokerAdvisor:context:v1:';
@@ -69,7 +69,7 @@ export function getCachedContextForTicket(cacheKey: string): CachedContextEntry 
     deleteFromLocalStorage(cacheKey);
     return null;
   }
-  return { context: { ...row.context }, receivedAt: row.storedAt };
+  return { context: coalesceContextSplits({ ...row.context }), receivedAt: row.storedAt };
 }
 
 export function setCachedContextForTicket(

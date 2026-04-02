@@ -1,4 +1,4 @@
-import type { PokerAdvisorResponse } from '@/lib/pokerLocalAdvisor';
+import { coalesceAdviceSplits, type PokerAdvisorResponse } from '@/lib/pokerLocalAdvisor';
 
 const TTL_MS = 10 * 60 * 1000;
 const STORAGE_PREFIX = 'pokerAdvisor:advice:v1:';
@@ -69,7 +69,7 @@ export function getCachedAdviceForTicket(cacheKey: string): CachedAdviceEntry | 
     deleteFromLocalStorage(cacheKey);
     return null;
   }
-  return { advice: { ...row.advice }, receivedAt: row.storedAt };
+  return { advice: coalesceAdviceSplits({ ...row.advice }), receivedAt: row.storedAt };
 }
 
 export function setCachedAdviceForTicket(cacheKey: string, advice: PokerAdvisorResponse, receivedAtMs?: number): void {

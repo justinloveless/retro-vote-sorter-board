@@ -105,6 +105,7 @@ function QueuePanelCard({
               updateTicketNumber(ticketKey);
             }}
             onMetadataFromBrowse={onMetadataFromBrowse}
+            onIssueCreated={addTicketToQueue}
           />
         ) : (
           <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">
@@ -463,6 +464,7 @@ export const DesktopView: React.FC = () => {
                                                 issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                 teamId={teamId}
                                                 pokerSessionId={session.session_id}
+                                                onIssueCreated={addTicketToQueue}
                                                 trigger={
                                                     <TicketDetailsNeotroButton className="flex-1 min-w-0" />
                                                 }
@@ -491,6 +493,7 @@ export const DesktopView: React.FC = () => {
                                                     issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                     teamId={teamId}
                                                     pokerSessionId={session.session_id}
+                                                    onIssueCreated={addTicketToQueue}
                                                     trigger={
                                                         <NeotroPressableButton
                                                             variant="emerald"
@@ -534,6 +537,7 @@ export const DesktopView: React.FC = () => {
                                                 issueIdOrKey={(displaySession.ticket_number || displayTicketNumber)!}
                                                 teamId={teamId}
                                                 pokerSessionId={session.session_id}
+                                                onIssueCreated={addTicketToQueue}
                                                 trigger={
                                                     <NeotroPressableButton
                                                         variant="emerald"

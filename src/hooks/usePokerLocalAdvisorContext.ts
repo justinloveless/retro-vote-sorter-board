@@ -11,24 +11,15 @@ import {
   setInFlightContextForTicket,
 } from '@/lib/pokerAdvisorContextCache';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
-import { buildPokerAdvisorRequestPayload, fetchRoundQa, hashQa } from '@/hooks/_pokerLocalAdvisorPayload';
+import {
+  buildPokerAdvisorRequestPayload,
+  buildScopedTicketKeyBase,
+  fetchRoundQa,
+  hashQa,
+} from '@/hooks/_pokerLocalAdvisorPayload';
 
 const DEBOUNCE_MS = 450;
 const MAX_CONTEXT_CHARS = 24000;
-
-function buildScopedTicketKeyBase(options: {
-  teamId: string | undefined;
-  sessionId: string | null | undefined;
-  ticketKey: string;
-}): string {
-  const { teamId, sessionId, ticketKey } = options;
-  const tk = (ticketKey || '').trim();
-  if (!tk || tk === '—') return '—';
-  const tid = (teamId || '').trim();
-  const sid = (sessionId || '').trim();
-  if (!tid || !sid) return tk;
-  return `${tid}|${sid}|${tk}`;
-}
 
 export function usePokerLocalAdvisorContext(options: {
   featureFlagOn: boolean;
