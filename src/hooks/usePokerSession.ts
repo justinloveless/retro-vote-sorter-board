@@ -16,6 +16,8 @@ import { roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
 // Define types for session state
 export interface PlayerSelection {
   points: number;
+  /** When set with `points` as the lower Fibonacci value, vote is "between" that value and this one. */
+  betweenHighPoints?: number;
   locked: boolean;
   name: string;
 }
@@ -26,24 +28,55 @@ export interface Selections {
 
 export type GameState = 'Selection' | 'Playing';
 
-/** Returns the points value with the most votes. On tie, returns the highest. */
-export function getPointsWithMostVotes(selections: { points: number }[]): number {
+export type WinningPoints =
+  | { kind: 'single'; points: number }
+  | { kind: 'between'; low: number; high: number };
+
+/**
+ * Plurality by numeric point value. A "between low–high" vote counts as a full vote for each endpoint.
+ * Tie-break: higher point value wins (same as integer vote tie-break).
+ */
+export function getWinningVoteFromSelections(selections: PlayerSelection[]): WinningPoints {
   const participating = selections.filter((s) => s.points !== -1);
-  if (participating.length === 0) return 0;
-  const voteCounts: Record<number, number> = {};
-  participating.forEach((s) => {
-    voteCounts[s.points] = (voteCounts[s.points] || 0) + 1;
-  });
-  let maxCount = 0;
-  let winningPoints = 0;
-  for (const [points, count] of Object.entries(voteCounts)) {
-    const p = parseInt(points, 10);
-    if (count > maxCount || (count === maxCount && p > winningPoints)) {
-      maxCount = count;
-      winningPoints = p;
+  if (participating.length === 0) return { kind: 'single', points: 0 };
+
+  const weightByPoints = new Map<number, number>();
+  const addWeight = (pt: number, w: number) => {
+    weightByPoints.set(pt, (weightByPoints.get(pt) || 0) + w);
+  };
+
+  for (const s of participating) {
+    if (s.betweenHighPoints != null) {
+      const low = Math.min(s.points, s.betweenHighPoints);
+      const high = Math.max(s.points, s.betweenHighPoints);
+      addWeight(low, 1);
+      addWeight(high, 1);
+    } else {
+      addWeight(s.points, 1);
     }
   }
-  return winningPoints;
+
+  let bestPoints = 0;
+  let bestWeight = -1;
+  for (const [points, weight] of weightByPoints) {
+    if (weight > bestWeight || (weight === bestWeight && points > bestPoints)) {
+      bestWeight = weight;
+      bestPoints = points;
+    }
+  }
+
+  return { kind: 'single', points: bestPoints };
+}
+
+/** Value stored in `average_points` when the round is revealed (between → lower bound). */
+export function winningVoteToStoredAveragePoints(w: WinningPoints): number {
+  if (w.kind === 'single') return w.points;
+  return w.low;
+}
+
+/** Returns stored average_points value; between winner uses lower bound. */
+export function getPointsWithMostVotes(selections: PlayerSelection[]): number {
+  return winningVoteToStoredAveragePoints(getWinningVoteFromSelections(selections));
 }
 
 // The main session object is now much simpler
@@ -689,7 +722,8 @@ export const usePokerSession = (
       const observerSet = new Set(observerIds);
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
-          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
+          const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
+          resetSelections[key] = { ...selBase, points: 1, locked: false };
         }
       });
     }
@@ -760,7 +794,8 @@ export const usePokerSession = (
       const observerSet = new Set(observerIds);
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
-          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
+          const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
+          resetSelections[key] = { ...selBase, points: 1, locked: false };
         }
       });
     }
@@ -831,7 +866,8 @@ export const usePokerSession = (
       const observerSet = new Set(observerIds);
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
-          resetSelections[key] = { ...(sel as PlayerSelection), points: 1, locked: false };
+          const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
+          resetSelections[key] = { ...selBase, points: 1, locked: false };
         }
       });
     }

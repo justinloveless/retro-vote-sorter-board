@@ -15,7 +15,7 @@ import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Send, Maximize2, Eye, GripVertical, RotateCcw, Search, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { PlayerSelection } from '@/hooks/usePokerSession';
+import { PlayerSelection, type WinningPoints } from '@/hooks/usePokerSession';
 import SubmitPointsToJira from '@/components/Neotro/SubmitPointsToJira';
 import { JiraIssueDrawer } from '@/components/Neotro/JiraIssueDrawer';
 import { EmbeddedTicketQueue } from '@/components/Neotro/EmbeddedTicketQueue';
@@ -141,6 +141,8 @@ export const DesktopView: React.FC = () => {
         session,
         updateSessionConfig,
         updateUserSelection,
+        updateUserSelectionBetween,
+        lockInUserSelectionBetween,
         lockInUserSelectionAtPoints,
         deleteAllRounds,
         isSlackInstalled,
@@ -150,6 +152,7 @@ export const DesktopView: React.FC = () => {
         isSending,
         displaySession,
         displayWinningPoints,
+        displayWinningVote,
         replayRound,
         cardGroups,
         activeUserSelection,
@@ -276,9 +279,20 @@ export const DesktopView: React.FC = () => {
     }, [isResizing]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-    const handleDragDrop = useCallback((points: number) => {
-        lockInUserSelectionAtPoints(points);
-    }, [lockInUserSelectionAtPoints]);
+    const handleDragDrop = useCallback((points: number, betweenHigh?: number) => {
+        if (betweenHigh != null && betweenHigh !== points) {
+            void lockInUserSelectionBetween(Math.min(points, betweenHigh), Math.max(points, betweenHigh));
+        } else {
+            lockInUserSelectionAtPoints(points);
+        }
+    }, [lockInUserSelectionAtPoints, lockInUserSelectionBetween]);
+
+    const handleDragBetweenSelect = useCallback(
+        (low: number, high: number) => {
+            void lockInUserSelectionBetween(low, high);
+        },
+        [lockInUserSelectionBetween]
+    );
 
     const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
     const CARD_BASE_HEIGHT = 95;
@@ -375,6 +389,7 @@ export const DesktopView: React.FC = () => {
                 displayTicketNumber={displayTicketNumber}
                 displaySession={displaySession}
                 displayWinningPoints={displayWinningPoints}
+                displayWinningVote={displayWinningVote}
                 currentRound={currentRound}
                 isViewingHistory={isViewingHistory}
                 ticketMetaByKey={ticketMetaByKey}
@@ -583,7 +598,11 @@ export const DesktopView: React.FC = () => {
                                     <div className={`relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1`}>
                                         <div className={`flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 ${isCompact ? 'px-3 py-1' : 'px-4 py-2'}`}>
                                             <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                            <span className={`font-bold ${isCompact ? 'text-base' : 'text-xl'}`}>{displayWinningPoints} pts</span>
+                                            <span className={`font-bold ${isCompact ? 'text-base' : 'text-xl'}`}>
+                                                {displayWinningVote.kind === 'between'
+                                                    ? `Between ${displayWinningVote.low} & ${displayWinningVote.high}`
+                                                    : `${displayWinningPoints} pts`}
+                                            </span>
                                         </div>
                                         <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                             <TooltipProvider>
@@ -648,7 +667,12 @@ export const DesktopView: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                    <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                    <DragToPlayProvider
+                        onDrop={handleDragDrop}
+                        onBetweenSelect={handleDragBetweenSelect}
+                        pointOptions={pointOptions}
+                        disabled={isDragDisabled}
+                    >
                     <PlayingFieldRoundSlide roundIndex={currentRoundIndex}>
                     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
                         <div className="my-auto flex flex-col items-center gap-2 w-full min-h-0">
@@ -657,8 +681,8 @@ export const DesktopView: React.FC = () => {
                         {displaySession.game_state === 'Playing' && cardGroups ? (
                             <TooltipProvider>
                             <div className={`flex flex-wrap items-end justify-center ${isCompact ? 'gap-x-4 gap-y-2' : 'gap-x-6 gap-y-4'}`}>
-                                {cardGroups.map(({ points, selections }) => (
-                                    <div key={points} className={`flex flex-col items-center ${isCompact ? 'space-y-1' : 'space-y-2'}`}>
+                                {cardGroups.map(({ points, betweenHighPoints: groupHigh, selections }) => (
+                                    <div key={`${points}-${groupHigh ?? ''}`} className={`flex flex-col items-center ${isCompact ? 'space-y-1' : 'space-y-2'}`}>
                                         <div className="flex flex-col items-center">
                                             {(isCompact ? selections.slice(0, 1) : selections).map((selection, index) => (
                                                 <div key={selection.userId}
@@ -671,6 +695,7 @@ export const DesktopView: React.FC = () => {
                                                         cardState={CardState.Played}
                                                         playerName={selection.name}
                                                         pointsSelected={selection.points}
+                                                        betweenHighPoints={selection.betweenHighPoints ?? groupHigh}
                                                         isPresent={presentUserIds.includes(selection.userId)}
                                                         totalPlayers={totalPlayers}
                                                         variant="stacked"
@@ -679,7 +704,7 @@ export const DesktopView: React.FC = () => {
                                             ))}
                                         </div>
                                         <div className={`text-center font-bold text-foreground bg-card/75 rounded-full ${isCompact ? 'text-sm px-3 py-0.5' : 'text-lg px-4 py-1'}`}>
-                                            {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                            {selections.length} x {points === -1 ? 'Abstain' : groupHigh != null ? `${points}–${groupHigh} pts` : `${points} pts`}
                                         </div>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -720,7 +745,7 @@ export const DesktopView: React.FC = () => {
                                             </TooltipTrigger>
                                             {selections.length > 1 && (
                                                 <TooltipContent>
-                                                    <p className="font-medium">{selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}</p>
+                                                    <p className="font-medium">{selections.length} x {points === -1 ? 'Abstain' : groupHigh != null ? `${points}–${groupHigh} pts` : `${points} pts`}</p>
                                                     <ul className="list-disc list-inside mt-1 text-sm">
                                                         {selections.map((s) => (
                                                             <li key={s.userId}>{s.name}</li>
@@ -741,6 +766,7 @@ export const DesktopView: React.FC = () => {
                                         cardState={displaySession.game_state === 'Playing' ? CardState.Played : (selection.locked ? CardState.Locked : CardState.Selection)}
                                         playerName={selection.name}
                                         pointsSelected={selection.points}
+                                        betweenHighPoints={selection.betweenHighPoints}
                                         isPresent={presentUserIds.includes(userId)}
                                         totalPlayers={totalPlayers}
                                     />
@@ -754,7 +780,7 @@ export const DesktopView: React.FC = () => {
                                 <SubmitPointsToJira
                                     teamId={teamId}
                                     ticketNumber={displaySession.ticket_number || displayTicketNumber}
-                                    winningPoints={displayWinningPoints}
+                                    winningVote={displayWinningVote}
                                     isHandPlayed={true}
                                     isJiraConfigured={isJiraConfigured}
                                     compact={isCompact}
@@ -776,8 +802,10 @@ export const DesktopView: React.FC = () => {
                         <div className="flex-shrink-0 flex items-center justify-center p-4">
                             <CardHandSelector
                                 selectedPoints={activeUserSelection.points}
+                                betweenHighPoints={activeUserSelection.betweenHighPoints}
                                 pointOptions={pointOptions}
                                 onSelectPoints={(points) => updateUserSelection(points)}
+                                onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                 onLockIn={toggleLockUserSelection}
                                 isLockedIn={activeUserSelection.locked}
                                 onAbstain={toggleAbstainUserSelection}

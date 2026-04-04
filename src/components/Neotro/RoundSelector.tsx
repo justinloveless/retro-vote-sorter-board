@@ -5,7 +5,7 @@ import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { PokerSessionState } from '@/hooks/usePokerSession';
+import type { PokerSessionState, WinningPoints } from '@/hooks/usePokerSession';
 import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
 import type { JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
@@ -27,6 +27,7 @@ interface RoundSelectorProps {
   displayTicketNumber: string;
   displaySession: { game_state?: string } | null;
   displayWinningPoints: number;
+  displayWinningVote?: WinningPoints;
   currentRound: PokerSessionRound | null;
   isViewingHistory: boolean;
   /** From `useJiraTicketMetadata` — shared with the parent layout so we only fetch once. */
@@ -57,6 +58,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   displayTicketNumber,
   displaySession,
   displayWinningPoints,
+  displayWinningVote,
   currentRound,
   isViewingHistory,
   ticketMetaByKey,
@@ -101,8 +103,13 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       }
       return null;
     }
-    if (displaySession?.game_state === 'Playing' && displayWinningPoints > 0) {
-      return `${displayWinningPoints} pts`;
+    if (displaySession?.game_state === 'Playing' && displayWinningVote) {
+      if (displayWinningVote.kind === 'between') {
+        return `Between ${displayWinningVote.low} & ${displayWinningVote.high}`;
+      }
+      if (displayWinningPoints > 0) {
+        return `${displayWinningPoints} pts`;
+      }
     }
     return storyPointsFromIssue != null ? `${storyPointsFromIssue} pts` : null;
   }, [
@@ -110,6 +117,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     currentRound,
     displaySession?.game_state,
     displayWinningPoints,
+    displayWinningVote,
     ticketMetaByKey,
     displayTicketNumber,
     currentRound?.ticket_number,

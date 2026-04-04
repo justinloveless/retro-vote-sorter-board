@@ -55,6 +55,7 @@ export const MobileView: React.FC = () => {
         deleteAllRounds,
         displaySession,
         displayWinningPoints,
+        displayWinningVote,
         replayRound,
         cardGroups,
         activeUserSelection,
@@ -67,6 +68,8 @@ export const MobileView: React.FC = () => {
         toggleLockUserSelection,
         toggleAbstainUserSelection,
         updateUserSelection,
+        updateUserSelectionBetween,
+        lockInUserSelectionBetween,
         lockInUserSelectionAtPoints,
         displayTicketNumber,
         handleTicketNumberChange,
@@ -118,9 +121,20 @@ export const MobileView: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     
 
-    const handleDragDrop = useCallback((points: number) => {
-        lockInUserSelectionAtPoints(points);
-    }, [lockInUserSelectionAtPoints]);
+    const handleDragDrop = useCallback((points: number, betweenHigh?: number) => {
+        if (betweenHigh != null && betweenHigh !== points) {
+            void lockInUserSelectionBetween(Math.min(points, betweenHigh), Math.max(points, betweenHigh));
+        } else {
+            lockInUserSelectionAtPoints(points);
+        }
+    }, [lockInUserSelectionAtPoints, lockInUserSelectionBetween]);
+
+    const handleDragBetweenSelect = useCallback(
+        (low: number, high: number) => {
+            void lockInUserSelectionBetween(low, high);
+        },
+        [lockInUserSelectionBetween]
+    );
 
     const isDragDisabled = activeUserSelection.locked || activeUserSelection.points === -1 || isObserver || isViewingHistory;
 
@@ -188,6 +202,7 @@ export const MobileView: React.FC = () => {
                         displayTicketNumber={displayTicketNumber}
                         displaySession={displaySession}
                         displayWinningPoints={displayWinningPoints}
+                        displayWinningVote={displayWinningVote}
                         currentRound={currentRound}
                         isViewingHistory={isViewingHistory}
                         ticketMetaByKey={ticketMetaByKey}
@@ -340,7 +355,11 @@ export const MobileView: React.FC = () => {
                                         <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
                                             <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
                                                 <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                                <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                                <span className="font-bold text-base">
+                                                    {displayWinningVote.kind === 'between'
+                                                        ? `Between ${displayWinningVote.low} & ${displayWinningVote.high}`
+                                                        : `${displayWinningPoints} pts`}
+                                                </span>
                                             </div>
                                             <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                                 <TooltipProvider>
@@ -411,13 +430,18 @@ export const MobileView: React.FC = () => {
                             </div>
 
                         {/* Cards Area */}
-                        <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                        <DragToPlayProvider
+                            onDrop={handleDragDrop}
+                            onBetweenSelect={handleDragBetweenSelect}
+                            pointOptions={pointOptions}
+                            disabled={isDragDisabled}
+                        >
                         <div className="relative flex-1 flex items-center justify-center min-h-0 mb-6">
                             <DropZoneOverlay />
                             {displaySession.game_state === 'Playing' && cardGroups ? (
                                 <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
-                                    {cardGroups.map(({ points, selections }) => (
-                                        <div key={points} className="flex flex-col items-center space-y-2">
+                                    {cardGroups.map(({ points, betweenHighPoints: groupHigh, selections }) => (
+                                        <div key={`${points}-${groupHigh ?? ''}`} className="flex flex-col items-center space-y-2">
                                             <div className="flex flex-col items-center">
                                                 {selections.map((selection, index) => (
                                                     <div key={selection.userId}
@@ -430,6 +454,7 @@ export const MobileView: React.FC = () => {
                                                             cardState={CardState.Played}
                                                             playerName={selection.name}
                                                             pointsSelected={selection.points}
+                                                            betweenHighPoints={selection.betweenHighPoints ?? groupHigh}
                                                             isPresent={presentUserIds.includes(selection.userId)}
                                                             totalPlayers={totalPlayers}
                                                             variant="stacked"
@@ -438,7 +463,7 @@ export const MobileView: React.FC = () => {
                                                 ))}
                                             </div>
                                             <div className="text-center font-bold text-sm text-foreground bg-card/75 rounded-full px-3 py-1">
-                                                {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                                {selections.length} x {points === -1 ? 'Abstain' : groupHigh != null ? `${points}–${groupHigh} pts` : `${points} pts`}
                                             </div>
                                             <div className="flex flex-col items-center">
                                                 {selections.map((selection) => (
@@ -458,6 +483,7 @@ export const MobileView: React.FC = () => {
                                                 cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
                                                 playerName={(selection as any).name}
                                                 pointsSelected={(selection as any).points}
+                                                betweenHighPoints={(selection as any).betweenHighPoints}
                                                 isPresent={presentUserIds.includes(userId)}
                                                 totalPlayers={totalPlayers}
                                             />
@@ -473,7 +499,7 @@ export const MobileView: React.FC = () => {
                                     <SubmitPointsToJira
                                         teamId={teamId}
                                         ticketNumber={displaySession.ticket_number || displayTicketNumber}
-                                        winningPoints={displayWinningPoints}
+                                        winningVote={displayWinningVote}
                                         isHandPlayed={true}
                                         isJiraConfigured={isJiraConfigured}
                                     />
@@ -496,8 +522,10 @@ export const MobileView: React.FC = () => {
                             <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
+                                    betweenHighPoints={activeUserSelection.betweenHighPoints}
                                     pointOptions={pointOptions}
                                     onSelectPoints={(points) => updateUserSelection(points)}
+                                    onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
@@ -553,6 +581,7 @@ export const MobileView: React.FC = () => {
                         displayTicketNumber={displayTicketNumber}
                         displaySession={displaySession}
                         displayWinningPoints={displayWinningPoints}
+                        displayWinningVote={displayWinningVote}
                         currentRound={currentRound}
                         isViewingHistory={isViewingHistory}
                         ticketMetaByKey={ticketMetaByKey}
@@ -705,7 +734,11 @@ export const MobileView: React.FC = () => {
                                         <div className="relative flex items-center justify-center w-full pr-8 pt-0.5 pb-1">
                                             <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg flex-1 min-w-0 px-3 py-1">
                                                 <span className="text-sm text-muted-foreground">Winning Points:</span>
-                                                <span className="font-bold text-base">{displayWinningPoints} pts</span>
+                                                <span className="font-bold text-base">
+                                                    {displayWinningVote.kind === 'between'
+                                                        ? `Between ${displayWinningVote.low} & ${displayWinningVote.high}`
+                                                        : `${displayWinningPoints} pts`}
+                                                </span>
                                             </div>
                                             <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                                 <TooltipProvider>
@@ -776,13 +809,18 @@ export const MobileView: React.FC = () => {
                             </div>
 
                         {/* Cards Area */}
-                        <DragToPlayProvider onDrop={handleDragDrop} disabled={isDragDisabled}>
+                        <DragToPlayProvider
+                            onDrop={handleDragDrop}
+                            onBetweenSelect={handleDragBetweenSelect}
+                            pointOptions={pointOptions}
+                            disabled={isDragDisabled}
+                        >
                         <div className="relative flex-1 flex items-center justify-center min-h-0 mb-6">
                             <DropZoneOverlay />
                             {displaySession.game_state === 'Playing' && cardGroups ? (
                                 <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
-                                    {cardGroups.map(({ points, selections }) => (
-                                        <div key={points} className="flex flex-col items-center space-y-2">
+                                    {cardGroups.map(({ points, betweenHighPoints: groupHigh, selections }) => (
+                                        <div key={`${points}-${groupHigh ?? ''}`} className="flex flex-col items-center space-y-2">
                                             <div className="flex flex-col items-center">
                                                 {selections.map((selection, index) => (
                                                     <div key={selection.userId}
@@ -795,6 +833,7 @@ export const MobileView: React.FC = () => {
                                                             cardState={CardState.Played}
                                                             playerName={selection.name}
                                                             pointsSelected={selection.points}
+                                                            betweenHighPoints={selection.betweenHighPoints ?? groupHigh}
                                                             isPresent={presentUserIds.includes(selection.userId)}
                                                             totalPlayers={totalPlayers}
                                                             variant="stacked"
@@ -803,7 +842,7 @@ export const MobileView: React.FC = () => {
                                                 ))}
                                             </div>
                                             <div className="text-center font-bold text-sm text-foreground bg-card/75 rounded-full px-3 py-1">
-                                                {selections.length} x {points === -1 ? 'Abstain' : `${points} pts`}
+                                                {selections.length} x {points === -1 ? 'Abstain' : groupHigh != null ? `${points}–${groupHigh} pts` : `${points} pts`}
                                             </div>
                                             <div className="flex flex-col items-center">
                                                 {selections.map((selection) => (
@@ -823,6 +862,7 @@ export const MobileView: React.FC = () => {
                                                 cardState={displaySession.game_state === 'Playing' ? CardState.Played : ((selection as any).locked ? CardState.Locked : CardState.Selection)}
                                                 playerName={(selection as any).name}
                                                 pointsSelected={(selection as any).points}
+                                                betweenHighPoints={(selection as any).betweenHighPoints}
                                                 isPresent={presentUserIds.includes(userId)}
                                                 totalPlayers={totalPlayers}
                                             />
@@ -838,7 +878,7 @@ export const MobileView: React.FC = () => {
                                     <SubmitPointsToJira
                                         teamId={teamId}
                                         ticketNumber={displaySession.ticket_number || displayTicketNumber}
-                                        winningPoints={displayWinningPoints}
+                                        winningVote={displayWinningVote}
                                         isHandPlayed={true}
                                         isJiraConfigured={isJiraConfigured}
                                     />
@@ -861,8 +901,10 @@ export const MobileView: React.FC = () => {
                             <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <CardHandSelector
                                     selectedPoints={activeUserSelection.points}
+                                    betweenHighPoints={activeUserSelection.betweenHighPoints}
                                     pointOptions={pointOptions}
                                     onSelectPoints={(points) => updateUserSelection(points)}
+                                    onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                     onLockIn={toggleLockUserSelection}
                                     isLockedIn={activeUserSelection.locked}
                                     onAbstain={toggleAbstainUserSelection}
@@ -918,7 +960,7 @@ export const MobileView: React.FC = () => {
                         <PointsDetails
                             selectedPoint={activeUserSelection.points}
                             isHandPlayed={displaySession.game_state === 'Playing'}
-                            winningPoints={displayWinningPoints}
+                            winningVote={displayWinningVote}
                             ticketNumber={displayTicketNumber}
                             onTicketNumberChange={handleTicketNumberChange}
                             onTicketNumberFocus={handleTicketNumberFocus}
@@ -937,7 +979,7 @@ export const MobileView: React.FC = () => {
                                 <SubmitPointsToJira
                                     teamId={teamId}
                                     ticketNumber={displayTicketNumber}
-                                    winningPoints={displayWinningPoints}
+                                    winningVote={displayWinningVote}
                                     isHandPlayed={true}
                                     isJiraConfigured={isJiraConfigured}
                                 />

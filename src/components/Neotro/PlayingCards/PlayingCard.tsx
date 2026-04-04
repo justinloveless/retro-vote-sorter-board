@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ReactCardFlip from "../ReactCardFlip";
 import CardState from "./CardState";
 import { getCardImage } from "./cardImage";
+import BetweenCard from "./BetweenCard";
 import backCardImage from "@/assets/Card_Back.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -10,6 +11,8 @@ interface PlayingCardProps {
   cardState: CardState;
   playerName: string;
   pointsSelected: number;
+  /** When set with points as low, face-up shows split card (low–high). */
+  betweenHighPoints?: number;
   isPresent: boolean;
   totalPlayers?: number;
   variant?: 'default' | 'stacked';
@@ -37,6 +40,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
   cardState,
   playerName,
   pointsSelected,
+  betweenHighPoints,
   isPresent,
   totalPlayers = 4,
   variant = 'default',
@@ -118,27 +122,42 @@ const PlayingCard: React.FC<PlayingCardProps> = ({
       ) : (
         /* Card with slide-in animation when locking in */
         <div className={`w-full h-full ${slideIn ? 'animate-card-slide-in' : ''} ${!isPresent && cardState !== CardState.Played ? 'opacity-50' : ''}`}>
-          <ReactCardFlip
-            isFlipped={isFlipped}
-            flipDirection="horizontal"
-            infinite={true}
-          >
-            <div className="card-back w-full h-full">
+          {betweenHighPoints != null ? (
+            /* clip-path + 3D rotateY (ReactCardFlip) often paints blank; crossfade keeps split card visible */
+            <div className="relative h-full w-full">
               <img
                 src={backCardImage}
-                alt="Card Back"
-                className="w-full h-full object-contain"
+                alt=""
+                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 ease-in-out ${
+                  cardState === CardState.Played && isFlipped ? 'opacity-0' : 'opacity-100'
+                }`}
               />
+              <div
+                className={`absolute inset-0 h-full w-full transition-opacity duration-500 ease-in-out ${
+                  cardState === CardState.Played && isFlipped ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <BetweenCard lowPoints={pointsSelected} highPoints={betweenHighPoints} />
+              </div>
             </div>
-
-            <div className="card-front w-full h-full">
-              <img
-                src={frontCardImage}
-                alt={`Card ${pointsSelected} Points`}
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </ReactCardFlip>
+          ) : (
+            <ReactCardFlip isFlipped={isFlipped} flipDirection="horizontal" infinite={true}>
+              <div className="card-back w-full h-full">
+                <img
+                  src={backCardImage}
+                  alt="Card Back"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="card-front w-full h-full">
+                <img
+                  src={frontCardImage}
+                  alt={`Card ${pointsSelected} Points`}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            </ReactCardFlip>
+          )}
         </div>
       )}
       </div>

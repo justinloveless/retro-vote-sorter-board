@@ -768,6 +768,7 @@ export type Database = {
       }
       poker_session_rounds: {
         Row: {
+          auto_reveal_enabled: boolean
           average_points: number
           completed_at: string
           created_at: string
@@ -785,6 +786,7 @@ export type Database = {
           ticket_title: string | null
         }
         Insert: {
+          auto_reveal_enabled?: boolean
           average_points?: number
           completed_at?: string
           created_at?: string
@@ -802,6 +804,7 @@ export type Database = {
           ticket_title?: string | null
         }
         Update: {
+          auto_reveal_enabled?: boolean
           average_points?: number
           completed_at?: string
           created_at?: string
