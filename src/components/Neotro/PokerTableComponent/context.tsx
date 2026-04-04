@@ -34,6 +34,7 @@ import {
 import { isSyntheticRoundTicket, roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
 import { usePokerSpotlightClientId } from '@/hooks/use-poker-spotlight-client-id';
 import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
+import { POKER_DECK_POINT_VALUES } from '@/lib/pokerPointDeck';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
@@ -117,6 +118,8 @@ interface PokerTableContextProps {
   totalPlayers: number;
   isObserver: boolean;
   pointOptions: number[];
+  /** Team-defined labels for deck values; shown under Your Hand when non-empty. */
+  pokerPointValueDescriptions: Record<number, string>;
   handlePointChange: (increment: boolean) => void;
   handleTicketNumberChange: (value: string) => void;
   handleTicketNumberFocus: () => void;
@@ -214,6 +217,7 @@ export interface PokerTableProviderProps {
   pokerRouteContext?: PokerHistoryTeamRoute | null;
   onPokerBack?: () => void;
   pokerToolbarExtras?: ReactNode;
+  pokerPointValueDescriptions?: Record<number, string>;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
@@ -233,7 +237,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     pokerRouteContext,
     onPokerBack,
     pokerToolbarExtras,
+    pokerPointValueDescriptions: pokerPointValueDescriptionsProp,
   } = props;
+
+  const pokerPointValueDescriptions = pokerPointValueDescriptionsProp ?? {};
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
@@ -887,7 +894,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setDisplayTicketNumber(nextTicketNumber);
   }, [displaySession?.ticket_number, session?.ticket_number, isTicketInputFocused, effectiveCurrentRound?.is_active]);
 
-  const pointOptions = [1, 2, 3, 5, 8, 13, 21];
+  const pointOptions = [...POKER_DECK_POINT_VALUES];
 
   const activeUserSelection = useMemo(() => {
     if (displaySession && activeUserId && displaySession.selections[activeUserId]) {
@@ -1395,6 +1402,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     totalPlayers,
     isObserver,
     pointOptions,
+    pokerPointValueDescriptions,
     handlePointChange,
     handleTicketNumberChange,
     handleTicketNumberFocus,

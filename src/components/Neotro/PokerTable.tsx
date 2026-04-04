@@ -45,6 +45,7 @@ interface PokerTableProps {
     pokerRouteContext?: PokerHistoryTeamRoute | null;
     onPokerBack?: () => void;
     pokerToolbarExtras?: ReactNode;
+    pokerPointValueDescriptions?: Record<number, string>;
 }
 
 /** Writes the viewed round to `?round=` so session links can target a specific round. */

@@ -20,6 +20,7 @@ import {
 import { AlertCircle, Lock, ShieldAlert } from 'lucide-react';
 import { useBackground } from '@/contexts/BackgroundContext';
 import { trackRecentActivity } from '@/lib/recentActivity';
+import { pokerPointDescriptionsFromJson } from '@/lib/pokerPointDeck';
 
 const POKER_HIDE_BG_KEY = 'poker-disable-background-effects';
 
@@ -38,6 +39,9 @@ const NeotroPage = () => {
   const [currentRole, setCurrentRole] = useState<string | undefined>();
   const [loadingRole, setLoadingRole] = useState(true);
   const [isMember, setIsMember] = useState(false);
+  const [pokerPointValueDescriptions, setPokerPointValueDescriptions] = useState<
+    Record<number, string>
+  >({});
   const { setHideEffects } = useBackground();
 
   const teamPokerTabPath = teamId ? `/teams/${teamId}?tab=poker` : '/teams';
@@ -83,6 +87,23 @@ const NeotroPage = () => {
 
     fetchUserRole();
   }, [teamId, profile]);
+
+  useEffect(() => {
+    if (!teamId || !isMember || !profile?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('poker_point_value_descriptions')
+        .eq('id', teamId)
+        .single();
+      if (cancelled || error) return;
+      setPokerPointValueDescriptions(pokerPointDescriptionsFromJson(data?.poker_point_value_descriptions));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [teamId, isMember, profile?.id]);
 
   // Team sessions are inserted in Team.tsx (or elsewhere) before opening this route; never
   // auto-create on a miss — that was creating a blank session whenever lookup returned no row.
@@ -206,6 +227,7 @@ const NeotroPage = () => {
           requestedRoundNumber={requestedRoundNumberFromUrl}
           pokerRouteContext={pokerRouteForHistory}
           onPokerBack={() => navigate(teamPokerTabPath)}
+          pokerPointValueDescriptions={pokerPointValueDescriptions}
           {...pokerActions}
         />
       </div>

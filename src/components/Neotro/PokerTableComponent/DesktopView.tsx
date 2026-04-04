@@ -159,6 +159,7 @@ export const DesktopView: React.FC = () => {
         totalPlayers,
         presentUserIds,
         pointOptions,
+        pokerPointValueDescriptions,
         handlePointChange,
         toggleLockUserSelection,
         toggleAbstainUserSelection,
@@ -804,6 +805,7 @@ export const DesktopView: React.FC = () => {
                                 selectedPoints={activeUserSelection.points}
                                 betweenHighPoints={activeUserSelection.betweenHighPoints}
                                 pointOptions={pointOptions}
+                                pointValueDescriptions={pokerPointValueDescriptions}
                                 onSelectPoints={(points) => updateUserSelection(points)}
                                 onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                 onLockIn={toggleLockUserSelection}

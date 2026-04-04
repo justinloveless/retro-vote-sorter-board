@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { getCardImage } from "./PlayingCards/cardImage";
 import BetweenCard from "./PlayingCards/BetweenCard";
@@ -50,6 +50,8 @@ interface CardHandSelectorProps {
   onAbstain: () => void;
   isAbstained: boolean;
   isAbstainedDisabled: boolean;
+  /** Team-defined labels; legend shows when at least one entry applies to pointOptions. */
+  pointValueDescriptions?: Record<number, string>;
 }
 
 const CardHandSelector: React.FC<CardHandSelectorProps> = ({
@@ -63,6 +65,7 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
   onAbstain,
   isAbstained,
   isAbstainedDisabled,
+  pointValueDescriptions,
 }) => {
   const isMobile = useIsMobile();
   const isCompact = useIsCompactViewport();
@@ -94,6 +97,38 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
     rotMerged: number;
   } | null>(null);
   const [combineMotionPlay, setCombineMotionPlay] = useState(false);
+
+  const selectedDescriptionText = useMemo(() => {
+    if (!pointValueDescriptions || isAbstained || selectedPoints === -1) return null;
+    const descFor = (p: number) => {
+      const t = pointValueDescriptions[p];
+      return typeof t === "string" ? t.trim() : "";
+    };
+    if (betweenHighPoints != null && betweenHighPoints !== selectedPoints) {
+      const low = Math.min(selectedPoints, betweenHighPoints);
+      const high = Math.max(selectedPoints, betweenHighPoints);
+      const a = descFor(low);
+      const b = descFor(high);
+      if (!a && !b) return null;
+      if (a && b) return `${a} · ${b}`;
+      return a || b;
+    }
+    if (!pointOptions.includes(selectedPoints)) return null;
+    const single = descFor(selectedPoints);
+    return single || null;
+  }, [
+    pointValueDescriptions,
+    isAbstained,
+    selectedPoints,
+    betweenHighPoints,
+    pointOptions,
+  ]);
+
+  const legendEl = selectedDescriptionText ? (
+    <p className="text-muted-foreground max-w-lg px-2 text-center text-xs leading-relaxed">
+      {selectedDescriptionText}
+    </p>
+  ) : null;
 
   const maxFanAngle = isMobile ? 30 : 40;
   const cardWidth = isMobile ? 48 : 64;
@@ -557,34 +592,40 @@ const CardHandSelector: React.FC<CardHandSelectorProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center font-custom">
+      {(isMobile || isCompact) && legendEl ? (
+        <div className="mb-2 w-full">{legendEl}</div>
+      ) : null}
       {!isMobile && !isCompact && (
         <TooltipProvider delayDuration={200}>
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <div className="text-foreground text-3xl font-neotro">Your Hand</div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  aria-label="How to vote between two values"
-                >
-                  <Info className="h-4 w-4 shrink-0" strokeWidth={2} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-left">
-                <p className="text-xs leading-relaxed">
-                  Select a card, then hold{" "}
-                  <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-                    Shift
-                  </kbd>{" "}
-                  and click an adjacent card to vote between those values. Or hold{" "}
-                  <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-                    Shift
-                  </kbd>{" "}
-                  and click twice on adjacent cards.
-                </p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="mb-2 flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center gap-2">
+              <div className="text-foreground text-3xl font-neotro">Your Hand</div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label="How to vote between two values"
+                  >
+                    <Info className="h-4 w-4 shrink-0" strokeWidth={2} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-left">
+                  <p className="text-xs leading-relaxed">
+                    Select a card, then hold{" "}
+                    <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+                      Shift
+                    </kbd>{" "}
+                    and click an adjacent card to vote between those values. Or hold{" "}
+                    <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+                      Shift
+                    </kbd>{" "}
+                    and click twice on adjacent cards.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            {legendEl}
           </div>
         </TooltipProvider>
       )}

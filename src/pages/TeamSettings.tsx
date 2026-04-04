@@ -12,6 +12,11 @@ import { EndorsementSettings } from '@/components/team/EndorsementSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { JiraSettingsForm, JiraSettings } from '@/components/team/JiraSettingsForm';
 import { AppHeader } from '@/components/AppHeader';
+import { POKER_DECK_POINT_VALUES } from '@/lib/pokerPointDeck';
+
+function emptyPointDescriptionForm(): Record<string, string> {
+  return Object.fromEntries(POKER_DECK_POINT_VALUES.map((p) => [String(p), '']));
+}
 
 const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -59,12 +64,22 @@ const TeamSettingsPage = () => {
         }
 
         setTeam(data);
+        const descForm = emptyPointDescriptionForm();
+        const rawDesc = (data as { poker_point_value_descriptions?: Record<string, unknown> | null })
+          .poker_point_value_descriptions;
+        if (rawDesc && typeof rawDesc === 'object' && !Array.isArray(rawDesc)) {
+          for (const p of POKER_DECK_POINT_VALUES) {
+            const v = rawDesc[String(p)];
+            if (typeof v === 'string') descForm[String(p)] = v;
+          }
+        }
         setTeamSettings({
           name: data.name || '',
           description: data.description || '',
           slack_bot_token: data.slack_bot_token || '',
           slack_channel_id: data.slack_channel_id || '',
           poker_advisor_team_prompt: data.poker_advisor_team_prompt || '',
+          poker_point_value_descriptions: descForm,
         });
         setJiraSettings({
           jira_domain: data.jira_domain || '',
@@ -101,12 +116,18 @@ const TeamSettingsPage = () => {
 
     setSaving(true);
     try {
+      const poker_point_value_descriptions: Record<string, string> = {};
+      for (const p of POKER_DECK_POINT_VALUES) {
+        const t = teamSettings.poker_point_value_descriptions[String(p)]?.trim();
+        if (t) poker_point_value_descriptions[String(p)] = t;
+      }
       const updates = {
         name: teamSettings.name.trim(),
         description: teamSettings.description.trim() || null,
         slack_bot_token: teamSettings.slack_bot_token.trim() || null,
         slack_channel_id: teamSettings.slack_channel_id.trim() || null,
         poker_advisor_team_prompt: teamSettings.poker_advisor_team_prompt.trim() || null,
+        poker_point_value_descriptions,
         ...jiraSettings
       };
 

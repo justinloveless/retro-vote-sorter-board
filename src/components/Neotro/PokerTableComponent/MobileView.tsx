@@ -64,6 +64,7 @@ export const MobileView: React.FC = () => {
         playHand,
         nextRound,
         pointOptions,
+        pokerPointValueDescriptions,
         handlePointChange,
         toggleLockUserSelection,
         toggleAbstainUserSelection,
@@ -524,6 +525,7 @@ export const MobileView: React.FC = () => {
                                     selectedPoints={activeUserSelection.points}
                                     betweenHighPoints={activeUserSelection.betweenHighPoints}
                                     pointOptions={pointOptions}
+                                    pointValueDescriptions={pokerPointValueDescriptions}
                                     onSelectPoints={(points) => updateUserSelection(points)}
                                     onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                     onLockIn={toggleLockUserSelection}
@@ -903,6 +905,7 @@ export const MobileView: React.FC = () => {
                                     selectedPoints={activeUserSelection.points}
                                     betweenHighPoints={activeUserSelection.betweenHighPoints}
                                     pointOptions={pointOptions}
+                                    pointValueDescriptions={pokerPointValueDescriptions}
                                     onSelectPoints={(points) => updateUserSelection(points)}
                                     onSelectBetween={(low, high) => updateUserSelectionBetween(low, high)}
                                     onLockIn={toggleLockUserSelection}
