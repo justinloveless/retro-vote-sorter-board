@@ -768,6 +768,7 @@ export type Database = {
       }
       poker_session_rounds: {
         Row: {
+          auto_reveal_enabled: boolean
           average_points: number
           completed_at: string
           created_at: string
@@ -785,6 +786,7 @@ export type Database = {
           ticket_title: string | null
         }
         Insert: {
+          auto_reveal_enabled?: boolean
           average_points?: number
           completed_at?: string
           created_at?: string
@@ -802,6 +804,7 @@ export type Database = {
           ticket_title?: string | null
         }
         Update: {
+          auto_reveal_enabled?: boolean
           average_points?: number
           completed_at?: string
           created_at?: string
@@ -1638,6 +1641,7 @@ export type Database = {
           name: string
           organization_id: string | null
           poker_advisor_team_prompt: string | null
+          poker_point_value_descriptions: Json
           slack_bot_token: string | null
           slack_channel_id: string | null
           slack_webhook_url: string | null
@@ -1657,6 +1661,7 @@ export type Database = {
           name: string
           organization_id?: string | null
           poker_advisor_team_prompt?: string | null
+          poker_point_value_descriptions?: Json
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null
@@ -1676,6 +1681,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           poker_advisor_team_prompt?: string | null
+          poker_point_value_descriptions?: Json
           slack_bot_token?: string | null
           slack_channel_id?: string | null
           slack_webhook_url?: string | null

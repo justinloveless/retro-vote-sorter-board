@@ -18,6 +18,8 @@ interface PointsDetailsProps {
   onTicketNumberFocus: () => void;
   onTicketNumberBlur: () => void;
   teamId?: string | null;
+  pokerSessionId?: string | null;
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
 }
 
 /**
@@ -32,6 +34,8 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
   onTicketNumberFocus,
   onTicketNumberBlur,
   teamId,
+  pokerSessionId,
+  onIssueCreated,
 }) => {
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
 
@@ -98,7 +102,14 @@ const PointDetails: React.FC<PointsDetailsProps> = ({
           )}
         </div>
       </div>
-      {teamId && <JiraIssueDrawer issueIdOrKey={ticketNumber} teamId={teamId} />}
+      {teamId && (
+        <JiraIssueDrawer
+          issueIdOrKey={ticketNumber}
+          teamId={teamId}
+          pokerSessionId={pokerSessionId ?? undefined}
+          onIssueCreated={onIssueCreated}
+        />
+      )}
       {/* Winning Points Section */}
       <div className="bg-[#1b2629ff] rounded-lg p-2 text-center text-white flex items-center justify-between">
         <div className="text-xl mr-2">

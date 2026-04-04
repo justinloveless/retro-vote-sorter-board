@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import type { WinningPoints } from '@/hooks/usePokerSession';
 
 const POINT_OPTIONS = [1, 2, 3, 5, 8, 13, 21];
 
@@ -31,19 +32,17 @@ function nearestPointOption(avg: number): number {
 interface SubmitPointsToJiraProps {
   teamId?: string;
   ticketNumber: string | null;
-  /** Winning points (most votes) - used as default for Jira submission */
-  winningPoints: number;
+  winningVote: WinningPoints;
   isHandPlayed: boolean;
   isJiraConfigured: boolean;
   className?: string;
-  /** Compact layout for smaller viewports */
   compact?: boolean;
 }
 
 const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
   teamId,
   ticketNumber,
-  winningPoints,
+  winningVote,
   isHandPlayed,
   isJiraConfigured,
   className = '',
@@ -51,10 +50,16 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
 }) => {
   const { toast } = useToast();
   const { activeUserSelection, sendSystemMessage, session } = usePokerTable();
-  const defaultPoints = useMemo(
-    () => (POINT_OPTIONS.includes(winningPoints) ? winningPoints : nearestPointOption(winningPoints)),
-    [winningPoints]
-  );
+
+  const defaultPoints = useMemo(() => {
+    if (winningVote.kind === 'between') {
+      return winningVote.high;
+    }
+    const n = winningVote.points;
+    if (POINT_OPTIONS.includes(n)) return n;
+    return nearestPointOption(n);
+  }, [winningVote]);
+
   const [selectedPoints, setSelectedPoints] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -71,7 +76,6 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
     setIsSubmitting(true);
     try {
       const pressedBy = (activeUserSelection?.name || '').trim() || 'Someone';
-      // Log the button press into chat (independent of whether the Jira call succeeds).
       await sendSystemMessage(
         `<p>Submitted ${finalPoints} pts to Jira by ${pressedBy}</p>`
       );
@@ -121,7 +125,10 @@ const SubmitPointsToJira: React.FC<SubmitPointsToJiraProps> = ({
         {POINT_OPTIONS.map((p) => (
           <button
             key={p}
-            onClick={() => { setSelectedPoints(p); setIsSubmitted(false); }}
+            onClick={() => {
+              setSelectedPoints(p);
+              setIsSubmitted(false);
+            }}
             disabled={isDisabled}
             className={`
               rounded font-medium transition-colors

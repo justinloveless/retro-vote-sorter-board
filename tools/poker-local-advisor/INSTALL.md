@@ -19,13 +19,19 @@ node server.mjs
 
 By default it listens on **http://127.0.0.1:17300** (only your machine).
 
-Optional: use the built-in Claude or Gemini advisor (see `README.md` in the folder):
+By default it uses the built-in **Claude Code** advisor. Optional: switch to Gemini (see `README.md` in the folder):
 
 ```bash
-node server.mjs --handler claude-code
+node server.mjs --handler gemini-cli
 ```
 
-(`--handler gemini-cli` for Gemini. You can still set `POKER_ADVISOR_HANDLER` to a custom script if you prefer.)
+(You can still set `POKER_ADVISOR_HANDLER` to a custom script if you prefer.)
+
+Optional: customize the **Context** summary (Claude Code only) by setting:
+
+```bash
+export POKER_ADVISOR_CONTEXT_INSTRUCTIONS="Use our ticket-context skill/workflow; include risks, dependencies, impacted areas, and a test plan."
+```
 
 ## 3. Connect Retroscope
 

@@ -48,6 +48,8 @@ export interface PokerSessionRound {
   created_at: string;
   game_state: GameState;
   is_active: boolean;
+  /** False after replay: no auto-reveal when all ready; host reveals manually. */
+  auto_reveal_enabled?: boolean;
 }
 
 type RoundRowRecord = Record<string, unknown>;

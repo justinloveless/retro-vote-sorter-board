@@ -4,10 +4,12 @@ import type { GameState } from '@/hooks/usePokerSession';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  combineAdvisorPrompts,
+  normalizeContextUrl,
+  normalizeContextResponse,
   normalizeAdviseUrl,
   normalizeAdvisorResponse,
   type PokerAdvisorRequestPayload,
+  type PokerAdvisorQAItem,
   type PokerAdvisorResponse,
 } from '@/lib/pokerLocalAdvisor';
 import {
@@ -17,29 +19,22 @@ import {
   setInFlightAdviceForTicket,
   setCachedAdviceForTicket,
 } from '@/lib/pokerAdvisorCache';
+import { invalidateSplitDetailsCacheForTicket } from '@/lib/pokerAdvisorSplitDetailsCache';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import {
+  buildPokerAdvisorRequestPayload,
+  buildScopedTicketKeyBase,
+  fetchRoundQa,
+  hashQa,
+} from '@/hooks/_pokerLocalAdvisorPayload';
+import {
+  getCachedContextForTicket,
+  getInFlightContextForTicket,
+  setCachedContextForTicket,
+  setInFlightContextForTicket,
+} from '@/lib/pokerAdvisorContextCache';
 
 const DEBOUNCE_MS = 450;
-
-async function optionalJiraDescription(teamId: string | undefined, ticketKey: string): Promise<string | null> {
-  if (!teamId || !ticketKey?.trim()) return null;
-  try {
-    const { data, error } = await supabase.functions.invoke('get-jira-issue', {
-      body: { issueIdOrKey: ticketKey.trim(), teamId },
-    });
-    if (error || !data || typeof data !== 'object' || 'error' in data) return null;
-    const fields = data.fields as Record<string, unknown> | undefined;
-    if (!fields) return null;
-    const d = fields.description;
-    if (typeof d === 'string') return d.slice(0, 12000);
-    if (d && typeof d === 'object') {
-      return JSON.stringify(d).slice(0, 12000);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 export function usePokerLocalAdvisor(options: {
   featureFlagOn: boolean;
@@ -53,8 +48,23 @@ export function usePokerLocalAdvisor(options: {
   gameState: GameState;
   /** When true, no /advise requests are made (browser-local; see usePokerAdvisorPause). */
   paused: boolean;
+  /** When false, advisor only runs for the currently viewed ticket (no active-ticket prefetch). */
+  prefetchActiveTickets: boolean;
+  /** When true, estimates come from POST /context (which must include points+reasoning). */
+  estimateFromContext: boolean;
 }) {
-  const { featureFlagOn, profile, teamId, sessionId, rounds, currentRound, gameState, paused } = options;
+  const {
+    featureFlagOn,
+    profile,
+    teamId,
+    sessionId,
+    rounds,
+    currentRound,
+    gameState,
+    paused,
+    prefetchActiveTickets,
+    estimateFromContext,
+  } = options;
 
   const enabled =
     !!featureFlagOn &&
@@ -63,6 +73,7 @@ export function usePokerLocalAdvisor(options: {
     !!(profile?.poker_advisor_base_url || '').trim();
 
   const baseUrl = (profile?.poker_advisor_base_url || '').trim();
+  const sid = sessionId?.trim() || null;
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [advice, setAdvice] = useState<PokerAdvisorResponse | null>(null);
@@ -100,47 +111,29 @@ export function usePokerLocalAdvisor(options: {
   const drainingPrefetchRef = useRef(false);
 
   const runAdvisorNetworkOnce = useCallback(
-    (round: PokerSessionRound, payloadGameState: GameState) => {
+    (
+      round: PokerSessionRound,
+      payloadGameState: GameState,
+      qa: PokerAdvisorQAItem[],
+      cacheKeyBase: string,
+      cacheKeyFull: string,
+    ) => {
       const tk = (round.ticket_number || '').trim();
       const rid = round.id;
       const rnum = round.round_number;
 
       return (async () => {
-        let description: string | null = null;
-        if (teamId && tk && tk !== '—') {
-          description = await optionalJiraDescription(teamId, tk);
-        }
-
-        let teamPrompt: string | null = null;
-        if (teamId) {
-          const { data } = await supabase
-            .from('teams')
-            .select('poker_advisor_team_prompt')
-            .eq('id', teamId)
-            .maybeSingle();
-          const raw = data?.poker_advisor_team_prompt;
-          teamPrompt = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
-        }
-
-        const personalRaw = profile?.poker_advisor_personal_prompt;
-        const personalPrompt =
-          typeof personalRaw === 'string' && personalRaw.trim() ? personalRaw.trim() : null;
-
-        const payload: PokerAdvisorRequestPayload = {
-          roundId: rid,
-          ticketKey: tk,
-          ticketTitle: round.ticket_title ?? null,
-          parentKey: round.ticket_parent_key ?? null,
-          parentSummary: round.ticket_parent_summary ?? null,
-          description,
-          roundNumber: rnum,
+        const payload: PokerAdvisorRequestPayload = await buildPokerAdvisorRequestPayload({
+          round,
           gameState: payloadGameState,
-          teamPrompt,
-          personalPrompt,
-          combinedPrompt: combineAdvisorPrompts(teamPrompt, personalPrompt),
-        };
+          profile,
+          teamId,
+          sessionId: sessionId?.trim() || null,
+          qa,
+          includeQa: !estimateFromContext,
+        });
 
-        const url = normalizeAdviseUrl(baseUrl);
+        const url = estimateFromContext ? normalizeContextUrl(baseUrl) : normalizeAdviseUrl(baseUrl);
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -161,17 +154,40 @@ export function usePokerLocalAdvisor(options: {
           throw new Error(errMsg);
         }
 
-        const norm = normalizeAdvisorResponse(parsed);
-        if (!norm || norm.error) {
-          throw new Error(norm?.error || 'Invalid response');
+        let norm: PokerAdvisorResponse | null = null;
+        if (estimateFromContext) {
+          const ctx = normalizeContextResponse(parsed);
+          if (!ctx || ctx.error) {
+            throw new Error(ctx?.error || 'Invalid response');
+          }
+          // Share the /context response via the context cache so the Context panel can reuse it.
+          setCachedContextForTicket(cacheKeyFull, ctx, Date.now());
+          setCachedContextForTicket(cacheKeyBase, ctx, Date.now());
+          if (typeof ctx.points === 'number' && Number.isFinite(ctx.points) && typeof ctx.reasoning === 'string') {
+            norm = {
+              mode: 'advice',
+              points: ctx.points,
+              reasoning: ctx.reasoning,
+              abstain: ctx.abstain === true,
+              splits: ctx.splits,
+            };
+          } else {
+            throw new Error('Context response did not include points/reasoning.');
+          }
+        } else {
+          norm = normalizeAdvisorResponse(parsed);
+          if (!norm || norm.error) {
+            throw new Error(norm?.error || 'Invalid response');
+          }
         }
 
         const receivedAt = Date.now();
-        setCachedAdviceForTicket(tk, norm, receivedAt);
+        setCachedAdviceForTicket(cacheKeyFull, norm, receivedAt);
+        setCachedAdviceForTicket(cacheKeyBase, norm, receivedAt);
         return { advice: norm, receivedAt };
       })();
     },
-    [baseUrl, teamId, profile?.poker_advisor_personal_prompt],
+    [baseUrl, teamId, profile, sessionId, estimateFromContext],
   );
 
   const runFetch = useCallback(
@@ -196,8 +212,47 @@ export function usePokerLocalAdvisor(options: {
         return;
       }
 
+      const qa = sid ? await fetchRoundQa(sid, roundNumber) : [];
+      const qaHash = hashQa(qa);
+      const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
+      const cacheKeyFull = qa.length ? `${cacheKeyBase}|${qaHash}` : cacheKeyBase;
+
+      if (estimateFromContext && !forceRefresh) {
+        // If /context is already in-flight (from the Context panel), wait on it to avoid a second request.
+        const inFlightCtx = getInFlightContextForTicket(cacheKeyFull);
+        if (inFlightCtx) {
+          setStatus('loading');
+          setLastError(null);
+          try {
+            const { context: ctx, receivedAt } = await inFlightCtx;
+            if (pausedRef.current) return;
+            if (fetchForKey !== liveStableKeyRef.current) return;
+            if (ctx.roundId && ctx.roundId !== roundId) return;
+            if (typeof ctx.points === 'number' && Number.isFinite(ctx.points) && typeof ctx.reasoning === 'string') {
+              const norm: PokerAdvisorResponse = {
+                mode: 'advice',
+                points: ctx.points,
+                reasoning: ctx.reasoning,
+                abstain: ctx.abstain === true,
+                splits: ctx.splits,
+              };
+              setAdvice(norm);
+              setAdviceReceivedAt(receivedAt);
+              setStatus('ok');
+              setLastError(null);
+              // Mirror into advice cache for consistency.
+              setCachedAdviceForTicket(cacheKeyFull, norm, receivedAt);
+              setCachedAdviceForTicket(cacheKeyBase, norm, receivedAt);
+              return;
+            }
+          } catch (e) {
+            // fall through to normal path
+          }
+        }
+      }
+
       if (!forceRefresh) {
-        const hit = getCachedAdviceForTicket(ticketKey);
+        const hit = getCachedAdviceForTicket(cacheKeyFull) ?? getCachedAdviceForTicket(cacheKeyBase);
         if (hit) {
           setAdvice(hit.advice);
           setAdviceReceivedAt(hit.receivedAt);
@@ -206,7 +261,7 @@ export function usePokerLocalAdvisor(options: {
           return;
         }
 
-        const inFlight = getInFlightAdviceForTicket(ticketKey);
+        const inFlight = getInFlightAdviceForTicket(cacheKeyFull) ?? getInFlightAdviceForTicket(cacheKeyBase);
         if (inFlight) {
           setStatus('loading');
           setLastError(null);
@@ -243,9 +298,21 @@ export function usePokerLocalAdvisor(options: {
       setStatus('loading');
       setLastError(null);
 
-      const requestPromise = runAdvisorNetworkOnce(currentRound, gameState);
+      const requestPromise = runAdvisorNetworkOnce(currentRound, gameState, qa, cacheKeyBase, cacheKeyFull);
 
-      setInFlightAdviceForTicket(ticketKey, requestPromise);
+      setInFlightAdviceForTicket(cacheKeyFull, requestPromise);
+      if (estimateFromContext) {
+        // Also track /context inflight so the Context panel and advisor share the same network work.
+        setInFlightContextForTicket(
+          cacheKeyFull,
+          requestPromise.then(({ advice, receivedAt }) => {
+            const ctx = getCachedContextForTicket(cacheKeyFull) ?? getCachedContextForTicket(cacheKeyBase);
+            if (ctx) return { context: ctx.context, receivedAt };
+            // Minimal fallback: synthesize empty context so inflight resolves.
+            return { context: { mode: 'context', context: '', ...(advice.mode === 'advice' ? advice : {}) }, receivedAt };
+          }),
+        );
+      }
 
       try {
         const { advice: norm, receivedAt } = await requestPromise;
@@ -287,11 +354,13 @@ export function usePokerLocalAdvisor(options: {
         if (!round?.is_active) continue;
         const tk = (round.ticket_number || '').trim();
         if (!tk || isSyntheticRoundTicket(tk)) continue;
-        if (getCachedAdviceForTicket(tk)) continue;
-        if (getInFlightAdviceForTicket(tk)) continue;
+        // Prefetch ignores Q&A context (best-effort); cache keys are scoped by ticketKey only here.
+        const prefetchKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey: tk });
+        if (getCachedAdviceForTicket(prefetchKeyBase)) continue;
+        if (getInFlightAdviceForTicket(prefetchKeyBase)) continue;
 
-        const requestPromise = runAdvisorNetworkOnce(round, round.game_state);
-        setInFlightAdviceForTicket(tk, requestPromise);
+        const requestPromise = runAdvisorNetworkOnce(round, round.game_state, [], prefetchKeyBase, prefetchKeyBase);
+        setInFlightAdviceForTicket(prefetchKeyBase, requestPromise);
 
         try {
           const { advice: norm, receivedAt } = await requestPromise;
@@ -316,11 +385,9 @@ export function usePokerLocalAdvisor(options: {
     } finally {
       drainingPrefetchRef.current = false;
     }
-  }, [enabled, baseUrl, runAdvisorNetworkOnce]);
+  }, [enabled, baseUrl, runAdvisorNetworkOnce, teamId, sid]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const sid = sessionId?.trim() || null;
 
   useEffect(() => {
     prefetchQueueRef.current = [];
@@ -328,6 +395,7 @@ export function usePokerLocalAdvisor(options: {
   }, [sid]);
 
   useEffect(() => {
+    if (!prefetchActiveTickets) return;
     if (!enabled || !sid) return;
 
     for (const r of rounds) {
@@ -341,13 +409,14 @@ export function usePokerLocalAdvisor(options: {
     }
 
     void drainPrefetchQueue();
-  }, [enabled, sid, rounds, drainPrefetchQueue]);
+  }, [prefetchActiveTickets, enabled, sid, rounds, drainPrefetchQueue]);
 
   useEffect(() => {
+    if (!prefetchActiveTickets) return;
     if (!paused) {
       void drainPrefetchQueue();
     }
-  }, [paused, drainPrefetchQueue]);
+  }, [prefetchActiveTickets, paused, drainPrefetchQueue]);
 
   useEffect(() => {
     if (!enabled) {
@@ -362,7 +431,8 @@ export function usePokerLocalAdvisor(options: {
     if (paused) {
       if (timerRef.current) clearTimeout(timerRef.current);
       setLastError(null);
-      const hit = getCachedAdviceForTicket(ticketKey);
+      const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
+      const hit = getCachedAdviceForTicket(cacheKeyBase);
       if (hit) {
         setAdvice(hit.advice);
         setAdviceReceivedAt(hit.receivedAt);
@@ -377,7 +447,8 @@ export function usePokerLocalAdvisor(options: {
 
     setLastError(null);
 
-    const cached = getCachedAdviceForTicket(ticketKey);
+    const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId: sid, ticketKey });
+    const cached = getCachedAdviceForTicket(cacheKeyBase);
     if (cached) {
       setAdvice(cached.advice);
       setAdviceReceivedAt(cached.receivedAt);
@@ -401,10 +472,12 @@ export function usePokerLocalAdvisor(options: {
   }, [enabled, paused, stableKey, runFetch, ticketKey]);
 
   const refresh = useCallback(() => {
-    invalidateAdviceCacheForTicket(ticketKey);
+    const cacheKeyBase = buildScopedTicketKeyBase({ teamId, sessionId, ticketKey });
+    invalidateAdviceCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
+    invalidateSplitDetailsCacheForTicket({ exactCacheKey: cacheKeyBase, cacheKeyPrefix: `${cacheKeyBase}|` });
     if (pausedRef.current) return;
     void runFetch(true);
-  }, [runFetch, ticketKey]);
+  }, [runFetch, ticketKey, teamId, sessionId]);
 
   return {
     enabled,

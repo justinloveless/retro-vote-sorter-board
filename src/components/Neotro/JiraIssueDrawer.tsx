@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown, ExternalLink, Loader2, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil, Calendar } from 'lucide-react';
+import { ChevronDown, Copy, ExternalLink, Loader2, Plus, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil, Calendar } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,10 +33,15 @@ import {
   type JiraFieldOptionsPayload,
 } from '@/lib/jiraIssueFieldOptionsCache';
 import { cn } from '@/lib/utils';
+import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import { ensurePanelContrast } from '@/lib/jiraWiki/panelColors';
 import { stripHtmlForWikiParse } from '@/lib/jiraWiki/htmlStrip';
-import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly } from '@/lib/jiraWiki/segmentWiki';
+import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly, adfToWikiMarkup } from '@/lib/jiraWiki/segmentWiki';
 import { JiraIssueWikiEditor } from '@/components/Neotro/JiraIssueWikiEditor';
+import { AtlaskitDescriptionEditor } from '@/components/Neotro/AtlaskitDescriptionEditor';
+import type { AtlaskitDescriptionEditorHandle } from '@/components/Neotro/AtlaskitDescriptionEditor';
+import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
+import { IntlProvider } from 'react-intl-next';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +55,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Markdown } from '@/components/ui/markdown';
 
 /** Popover + cmdk: Radix ScrollArea for lists; pair with `container={jiraDialogPortalContainer}` on popovers inside the Jira dialog so wheel scroll is not blocked by modal scroll-lock. */
 const jiraPopoverListScrollClass = 'h-[min(60vh,320px)]';
@@ -78,9 +85,9 @@ function JiraMention({ accountId }: { accountId: string }) {
   // If it looks like an accountId (long alphanumeric), show a generic label if not found
   const label = userMap.has(accountId) ? displayName : (accountId.length > 20 ? 'user' : accountId);
   return (
-    <Badge variant="secondary" className="text-xs font-normal px-1.5 py-0">
+    <span className={cn(badgeVariants({ variant: 'secondary' }), 'text-xs font-normal px-1.5 py-0')}>
       @{label}
-    </Badge>
+    </span>
   );
 }
 
@@ -92,14 +99,16 @@ interface JiraAttachment {
 interface JiraComment {
   id: string;
   author: { displayName: string; avatarUrls?: Record<string, string> };
-  body: string;
+  /** Jira API v2: wiki/HTML string; v3: often Atlassian Document Format (object). */
+  body: string | unknown;
   created: string;
   updated: string;
 }
 
 interface JiraIssueFields {
   summary: string;
-  description: string | null;
+  description: unknown;
+  created?: string;
   status?: { name: string; statusCategory?: { colorName: string } };
   priority?: { name: string; iconUrl?: string };
   assignee?: { displayName: string; avatarUrls?: Record<string, string> } | null;
@@ -127,6 +136,19 @@ interface JiraIssueDrawerProps {
   pokerSessionId?: string | null;
   /** Custom trigger element; when provided, clicking it opens the preview instead of the default button */
   trigger?: React.ReactElement;
+  /** After creating a clone (or external create flow), optional hook to add the new ticket to the poker session. */
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
+  /**
+   * When set, the drawer opens in preview mode: no Jira fetch; stub data is shown instead.
+   * Title and description are editable; changes stay local until onCreateInJira fires.
+   */
+  previewIssue?: { summary: string; description: string | Record<string, unknown> } | null;
+  /** Controlled open state (required when using previewIssue). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Replaces "Open in Jira" with a "Create in Jira" primary action button when set. */
+  onCreateInJira?: (opts: { summary: string; description: string | Record<string, unknown> }) => void | Promise<void>;
+  createInJiraLoading?: boolean;
 }
 
 function formatJiraDate(dateStr: string): string {
@@ -147,6 +169,15 @@ function formatJiraDate(dateStr: string): string {
   }
 }
 
+function formatJiraDateTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return dateStr;
+  }
+}
+
 const statusColorMap: Record<string, string> = {
   'blue-gray': 'bg-muted text-muted-foreground',
   'yellow': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -162,6 +193,14 @@ const statusColorMap: Record<string, string> = {
  */
 function parseJiraWikiMarkup(text: string, attachments?: JiraAttachment[]): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
+
+  if (typeof text !== 'string') {
+    return [
+      <p key="parse-non-string" className="text-sm text-muted-foreground italic">
+        Unsupported text format.
+      </p>,
+    ];
+  }
 
   // Normalize line endings and trim
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -352,11 +391,11 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
       continue;
     }
 
-    // Regular line
+    // Regular line — use div (not p) so inline parse may include span-badges, images, etc. without invalid nesting
     nodes.push(
-      <p key={`${keyPrefix}-p-${i}`} className="text-sm text-foreground my-1">
+      <div key={`${keyPrefix}-p-${i}`} role="paragraph" className="text-sm text-foreground my-1">
         {parseInline(line, attachments)}
-      </p>
+      </div>
     );
     i++;
   }
@@ -369,6 +408,55 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
   // Remove {color:...}...{color} wrappers but keep content, and resolve [~accountid:xxx] mentions
   const cleaned = text.replace(/\{color:[^}]*\}/g, '').replace(/\{color\}/g, '');
 
+  /**
+   * Jira sometimes renders bare `text|https://url` as a link (no brackets).
+   * We support that here, but only when the RHS looks like an http(s) URL.
+   *
+   * Important: we only apply this transformation to plain-text segments (not inside other tokens),
+   * so it won't interfere with existing `[text|url]`, `!img|opts!`, or `{{code}}`.
+   */
+  const pushTextWithBareLinks = (
+    parts: React.ReactNode[],
+    raw: string,
+    keySeed: string,
+  ) => {
+    // Prefix is preserved (whitespace or "(") so we don't lose spacing.
+    // Keep the match conservative so we don't accidentally convert table-like content.
+    const re = /(^|[\s(])([^|\n<>\[\]]{1,120}?)\|(https?:\/\/[^\s<>()]+)(?=($|[\s).,!?]))/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let n = 0;
+    while ((m = re.exec(raw)) !== null) {
+      const fullIdx = m.index;
+      if (fullIdx > last) parts.push(raw.slice(last, fullIdx));
+
+      const prefix = m[1] ?? '';
+      const label = (m[2] ?? '').trim();
+      const url = m[3] ?? '';
+
+      if (prefix) parts.push(prefix);
+      if (!label) {
+        parts.push(m[0]);
+      } else {
+        parts.push(
+          <a
+            key={`${keySeed}-bare-${n}-${fullIdx}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+          >
+            {label}
+          </a>
+        );
+      }
+
+      last = fullIdx + m[0].length;
+      n++;
+    }
+    if (last < raw.length) parts.push(raw.slice(last));
+  };
+
   // Tokenize: {{inline code}}, *bold*, _italic_, -strikethrough-, [text|url], [~accountid:xxx], !image!
   const tokenRegex = /\{\{((?:(?!\}\}).)+)\}\}|\*([^*]+)\*|(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])|(?<![-\w])-([^-]+)-(?![-\w])|\[([^[\]]*)\|([^\]]*)\]|\[~(?:accountid:)?([^\]]+)\]|!([^|!]+)(?:\|([^!]*))?!/g;
   const parts: React.ReactNode[] = [];
@@ -377,7 +465,7 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
 
   while ((inlineMatch = tokenRegex.exec(cleaned)) !== null) {
     if (inlineMatch.index > lastIdx) {
-      parts.push(cleaned.slice(lastIdx, inlineMatch.index));
+      pushTextWithBareLinks(parts, cleaned.slice(lastIdx, inlineMatch.index), `txt-${inlineMatch.index}`);
     }
 
     if (inlineMatch[1] !== undefined) {
@@ -412,11 +500,14 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
         </a>
       );
     } else if (inlineMatch[7] !== undefined) {
-      // [~accountid:xxx] or [~username] — user mention
+      // [~accountid:xxx] or [~username] — span + badge styles (Badge is a div; invalid inside <p> / headings)
       parts.push(
-        <Badge key={`mention-${inlineMatch.index}`} variant="secondary" className="text-xs font-normal px-1.5 py-0">
+        <span
+          key={`mention-${inlineMatch.index}`}
+          className={cn(badgeVariants({ variant: 'secondary' }), 'text-xs font-normal px-1.5 py-0')}
+        >
           @{inlineMatch[7].length > 20 ? 'user' : inlineMatch[7]}
-        </Badge>
+        </span>
       );
     } else if (inlineMatch[8] !== undefined) {
       // !image.png|opts!
@@ -441,14 +532,54 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
     lastIdx = inlineMatch.index + inlineMatch[0].length;
   }
   if (lastIdx < cleaned.length) {
-    parts.push(cleaned.slice(lastIdx));
+    pushTextWithBareLinks(parts, cleaned.slice(lastIdx), `txt-${lastIdx}`);
   }
 
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-function renderDescription(description: string | null, attachments?: JiraAttachment[]): React.ReactNode {
-  if (!description) return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+function isAdfDoc(v: unknown): v is { type: 'doc'; version?: number } {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  return r.type === 'doc';
+}
+
+type AdfRendererComponent = React.ComponentType<{ document: unknown }>;
+
+/** Same env as AtlaskitDescriptionEditor — required for ADF inline cards / smart links in ReactRenderer. */
+const jiraDrawerAtlaskitCardClient = new CardClient('staging');
+
+function renderDescription(
+  description: unknown,
+  attachments?: JiraAttachment[],
+  AtlaskitRendererComponent?: AdfRendererComponent | null,
+): React.ReactNode {
+  if (description == null || description === '') {
+    return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+  }
+
+  if (isAdfDoc(description)) {
+    if (AtlaskitRendererComponent) {
+      return (
+        <div className="text-sm overflow-x-hidden break-words [&_*]:max-w-full">
+          <IntlProvider locale={typeof navigator !== 'undefined' ? navigator.language : 'en'} messages={jiraAtlaskitIntlMessages}>
+            <SmartCardProvider client={jiraDrawerAtlaskitCardClient}>
+              <AtlaskitRendererComponent document={description} />
+            </SmartCardProvider>
+          </IntlProvider>
+        </div>
+      );
+    }
+    const wikiMarkup = adfToWikiMarkup(description);
+    if (wikiMarkup) {
+      return <div className="space-y-1 break-words overflow-wrap-anywhere [overflow-wrap:anywhere]">{parseJiraWikiMarkup(wikiMarkup, attachments)}</div>;
+    }
+    return <p className="text-sm text-muted-foreground italic">Loading rich description…</p>;
+  }
+
+  if (typeof description !== 'string') {
+    return <p className="text-sm text-muted-foreground italic">No description provided.</p>;
+  }
 
   // Normalize line endings
   const normalized = description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -495,11 +626,28 @@ function invalidateJiraIssueCache(teamId: string, issueIdOrKey: string) {
   jiraCache.delete(`${teamId}:${issueIdOrKey}`);
 }
 
-export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, teamId, pokerSessionId, trigger }) => {
+export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
+  issueIdOrKey,
+  teamId,
+  pokerSessionId,
+  trigger,
+  onIssueCreated,
+  previewIssue,
+  open: openProp,
+  onOpenChange,
+  onCreateInJira,
+  createInJiraLoading,
+}) => {
+  const isPreviewMode = !!previewIssue;
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = openProp !== undefined ? openProp : internalIsOpen;
+  const setIsOpen = useCallback((v: boolean) => {
+    if (openProp !== undefined) { onOpenChange?.(v); }
+    else { setInternalIsOpen(v); }
+  }, [openProp, onOpenChange]);
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -537,6 +685,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     openOnComplete: boolean,
     options?: { skipCache?: boolean; keepPreviousData?: boolean },
   ) => {
+    if (isPreviewMode) { if (openOnComplete) setIsOpen(true); return; }
     if (!issueIdOrKey || !teamId) {
       if (openOnComplete) {
         setError("Ticket number or Team ID is missing.");
@@ -573,7 +722,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     setNoApiCredentials(false);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue', {
+      const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue-v3', {
         body: { issueIdOrKey, teamId },
       });
 
@@ -635,7 +784,49 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const sprintBucket = fields
     ? getSprintBucketFromIssueFields(fields as unknown as Record<string, unknown>)
     : null;
-  const canEditJira = !!(fields && issueData && !noApiCredentials);
+  const canEditJira = !isPreviewMode && !!(fields && issueData && !noApiCredentials);
+  const canEditPreview = isPreviewMode && !!(fields && issueData);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneSaving, setCloneSaving] = useState(false);
+  const [cloneSummaryDraft, setCloneSummaryDraft] = useState('');
+
+  const openCloneDialog = useCallback(() => {
+    const s = fields?.summary?.trim() || 'Issue';
+    setCloneSummaryDraft(`Clone: ${s}`.slice(0, 255));
+    setCloneDialogOpen(true);
+  }, [fields?.summary]);
+
+  const handleCloneConfirm = useCallback(async () => {
+    if (!teamId || !issueData?.key) return;
+    const sum = cloneSummaryDraft.trim();
+    if (!sum) {
+      toast({ title: 'Summary required', variant: 'destructive' });
+      return;
+    }
+    setCloneSaving(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-jira-issue', {
+        body: { teamId, cloneFromIssueKey: issueData.key, summary: sum },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      const errMsg = data && typeof data === 'object' && 'error' in data ? String((data as { error?: string }).error) : '';
+      if (errMsg) throw new Error(errMsg);
+      const newKey = data && typeof data === 'object' && 'key' in data ? String((data as { key?: string }).key) : '';
+      if (!newKey) throw new Error('No issue key returned');
+      toast({ title: `Created ${newKey}`, description: 'Clone created in Jira.' });
+      setCloneDialogOpen(false);
+      await onIssueCreated?.(newKey, sum);
+    } catch (e: unknown) {
+      toast({
+        title: 'Clone failed',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setCloneSaving(false);
+    }
+  }, [teamId, issueData?.key, cloneSummaryDraft, toast, onIssueCreated]);
+
   const storyPoints = fields ? getStoryPointsFromJiraFields(fields as Record<string, unknown>) : null;
   const statusColor = fields?.status?.statusCategory?.colorName
     ? statusColorMap[fields.status.statusCategory.colorName] || 'bg-muted text-muted-foreground'
@@ -646,33 +837,73 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [descriptionEditing, setDescriptionEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
   /** Locked when entering edit mode so pasting unsupported wiki does not swap UI mid-edit. */
-  const [descriptionEditorKind, setDescriptionEditorKind] = useState<'rich' | 'raw' | null>(null);
+  const [descriptionEditorKind, setDescriptionEditorKind] = useState<'rich' | 'raw' | 'adf' | null>(null);
+  /** Holds the original ADF document when editing an ADF description (for WYSIWYG init). */
+  const [descriptionAdf, setDescriptionAdf] = useState<unknown>(null);
+  const atlaskitEditorRef = useRef<AtlaskitDescriptionEditorHandle>(null);
   const [savingDescription, setSavingDescription] = useState(false);
+  const [adfRendererComponent, setAdfRendererComponent] = useState<AdfRendererComponent | null>(null);
+  const [adfRendererLoadFailed, setAdfRendererLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isAdfDoc(fields?.description)) return;
+    if (adfRendererComponent || adfRendererLoadFailed) return;
+    let cancelled = false;
+    import('prosemirror-state').then(({ Selection }) => {
+      const orig = Selection.jsonID;
+      Selection.jsonID = function (id: string, cls: any) {
+        try { return orig.call(this, id, cls); } catch { return cls; }
+      };
+    }).catch(() => {}).then(() => import('@atlaskit/renderer'))
+      .then((mod) => {
+        if (cancelled) return;
+        setAdfRendererComponent(() => mod.ReactRenderer as AdfRendererComponent);
+        setAdfRendererLoadFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAdfRendererLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, fields?.description, adfRendererComponent, adfRendererLoadFailed]);
 
   const startDescriptionEdit = useCallback(() => {
-    if (!canEditJira || savingDescription || !fields) return;
-    const draft = normalizeDescriptionForEdit(fields.description);
-    setDescriptionDraft(draft);
-    setDescriptionEditorKind(canEditDescriptionRichly(draft) ? 'rich' : 'raw');
+    if (!canEditJira && !canEditPreview) return;
+    if (savingDescription || !fields) return;
+    if (isAdfDoc(fields.description)) {
+      setDescriptionAdf(fields.description);
+      setDescriptionDraft('');
+      setDescriptionEditorKind('adf');
+    } else {
+      setDescriptionAdf(null);
+      const draft = normalizeDescriptionForEdit(fields.description);
+      setDescriptionDraft(draft);
+      setDescriptionEditorKind(canEditDescriptionRichly(draft) ? 'rich' : 'raw');
+    }
     setDescriptionEditing(true);
-  }, [canEditJira, savingDescription, fields]);
+  }, [canEditJira, canEditPreview, savingDescription, fields]);
   const onDescriptionViewClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!canEditJira || savingDescription) return;
+      if (!canEditJira && !canEditPreview) return;
+      if (savingDescription) return;
       const t = e.target as HTMLElement;
       if (t.closest('a[href], button, img')) return;
       startDescriptionEdit();
     },
-    [canEditJira, savingDescription, startDescriptionEdit],
+    [canEditJira, canEditPreview, savingDescription, startDescriptionEdit],
   );
   const onDescriptionViewKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!canEditJira || savingDescription) return;
+      if (!canEditJira && !canEditPreview) return;
+      if (savingDescription) return;
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
       startDescriptionEdit();
     },
-    [canEditJira, savingDescription, startDescriptionEdit],
+    [canEditJira, canEditPreview, savingDescription, startDescriptionEdit],
   );
 
   const [assignPopoverOpen, setAssignPopoverOpen] = useState(false);
@@ -701,27 +932,30 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   const [savingSprint, setSavingSprint] = useState(false);
 
   const startTitleEdit = useCallback(() => {
-    if (!canEditJira || savingTitle || !fields) return;
+    if (!canEditJira && !canEditPreview) return;
+    if (savingTitle || !fields) return;
     setTitleDraft(fields.summary ?? '');
     setTitleEditing(true);
-  }, [canEditJira, savingTitle, fields]);
+  }, [canEditJira, canEditPreview, savingTitle, fields]);
   const onTitleViewClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!canEditJira || savingTitle) return;
+      if (!canEditJira && !canEditPreview) return;
+      if (savingTitle) return;
       const t = e.target as HTMLElement;
       if (t.closest('a[href], button, img')) return;
       startTitleEdit();
     },
-    [canEditJira, savingTitle, startTitleEdit],
+    [canEditJira, canEditPreview, savingTitle, startTitleEdit],
   );
   const onTitleViewKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!canEditJira || savingTitle) return;
+      if (!canEditJira && !canEditPreview) return;
+      if (savingTitle) return;
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
       startTitleEdit();
     },
-    [canEditJira, savingTitle, startTitleEdit],
+    [canEditJira, canEditPreview, savingTitle, startTitleEdit],
   );
 
   const senderDisplayName =
@@ -731,6 +965,9 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
     'Unknown user';
 
   useEffect(() => {
+    if (isPreviewMode && isOpen && previewIssue) {
+      setIssueData({ key: 'Preview', fields: { summary: previewIssue.summary, description: previewIssue.description }, shouldUseIframe: false });
+    }
     if (!isOpen) {
       setDescriptionEditing(false);
       setDescriptionEditorKind(null);
@@ -744,8 +981,9 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       setPriorityPopoverOpen(false);
       setIssueTypePopoverOpen(false);
       setSprintPopoverOpen(false);
+      if (isPreviewMode) setIssueData(null);
     }
-  }, [isOpen]);
+  }, [isOpen, isPreviewMode, previewIssue]);
 
   useEffect(() => {
     if (!assignPopoverOpen) setAssignSearch('');
@@ -893,11 +1131,32 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   }, [teamId, issueData?.key]);
 
   const handleSaveDescription = async () => {
+    if (isPreviewMode) {
+      let newDesc: unknown = descriptionDraft;
+      if (descriptionEditorKind === 'adf') {
+        newDesc = await atlaskitEditorRef.current?.getAdfValue() ?? descriptionDraft;
+      }
+      setIssueData((prev) => prev ? { ...prev, fields: { ...prev.fields, description: newDesc } } : prev);
+      setDescriptionEditing(false);
+      setDescriptionEditorKind(null);
+      setDescriptionDraft('');
+      setDescriptionAdf(null);
+      return;
+    }
     if (!teamId || !issueData?.key || !issueIdOrKey) return;
     setSavingDescription(true);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('update-jira-issue', {
-        body: { teamId, issueKey: issueData.key, description: descriptionDraft },
+      let body: Record<string, unknown>;
+      if (descriptionEditorKind === 'adf') {
+        const adfValue = await atlaskitEditorRef.current?.getAdfValue();
+        if (!adfValue) throw new Error('Could not retrieve editor content');
+        body = { teamId, issueKey: issueData.key, descriptionAdf: adfValue };
+      } else {
+        body = { teamId, issueKey: issueData.key, description: descriptionDraft };
+      }
+      const fnName = descriptionEditorKind === 'adf' ? 'update-jira-issue-v2' : 'update-jira-issue';
+      const { data, error: invokeError } = await supabase.functions.invoke(fnName, {
+        body,
       });
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
@@ -905,6 +1164,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
       await fetchIssue(false, { skipCache: true, keepPreviousData: true });
       setDescriptionEditing(false);
       setDescriptionEditorKind(null);
+      setDescriptionAdf(null);
       toast({ title: 'Description updated' });
     } catch (e: unknown) {
       toast({
@@ -918,6 +1178,14 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   };
 
   const handleSaveTitle = async () => {
+    if (isPreviewMode) {
+      const trimmed = titleDraft.trim();
+      if (!trimmed) { toast({ title: 'Title cannot be empty', variant: 'destructive' }); return; }
+      setIssueData((prev) => prev ? { ...prev, fields: { ...prev.fields, summary: trimmed } } : prev);
+      setTitleEditing(false);
+      setTitleDraft('');
+      return;
+    }
     if (!teamId || !issueData?.key || !issueIdOrKey) return;
     const trimmed = titleDraft.trim();
     if (!trimmed) {
@@ -1214,35 +1482,70 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
   return (
     <ImagePreviewContext.Provider value={openPreview}>
     <JiraUserMapContext.Provider value={userMap}>
-      {triggerElement}
+      {!isPreviewMode && triggerElement}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent
           ref={setJiraDialogPortalContainer}
           className="sm:max-w-[60vw] max-h-[90vh] min-h-0 overflow-x-hidden overflow-visible p-0 gap-0 flex flex-col"
           overlayClassName="bg-black/45"
+          aria-describedby={undefined}
         >
           {/* grid row minmax(0,1fr) gives ScrollArea a real height cap; flex-1 alone lets the area grow with content (no overflow → no scrollbar). */}
           <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
             <DialogHeader className="shrink-0 px-6 pt-6">
-              <div className="flex items-start justify-between gap-3 pr-6">
+              <div className="flex items-start justify-between gap-3 pr-6 pb-4">
                 <DialogTitle className="text-lg">
                   {issueData?.key || issueIdOrKey || 'Jira Issue'}
                 </DialogTitle>
-                {externalUrl && (
-                  <NeotroPressableButton
-                    href={externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="compact"
-                    isActive
-                    activeShowsPressed={false}
-                    className="gap-1.5 shrink-0"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Open in Jira
-                  </NeotroPressableButton>
-                )}
+                <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                  {!isPreviewMode && canEditJira && issueData?.key && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      onClick={openCloneDialog}
+                    >
+                      <Copy className="h-3 w-3" />
+                      Clone
+                    </Button>
+                  )}
+                  {isPreviewMode && onCreateInJira ? (
+                    <NeotroPressableButton
+                      onClick={() => {
+                        const sum = (issueData?.fields.summary ?? '').trim();
+                        const desc = issueData?.fields.description ?? previewIssue?.description ?? '';
+                        void onCreateInJira({ summary: sum, description: desc as string | Record<string, unknown> });
+                      }}
+                      disabled={createInJiraLoading || !(issueData?.fields.summary ?? '').trim()}
+                      isActive
+                      activeShowsPressed={false}
+                      size="compact"
+                      className="gap-1.5 shrink-0"
+                    >
+                      {createInJiraLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
+                      {createInJiraLoading ? 'Creating…' : 'Create in Jira'}
+                    </NeotroPressableButton>
+                  ) : externalUrl ? (
+                    <NeotroPressableButton
+                      href={externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="compact"
+                      isActive
+                      activeShowsPressed={false}
+                      className="gap-1.5 shrink-0"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open in Jira
+                    </NeotroPressableButton>
+                  ) : null}
+                </div>
               </div>
             </DialogHeader>
 
@@ -1321,7 +1624,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                       </Button>
                     </div>
                   </div>
-                ) : canEditJira ? (
+                ) : (canEditJira || canEditPreview) ? (
                   <div
                     role="button"
                     tabIndex={0}
@@ -1851,6 +2154,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                       </div>
                     </div>
                   )}
+                  {fields.created && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Created</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-sm text-foreground truncate" title={fields.created}>
+                          {formatJiraDateTime(fields.created)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {fields.parent?.key && (
                     <div className="col-span-2 flex flex-col gap-1.5">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Parent</p>
@@ -1914,13 +2228,20 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Description</p>
-                    {canEditJira && !descriptionEditing && (
+                    {(canEditJira || canEditPreview) && !descriptionEditing && (
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
                     )}
                   </div>
                   {descriptionEditing ? (
                     <div className="space-y-2">
-                      {descriptionEditorKind === 'rich' ? (
+                      {descriptionEditorKind === 'adf' ? (
+                        <AtlaskitDescriptionEditor
+                          ref={atlaskitEditorRef}
+                          key={`${issueData?.key ?? 'issue'}-adf-desc`}
+                          defaultValue={descriptionAdf}
+                          disabled={savingDescription}
+                        />
+                      ) : descriptionEditorKind === 'rich' ? (
                         <JiraIssueWikiEditor
                           key={`${issueData?.key ?? 'issue'}-desc`}
                           initialValue={descriptionDraft}
@@ -1954,6 +2275,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                             setDescriptionEditing(false);
                             setDescriptionEditorKind(null);
                             setDescriptionDraft('');
+                            setDescriptionAdf(null);
                           }}
                         >
                           Cancel
@@ -1962,20 +2284,28 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                     </div>
                   ) : (
                     <div
-                      role={canEditJira ? 'button' : undefined}
-                      tabIndex={canEditJira && !savingDescription ? 0 : undefined}
-                      aria-label={canEditJira ? 'Edit description' : undefined}
+                      role={(canEditJira || canEditPreview) ? 'button' : undefined}
+                      tabIndex={(canEditJira || canEditPreview) && !savingDescription ? 0 : undefined}
+                      aria-label={(canEditJira || canEditPreview) ? 'Edit description' : undefined}
                       onClick={onDescriptionViewClick}
                       onKeyDown={onDescriptionViewKeyDown}
                       className={cn(
                         'rounded-lg p-2 -m-2 transition-colors',
-                        canEditJira &&
+                        (canEditJira || canEditPreview) &&
                           !savingDescription &&
                           'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         savingDescription && 'pointer-events-none opacity-70',
                       )}
                     >
-                      {renderDescription(fields.description, fields.attachment)}
+                      {isPreviewMode && typeof fields.description === 'string' ? (
+                        <Markdown className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                          {fields.description}
+                        </Markdown>
+                      ) : renderDescription(
+                        fields.description,
+                        fields.attachment,
+                        adfRendererComponent,
+                      )}
                     </div>
                   )}
                 </div>
@@ -2018,7 +2348,12 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                     <p className="text-sm text-muted-foreground italic">No comments yet.</p>
                   ) : (
                     <div className="space-y-3">
-                      {(fields.comment?.comments ?? []).map((comment) => {
+                      {[...(fields.comment?.comments ?? [])]
+                        .sort(
+                          (a, b) =>
+                            new Date(b.created).getTime() - new Date(a.created).getTime(),
+                        )
+                        .map((comment) => {
                         const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
                         const initials = comment.author?.displayName
                           ?.split(' ')
@@ -2039,7 +2374,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
                               <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo}</span>
                             </div>
                             <div className="text-sm break-words [overflow-wrap:anywhere]">
-                              {parseJiraWikiMarkup(comment.body, fields.attachment)}
+                              {renderDescription(comment.body, fields.attachment, adfRendererComponent)}
                             </div>
                           </Card>
                         );
@@ -2057,7 +2392,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
 
       {/* Image preview dialog — same pattern as chat */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Image Preview</DialogTitle>
           </DialogHeader>
@@ -2070,6 +2405,39 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({ issueIdOrKey, 
               />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Clone issue</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label htmlFor="jira-clone-summary">Summary</Label>
+            <Input
+              id="jira-clone-summary"
+              value={cloneSummaryDraft}
+              onChange={(e) => setCloneSummaryDraft(e.target.value.slice(0, 255))}
+              maxLength={255}
+              disabled={cloneSaving}
+              className="text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">{cloneSummaryDraft.length}/255</p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCloneDialogOpen(false)}
+              disabled={cloneSaving}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleCloneConfirm()} disabled={cloneSaving || !cloneSummaryDraft.trim()}>
+              {cloneSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create clone'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </JiraUserMapContext.Provider>

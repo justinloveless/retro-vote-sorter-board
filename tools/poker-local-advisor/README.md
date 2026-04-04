@@ -35,6 +35,46 @@ Minimal HTTP server for the **Poker local CLI advisor** feature in Retroscope. T
 | `ticketKey` | string | Echoed from the request |
 | `roundNumber` | number | Echoed from the request |
 
+### `POST /context`
+
+Generate a **ticket context summary** for the current round (displayed in the Advisor panel).
+
+**Request** (`application/json`): same shape as `POST /advise` (see fields above).
+
+**Response** (`application/json`):
+
+| Field | Type | Description |
+|--------|------|-------------|
+| `mode` | `"context"` | Response mode |
+| `context` | string | Context summary (plain text / markdown-ish) |
+| `roundId` | string | Echoed from the request (reference server merges this for every response) |
+| `ticketKey` | string | Echoed from the request |
+| `roundNumber` | number | Echoed from the request |
+
+### `POST /split-details`
+
+Draft a **Jira summary and description** for one proposed split line (used when creating a split story from the poker advisor UI).
+
+**Request** (`application/json`): same fields as `POST /advise`, plus:
+
+| Field | Type | Description |
+|--------|------|-------------|
+| `splitTitle` | string | Required. Advisor’s suggested sub-story title |
+| `splitPoints` | number (optional) | Fibonacci hint for this slice |
+
+**Response** (`application/json`):
+
+| Field | Type | Description |
+|--------|------|-------------|
+| `mode` | `"split_details"` | Response mode |
+| `summary` | string | Jira issue summary (≤255 chars) |
+| `description` | string | Body text for the Jira description |
+| `roundId`, `ticketKey`, `roundNumber` | echoed | Same as `/advise` when using the reference server |
+
+The Retroscope app opens a **preview** dialog for `summary` / `description`, then creates the issue via Supabase `create-jira-issue` with **`splitFromIssueKey`** (parent key; empty description on create), waits for Jira automations, **GET**s the new issue, **merges** any template-filled description with the approved body, and **PUT**s ADF via `update-jira-issue-v2`.
+
+**Handlers**: `claude-code` and `gemini-cli` built-ins, `stub`, or an **external** executable (stdin JSON → stdout JSON with the shape above).
+
 **CORS**: The server must respond with `Access-Control-Allow-Origin` suitable for your app (this implementation uses `*` for local development).
 
 ## Run
@@ -44,7 +84,7 @@ cd tools/poker-local-advisor
 node server.mjs
 ```
 
-Defaults: `PORT=17300`, stub mode unless you pass **`--handler`** or set **`POKER_ADVISOR_HANDLER`**.
+Defaults: `PORT=17300`, **claude-code** unless you pass **`--handler`** or set **`POKER_ADVISOR_HANDLER`**.
 
 ### `--handler` (recommended)
 
@@ -59,6 +99,8 @@ node server.mjs --handler gemini-cli
 # or: --handler gemini
 ```
 
+`POST /context` currently requires **Claude Code** (`--handler claude-code`).
+
 You can still point at a custom executable (stdin JSON → stdout JSON): `node server.mjs --handler /path/to/my-handler`.
 
 ### Environment
@@ -67,6 +109,7 @@ You can still point at a custom executable (stdin JSON → stdout JSON): `node s
 |----------|-------------|
 | `PORT` | Listen port (default `17300`) |
 | `POKER_ADVISOR_HANDLER` | Optional path to an executable, used when **`--handler` is omitted**. Receives the JSON request body on **stdin**; must print **one JSON object** on **stdout** (same shape as response above). |
+| `POKER_ADVISOR_CONTEXT_INSTRUCTIONS` | Optional additional instructions appended to the **context** prompt (use this to drive your “custom skill/workflow” inside Claude Code). |
 
 ### Bundled handlers (Claude Code & Gemini CLI)
 
@@ -97,7 +140,7 @@ Optional environment (see comments at top of each `handlers/*.mjs`):
 | `GEMINI_BIN` | `gemini-cli.mjs` | Override binary (default `gemini`) |
 | `GEMINI_ARGS` | `gemini-cli.mjs` | Extra args, space-separated |
 
-The model is instructed to return **only** JSON: `{"points": N, "reasoning": "...", "abstain": false}`. The handler tolerates markdown fences or extra text by extracting the first JSON object from stdout.
+The model is instructed to return **only** JSON. For `POST /advise`: `{"points": N, "reasoning": "...", "abstain": false}`. For `POST /context`: `{"mode":"context","context":"...","points":N,"reasoning":"...","abstain":false}`. The handler tolerates markdown fences or extra text by extracting the first JSON object from stdout.
 
 **Windows:** run via `node handlers/claude-code.mjs` from a `.cmd` wrapper, or use WSL/Git Bash with the shell scripts above.
 

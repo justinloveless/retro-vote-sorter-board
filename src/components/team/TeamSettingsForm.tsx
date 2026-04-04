@@ -3,7 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, MessageSquare, Sparkles } from 'lucide-react';
+import { Users, MessageSquare, Sparkles, ListOrdered } from 'lucide-react';
+import { POKER_DECK_POINT_VALUES } from '@/lib/pokerPointDeck';
+
+const POKER_POINT_DESC_MAX_LEN = 100;
 
 export interface TeamSettings {
   name: string;
@@ -11,6 +14,8 @@ export interface TeamSettings {
   slack_bot_token: string;
   slack_channel_id: string;
   poker_advisor_team_prompt: string;
+  /** Editable labels per deck value; keys are stringified points ("1", "2", …). */
+  poker_point_value_descriptions: Record<string, string>;
 }
 
 interface TeamSettingsFormProps {
@@ -55,6 +60,43 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               placeholder="Enter team description"
               rows={3}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListOrdered className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            Poker point value labels
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Optional short phrases shown under &quot;Your Hand&quot; while voting: only the label for the card
+            you have selected appears (no point number). For a between vote, both labels show when set.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {POKER_DECK_POINT_VALUES.map((points) => (
+              <div key={points} className="space-y-1.5">
+                <Label htmlFor={`poker-point-desc-${points}`}>{points} pt</Label>
+                <Input
+                  id={`poker-point-desc-${points}`}
+                  value={settings.poker_point_value_descriptions[String(points)] ?? ''}
+                  onChange={(e) =>
+                    onSettingsChange({
+                      ...settings,
+                      poker_point_value_descriptions: {
+                        ...settings.poker_point_value_descriptions,
+                        [String(points)]: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="e.g. half a day"
+                  maxLength={POKER_POINT_DESC_MAX_LEN}
+                />
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

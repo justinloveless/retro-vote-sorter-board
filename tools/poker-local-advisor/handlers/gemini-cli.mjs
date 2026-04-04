@@ -15,8 +15,10 @@ import { spawn } from 'node:child_process';
 import {
   readStdin,
   buildEstimationPrompt,
+  buildSplitDetailsPrompt,
   extractJsonObject,
   normalizeAdvisorResult,
+  normalizeSplitDetailsResult,
 } from './_shared.mjs';
 
 function splitArgs(str) {
@@ -68,6 +70,20 @@ export async function runGeminiAdvisor(payload) {
   const out = await runGemini(bin, args);
   const parsed = extractJsonObject(out);
   return normalizeAdvisorResult(parsed);
+}
+
+/**
+ * @param {Record<string, unknown>} payload
+ */
+export async function runGeminiSplitDetails(payload) {
+  const prompt = buildSplitDetailsPrompt(payload);
+  const bin = process.env.GEMINI_BIN || 'gemini';
+  const extra = splitArgs(process.env.GEMINI_ARGS || '');
+  const args = ['-p', prompt, ...extra];
+
+  const out = await runGemini(bin, args);
+  const parsed = extractJsonObject(out);
+  return normalizeSplitDetailsResult(parsed);
 }
 
 async function main() {

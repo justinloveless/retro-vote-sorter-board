@@ -45,6 +45,7 @@ interface PokerTableProps {
     pokerRouteContext?: PokerHistoryTeamRoute | null;
     onPokerBack?: () => void;
     pokerToolbarExtras?: ReactNode;
+    pokerPointValueDescriptions?: Record<number, string>;
 }
 
 /** Writes the viewed round to `?round=` so session links can target a specific round. */
@@ -86,6 +87,7 @@ const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }
             rounds={rounds}
             onAddTicket={addTicketToQueue}
             onAddTicketsBatch={addTicketsToQueueBatch}
+            onIssueCreated={addTicketToQueue}
             isMobile={isMobile}
         />
     );

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Markdown } from '@/components/ui/markdown';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { TiptapEditor } from './TiptapEditor';
 import { QuickReactionPicker } from './QuickReactionPicker';
@@ -58,10 +60,12 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean | string>(false);
+  const [emojiPickerAnchorRect, setEmojiPickerAnchorRect] = useState<DOMRect | null>(null);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [reactingToId, setReactingToId] = useState<string | null>(null);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [advisorContextMarkdown, setAdvisorContextMarkdown] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -136,6 +140,50 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
     setSelectedImage(imageSrc);
   };
 
+  const handleAdvisorContextClick = (base64Utf8: string) => {
+    try {
+      const decoded = decodeURIComponent(escape(window.atob(base64Utf8)));
+      const trimmed = (decoded || '').trim();
+      if (!trimmed) return;
+      setAdvisorContextMarkdown(trimmed);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const toBase64Utf8 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
+
+  const decodeHtmlEntities = (s: string) =>
+    s
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+
+  const maybeReplaceAdvisorTicketContextWithButton = (message: ChatMessage): string => {
+    if (message.user_name !== 'Advisor') return message.message;
+    const raw = message.message || '';
+
+    // Legacy context message shape we previously sent:
+    // <h3>Ticket context</h3><pre><code>...escaped markdown...</code></pre>
+    if (!raw.toLowerCase().includes('ticket context')) return raw;
+    const m = raw.match(/<pre><code>([\s\S]*?)<\/code><\/pre>/i);
+    if (!m) return raw;
+
+    const escapedMarkdown = m[1] ?? '';
+    const markdown = decodeHtmlEntities(escapedMarkdown).trim();
+    if (!markdown) return raw;
+
+    const payload = toBase64Utf8(markdown.slice(0, 12000));
+    return [
+      '<div style="display:flex;align-items:center;gap:8px;">',
+      '<strong>Advisor context</strong>',
+      `<button style="cursor:pointer;padding:6px 10px;border-radius:8px;border:1px solid rgba(120,120,120,0.35);background:transparent;" onclick="window.showAdvisorContext('${payload}')">View</button>`,
+      '</div>',
+    ].join('');
+  };
+
   const processMessageContent = (content: string) => {
     // Replace img tags with clickable images
     return content.replace(/<img([^>]*?)src="([^"]*?)"([^>]*?)>/g, (match, beforeSrc, src, afterSrc) => {
@@ -146,8 +194,10 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
   // Make handleImageClick available globally for the onclick handler
   useEffect(() => {
     (window as any).handleChatImageClick = handleImageClick;
+    (window as any).showAdvisorContext = handleAdvisorContextClick;
     return () => {
       delete (window as any).handleChatImageClick;
+      delete (window as any).showAdvisorContext;
     };
   }, []);
 
@@ -188,7 +238,11 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
           </div>
           <div
             className={`text-sm prose dark:prose-invert max-w-none ${isSystemMessage ? 'italic' : ''}`}
-            dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(processMessageContent(message.message)) }}
+            dangerouslySetInnerHTML={{
+              __html: processMentionsForDisplay(
+                processMessageContent(maybeReplaceAdvisorTicketContextWithButton(message)),
+              ),
+            }}
           />
           <div className="mt-2 pt-1 border-t border-primary-foreground/20 flex items-center justify-between">
             <TooltipProvider>
@@ -235,7 +289,9 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                   handleReactionClick(message, emoji);
                   setReactingToId(null);
                 }}
-                onShowMore={() => {
+                onShowMore={(e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setEmojiPickerAnchorRect(rect);
                   setReactingToId(null);
                   setShowEmojiPicker(message.id);
                 }}
@@ -244,16 +300,6 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
             </div>
           )}
         </div>
-        {showEmojiPicker === message.id && (
-          <div className="emoji-picker-container absolute z-10" style={{ bottom: '40px', [isCurrentUser ? 'right' : 'left']: '0px' }}>
-            <EmojiPicker
-              onEmojiClick={(emojiData) => {
-                handleReactionClick(message, emojiData.emoji);
-                setShowEmojiPicker(false);
-              }}
-            />
-          </div>
-        )}
       </div>
     );
   };
@@ -262,6 +308,19 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
 
   return (
     <>
+      <Dialog open={advisorContextMarkdown != null} onOpenChange={(open) => (open ? null : setAdvisorContextMarkdown(null))}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Advisor context</DialogTitle>
+          </DialogHeader>
+          {advisorContextMarkdown ? (
+            <Markdown className="prose prose-sm dark:prose-invert max-w-none">
+              {advisorContextMarkdown}
+            </Markdown>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Wrapper className={`relative h-full flex flex-col ${wrapperClassName ?? ''}`}>
         {onResizeStart && (
           <div
@@ -339,7 +398,16 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => setShowEmojiPicker(prev => prev ? false : 'main')}
+                    onClick={(e) => {
+                      if (showEmojiPicker === 'main') {
+                        setShowEmojiPicker(false);
+                        setEmojiPickerAnchorRect(null);
+                      } else {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        setEmojiPickerAnchorRect(rect);
+                        setShowEmojiPicker('main');
+                      }
+                    }}
                   >
                     <Smile className="h-5 w-5" />
                   </Button>
@@ -351,16 +419,51 @@ export const PokerSessionChat: React.FC<PokerSessionChatProps> = ({
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
-                {showEmojiPicker === 'main' && (
-                  <div className="absolute bottom-full right-0 mb-2 z-10">
-                    <EmojiPicker onEmojiClick={handleEmojiClick} />
-                  </div>
-                )}
               </form>
             </div>
           
         </CardContent>
       </Wrapper>
+
+      {typeof showEmojiPicker === 'string' && emojiPickerAnchorRect && ReactDOM.createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => { setShowEmojiPicker(false); setEmojiPickerAnchorRect(null); }}
+          />
+          <div
+            className="fixed z-50"
+            style={(() => {
+              const pickerH = 450;
+              const pickerW = 350;
+              const gap = 8;
+              const spaceAbove = emojiPickerAnchorRect.top;
+              const top = spaceAbove >= pickerH + gap
+                ? emojiPickerAnchorRect.top - pickerH - gap
+                : emojiPickerAnchorRect.bottom + gap;
+              let left = emojiPickerAnchorRect.left;
+              if (left + pickerW > window.innerWidth - gap) left = window.innerWidth - pickerW - gap;
+              if (left < gap) left = gap;
+              return { top: Math.max(gap, top), left };
+            })()}
+          >
+            <EmojiPicker
+              onEmojiClick={(emojiData) => {
+                if (showEmojiPicker === 'main') {
+                  handleEmojiClick(emojiData);
+                } else {
+                  const msgId = showEmojiPicker as string;
+                  const msg = messages.find(m => m.id === msgId);
+                  if (msg) handleReactionClick(msg, emojiData.emoji);
+                }
+                setShowEmojiPicker(false);
+                setEmojiPickerAnchorRect(null);
+              }}
+            />
+          </div>
+        </>,
+        document.body
+      )}
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">

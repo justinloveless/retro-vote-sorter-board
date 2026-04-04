@@ -17,6 +17,15 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@atlaskit/adf-schema": "^52.4.13",
+    "@atlaskit/editor-common": "^112.15.0",
+    "@atlaskit/editor-core": "^217.9.2",
+    "@atlaskit/editor-plugins": "^13.0.73",
+    "@atlaskit/link-provider": "^4.3.0",
+    "@atlaskit/media-core": "^37.0.0",
+    "@atlaskit/renderer": "^128.7.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -73,9 +82,11 @@
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^7.6.2",
     "recharts": "^2.12.7",
+    "remark-gfm": "^4.0.1",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
@@ -102,5 +113,8 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
+  },
+  "overrides": {
+    "relay-runtime": "^16.2.0"
   }
 }

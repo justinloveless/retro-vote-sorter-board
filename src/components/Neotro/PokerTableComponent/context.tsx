@@ -4,6 +4,9 @@ import {
   PokerSession,
   PokerSessionState,
   getPointsWithMostVotes,
+  getWinningVoteFromSelections,
+  winningVoteToStoredAveragePoints,
+  type WinningPoints,
 } from '@/hooks/usePokerSession';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -31,19 +34,23 @@ import {
 import { isSyntheticRoundTicket, roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
 import { usePokerSpotlightClientId } from '@/hooks/use-poker-spotlight-client-id';
 import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
+import { POKER_DECK_POINT_VALUES } from '@/lib/pokerPointDeck';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
   activeUserId: string | undefined;
   updateUserSelection: (points: number) => void;
+  updateUserSelectionBetween: (low: number, high: number) => void;
+  /** Set between vote and lock in one update (e.g. side-zone hold complete). */
+  lockInUserSelectionBetween: (low: number, high: number) => void;
   /** Set the user's card to these points and lock in one update (e.g. drag-to-play). */
   lockInUserSelectionAtPoints: (points: number) => void;
   toggleLockUserSelection: () => void;
   toggleAbstainUserSelection: () => void;
   playHand: () => void;
   /**
-   * Reset the currently-selected round back to the "active" pre-reveal state
-   * so players can change their locked-in cards.
+   * Reset the currently-selected round to Selection (pre-reveal). Preserves each vote
+   * including between/mixed ranges; non-abstainers stay locked. Abstentions unchanged.
    */
   replayRound: () => void;
   /** Set `is_active: true` on an inactive round that is still in Selection (strip context menu). */
@@ -93,18 +100,26 @@ interface PokerTableContextProps {
   isChatLoading: boolean;
   sendMessage: (messageText: string, replyToMessageId?: string) => Promise<boolean>;
   sendSystemMessage: (messageText: string) => Promise<boolean>;
+  sendBotMessage: (botName: string, messageText: string) => Promise<string | null>;
   addReaction: (messageId: string, emoji: string) => Promise<void>;
   removeReaction: (messageId: string, emoji: string) => Promise<void>;
   uploadChatImage: (file: File) => Promise<string | null>;
   handleSendToSlack: () => Promise<void>;
   displaySession: PokerSessionState | PokerSessionRound | null;
-  /** Mode (most votes) - computed from selections when Playing */
+  /** Mode (most votes) - numeric storage / legacy (between → lower bound) */
   displayWinningPoints: number;
-  cardGroups: { points: number; selections: (PlayerSelection & { userId: string; })[]; }[] | null;
+  displayWinningVote: WinningPoints;
+  cardGroups: {
+    points: number;
+    betweenHighPoints?: number;
+    selections: (PlayerSelection & { userId: string })[];
+  }[] | null;
   activeUserSelection: PlayerSelection & { points: number; locked: boolean; name: string; };
   totalPlayers: number;
   isObserver: boolean;
   pointOptions: number[];
+  /** Team-defined labels for deck values; shown under Your Hand when non-empty. */
+  pokerPointValueDescriptions: Record<number, string>;
   handlePointChange: (increment: boolean) => void;
   handleTicketNumberChange: (value: string) => void;
   handleTicketNumberFocus: () => void;
@@ -116,6 +131,8 @@ interface PokerTableContextProps {
   isNextRoundDialogOpen: boolean;
   setNextRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onNextRoundRequest: () => void;
+  /** End/deactivate the current round without creating a new one. */
+  onEndRoundOnly: () => void;
   isStartNewRoundDialogOpen: boolean;
   setStartNewRoundDialogOpen: Dispatch<SetStateAction<boolean>>;
   onStartNewRoundRequest: () => void;
@@ -200,6 +217,7 @@ export interface PokerTableProviderProps {
   pokerRouteContext?: PokerHistoryTeamRoute | null;
   onPokerBack?: () => void;
   pokerToolbarExtras?: ReactNode;
+  pokerPointValueDescriptions?: Record<number, string>;
 }
 
 export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children, ...props }) => {
@@ -219,7 +237,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     pokerRouteContext,
     onPokerBack,
     pokerToolbarExtras,
+    pokerPointValueDescriptions: pokerPointValueDescriptionsProp,
   } = props;
+
+  const pokerPointValueDescriptions = pokerPointValueDescriptionsProp ?? {};
 
   const [displayTicketNumber, setDisplayTicketNumber] = useState('');
   const [isTicketInputFocused, setIsTicketInputFocused] = useState(false);
@@ -602,6 +623,38 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session?.session_id,
   ]);
 
+  const deactivateCurrentRound = () => {
+    const currentRoundId = effectiveCurrentRound?.id;
+    if (!currentRoundId) return Promise.resolve();
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [currentRoundId]: { ...(effectiveCurrentRound as PokerSessionRound), is_active: false },
+    }));
+    return supabase
+      .from('poker_session_rounds')
+      .update({ is_active: false })
+      .eq('id', currentRoundId)
+      .then(({ error }) => {
+        if (error) console.error('Error deactivating current round:', error);
+      })
+      .catch((e) => {
+        console.error('Unexpected error deactivating current round:', e);
+      });
+  };
+
+  /** Deactivates current round and navigates to next active without creating a new one. */
+  const handleEndRoundOnly = () => {
+    const currentRoundNumber = effectiveCurrentRound?.round_number;
+
+    // Find the next active round to navigate to (skip the current one).
+    const remaining = activeRounds.filter((r) => r.round_number !== currentRoundNumber);
+    const navigateTo = remaining.length > 0 ? remaining[0] : null;
+
+    void deactivateCurrentRound().then(() => {
+      if (navigateTo) goToRound(navigateTo.round_number);
+    });
+  };
+
   const handleNextRoundRequest = () => {
     // If we only have a single active round, "Next Round" creates a new one.
     if (activeRounds.length <= 1) {
@@ -634,24 +687,9 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       return;
     }
 
-    void (async () => {
-      try {
-        setOptimisticRoundsById((prev) => ({
-          ...prev,
-          [currentRoundId]: { ...(effectiveCurrentRound as PokerSessionRound), is_active: false },
-        }));
-        const { error } = await supabase
-          .from('poker_session_rounds')
-          .update({ is_active: false })
-          .eq('id', currentRoundId);
-
-        if (error) console.error('Error deactivating current round:', error);
-      } catch (e) {
-        console.error('Unexpected error deactivating current round:', e);
-      } finally {
-        goToRound(next.round_number);
-      }
-    })();
+    void deactivateCurrentRound().then(() => {
+      goToRound(next.round_number);
+    });
   };
 
   const {
@@ -660,6 +698,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     newMessageCountByRound: chatNewMessageCountByRound,
     sendMessage,
     sendSystemMessage,
+    sendBotMessage,
     addReaction,
     removeReaction,
     uploadImage: uploadChatImage,
@@ -698,14 +737,19 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     return game_state === merged.game_state ? merged : { ...merged, game_state };
   }, [session, effectiveCurrentRound]);
 
-  /** Mode (most votes) - computed from selections so we always show correct value */
-  const displayWinningPoints = useMemo(() => {
-    if (!displaySession || displaySession.game_state !== 'Playing') return 0;
+  const displayWinningVote = useMemo((): WinningPoints => {
+    if (!displaySession || displaySession.game_state !== 'Playing') {
+      return { kind: 'single', points: 0 };
+    }
     const participating = (Object.values(displaySession.selections) as PlayerSelection[]).filter(
       (s) => s.points !== -1
     );
-    return getPointsWithMostVotes(participating);
+    return getWinningVoteFromSelections(participating);
   }, [displaySession]);
+
+  const displayWinningPoints = useMemo(() => {
+    return winningVoteToStoredAveragePoints(displayWinningVote);
+  }, [displayWinningVote]);
 
   const handleSendToSlack = async () => {
     if (!displaySession || !teamId) return;
@@ -735,22 +779,55 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     const selections = Object.entries(displaySession.selections)
       .filter(([, selection]) => (selection as PlayerSelection).name?.trim());
     type SelectionWithUserId = PlayerSelection & { userId: string };
-    const groups = selections.reduce((acc, [userId, selection]) => {
-      const points = (selection as PlayerSelection).points;
-      if (!acc[points]) {
-        acc[points] = [];
+
+    const groupKey = (sel: PlayerSelection): string => {
+      if (sel.betweenHighPoints != null) {
+        const low = Math.min(sel.points, sel.betweenHighPoints);
+        const high = Math.max(sel.points, sel.betweenHighPoints);
+        return `between:${low}:${high}`;
       }
-      acc[points].push({ userId, ...(selection as PlayerSelection) });
+      return `single:${sel.points}`;
+    };
+
+    const groups = selections.reduce((acc, [userId, selection]) => {
+      const sel = selection as PlayerSelection;
+      const key = groupKey(sel);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push({ userId, ...sel });
       return acc;
-    }, {} as Record<number, SelectionWithUserId[]>);
-    const sortedGroupKeys = Object.keys(groups).map(Number).sort((a, b) => a - b);
-    const allAbstained = sortedGroupKeys.length === 1 && sortedGroupKeys[0] === -1;
-    return sortedGroupKeys
-      .filter(points => allAbstained || points !== -1)
-      .map(points => ({
-        points,
-        selections: groups[points],
-      }));
+    }, {} as Record<string, SelectionWithUserId[]>);
+
+    const toTuple = (key: string): [number, number] => {
+      if (key.startsWith('between:')) {
+        const [, low, high] = key.split(':');
+        return [Number(low), 1];
+      }
+      const p = Number(key.slice(7));
+      return [p, 0];
+    };
+
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const [aLow, aTier] = toTuple(a);
+      const [bLow, bTier] = toTuple(b);
+      if (aLow !== bLow) return aLow - bLow;
+      return aTier - bTier;
+    });
+
+    const allAbstained =
+      sortedKeys.length === 1 && sortedKeys[0] === 'single:-1';
+
+    return sortedKeys
+      .filter((key) => allAbstained || key !== 'single:-1')
+      .map((key) => {
+        const list = groups[key];
+        const first = list[0];
+        if (key.startsWith('between:')) {
+          const low = Math.min(first.points, first.betweenHighPoints!);
+          const high = Math.max(first.points, first.betweenHighPoints!);
+          return { points: low, betweenHighPoints: high, selections: list };
+        }
+        return { points: first.points, selections: list };
+      });
   }, [displaySession]);
 
   const updateTicketNumberForSelectedRound = async (ticketNumber: string) => {
@@ -817,7 +894,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setDisplayTicketNumber(nextTicketNumber);
   }, [displaySession?.ticket_number, session?.ticket_number, isTicketInputFocused, effectiveCurrentRound?.is_active]);
 
-  const pointOptions = [1, 2, 3, 5, 8, 13, 21];
+  const pointOptions = [...POKER_DECK_POINT_VALUES];
 
   const activeUserSelection = useMemo(() => {
     if (displaySession && activeUserId && displaySession.selections[activeUserId]) {
@@ -830,16 +907,48 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const isObserver = !!(activeUserId && observerIds.includes(activeUserId));
   const totalPlayers = displaySession ? Object.keys(displaySession.selections).length : 0;
 
+  /** Round JSON can omit a player (e.g. roster drift); merge a row so updates match re-join behavior. */
+  const ensureActiveUserRoundSelection = useCallback(
+    (selections: Record<string, PlayerSelection>): {
+      next: Record<string, PlayerSelection>;
+      user: PlayerSelection;
+      synthetic: boolean;
+    } => {
+      const existing = selections[activeUserId!];
+      if (existing) {
+        return { next: selections, user: existing, synthetic: false };
+      }
+      const fromSession = session?.selections?.[activeUserId!];
+      const name =
+        (fromSession?.name && String(fromSession.name).trim()) ||
+        activeUserDisplayName?.trim() ||
+        'Player';
+      const synthetic: PlayerSelection = {
+        points: 0,
+        locked: false,
+        name,
+      };
+      return {
+        next: { ...selections, [activeUserId!]: synthetic },
+        user: synthetic,
+        synthetic: true,
+      };
+    },
+    [activeUserId, session?.selections, activeUserDisplayName]
+  );
+
   const updateUserSelectionForSelectedRound = async (points: number) => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
-    const selections = effectiveCurrentRound.selections || {};
-    const userSelection = selections[activeUserId] as PlayerSelection | undefined;
-    if (!userSelection || userSelection.locked) return;
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
 
+    if (user.locked) return;
+
+    const { betweenHighPoints: _omitBetween, ...userRest } = user;
     const newSelections = {
-      ...selections,
-      [activeUserId]: { ...userSelection, points },
+      ...next,
+      [activeUserId]: { ...userRest, points },
     };
 
     setOptimisticRoundsById((prev) => ({
@@ -857,16 +966,52 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     }
   };
 
+  const updateUserSelectionBetweenForSelectedRound = async (low: number, high: number) => {
+    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
+    if (low === high) {
+      await updateUserSelectionForSelectedRound(low);
+      return;
+    }
+    const a = Math.min(low, high);
+    const b = Math.max(low, high);
+
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
+
+    if (user.locked) return;
+
+    const { betweenHighPoints: _b, ...userRest } = user;
+    const newSelections = {
+      ...next,
+      [activeUserId]: { ...userRest, points: a, betweenHighPoints: b },
+    };
+
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [effectiveCurrentRound.id]: { ...effectiveCurrentRound, selections: newSelections },
+    }));
+
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .update({ selections: newSelections })
+      .eq('id', effectiveCurrentRound.id);
+
+    if (error) {
+      console.error('Error updating between selection:', error);
+    }
+  };
+
   const lockInUserSelectionAtPointsForSelectedRound = async (points: number) => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
-    const selections = effectiveCurrentRound.selections || {};
-    const userSelection = selections[activeUserId] as PlayerSelection | undefined;
-    if (!userSelection || userSelection.locked || userSelection.points === -1) return;
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
+    if (user.locked || user.points === -1) return;
 
+    const { betweenHighPoints: _bd, ...userForLock } = user;
     const newSelections = {
-      ...selections,
-      [activeUserId]: { ...userSelection, points, locked: true },
+      ...next,
+      [activeUserId]: { ...userForLock, points, locked: true },
     };
 
     setOptimisticRoundsById((prev) => ({
@@ -884,16 +1029,52 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     }
   };
 
+  const lockInUserSelectionBetweenForSelectedRound = async (low: number, high: number) => {
+    if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
+    if (low === high) {
+      await lockInUserSelectionAtPointsForSelectedRound(low);
+      return;
+    }
+    const a = Math.min(low, high);
+    const b = Math.max(low, high);
+
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
+
+    if (user.locked) return;
+    if (user.points === -1) return;
+
+    const { betweenHighPoints: _b, ...userRest } = user;
+    const newSelections = {
+      ...next,
+      [activeUserId]: { ...userRest, points: a, betweenHighPoints: b, locked: true },
+    };
+
+    setOptimisticRoundsById((prev) => ({
+      ...prev,
+      [effectiveCurrentRound.id]: { ...effectiveCurrentRound, selections: newSelections },
+    }));
+
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .update({ selections: newSelections })
+      .eq('id', effectiveCurrentRound.id);
+
+    if (error) {
+      console.error('Error locking in between selection:', error);
+    }
+  };
+
   const toggleLockUserSelectionForSelectedRound = async () => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
-    const selections = effectiveCurrentRound.selections || {};
-    const userSelection = selections[activeUserId] as PlayerSelection | undefined;
-    if (!userSelection || userSelection.points === -1) return;
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
+    if (user.points === -1) return;
 
     const newSelections = {
-      ...selections,
-      [activeUserId]: { ...userSelection, locked: !userSelection.locked },
+      ...next,
+      [activeUserId]: { ...user, locked: !user.locked },
     };
 
     setOptimisticRoundsById((prev) => ({
@@ -914,19 +1095,19 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const toggleAbstainUserSelectionForSelectedRound = async () => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active || !activeUserId) return;
 
-    const selections = effectiveCurrentRound.selections || {};
-    const userSelection = selections[activeUserId] as PlayerSelection | undefined;
-    if (!userSelection) return;
+    const raw = effectiveCurrentRound.selections || {};
+    const { next, user } = ensureActiveUserRoundSelection(raw);
 
-    const isCurrentlyAbstained = userSelection.points === -1;
+    const isCurrentlyAbstained = user.points === -1;
+    const { betweenHighPoints: _ba, ...userForAbstain } = user;
     const newSelection = {
-      ...userSelection,
+      ...userForAbstain,
       points: isCurrentlyAbstained ? 1 : -1,
       locked: !isCurrentlyAbstained,
     };
 
     const newSelections = {
-      ...selections,
+      ...next,
       [activeUserId]: newSelection,
     };
 
@@ -1015,6 +1196,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   useEffect(() => {
     if (!effectiveCurrentRound || !effectiveCurrentRound.is_active) return;
     if (effectiveCurrentRound.game_state === 'Playing') return;
+    // Replayed rounds require manual reveal; auto-reveal only for fresh rounds (DB default true).
+    if (effectiveCurrentRound.auto_reveal_enabled === false) return;
 
     const selections = effectiveCurrentRound.selections || {};
     const entries = Object.entries(selections);
@@ -1026,7 +1209,13 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       return s.locked || s.points === -1;
     });
 
-    if (allReady && autoRevealTriggeredRef.current !== effectiveCurrentRound.id) {
+    // Not everyone ready (e.g. someone unlocked): allow a future auto-reveal for this round.
+    if (!allReady) {
+      autoRevealTriggeredRef.current = null;
+      return;
+    }
+
+    if (autoRevealTriggeredRef.current !== effectiveCurrentRound.id) {
       autoRevealTriggeredRef.current = effectiveCurrentRound.id;
       // Small delay so the last lock-in animation is visible before reveal
       setTimeout(() => {
@@ -1050,11 +1239,11 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
 
     for (const [userId, sel] of Object.entries(selections)) {
       const s = sel as PlayerSelection;
+      // Preserve mixed votes (betweenHighPoints) and keep non-abstainers locked so replay
+      // returns to Selection without wiping between ranges or forcing re-lock.
       resetSelections[userId] = {
         ...s,
-        locked: false,
-        // Put everyone back into a selectable state (not abstained).
-        points: s.points === -1 ? 1 : s.points,
+        locked: s.points === -1 ? s.locked : true,
       };
     }
 
@@ -1062,11 +1251,9 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       game_state: 'Selection' as const,
       selections: resetSelections,
       average_points: 0,
+      auto_reveal_enabled: false as const,
       ...(reactivatingHistory ? { is_active: true as const } : {}),
     };
-
-    // Reset auto-reveal guard so it can trigger again after replay.
-    autoRevealTriggeredRef.current = null;
 
     const replayedRoundId = effectiveCurrentRound.id;
 
@@ -1158,6 +1345,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session,
     activeUserId,
     updateUserSelection: updateUserSelectionForSelectedRound,
+    updateUserSelectionBetween: updateUserSelectionBetweenForSelectedRound,
+    lockInUserSelectionBetween: lockInUserSelectionBetweenForSelectedRound,
     lockInUserSelectionAtPoints: lockInUserSelectionAtPointsForSelectedRound,
     toggleLockUserSelection: toggleLockUserSelectionForSelectedRound,
     toggleAbstainUserSelection: toggleAbstainUserSelectionForSelectedRound,
@@ -1200,17 +1389,20 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isChatLoading,
     sendMessage,
     sendSystemMessage,
+    sendBotMessage,
     addReaction,
     removeReaction,
     uploadChatImage,
     handleSendToSlack,
     displaySession,
     displayWinningPoints,
+    displayWinningVote,
     cardGroups,
     activeUserSelection,
     totalPlayers,
     isObserver,
     pointOptions,
+    pokerPointValueDescriptions,
     handlePointChange,
     handleTicketNumberChange,
     handleTicketNumberFocus,
@@ -1222,6 +1414,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     isNextRoundDialogOpen,
     setNextRoundDialogOpen,
     onNextRoundRequest: handleNextRoundRequest,
+    onEndRoundOnly: handleEndRoundOnly,
     isStartNewRoundDialogOpen,
     setStartNewRoundDialogOpen,
     onStartNewRoundRequest,

@@ -381,6 +381,34 @@ export const usePokerSessionChat = (
     }
   };
 
+  const sendBotMessage = async (botName: string, messageText: string): Promise<string | null> => {
+    if (!sessionId || !botName.trim() || !messageText.trim()) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('poker_session_chat')
+        .insert({
+          session_id: sessionId,
+          round_number: currentRoundNumber,
+          user_id: null,
+          user_name: botName.trim(),
+          message: messageText.trim(),
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Error sending bot message:', error);
+        return null;
+      }
+
+      return data?.id ?? null;
+    } catch (error) {
+      console.error('Error sending bot message:', error);
+      return null;
+    }
+  };
+
   const addReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId || !currentUserName || !sessionId) return;
     const { error } = await supabase.from('poker_session_chat_message_reactions').insert({
@@ -452,6 +480,7 @@ export const usePokerSessionChat = (
     newMessageCountByRound,
     sendMessage,
     sendSystemMessage,
+    sendBotMessage,
     addReaction,
     removeReaction,
     fetchMessages,

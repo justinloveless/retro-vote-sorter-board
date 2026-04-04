@@ -1,16 +1,18 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePersistedJiraBrowseCollapsedBuckets } from '@/hooks/use-persisted-jira-browse-collapsed-buckets';
 import { usePersistedJiraBrowseFilters } from '@/hooks/use-persisted-jira-browse-filters';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Search, Loader2, ListOrdered, Filter, FolderKanban, ChevronRight, ListPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +66,7 @@ interface TicketQueuePanelProps {
   isMobile?: boolean;
   /** Poker session — story point edits broadcast to all clients in this session. */
   pokerSessionId?: string;
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
 }
 
 const STATUS_OPTIONS = [
@@ -159,6 +162,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   pokerSessionId,
   onAddTicket,
   onAddTicketsBatch,
+  onIssueCreated,
   rounds = [],
   isMobile = false,
 }) => {
@@ -184,6 +188,10 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
   const [addingKeys, setAddingKeys] = useState<Set<string>>(new Set());
   const [collapsedBuckets, setCollapsedBuckets] = usePersistedJiraBrowseCollapsedBuckets(teamId);
   const [addingBucketId, setAddingBucketId] = useState<string | null>(null);
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [newTicketSummary, setNewTicketSummary] = useState('');
+  const [newTicketDescription, setNewTicketDescription] = useState('');
+  const [newTicketSaving, setNewTicketSaving] = useState(false);
   const { toast } = useToast();
 
   const MIN_WIDTH = 320;
@@ -298,6 +306,38 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     });
   };
 
+  const handleCreateNewJiraTicket = async () => {
+    const sum = newTicketSummary.trim();
+    if (!teamId || !sum) return;
+    setNewTicketSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-jira-issue', {
+        body: {
+          teamId,
+          summary: sum,
+          description: newTicketDescription.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+      const key = typeof data?.key === 'string' ? data.key : '';
+      if (!key) throw new Error('No issue key returned');
+      toast({ title: `Created ${key}` });
+      setNewTicketOpen(false);
+      setNewTicketSummary('');
+      setNewTicketDescription('');
+      await onIssueCreated?.(key, sum);
+    } catch (e) {
+      toast({
+        title: 'Failed to create ticket',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setNewTicketSaving(false);
+    }
+  };
+
   const handleAddTicket = async (issue: JiraIssue) => {
     setAddingKeys(prev => new Set(prev).add(issue.key));
     await onAddTicket(issue.key, issue.summary, issue.parent);
@@ -388,6 +428,7 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
         issueIdOrKey={issue.key}
         teamId={teamId}
         pokerSessionId={pokerSessionId}
+        onIssueCreated={onIssueCreated}
         trigger={issueContent}
       />
     ) : (
@@ -547,9 +588,23 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
       {isMobile && isJiraConfigured ? (
         <div className="flex flex-col flex-1 min-h-0 pb-4 pt-0">
           <DrawerHeader className="text-left p-0 pb-3">
-            <DrawerTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Browse Jira
+            <DrawerTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 min-w-0">
+                <Search className="h-5 w-5 shrink-0" />
+                <span className="truncate">Browse Jira</span>
+              </span>
+              {teamId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs shrink-0 gap-1"
+                  onClick={() => setNewTicketOpen(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                  New
+                </Button>
+              ) : null}
             </DrawerTitle>
           </DrawerHeader>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -614,8 +669,20 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
               <>
                 <ResizableHandle withHandle className="shrink-0 !h-1 !min-h-1 bg-border" />
                 <ResizablePanel defaultSize={50} minSize={25} className="flex flex-col min-h-0 pt-4">
-                  <div className="text-sm font-semibold text-muted-foreground mb-2 shrink-0">
-                    Browse Jira
+                  <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                    <span className="text-sm font-semibold text-muted-foreground">Browse Jira</span>
+                    {teamId ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1"
+                        onClick={() => setNewTicketOpen(true)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        New ticket
+                      </Button>
+                    ) : null}
                   </div>
                   {browseJiraMain}
                 </ResizablePanel>
@@ -627,33 +694,93 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     </>
   );
 
+  const newTicketDialog = (
+    <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New Jira ticket</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="tqp-new-ticket-summary">Summary</Label>
+            <Input
+              id="tqp-new-ticket-summary"
+              value={newTicketSummary}
+              onChange={(e) => setNewTicketSummary(e.target.value.slice(0, 255))}
+              maxLength={255}
+              disabled={newTicketSaving}
+              placeholder="Short title"
+              className="text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">{newTicketSummary.length}/255</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tqp-new-ticket-desc">Description (optional)</Label>
+            <Textarea
+              id="tqp-new-ticket-desc"
+              value={newTicketDescription}
+              onChange={(e) => setNewTicketDescription(e.target.value)}
+              disabled={newTicketSaving}
+              placeholder="Details, acceptance criteria…"
+              rows={5}
+              className="text-sm resize-y min-h-[100px]"
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setNewTicketOpen(false)}
+            disabled={newTicketSaving}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleCreateNewJiraTicket()}
+            disabled={newTicketSaving || !newTicketSummary.trim()}
+          >
+            {newTicketSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create in Jira'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isMobile) {
     return (
-      <Drawer open={isOpen} onOpenChange={onOpenChange}>
-        <DrawerContent className="h-[80vh] flex flex-col">
-          <div className="h-full flex flex-col min-h-0 overflow-hidden px-5">
-            {panelContent}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={isOpen} onOpenChange={onOpenChange}>
+          <DrawerContent className="h-[80vh] flex flex-col">
+            <div className="h-full flex flex-col min-h-0 overflow-hidden px-5">
+              {panelContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+        {newTicketDialog}
+      </>
     );
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="flex flex-col p-0"
-        style={{ width: drawerWidth, minWidth: drawerWidth, maxWidth: drawerWidth }}
-      >
-        <div
-          onMouseDown={handleResizeMouseDown}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group z-10"
-          title="Drag to resize"
+    <>
+      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+        <SheetContent
+          className="flex flex-col p-0"
+          style={{ width: drawerWidth, minWidth: drawerWidth, maxWidth: drawerWidth }}
         >
-          <div className="w-1 h-16 rounded-full bg-border group-hover:bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-        {panelContent}
-      </SheetContent>
-    </Sheet>
+          <div
+            onMouseDown={handleResizeMouseDown}
+            className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group z-10"
+            title="Drag to resize"
+          >
+            <div className="w-1 h-16 rounded-full bg-border group-hover:bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          {panelContent}
+        </SheetContent>
+      </Sheet>
+      {newTicketDialog}
+    </>
   );
 };

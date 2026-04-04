@@ -79,24 +79,33 @@ interface PokerSessionRound {
   average_points?: number;
 }
 
-// Utility Functions
-function getPointsWithMostVotes(selections: { points: number }[]): number {
+// Utility Functions — matches app: "between" votes count as a full vote for each endpoint.
+function getPointsWithMostVotes(
+  selections: { points: number; betweenHighPoints?: number }[]
+): number {
   const participating = selections.filter((s) => s.points !== -1);
   if (participating.length === 0) return 0;
-  const voteCounts: Record<number, number> = {};
-  participating.forEach((s) => {
-    voteCounts[s.points] = (voteCounts[s.points] || 0) + 1;
-  });
-  let maxCount = 0;
-  let winningPoints = 0;
-  for (const [points, count] of Object.entries(voteCounts)) {
-    const p = parseInt(points, 10);
-    if (count > maxCount || (count === maxCount && p > winningPoints)) {
-      maxCount = count;
-      winningPoints = p;
+  const weightByPoints = new Map<number, number>();
+  for (const s of participating) {
+    const h = s.betweenHighPoints;
+    if (h != null) {
+      const low = Math.min(s.points, h);
+      const high = Math.max(s.points, h);
+      weightByPoints.set(low, (weightByPoints.get(low) || 0) + 1);
+      weightByPoints.set(high, (weightByPoints.get(high) || 0) + 1);
+    } else {
+      weightByPoints.set(s.points, (weightByPoints.get(s.points) || 0) + 1);
     }
   }
-  return winningPoints;
+  let bestPoints = 0;
+  let bestWeight = -1;
+  for (const [points, weight] of weightByPoints) {
+    if (weight > bestWeight || (weight === bestWeight && points > bestPoints)) {
+      bestWeight = weight;
+      bestPoints = points;
+    }
+  }
+  return bestPoints;
 }
 
 export function parseTicketFromText(text: string): {
