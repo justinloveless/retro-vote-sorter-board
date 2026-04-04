@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ChevronDown, Copy, ExternalLink, Loader2, Plus, User, AlertCircle, Tag, Layers, MessageSquare, Settings, Pencil, Calendar } from 'lucide-react';
@@ -33,12 +33,15 @@ import {
   type JiraFieldOptionsPayload,
 } from '@/lib/jiraIssueFieldOptionsCache';
 import { cn } from '@/lib/utils';
+import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import { ensurePanelContrast } from '@/lib/jiraWiki/panelColors';
 import { stripHtmlForWikiParse } from '@/lib/jiraWiki/htmlStrip';
 import { segmentJiraWikiTopLevel, normalizeDescriptionForEdit, canEditDescriptionRichly, adfToWikiMarkup } from '@/lib/jiraWiki/segmentWiki';
 import { JiraIssueWikiEditor } from '@/components/Neotro/JiraIssueWikiEditor';
 import { AtlaskitDescriptionEditor } from '@/components/Neotro/AtlaskitDescriptionEditor';
 import type { AtlaskitDescriptionEditorHandle } from '@/components/Neotro/AtlaskitDescriptionEditor';
+import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
+import { IntlProvider } from 'react-intl-next';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,9 +85,9 @@ function JiraMention({ accountId }: { accountId: string }) {
   // If it looks like an accountId (long alphanumeric), show a generic label if not found
   const label = userMap.has(accountId) ? displayName : (accountId.length > 20 ? 'user' : accountId);
   return (
-    <Badge variant="secondary" className="text-xs font-normal px-1.5 py-0">
+    <span className={cn(badgeVariants({ variant: 'secondary' }), 'text-xs font-normal px-1.5 py-0')}>
       @{label}
-    </Badge>
+    </span>
   );
 }
 
@@ -388,11 +391,11 @@ function parseLines(text: string, keyPrefix: number | string = 0, attachments?: 
       continue;
     }
 
-    // Regular line
+    // Regular line — use div (not p) so inline parse may include span-badges, images, etc. without invalid nesting
     nodes.push(
-      <p key={`${keyPrefix}-p-${i}`} className="text-sm text-foreground my-1">
+      <div key={`${keyPrefix}-p-${i}`} role="paragraph" className="text-sm text-foreground my-1">
         {parseInline(line, attachments)}
-      </p>
+      </div>
     );
     i++;
   }
@@ -497,11 +500,14 @@ function parseInline(text: string, attachments?: JiraAttachment[]): React.ReactN
         </a>
       );
     } else if (inlineMatch[7] !== undefined) {
-      // [~accountid:xxx] or [~username] — user mention
+      // [~accountid:xxx] or [~username] — span + badge styles (Badge is a div; invalid inside <p> / headings)
       parts.push(
-        <Badge key={`mention-${inlineMatch.index}`} variant="secondary" className="text-xs font-normal px-1.5 py-0">
+        <span
+          key={`mention-${inlineMatch.index}`}
+          className={cn(badgeVariants({ variant: 'secondary' }), 'text-xs font-normal px-1.5 py-0')}
+        >
           @{inlineMatch[7].length > 20 ? 'user' : inlineMatch[7]}
-        </Badge>
+        </span>
       );
     } else if (inlineMatch[8] !== undefined) {
       // !image.png|opts!
@@ -540,6 +546,9 @@ function isAdfDoc(v: unknown): v is { type: 'doc'; version?: number } {
 
 type AdfRendererComponent = React.ComponentType<{ document: unknown }>;
 
+/** Same env as AtlaskitDescriptionEditor — required for ADF inline cards / smart links in ReactRenderer. */
+const jiraDrawerAtlaskitCardClient = new CardClient('staging');
+
 function renderDescription(
   description: unknown,
   attachments?: JiraAttachment[],
@@ -553,7 +562,11 @@ function renderDescription(
     if (AtlaskitRendererComponent) {
       return (
         <div className="text-sm overflow-x-hidden break-words [&_*]:max-w-full">
-          <AtlaskitRendererComponent document={description} />
+          <IntlProvider locale={typeof navigator !== 'undefined' ? navigator.language : 'en'} messages={jiraAtlaskitIntlMessages}>
+            <SmartCardProvider client={jiraDrawerAtlaskitCardClient}>
+              <AtlaskitRendererComponent document={description} />
+            </SmartCardProvider>
+          </IntlProvider>
         </div>
       );
     }
@@ -1476,6 +1489,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
           ref={setJiraDialogPortalContainer}
           className="sm:max-w-[60vw] max-h-[90vh] min-h-0 overflow-x-hidden overflow-visible p-0 gap-0 flex flex-col"
           overlayClassName="bg-black/45"
+          aria-describedby={undefined}
         >
           {/* grid row minmax(0,1fr) gives ScrollArea a real height cap; flex-1 alone lets the area grow with content (no overflow → no scrollbar). */}
           <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
@@ -2334,7 +2348,12 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                     <p className="text-sm text-muted-foreground italic">No comments yet.</p>
                   ) : (
                     <div className="space-y-3">
-                      {(fields.comment?.comments ?? []).map((comment) => {
+                      {[...(fields.comment?.comments ?? [])]
+                        .sort(
+                          (a, b) =>
+                            new Date(b.created).getTime() - new Date(a.created).getTime(),
+                        )
+                        .map((comment) => {
                         const avatarUrl = comment.author?.avatarUrls?.['24x24'] || comment.author?.avatarUrls?.['16x16'];
                         const initials = comment.author?.displayName
                           ?.split(' ')
@@ -2373,7 +2392,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
 
       {/* Image preview dialog — same pattern as chat */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Image Preview</DialogTitle>
           </DialogHeader>
@@ -2390,7 +2409,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       </Dialog>
 
       <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Clone issue</DialogTitle>
           </DialogHeader>

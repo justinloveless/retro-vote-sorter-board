@@ -36,6 +36,8 @@ export default defineConfig(({ mode, command }) => {
         "@": path.resolve(__dirname, "./src"),
       },
       dedupe: [
+        "react-intl-next",
+        "@atlaskit/link-provider",
         "prosemirror-state",
         "prosemirror-model",
         "prosemirror-view",
@@ -52,7 +54,7 @@ export default defineConfig(({ mode, command }) => {
       "process.env": JSON.stringify({ NODE_ENV: mode }),
     },
     optimizeDeps: {
-      include: ["@atlaskit/renderer", "@atlaskit/editor-core"],
+      include: ["@atlaskit/renderer", "@atlaskit/editor-core", "react-intl-next"],
     },
   });
 

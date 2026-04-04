@@ -1,5 +1,7 @@
 import React, { useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { IntlProvider } from 'react-intl-next';
 import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
+import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import type EditorActions from '@atlaskit/editor-core/actions';
 
 export interface AtlaskitDescriptionEditorHandle {
@@ -62,26 +64,28 @@ const AtlaskitDescriptionEditorInner: React.ForwardRefRenderFunction<
   }
 
   return (
-    <SmartCardProvider client={cardClient}>
-      <div className="atlaskit-editor-wrapper rounded-md border border-input bg-background [&_.akEditor]:min-h-[160px] [&_[aria-live]]:sr-only">
-        <EditorComponent
-          appearance="comment"
-          defaultValue={defaultValue}
-          disabled={disabled}
-          onEditorReady={onEditorReady}
-          placeholder="Add a description…"
-          allowPanel
-          allowExpand
-          allowRule
-          allowTables
-          allowDate
-          allowStatus={{ menuDisabled: false }}
-          allowLayouts
-          allowNestedTasks
-          smartLinks={{}}
-        />
-      </div>
-    </SmartCardProvider>
+    <IntlProvider locale={typeof navigator !== 'undefined' ? navigator.language : 'en'} messages={jiraAtlaskitIntlMessages}>
+      <SmartCardProvider client={cardClient}>
+        <div className="atlaskit-editor-wrapper rounded-md border border-input bg-background [&_.akEditor]:min-h-[160px] [&_[aria-live]]:sr-only">
+          <EditorComponent
+            appearance="comment"
+            defaultValue={defaultValue}
+            disabled={disabled}
+            onEditorReady={onEditorReady}
+            placeholder="Add a description…"
+            allowPanel
+            allowExpand
+            allowRule
+            allowTables
+            allowDate
+            allowStatus={{ menuDisabled: false }}
+            allowLayouts
+            allowNestedTasks
+            smartLinks={{}}
+          />
+        </div>
+      </SmartCardProvider>
+    </IntlProvider>
   );
 };
 
