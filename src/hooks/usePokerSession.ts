@@ -5,6 +5,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import {
   PokerSessionRound,
   POKER_FOLLOW_CURRENT_ROUND_EVENT,
+  POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT,
 } from './usePokerSessionHistory';
 import { isUuidLike } from '@/lib/pokerSessionPathSlug';
 import {
@@ -12,6 +13,14 @@ import {
   pokerSessionSettingsFromPreviousRow,
 } from '@/lib/pokerSessionCloneSettings';
 import { roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
+
+function emitSpotlightServerAligned(sessionId: string, roundNumber: number) {
+  window.dispatchEvent(
+    new CustomEvent(POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT, {
+      detail: { sessionId, roundNumber },
+    })
+  );
+}
 
 // Define types for session state
 export interface PlayerSelection {
@@ -756,9 +765,15 @@ export const usePokerSession = (
       })
     );
 
-    // 2. Update the session to point to the new round
-    // The realtime subscription on the session table will trigger a full refresh for all clients.
-    await supabase.from('poker_sessions').update({ current_round_number: newRoundNumber }).eq('id', session.session_id);
+    // 2. Update the session to point to the new round (+ spotlight target so followers jump via realtime).
+    const sessionPatch: Record<string, number> = { current_round_number: newRoundNumber };
+    if (currentUserId && session.spotlight_user_id === currentUserId) {
+      sessionPatch.spotlight_round_number = newRoundNumber;
+    }
+    await supabase.from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
+    if (sessionPatch.spotlight_round_number != null) {
+      emitSpotlightServerAligned(session.session_id, newRoundNumber);
+    }
 
     // 3. Broadcast to all clients to refetch the session data
     if (sessionChannelRef.current) {
@@ -776,9 +791,10 @@ export const usePokerSession = (
   const startNewRound = async (
     newTicketNumber?: string,
     newTicketTitle?: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => {
-    if (!session) return;
+    ticketParent?: { key: string; summary: string } | null,
+    options?: { pendingRound?: boolean }
+  ): Promise<string | null> => {
+    if (!session) return null;
 
     const newRoundNumber = session.round_number + 1;
     const trimmedTicket = newTicketNumber?.trim() ?? '';
@@ -800,21 +816,26 @@ export const usePokerSession = (
       });
     }
 
-    const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
-      session_id: session.session_id,
-      round_number: newRoundNumber,
-      selections: resetSelections,
-      ticket_number: ticketToStore,
-      ticket_title: newTicketTitle ?? null,
-      ticket_parent_key: ticketParent?.key ?? null,
-      ticket_parent_summary: ticketParent?.summary ?? null,
-      is_active: true,
-      game_state: 'Selection',
-    });
+    const { data: insertedRound, error: newRoundError } = await supabase
+      .from('poker_session_rounds')
+      .insert({
+        session_id: session.session_id,
+        round_number: newRoundNumber,
+        selections: resetSelections,
+        ticket_number: ticketToStore,
+        ticket_title: newTicketTitle ?? null,
+        ticket_parent_key: ticketParent?.key ?? null,
+        ticket_parent_summary: ticketParent?.summary ?? null,
+        is_active: true,
+        is_pending_round: options?.pendingRound === true,
+        game_state: 'Selection',
+      })
+      .select('id')
+      .single();
 
     if (newRoundError) {
-        console.error('Error creating new round', newRoundError);
-        return;
+      console.error('Error creating new round', newRoundError);
+      return null;
     }
 
     window.dispatchEvent(
@@ -824,7 +845,14 @@ export const usePokerSession = (
     );
 
     // Update session pointer so clients (and chat/queue) know which round is "latest".
-    await supabase.from('poker_sessions').update({ current_round_number: newRoundNumber }).eq('id', session.session_id);
+    const sessionPatch: Record<string, number> = { current_round_number: newRoundNumber };
+    if (currentUserId && session.spotlight_user_id === currentUserId) {
+      sessionPatch.spotlight_round_number = newRoundNumber;
+    }
+    await supabase.from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
+    if (sessionPatch.spotlight_round_number != null) {
+      emitSpotlightServerAligned(session.session_id, newRoundNumber);
+    }
 
     // Reuse existing event so clients refetch their session-level data.
     if (sessionChannelRef.current) {
@@ -836,6 +864,7 @@ export const usePokerSession = (
     }
 
     manageSession({ showLoading: false });
+    return insertedRound?.id ?? null;
   };
 
   const startNewRounds = async (
@@ -909,10 +938,14 @@ export const usePokerSession = (
 
     const latestRoundNumber = startingRoundNumber + normalizedTickets.length;
 
-    await supabase
-      .from('poker_sessions')
-      .update({ current_round_number: latestRoundNumber })
-      .eq('id', session.session_id);
+    const batchSessionPatch: Record<string, number> = { current_round_number: latestRoundNumber };
+    if (currentUserId && session.spotlight_user_id === currentUserId) {
+      batchSessionPatch.spotlight_round_number = latestRoundNumber;
+    }
+    await supabase.from('poker_sessions').update(batchSessionPatch).eq('id', session.session_id);
+    if (batchSessionPatch.spotlight_round_number != null) {
+      emitSpotlightServerAligned(session.session_id, latestRoundNumber);
+    }
 
     if (sessionChannelRef.current) {
       await sessionChannelRef.current.send({

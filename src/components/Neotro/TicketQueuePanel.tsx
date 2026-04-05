@@ -51,8 +51,9 @@ interface TicketQueuePanelProps {
   onAddTicket: (
     key: string,
     summary: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => Promise<void>;
+    ticketParent?: { key: string; summary: string } | null,
+    opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+  ) => Promise<string | null>;
   onAddTicketsBatch?: (
     tickets: Array<{
       ticketKey: string;

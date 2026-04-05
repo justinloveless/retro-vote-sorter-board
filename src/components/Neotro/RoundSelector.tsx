@@ -34,7 +34,7 @@ interface RoundSelectorProps {
   ticketMetaByKey: Record<string, JiraTicketMeta>;
   goToRound: (roundNumber: number) => void;
   goToCurrentRound: () => void;
-  deleteRound?: (roundId: string) => Promise<boolean>;
+  deleteRound?: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
   onStartNewRoundRequest?: () => void;
   isAdmin?: boolean;
   /** When true, removes card styling and uses full width (for mobile) */
@@ -154,6 +154,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
           type: isLatestRound ? ('current' as const) : ('round' as const),
           roundNumber: round.round_number,
           isActive: round.is_active,
+          isPendingRound: !!round.is_pending_round,
         };
       });
 
@@ -173,6 +174,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
         type: 'current' as const,
         roundNumber: sessionPointer,
         isActive: true,
+        isPendingRound: false,
       });
     }
 
@@ -536,6 +538,11 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                             <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           )}
                           <span className="font-mono font-semibold">{item.ticketKey}</span>
+                          {item.isPendingRound && (
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                              Pending
+                            </span>
+                          )}
                           {item.pointsLabel && (
                             <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                               {item.pointsLabel}

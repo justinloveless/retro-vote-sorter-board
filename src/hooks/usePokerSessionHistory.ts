@@ -33,6 +33,11 @@ export const POKER_FOLLOW_CURRENT_ROUND_EVENT = 'poker-follow-current-round';
 
 export type PokerFollowCurrentRoundDetail = { sessionId: string; roundNumber: number };
 
+/** Spotlight holder's client: server row already has spotlight_round_number === current_round_number for this round (local strip may still lag). */
+export const POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT = 'poker-spotlight-server-aligned';
+
+export type PokerSpotlightServerAlignedDetail = { sessionId: string; roundNumber: number };
+
 export interface PokerSessionRound {
   id: string;
   session_id: string;
@@ -48,6 +53,8 @@ export interface PokerSessionRound {
   created_at: string;
   game_state: GameState;
   is_active: boolean;
+  /** Spotlight browse preview: not yet committed as a real pointing round. */
+  is_pending_round?: boolean;
   /** False after replay: no auto-reveal when all ready; host reveals manually. */
   auto_reveal_enabled?: boolean;
 }
@@ -362,7 +369,7 @@ export const usePokerSessionHistory = (
     }
   };
 
-  const deleteRound = async (roundId: string) => {
+  const deleteRound = async (roundId: string, options?: { suppressToast?: boolean }) => {
     if (rounds.length <= 1) {
       toast({ title: 'Cannot delete the last round', variant: 'destructive' });
       return false;
@@ -437,7 +444,9 @@ export const usePokerSessionHistory = (
         )
       );
 
-      toast({ title: successTitle });
+      if (!options?.suppressToast) {
+        toast({ title: successTitle });
+      }
       return true;
     } catch (error) {
       console.error('Error deleting round:', error);

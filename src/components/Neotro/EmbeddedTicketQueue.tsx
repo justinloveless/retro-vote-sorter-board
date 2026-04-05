@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from 'react';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -53,8 +53,13 @@ interface EmbeddedTicketQueueProps {
   onAddTicket: (
     key: string,
     summary: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => Promise<void>;
+    ticketParent?: { key: string; summary: string } | null,
+    opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+  ) => Promise<string | null>;
+  /** When you hold the spotlight, browse issue details create a tentative round until you close or commit. */
+  isSpotlightMine?: boolean;
+  deleteRound?: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
+  commitPendingBrowseRound?: (roundId: string) => Promise<void>;
   onAddTicketsBatch?: (
     tickets: Array<{
       ticketKey: string;
@@ -71,7 +76,7 @@ interface EmbeddedTicketQueueProps {
   /** Called when browse fetch completes — parent can merge this into shared ticket metadata to avoid duplicate get-jira-board-issues. */
   onMetadataFromBrowse?: (meta: Record<string, JiraTicketMeta>) => void;
   /** After creating an issue from this panel, add it to the poker session (optional). */
-  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<unknown>;
 }
 
 const STATUS_OPTIONS = [
@@ -159,6 +164,148 @@ function SprintBucket({
   );
 }
 
+/** Spotlight holder: opening browse issue details creates a tentative round; closing without "Add to rounds" removes it. */
+const SpotlightBrowseJiraIssueRow = memo(function SpotlightBrowseJiraIssueRow({
+  issue,
+  teamId,
+  pokerSessionId,
+  onIssueCreated,
+  onAddTicket,
+  deleteRound,
+  rounds,
+  ticketKeysOnSessionRounds,
+  addingKeys,
+  handleAddTicket,
+  commitPendingBrowseRound,
+}: {
+  issue: JiraIssue;
+  teamId: string;
+  pokerSessionId?: string;
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<unknown>;
+  onAddTicket: (
+    key: string,
+    summary: string | null,
+    ticketParent?: { key: string; summary: string } | null,
+    opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+  ) => Promise<string | null>;
+  deleteRound: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
+  rounds: PokerSessionRound[];
+  ticketKeysOnSessionRounds: Set<string>;
+  addingKeys: Set<string>;
+  handleAddTicket: (issue: JiraIssue) => Promise<void>;
+  commitPendingBrowseRound?: (roundId: string) => Promise<void>;
+}) {
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewSessionActive, setPreviewSessionActive] = useState(false);
+  const [committedUi, setCommittedUi] = useState(false);
+  const committedRef = useRef(false);
+  const cancelPreviewRef = useRef(false);
+  const tentativeRoundIdRef = useRef<string | null>(null);
+
+  const blockedBase = ticketKeysOnSessionRounds.has(issue.key);
+  const blocked = blockedBase || previewBusy;
+  const disabledReason = blocked ? getJiraBrowseDisabledReason(issue.key, rounds) : null;
+  const reasonMeta = disabledReason ? JIRA_BROWSE_DISABLED_REASON_META[disabledReason] : null;
+
+  const onDrawerOpenChange = (open: boolean) => {
+    const key = issue.key.trim();
+    if (!key) return;
+    if (open) {
+      if (ticketKeysOnSessionRounds.has(key)) return;
+      committedRef.current = false;
+      setCommittedUi(false);
+      cancelPreviewRef.current = false;
+      tentativeRoundIdRef.current = null;
+      setPreviewSessionActive(true);
+      setPreviewBusy(true);
+      void (async () => {
+        try {
+          const roundId = await onAddTicket(key, issue.summary, issue.parent, {
+            forceNewRound: true,
+            pendingRound: true,
+          });
+          if (cancelPreviewRef.current) {
+            if (roundId) await deleteRound(roundId, { suppressToast: true });
+            return;
+          }
+          if (roundId) tentativeRoundIdRef.current = roundId;
+        } finally {
+          setPreviewBusy(false);
+        }
+      })();
+    } else {
+      cancelPreviewRef.current = true;
+      const tid = tentativeRoundIdRef.current;
+      tentativeRoundIdRef.current = null;
+      setPreviewBusy(false);
+      setPreviewSessionActive(false);
+      if (tid && !committedRef.current) {
+        void deleteRound(tid, { suppressToast: true });
+      }
+      committedRef.current = false;
+      setCommittedUi(false);
+    }
+  };
+
+  const spotlightBrowseRoundActions =
+    previewSessionActive
+      ? {
+          committed: committedUi,
+          onCommitToRounds: () => {
+            committedRef.current = true;
+            setCommittedUi(true);
+            const tid = tentativeRoundIdRef.current;
+            if (tid && commitPendingBrowseRound) void commitPendingBrowseRound(tid);
+          },
+        }
+      : null;
+
+  const issueContent = (
+    <IssueCard
+      browse
+      issue={issue as JiraIssueDisplay}
+      className={reasonMeta ? 'items-start' : undefined}
+      rightSlot={
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {reasonMeta && (
+            <Badge variant={reasonMeta.badgeVariant} className="text-xs px-2 py-0.5">
+              {reasonMeta.label}
+            </Badge>
+          )}
+          <NeotroPressableButton
+            size="sm"
+            isActive={!blocked}
+            activeShowsPressed={false}
+            isDisabled={blocked || addingKeys.has(issue.key)}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleAddTicket(issue);
+            }}
+            aria-label={blocked ? 'Already on a round' : 'Add to active rounds'}
+            title={blocked ? 'Already on a round' : 'Add to rounds'}
+          >
+            {addingKeys.has(issue.key) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </NeotroPressableButton>
+        </div>
+      }
+      cursorPointer={!!teamId}
+    />
+  );
+
+  return (
+    <JiraIssueDrawer
+      key={issue.key}
+      issueIdOrKey={issue.key}
+      teamId={teamId}
+      pokerSessionId={pokerSessionId}
+      onIssueCreated={onIssueCreated}
+      onOpenChange={onDrawerOpenChange}
+      spotlightBrowseRoundActions={spotlightBrowseRoundActions}
+      trigger={issueContent}
+    />
+  );
+});
+
 export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   teamId,
   pokerSessionId,
@@ -171,6 +318,9 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
   onIssueCreated,
   onSelectTicket,
   rounds = [],
+  isSpotlightMine = false,
+  deleteRound,
+  commitPendingBrowseRound,
 }) => {
   const queue = useMemo<{ id: string; ticket_key: string; ticket_summary: string | null; position: number }[]>(
     () => [],
@@ -510,7 +660,28 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
         cursorPointer={!!teamId}
       />
     );
-    return teamId ? (
+    if (!teamId) {
+      return <div key={issue.key}>{issueContent}</div>;
+    }
+    if (isSpotlightMine && deleteRound) {
+      return (
+        <SpotlightBrowseJiraIssueRow
+          key={issue.key}
+          issue={issue}
+          teamId={teamId}
+          pokerSessionId={pokerSessionId}
+          onIssueCreated={onIssueCreated}
+          onAddTicket={onAddTicket}
+          deleteRound={deleteRound}
+          rounds={rounds}
+          ticketKeysOnSessionRounds={ticketKeysOnSessionRounds}
+          addingKeys={addingKeys}
+          handleAddTicket={handleAddTicket}
+          commitPendingBrowseRound={commitPendingBrowseRound}
+        />
+      );
+    }
+    return (
       <JiraIssueDrawer
         key={issue.key}
         issueIdOrKey={issue.key}
@@ -519,8 +690,6 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
         onIssueCreated={onIssueCreated}
         trigger={issueContent}
       />
-    ) : (
-      <div key={issue.key}>{issueContent}</div>
     );
   };
 

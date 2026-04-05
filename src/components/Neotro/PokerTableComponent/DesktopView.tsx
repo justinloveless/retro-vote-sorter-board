@@ -48,6 +48,9 @@ function QueuePanelCard({
   onMetadataFromBrowse,
   onResizeStart,
   className,
+  isSpotlightMine,
+  deleteRound,
+  commitPendingBrowseRound,
 }: {
   teamId: string | undefined;
   pokerSessionId?: string;
@@ -55,8 +58,12 @@ function QueuePanelCard({
   addTicketToQueue: (
     key: string,
     summary: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => Promise<void>;
+    ticketParent?: { key: string; summary: string } | null,
+    opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+  ) => Promise<string | null>;
+  isSpotlightMine: boolean;
+  deleteRound: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
+  commitPendingBrowseRound: (roundId: string) => Promise<void>;
   addTicketsToQueueBatch: (
     tickets: Array<{
       ticketKey: string;
@@ -106,6 +113,9 @@ function QueuePanelCard({
             }}
             onMetadataFromBrowse={onMetadataFromBrowse}
             onIssueCreated={addTicketToQueue}
+            isSpotlightMine={isSpotlightMine}
+            deleteRound={deleteRound}
+            commitPendingBrowseRound={commitPendingBrowseRound}
           />
         ) : (
           <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">
@@ -187,6 +197,8 @@ export const DesktopView: React.FC = () => {
         markChatAsRead,
         chatMessagesForRound,
         deleteRound,
+        isSpotlightMine,
+        commitPendingBrowseRound,
         onPokerBack,
         pokerToolbarExtras,
     } = usePokerTable();
@@ -436,6 +448,9 @@ export const DesktopView: React.FC = () => {
                                         onMetadataFromBrowse={mergeBrowseMetadata}
                                         onResizeStart={(e) => handleResizeStart('left', e)}
                                         className="rounded-l-none"
+                                        isSpotlightMine={isSpotlightMine}
+                                        deleteRound={deleteRound}
+                                        commitPendingBrowseRound={commitPendingBrowseRound}
                                     />
                                     {panelVisibility.jiraBrowser && (
                                         <button
