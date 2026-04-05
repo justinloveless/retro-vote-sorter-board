@@ -137,7 +137,11 @@ interface JiraIssueDrawerProps {
   /** Custom trigger element; when provided, clicking it opens the preview instead of the default button */
   trigger?: React.ReactElement;
   /** After creating a clone (or external create flow), optional hook to add the new ticket to the poker session. */
-  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<void>;
+  onIssueCreated?: (issueKey: string, summary: string) => void | Promise<unknown>;
+  /**
+   * Spotlight browse preview: show "Add to rounds" until the user commits; parent removes the tentative round on close if still uncommitted.
+   */
+  spotlightBrowseRoundActions?: { committed: boolean; onCommitToRounds: () => void } | null;
   /**
    * When set, the drawer opens in preview mode: no Jira fetch; stub data is shown instead.
    * Title and description are editable; changes stay local until onCreateInJira fires.
@@ -632,6 +636,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
   pokerSessionId,
   trigger,
   onIssueCreated,
+  spotlightBrowseRoundActions,
   previewIssue,
   open: openProp,
   onOpenChange,
@@ -644,10 +649,22 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
   const { toast } = useToast();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = openProp !== undefined ? openProp : internalIsOpen;
-  const setIsOpen = useCallback((v: boolean) => {
-    if (openProp !== undefined) { onOpenChange?.(v); }
-    else { setInternalIsOpen(v); }
-  }, [openProp, onOpenChange]);
+  /** Ref avoids stale `fetchIssue` closures: parent passes new `onOpenChange` each render but async open must notify latest callback. */
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+  const setIsOpen = useCallback(
+    (v: boolean) => {
+      if (openProp !== undefined) {
+        onOpenChangeRef.current?.(v);
+      } else {
+        setInternalIsOpen(v);
+        onOpenChangeRef.current?.(v);
+      }
+    },
+    [openProp]
+  );
   const [issueData, setIssueData] = useState<JiraIssueData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -747,7 +764,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       setClicked(false);
       fetchRef.current = null;
     }
-  }, [issueIdOrKey, teamId]);
+  }, [issueIdOrKey, teamId, isPreviewMode, setIsOpen]);
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1511,6 +1528,23 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                       Clone
                     </Button>
                   )}
+                  {!isPreviewMode &&
+                    spotlightBrowseRoundActions &&
+                    !spotlightBrowseRoundActions.committed && (
+                      <NeotroPressableButton
+                        type="button"
+                        onClick={() => spotlightBrowseRoundActions.onCommitToRounds()}
+                        isActive
+                        activeShowsPressed={false}
+                        size="compact"
+                        className="gap-1.5 shrink-0"
+                        aria-label="Keep this ticket as a session round"
+                        title="Keep in the round list when you close this window"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add to rounds
+                      </NeotroPressableButton>
+                    )}
                   {isPreviewMode && onCreateInJira ? (
                     <NeotroPressableButton
                       onClick={() => {
@@ -1518,7 +1552,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                         const desc = issueData?.fields.description ?? previewIssue?.description ?? '';
                         void onCreateInJira({ summary: sum, description: desc as string | Record<string, unknown> });
                       }}
-                      disabled={createInJiraLoading || !(issueData?.fields.summary ?? '').trim()}
+                      isDisabled={createInJiraLoading || !(issueData?.fields.summary ?? '').trim()}
                       isActive
                       activeShowsPressed={false}
                       size="compact"

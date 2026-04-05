@@ -775,6 +775,7 @@ export type Database = {
           game_state: string
           id: string
           is_active: boolean
+          is_pending_round: boolean
           round_number: number
           selections: Json
           session_id: string
@@ -793,6 +794,7 @@ export type Database = {
           game_state?: string
           id?: string
           is_active?: boolean
+          is_pending_round?: boolean
           round_number: number
           selections?: Json
           session_id: string
@@ -811,6 +813,7 @@ export type Database = {
           game_state?: string
           id?: string
           is_active?: boolean
+          is_pending_round?: boolean
           round_number?: number
           selections?: Json
           session_id?: string

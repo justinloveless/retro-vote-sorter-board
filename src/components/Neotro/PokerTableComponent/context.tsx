@@ -14,6 +14,8 @@ import {
   PokerSessionRound,
   type PokerHistoryTeamRoute,
   POKER_FOLLOW_CURRENT_ROUND_EVENT,
+  POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT,
+  type PokerSpotlightServerAlignedDetail,
 } from '@/hooks/usePokerSessionHistory';
 import { usePokerSessionChat } from '@/hooks/usePokerSessionChat';
 import { useSlackIntegration } from '@/hooks/useSlackIntegration';
@@ -91,7 +93,7 @@ interface PokerTableContextProps {
   goToNextRound: () => void;
   goToCurrentRound: () => void;
   goToRound: (roundNumber: number) => void;
-  deleteRound: (roundId: string) => Promise<boolean>;
+  deleteRound: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
   /** New chat messages on other rounds while viewing a different round (for round strip badges). */
   chatNewMessageCountByRound: Record<number, number>;
@@ -139,8 +141,11 @@ interface PokerTableContextProps {
   addTicketToQueue: (
     ticketKey: string,
     ticketSummary: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => Promise<void>;
+    ticketParent?: { key: string; summary: string } | null,
+    opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+  ) => Promise<string | null>;
+  /** Clear spotlight browse preview flag after the user commits "Add to rounds". */
+  commitPendingBrowseRound: (roundId: string) => Promise<void>;
   addTicketsToQueueBatch: (
     tickets: Array<{
       ticketKey: string;
@@ -182,8 +187,9 @@ export interface PokerTableProviderProps {
   startNewRound: (
     ticketNumber?: string,
     ticketTitle?: string | null,
-    ticketParent?: { key: string; summary: string } | null
-  ) => void;
+    ticketParent?: { key: string; summary: string } | null,
+    options?: { pendingRound?: boolean }
+  ) => Promise<string | null> | void;
   startNewRounds?: (
     tickets: Array<{
       ticketNumber: string;
@@ -302,6 +308,47 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     pokerRouteContext ?? null
   );
 
+  /** While local strip lags behind a new round, don't write spotlight_round_number back to a stale viewed round. */
+  const spotlightSyncGuardRef = useRef<{ floorRound: number } | null>(null);
+
+  const clearSpotlightSyncGuard = useCallback(() => {
+    spotlightSyncGuardRef.current = null;
+  }, []);
+
+  const goToRoundWithGuardClear = useCallback(
+    (roundNumber: number) => {
+      clearSpotlightSyncGuard();
+      goToRound(roundNumber);
+    },
+    [goToRound, clearSpotlightSyncGuard]
+  );
+
+  const goToPreviousRoundWithGuardClear = useCallback(() => {
+    clearSpotlightSyncGuard();
+    goToPreviousRound();
+  }, [goToPreviousRound, clearSpotlightSyncGuard]);
+
+  const goToNextRoundWithGuardClear = useCallback(() => {
+    clearSpotlightSyncGuard();
+    goToNextRound();
+  }, [goToNextRound, clearSpotlightSyncGuard]);
+
+  const goToCurrentRoundWithGuardClear = useCallback(() => {
+    clearSpotlightSyncGuard();
+    goToCurrentRound();
+  }, [goToCurrentRound, clearSpotlightSyncGuard]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<PokerSpotlightServerAlignedDetail>;
+      const d = ce.detail;
+      if (!d?.sessionId || d.sessionId !== session?.session_id || typeof d.roundNumber !== 'number') return;
+      spotlightSyncGuardRef.current = { floorRound: d.roundNumber };
+    };
+    window.addEventListener(POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT, handler);
+    return () => window.removeEventListener(POKER_SPOTLIGHT_SERVER_ALIGNED_EVENT, handler);
+  }, [session?.session_id]);
+
   const [optimisticRoundsById, setOptimisticRoundsById] = useState<Record<string, PokerSessionRound>>({});
 
   const effectiveCurrentRound =
@@ -319,13 +366,14 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     async (
       ticketKey: string,
       ticketSummary: string | null,
-      ticketParent?: { key: string; summary: string } | null
-    ) => {
+      ticketParent?: { key: string; summary: string } | null,
+      opts?: { forceNewRound?: boolean; pendingRound?: boolean }
+    ): Promise<string | null> => {
       const normalizedTicketKey = ticketKey.trim();
-      if (!normalizedTicketKey) return;
+      if (!normalizedTicketKey) return null;
       const sess = session;
       const noTicketOnCurrentRound = sess && isSyntheticRoundTicket(sess.ticket_number);
-      if (noTicketOnCurrentRound) {
+      if (noTicketOnCurrentRound && !opts?.forceNewRound) {
         const liveRoundId = sess.id;
         const baseRound =
           rounds.find((r) => r.id === liveRoundId) ??
@@ -350,9 +398,16 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
           }
         }
         await updateLiveRoundTicketNumber(normalizedTicketKey, ticketSummary, ticketParent);
-        return;
+        return typeof liveRoundId === 'string' ? liveRoundId : null;
       }
-      await startNewRound(normalizedTicketKey, ticketSummary, ticketParent);
+      const out = startNewRound(
+        normalizedTicketKey,
+        ticketSummary,
+        ticketParent,
+        opts?.pendingRound ? { pendingRound: true } : undefined
+      ) as Promise<string | null | void> | string | null | void;
+      const resolved: unknown = await Promise.resolve(out);
+      return typeof resolved === 'string' ? resolved : null;
     },
     [
       session,
@@ -362,6 +417,21 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
       updateLiveRoundTicketNumber,
     ]
   );
+
+  const commitPendingBrowseRound = useCallback(async (roundId: string) => {
+    const id = roundId.trim();
+    if (!id) return;
+    setOptimisticRoundsById((prev) => {
+      const base = prev[id];
+      if (!base) return prev;
+      return { ...prev, [id]: { ...base, is_pending_round: false } };
+    });
+    const { error } = await supabase
+      .from('poker_session_rounds')
+      .update({ is_pending_round: false })
+      .eq('id', id);
+    if (error) console.error('commitPendingBrowseRound', error);
+  }, []);
 
   const addTicketsToQueueBatch = useCallback(
     async (
@@ -586,7 +656,18 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   useEffect(() => {
     if (!isSpotlightMine || !effectiveCurrentRound || activeUserId == null) return;
     const rn = effectiveCurrentRound.round_number;
+
+    const g = spotlightSyncGuardRef.current;
+    if (g && rn >= g.floorRound) {
+      spotlightSyncGuardRef.current = null;
+    }
+
     if (session?.spotlight_round_number === rn) return;
+
+    const g2 = spotlightSyncGuardRef.current;
+    if (g2 && rn < g2.floorRound) {
+      return;
+    }
 
     const t = window.setTimeout(() => {
       void updateSessionConfig({
@@ -601,6 +682,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     effectiveCurrentRound?.round_number,
     activeUserId,
     session?.spotlight_round_number,
+    session?.current_round_number,
     mySpotlightClientId,
     updateSessionConfig,
   ]);
@@ -623,23 +705,22 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     session?.session_id,
   ]);
 
-  const deactivateCurrentRound = () => {
+  const deactivateCurrentRound = async () => {
     const currentRoundId = effectiveCurrentRound?.id;
-    if (!currentRoundId) return Promise.resolve();
+    if (!currentRoundId) return;
     setOptimisticRoundsById((prev) => ({
       ...prev,
       [currentRoundId]: { ...(effectiveCurrentRound as PokerSessionRound), is_active: false },
     }));
-    return supabase
-      .from('poker_session_rounds')
-      .update({ is_active: false })
-      .eq('id', currentRoundId)
-      .then(({ error }) => {
-        if (error) console.error('Error deactivating current round:', error);
-      })
-      .catch((e) => {
-        console.error('Unexpected error deactivating current round:', e);
-      });
+    try {
+      const { error } = await supabase
+        .from('poker_session_rounds')
+        .update({ is_active: false })
+        .eq('id', currentRoundId);
+      if (error) console.error('Error deactivating current round:', error);
+    } catch (e) {
+      console.error('Unexpected error deactivating current round:', e);
+    }
   };
 
   /** Deactivates current round and navigates to next active without creating a new one. */
@@ -651,7 +732,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     const navigateTo = remaining.length > 0 ? remaining[0] : null;
 
     void deactivateCurrentRound().then(() => {
-      if (navigateTo) goToRound(navigateTo.round_number);
+      if (navigateTo) goToRoundWithGuardClear(navigateTo.round_number);
     });
   };
 
@@ -683,12 +764,12 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     // "Next Round" always deactivates the currently selected round first.
     const currentRoundId = effectiveCurrentRound?.id;
     if (!currentRoundId) {
-      goToRound(next.round_number);
+      goToRoundWithGuardClear(next.round_number);
       return;
     }
 
     void deactivateCurrentRound().then(() => {
-      goToRound(next.round_number);
+      goToRoundWithGuardClear(next.round_number);
     });
   };
 
@@ -1377,10 +1458,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     canGoBack,
     canGoForward,
     currentRoundIndex,
-    goToPreviousRound,
-    goToNextRound,
-    goToCurrentRound,
-    goToRound,
+    goToPreviousRound: goToPreviousRoundWithGuardClear,
+    goToNextRound: goToNextRoundWithGuardClear,
+    goToCurrentRound: goToCurrentRoundWithGuardClear,
+    goToRound: goToRoundWithGuardClear,
     deleteRound,
     chatMessagesForRound,
     chatNewMessageCountByRound,
@@ -1419,6 +1500,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     setStartNewRoundDialogOpen,
     onStartNewRoundRequest,
     addTicketToQueue,
+    commitPendingBrowseRound,
     addTicketsToQueueBatch,
     isQueuePanelOpen,
     setQueuePanelOpen,

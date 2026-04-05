@@ -21,8 +21,9 @@ interface PokerTableProps {
     startNewRound: (
         ticketNumber?: string,
         ticketTitle?: string | null,
-        ticketParent?: { key: string; summary: string } | null
-    ) => void;
+        ticketParent?: { key: string; summary: string } | null,
+        options?: { pendingRound?: boolean }
+    ) => Promise<string | null> | void;
     startNewRounds?: (
         tickets: Array<{
             ticketNumber: string;
