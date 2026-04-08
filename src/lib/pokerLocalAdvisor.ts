@@ -24,6 +24,36 @@ export function normalizeSplitDetailsUrl(baseUrl: string): string {
   return `${advisorOrigin(baseUrl)}/split-details`;
 }
 
+/** POST target: compare local advisor version to manifest on the Retroscope deployment */
+export function normalizeUpdateCheckUrl(baseUrl: string): string {
+  return `${advisorOrigin(baseUrl)}/update/check`;
+}
+
+/** POST target: download and install advisor files from the manifest (restart usually required) */
+export function normalizeUpdateUrl(baseUrl: string): string {
+  return `${advisorOrigin(baseUrl)}/update`;
+}
+
+export type PokerLocalAdvisorUpdateChannel = 'stable' | 'nightly';
+
+export type PokerAdvisorUpdateCheckResult = {
+  currentVersion: string;
+  currentChannel: string;
+  remoteVersion: string;
+  remoteChannel: string;
+  updateAvailable: boolean;
+  updateOrigin: string;
+};
+
+export type PokerAdvisorUpdateInstallResult = {
+  ok: boolean;
+  alreadyLatest?: boolean;
+  previousVersion?: string;
+  newVersion?: string;
+  restartRequired?: boolean;
+  error?: string;
+};
+
 export type PokerAdvisorQAItem = {
   id: string;
   question: string;

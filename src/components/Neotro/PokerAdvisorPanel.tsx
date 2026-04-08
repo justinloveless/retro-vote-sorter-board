@@ -22,6 +22,7 @@ import { usePokerAdvisorPrefetch } from '@/hooks/usePokerAdvisorPrefetch';
 import { usePokerAdvisorEstimateSource } from '@/hooks/usePokerAdvisorEstimateSource';
 import type { GameState } from '@/hooks/usePokerSession';
 import { PokerLocalAdvisorDownload } from '@/components/account/PokerLocalAdvisorDownload';
+import { PokerLocalAdvisorSelfUpdate } from '@/components/account/PokerLocalAdvisorSelfUpdate';
 import {
   normalizeSplitDetailsResponse,
   normalizeSplitDetailsUrl,
@@ -642,6 +643,11 @@ export const PokerAdvisorPanel: React.FC = () => {
                   </Button>
                 </div>
               </div>
+
+              <PokerLocalAdvisorSelfUpdate
+                baseUrl={(profile?.poker_advisor_base_url || '').trim()}
+                compact
+              />
 
               {paused && (
                 <p className="text-xs text-amber-700 dark:text-amber-500/90">

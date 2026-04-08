@@ -13,6 +13,7 @@ import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { FEATURE_POKER_LOCAL_ADVISOR } from '@/constants/featureFlags';
 import { combineAdvisorPrompts, normalizeAdviseUrl, normalizeHealthUrl } from '@/lib/pokerLocalAdvisor';
 import { PokerLocalAdvisorDownload } from '@/components/account/PokerLocalAdvisorDownload';
+import { PokerLocalAdvisorSelfUpdate } from '@/components/account/PokerLocalAdvisorSelfUpdate';
 import { usePokerAdvisorPause } from '@/hooks/usePokerAdvisorPause';
 
 export const PokerAdvisorSettings: React.FC = () => {
@@ -249,6 +250,8 @@ export const PokerAdvisorSettings: React.FC = () => {
             the zip for step-by-step setup.
           </p>
         </div>
+
+        <PokerLocalAdvisorSelfUpdate baseUrl={baseUrl} />
 
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
