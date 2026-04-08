@@ -17,15 +17,8 @@ export default defineConfig(({ mode, command }) => {
       // silently using 8082+ — avoids “I ran dev but still see an old build on :8081”.
       strictPort: true,
     },
-    build: {
-      rollupOptions: {
-        output: {
-          // Atlaskit renderer pulls in a large dynamic-import graph (react-loadable).
-          // Inline to avoid Rollup chunk assignment edge cases.
-          inlineDynamicImports: true,
-        },
-      },
-    },
+    // Avoid inlineDynamicImports: one giant chunk made @atlaskit/editor-core hit TDZ errors
+    // in production ("Cannot access '…' before initialization") due to circular ESM + minify.
     plugins: [
       react(),
       mode === 'development' &&
