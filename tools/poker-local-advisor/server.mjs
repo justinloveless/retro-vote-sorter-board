@@ -9,10 +9,14 @@
  *   Or path to an executable: receives JSON on stdin; prints JSON on stdout.
  * Optional: POKER_ADVISOR_HANDLER=/path/to/executable (used when --handler is omitted)
  * Optional: HOST=0.0.0.0 (default) listens on all interfaces; HOST=127.0.0.1 for loopback only.
+ * Self-update: POST /update/check, POST /update (see README).
  */
 
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { defaultInstallDir, runUpdateCheck, runUpdateInstall } from './update.mjs';
 import { runClaudeAdvisor } from './handlers/claude-code.mjs';
 import { runClaudeContext } from './handlers/claude-code-context.mjs';
 import { runClaudeSplitDetails } from './handlers/claude-code-split-details.mjs';
@@ -21,6 +25,21 @@ import { runGeminiAdvisor, runGeminiSplitDetails } from './handlers/gemini-cli.m
 const PORT = Number(process.env.PORT || 17300);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const LOG_TRUNC = 400;
+
+const INSTALL_DIR = defaultInstallDir(import.meta.url);
+const ALLOW_REMOTE_UPDATE = process.env.POKER_ADVISOR_ALLOW_UPDATE !== '0';
+
+function readHealthVersion() {
+  try {
+    const j = JSON.parse(readFileSync(join(INSTALL_DIR, 'version.json'), 'utf8'));
+    return {
+      version: typeof j.version === 'string' ? j.version : 'unknown',
+      channel: typeof j.channel === 'string' ? j.channel : 'stable',
+    };
+  } catch {
+    return { version: 'unknown', channel: 'unknown' };
+  }
+}
 
 /** @typedef {{ kind: 'stub' } | { kind: 'builtin', run: (p: Record<string, unknown>) => Promise<Record<string, unknown>> } | { kind: 'external', path: string }} ResolvedHandler */
 
@@ -64,7 +83,8 @@ function printHelp() {
               Or path to an executable (stdin JSON → stdout JSON).
               If omitted, uses env POKER_ADVISOR_HANDLER, else defaults to claude-code.
 
-Environment: PORT (default 17300), HOST (default 0.0.0.0), POKER_ADVISOR_HANDLER
+Environment: PORT (default 17300), HOST (default 0.0.0.0), POKER_ADVISOR_HANDLER,
+             POKER_ADVISOR_UPDATE_ORIGIN, POKER_ADVISOR_ALLOW_UPDATE, POKER_ADVISOR_AUTO_RESTART
 `);
 }
 
@@ -244,8 +264,78 @@ const server = http.createServer(async (req, res) => {
   }
 
   if ((req.method === 'GET' || req.method === 'HEAD') && pathname === '/health') {
+    const v = readHealthVersion();
     res.writeHead(200, corsHeaders());
-    res.end(req.method === 'HEAD' ? '' : JSON.stringify({ ok: true, service: 'poker-local-advisor' }));
+    res.end(
+      req.method === 'HEAD'
+        ? ''
+        : JSON.stringify({
+            ok: true,
+            service: 'poker-local-advisor',
+            version: v.version,
+            channel: v.channel,
+          }),
+    );
+    return;
+  }
+
+  const updatePath = pathname.replace(/\/+$/, '') || '/';
+  if (req.method === 'POST' && (updatePath === '/update/check' || updatePath === '/update')) {
+    if (!ALLOW_REMOTE_UPDATE) {
+      res.writeHead(403, corsHeaders());
+      res.end(
+        JSON.stringify({ error: 'Remote update is disabled (POKER_ADVISOR_ALLOW_UPDATE=0).' }),
+      );
+      return;
+    }
+
+    let updateBody = '';
+    for await (const chunk of req) {
+      updateBody += chunk;
+    }
+
+    let updateParsed = {};
+    try {
+      updateParsed = updateBody ? JSON.parse(updateBody) : {};
+    } catch {
+      logLine('request POST', updatePath, 'invalid JSON');
+      res.writeHead(400, corsHeaders());
+      res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+      return;
+    }
+
+    const channel = updateParsed.channel === 'nightly' ? 'nightly' : 'stable';
+    const headers = /** @type {Record<string, string | string[] | undefined>} */ ({ ...req.headers });
+
+    try {
+      if (updatePath === '/update/check') {
+        logLine('request POST /update/check', JSON.stringify({ channel }));
+        const result = await runUpdateCheck({
+          installDir: INSTALL_DIR,
+          channel,
+          headers,
+          envUpdateOrigin: process.env.POKER_ADVISOR_UPDATE_ORIGIN,
+        });
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify(result));
+      } else {
+        logLine('request POST /update', JSON.stringify({ channel }));
+        const result = await runUpdateInstall({
+          installDir: INSTALL_DIR,
+          channel,
+          headers,
+          envUpdateOrigin: process.env.POKER_ADVISOR_UPDATE_ORIGIN,
+        });
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify(result));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Update failed';
+      const code = /** @type {{ code?: string }} */ (e).code === 'NO_ORIGIN' ? 400 : 500;
+      logLine('update error', msg);
+      res.writeHead(code, corsHeaders());
+      res.end(JSON.stringify({ error: msg }));
+    }
     return;
   }
 
@@ -344,6 +434,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.error(
-    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise, POST /context, POST /split-details; handler=${handlerLabel()})`,
+    `[poker-local-advisor] listening on http://${HOST}:${PORT} (GET /health, POST /advise, POST /context, POST /split-details, POST /update/check, POST /update; handler=${handlerLabel()})`,
   );
 });
