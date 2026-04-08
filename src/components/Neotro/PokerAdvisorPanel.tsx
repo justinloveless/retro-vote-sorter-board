@@ -604,6 +604,8 @@ export const PokerAdvisorPanel: React.FC = () => {
                             placeholder="Optional instructions sent with each /advise request…"
                           />
                         </div>
+
+                        <PokerLocalAdvisorSelfUpdate baseUrl={draftBaseUrl.trim()} />
                       </div>
 
                       <DialogFooter>
@@ -643,11 +645,6 @@ export const PokerAdvisorPanel: React.FC = () => {
                   </Button>
                 </div>
               </div>
-
-              <PokerLocalAdvisorSelfUpdate
-                baseUrl={(profile?.poker_advisor_base_url || '').trim()}
-                compact
-              />
 
               {paused && (
                 <p className="text-xs text-amber-700 dark:text-amber-500/90">
