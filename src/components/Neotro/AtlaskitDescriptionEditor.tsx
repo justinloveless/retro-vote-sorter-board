@@ -49,8 +49,9 @@ const AtlaskitDescriptionEditorInner: React.ForwardRefRenderFunction<
         if (!Comp) throw new Error('Editor export not found');
         setEditorComponent(() => Comp);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
+        console.error('[AtlaskitDescriptionEditor] failed to load @atlaskit/editor-core', err);
         setLoadError(true);
       });
     return () => { cancelled = true; };
