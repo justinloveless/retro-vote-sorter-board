@@ -30,6 +30,7 @@ export default defineConfig(({ mode, command }) => {
       },
       dedupe: [
         "react-intl-next",
+        "@atlaskit/feature-gate-js-client",
         "@atlaskit/link-provider",
         "prosemirror-state",
         "prosemirror-model",
