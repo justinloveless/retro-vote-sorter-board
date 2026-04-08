@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useImperativeHandle, forwardRef } from 'rea
 import { IntlProvider } from 'react-intl-next';
 import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
 import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
+import { ensureAtlaskitFeatureGates } from '@/lib/ensureAtlaskitFeatureGates';
 import type EditorActions from '@atlaskit/editor-core/actions';
 
 export interface AtlaskitDescriptionEditorHandle {
@@ -37,12 +38,24 @@ const AtlaskitDescriptionEditorInner: React.ForwardRefRenderFunction<
 
   React.useEffect(() => {
     let cancelled = false;
-    import('prosemirror-state').then(({ Selection }) => {
-      const orig = Selection.jsonID;
-      Selection.jsonID = function (id: string, cls: any) {
-        try { return orig.call(this, id, cls); } catch { return cls; }
-      };
-    }).catch(() => {}).then(() => import('@atlaskit/editor-core'))
+    ensureAtlaskitFeatureGates()
+      .then(() => {
+        if (cancelled) return;
+        return import('prosemirror-state');
+      })
+      .then((pm) => {
+        if (cancelled || !pm) return;
+        const { Selection } = pm;
+        const orig = Selection.jsonID;
+        Selection.jsonID = function (id: string, cls: any) {
+          try { return orig.call(this, id, cls); } catch { return cls; }
+        };
+      })
+      .catch(() => {})
+      .then(() => {
+        if (cancelled) return;
+        return import('@atlaskit/editor-core');
+      })
       .then((mod) => {
         if (cancelled) return;
         const Comp = (mod as any).default ?? (mod as any).Editor;
