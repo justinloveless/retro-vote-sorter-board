@@ -3,26 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Zap, Crown, Building2, Sparkles } from 'lucide-react';
-
-interface TierConfig {
-  maxTeams: number | null;
-  maxMembersPerTeam: number | null;
-  maxActiveBoards: number | null;
-  features: string[];
-  featureFlags?: Record<string, boolean>;
-}
-
-interface AllTierLimits {
-  free: TierConfig;
-  pro: TierConfig;
-  business: TierConfig;
-  enterprise: TierConfig;
-}
+import {
+  type AllTierLimits,
+  DEFAULT_ALL_TIER_LIMITS,
+  mergeStoredTierLimits,
+} from '@/constants/adminTierLimits';
 
 interface FeatureFlag {
   flag_name: string;
@@ -30,18 +20,25 @@ interface FeatureFlag {
   is_enabled: boolean;
 }
 
-const DEFAULT_LIMITS: AllTierLimits = {
-  free: { maxTeams: 1, maxMembersPerTeam: 5, maxActiveBoards: 3, features: ['Up to 5 team members', '1 team', '3 active boards', 'Basic retro & poker', 'Community support'], featureFlags: {} },
-  pro: { maxTeams: 5, maxMembersPerTeam: 25, maxActiveBoards: null, features: ['Up to 25 team members', 'Up to 5 teams', 'AI sentiment analysis', 'Audio summaries', 'Admin features', 'Unlimited boards'], featureFlags: {} },
-  business: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['Unlimited team members', 'Unlimited teams', 'All AI features', 'Advanced admin features', 'Priority support', 'Custom branding (coming soon)'], featureFlags: {} },
-  enterprise: { maxTeams: null, maxMembersPerTeam: null, maxActiveBoards: null, features: ['All Business features', 'Organizations', 'Per-seat billing ($5/seat/month)', 'VIP support', 'Org-wide team management', 'Shared resources across org'], featureFlags: {} },
-};
+function effectiveFlagForTier(
+  flag: FeatureFlag,
+  tierFeatureFlags: Record<string, boolean> | undefined
+): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+  if (!flag.is_enabled) {
+    return { label: 'Globally off', variant: 'secondary' };
+  }
+  const map = tierFeatureFlags || {};
+  if (flag.flag_name in map && map[flag.flag_name] === false) {
+    return { label: 'Blocked for tier', variant: 'outline' };
+  }
+  return { label: 'On for tier', variant: 'default' };
+}
 
 const TIER_ICONS = { free: Zap, pro: Crown, business: Building2, enterprise: Sparkles };
 const TIER_LABELS = { free: 'Free', pro: 'Pro', business: 'Business', enterprise: 'Enterprise' };
 
 export const TierLimitsManager: React.FC = () => {
-  const [limits, setLimits] = useState<AllTierLimits>(DEFAULT_LIMITS);
+  const [limits, setLimits] = useState<AllTierLimits>(DEFAULT_ALL_TIER_LIMITS);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [activeTier, setActiveTier] = useState<keyof AllTierLimits>('free');
   const [loading, setLoading] = useState(true);
@@ -58,13 +55,7 @@ export const TierLimitsManager: React.FC = () => {
         supabase.from('feature_flags').select('*'),
       ]);
       if (limitsRes.data?.value) {
-        const parsed = JSON.parse(limitsRes.data.value);
-        setLimits({
-          free: { ...DEFAULT_LIMITS.free, ...parsed.free },
-          pro: { ...DEFAULT_LIMITS.pro, ...parsed.pro },
-          business: { ...DEFAULT_LIMITS.business, ...parsed.business },
-          enterprise: { ...DEFAULT_LIMITS.enterprise, ...parsed.enterprise },
-        });
+        setLimits(mergeStoredTierLimits(JSON.parse(limitsRes.data.value)));
       }
       if (flagsRes.data) {
         setFlags(flagsRes.data);
@@ -91,7 +82,7 @@ export const TierLimitsManager: React.FC = () => {
     }
   };
 
-  const updateLimit = (tier: keyof AllTierLimits, field: keyof Omit<TierConfig, 'features' | 'featureFlags'>, value: string) => {
+  const updateLimit = (tier: keyof AllTierLimits, field: 'maxTeams' | 'maxMembersPerTeam' | 'maxActiveBoards', value: string) => {
     setLimits(prev => ({
       ...prev,
       [tier]: {
@@ -111,19 +102,6 @@ export const TierLimitsManager: React.FC = () => {
     }));
   };
 
-  const toggleFeatureFlag = (tier: keyof AllTierLimits, flagName: string, checked: boolean) => {
-    setLimits(prev => ({
-      ...prev,
-      [tier]: {
-        ...prev[tier],
-        featureFlags: {
-          ...(prev[tier].featureFlags || {}),
-          [flagName]: checked,
-        },
-      },
-    }));
-  };
-
   if (loading) {
     return (
       <Card>
@@ -138,7 +116,9 @@ export const TierLimitsManager: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Plan Tier Limits</CardTitle>
-        <CardDescription>Configure features, limits, and feature flag access for each subscription tier. Use blank or 0 for unlimited.</CardDescription>
+        <CardDescription>
+          Configure numeric limits and marketing feature bullets per tier. Feature flag access per tier is read-only here; edit it on the Feature Flags admin page for each flag.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs value={activeTier} onValueChange={(value) => setActiveTier(value as keyof AllTierLimits)}>
@@ -152,7 +132,7 @@ export const TierLimitsManager: React.FC = () => {
         </Tabs>
         {(() => {
           const Icon = TIER_ICONS[activeTier];
-          const config = limits[activeTier] || DEFAULT_LIMITS[activeTier];
+          const config = limits[activeTier] || DEFAULT_ALL_TIER_LIMITS[activeTier];
           const tierFlags = config.featureFlags || {};
           return (
             <div className="border rounded-lg p-4 space-y-4">
@@ -194,23 +174,30 @@ export const TierLimitsManager: React.FC = () => {
               </div>
               {flags.length > 0 && (
                 <div>
-                  <Label className="text-xs mb-2 block">Feature Flags Access</Label>
+                  <Label className="text-xs mb-2 block">Feature flags (read-only)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Effective access when overrides do not apply: globally on, not explicitly blocked for this tier. Manage tier access under Admin → Feature Flags.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {flags.map(flag => (
-                      <label
-                        key={flag.flag_name}
-                        className="flex items-center gap-2 p-2 rounded border border-border hover:bg-muted/50 cursor-pointer text-sm"
-                      >
-                        <Checkbox
-                          checked={tierFlags[flag.flag_name] ?? false}
-                          onCheckedChange={(checked) => toggleFeatureFlag(activeTier, flag.flag_name, !!checked)}
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{flag.flag_name}</span>
-                          {flag.description && <span className="text-xs text-muted-foreground">{flag.description}</span>}
+                    {flags.map((flag) => {
+                      const { label, variant } = effectiveFlagForTier(flag, tierFlags);
+                      return (
+                        <div
+                          key={flag.flag_name}
+                          className="flex items-start justify-between gap-2 p-2 rounded border border-border text-sm"
+                        >
+                          <div className="min-w-0 flex flex-col">
+                            <span className="font-medium text-foreground">{flag.flag_name}</span>
+                            {flag.description && (
+                              <span className="text-xs text-muted-foreground">{flag.description}</span>
+                            )}
+                          </div>
+                          <Badge variant={variant} className="shrink-0">
+                            {label}
+                          </Badge>
                         </div>
-                      </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
