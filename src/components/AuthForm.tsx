@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ interface AuthFormProps {
 }
 
 export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -145,6 +147,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo })
         description: "Welcome back!",
       });
 
+      if (redirectTo) {
+        navigate(redirectTo, { replace: true });
+      }
       onAuthSuccess();
     } catch (error: any) {
       toast({

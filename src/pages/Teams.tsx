@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,6 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Teams = () => {
   const navigate = useNavigate();
+  const { pathname, search, hash } = useLocation();
+  const authReturnTo = `${pathname}${search}${hash}`;
   const { user, profile, loading: authLoading } = useAuth();
   const { teams, loading, createTeam } = useTeams();
   const { limits, tier } = useSubscriptionLimits();
@@ -97,7 +99,7 @@ const Teams = () => {
   }
 
   if (!user) {
-    return <AuthForm redirectTo={`/teams`} onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={authReturnTo} onAuthSuccess={() => { }} />;
   }
 
   if (loading) {

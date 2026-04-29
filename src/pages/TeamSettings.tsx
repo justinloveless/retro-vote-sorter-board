@@ -21,7 +21,8 @@ function emptyPointDescriptionForm(): Record<string, string> {
 const TeamSettingsPage = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { hash } = useLocation();
+  const { hash, pathname, search } = useLocation();
+  const authReturnTo = `${pathname}${search}${hash}`;
   const { profile, loading: authLoading } = useAuth();
   const [team, setTeam] = useState<any>(null);
   const [teamSettings, setTeamSettings] = useState<TeamSettings | null>(null);
@@ -193,7 +194,7 @@ const TeamSettingsPage = () => {
   }
 
   if (!profile) {
-    return <AuthForm redirectTo={`/teams/${teamId}/settings`} onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={authReturnTo} onAuthSuccess={() => { }} />;
   }
 
   if (!team || !teamSettings || !jiraSettings) {
