@@ -1,5 +1,6 @@
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import PokerTable from "@/components/Neotro/PokerTable";
+import { AuthForm } from '@/components/AuthForm';
 import { useAuth } from '@/hooks/useAuth';
 import { usePokerSession } from '@/hooks/usePokerSession';
 import { AppHeader } from '@/components/AppHeader';
@@ -28,6 +29,8 @@ const NeotroPage = () => {
   const { teamId, sessionId } = useParams<{ teamId: string; sessionId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { pathname, search, hash } = useLocation();
+  const authReturnTo = `${pathname}${search}${hash}`;
   const roundParam = searchParams.get('round');
   const requestedRoundNumberFromUrl = useMemo(() => {
     if (roundParam == null || roundParam === '') return null;
@@ -127,7 +130,19 @@ const NeotroPage = () => {
     });
   }, [profile?.id, session?.session_id]);
 
-  if (loadingAuth || loadingSession || loadingRole || loadingFlags) {
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-muted-foreground">Loading Session...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthForm redirectTo={authReturnTo} onAuthSuccess={() => {}} />;
+  }
+
+  if (loadingSession || loadingRole || loadingFlags) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-muted-foreground">Loading Session...</div>

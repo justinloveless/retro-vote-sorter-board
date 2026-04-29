@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +36,8 @@ const Team = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { pathname, search, hash } = useLocation();
+  const authReturnTo = `${pathname}${search}${hash}`;
   const { checkBoardLimit } = useSubscriptionLimits();
   const { isFeatureEnabled } = useFeatureFlags();
   const pokerEnabled = isFeatureEnabled('poker_pointing_sessions');
@@ -199,7 +201,7 @@ const Team = () => {
   }
 
   if (!user) {
-    return <AuthForm redirectTo={`/teams/${teamId}`} onAuthSuccess={() => { }} />;
+    return <AuthForm redirectTo={authReturnTo} onAuthSuccess={() => { }} />;
   }
 
   if (!team) {
