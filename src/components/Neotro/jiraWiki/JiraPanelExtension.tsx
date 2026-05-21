@@ -48,7 +48,7 @@ export const JiraPanelExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(JiraPanelView);
   },
-  addProseMirrorPlugins() {
+  addProseMirrorPlugins(): any {
     const panelType = this.type;
 
     const isSelectionInsidePanel = (state: { selection: any }) => {

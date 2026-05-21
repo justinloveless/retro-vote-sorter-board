@@ -963,14 +963,14 @@ export const MobileView: React.FC = () => {
                         <PointsDetails
                             selectedPoint={activeUserSelection.points}
                             isHandPlayed={displaySession.game_state === 'Playing'}
-                            winningVote={displayWinningVote}
+                            winningPoints={displayWinningPoints}
                             ticketNumber={displayTicketNumber}
                             onTicketNumberChange={handleTicketNumberChange}
                             onTicketNumberFocus={handleTicketNumberFocus}
                             onTicketNumberBlur={handleTicketNumberBlur}
                             teamId={teamId}
                             pokerSessionId={session?.session_id}
-                            onIssueCreated={addTicketToQueue}
+                            onIssueCreated={(k, s) => { void addTicketToQueue(k, s); }}
                         />
                         <div className='flex justify-end pt-2'>
                             <Button variant="outline" size="sm" onClick={() => { setIsDrawerOpen(false); setIsSettingsOpen(true); }}>

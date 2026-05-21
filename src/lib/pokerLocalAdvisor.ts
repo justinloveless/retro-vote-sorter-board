@@ -231,7 +231,7 @@ export function normalizeAdvisorResponse(raw: unknown): PokerAdvisorResponse | n
       const kind: PokerAdvisorQuestion['kind'] = kindRaw === 'choice' ? 'choice' : 'text';
       const choices =
         kind === 'choice' && Array.isArray(qo.choices)
-          ? qo.choices.filter((c): c is string => typeof c === 'string' && c.trim()).map((c) => c.trim())
+          ? qo.choices.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim())
           : undefined;
       if (!id || !question) continue;
       questions.push({ id, question, kind, choices: choices && choices.length ? choices : undefined });

@@ -310,7 +310,7 @@ export function usePokerLocalAdvisor(options: {
             if (ctx) return { context: ctx.context, receivedAt };
             // Minimal fallback: synthesize empty context so inflight resolves.
             return { context: { mode: 'context', context: '', ...(advice.mode === 'advice' ? advice : {}) }, receivedAt };
-          }),
+          }) as any,
         );
       }
 

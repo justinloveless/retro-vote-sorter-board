@@ -3,7 +3,7 @@ import { IntlProvider } from 'react-intl-next';
 import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
 import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import { ensureAtlaskitFeatureGates } from '@/lib/ensureAtlaskitFeatureGates';
-import type EditorActions from '@atlaskit/editor-core/actions';
+type EditorActions = any;
 
 export interface AtlaskitDescriptionEditorHandle {
   getAdfValue: () => Promise<unknown | undefined>;

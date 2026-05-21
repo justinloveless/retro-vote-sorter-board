@@ -88,7 +88,7 @@ const TicketQueuePanelConnected: React.FC<{ isMobile: boolean }> = ({ isMobile }
             rounds={rounds}
             onAddTicket={addTicketToQueue}
             onAddTicketsBatch={addTicketsToQueueBatch}
-            onIssueCreated={addTicketToQueue}
+            onIssueCreated={(k, s) => { void addTicketToQueue(k, s); }}
             isMobile={isMobile}
         />
     );

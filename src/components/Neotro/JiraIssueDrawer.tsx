@@ -1150,6 +1150,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       priorities: data.priorities ?? [],
       issueTypes: data.issueTypes ?? [],
       transitions: data.transitions ?? [],
+      linkTypes: data.linkTypes ?? [],
     };
     setCachedIssueFieldOptions(teamId, issueData.key, payload);
     setFieldOptions(payload);
