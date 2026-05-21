@@ -6,6 +6,7 @@ export type JiraFieldOptionsPayload = {
   priorities: Array<{ id: string; name: string; iconUrl?: string }>;
   issueTypes: Array<{ id: string; name: string; iconUrl?: string }>;
   transitions: Array<{ id: string; name: string; toStatusName?: string }>;
+  linkTypes: Array<{ id: string; name: string; inward: string; outward: string }>;
 };
 
 type Entry = { data: JiraFieldOptionsPayload; expiresAt: number };

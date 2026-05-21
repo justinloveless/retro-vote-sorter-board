@@ -52,10 +52,11 @@ Deno.serve(async (req) => {
 
     const base = `${jira_domain}/rest/api/2/issue/${encodeURIComponent(resolvedKey)}`;
 
-    const [editmetaRes, transitionsRes, issueProjectRes] = await Promise.all([
+    const [editmetaRes, transitionsRes, issueProjectRes, linkTypesRes] = await Promise.all([
       fetch(`${base}/editmeta`, { headers }),
       fetch(`${base}/transitions`, { headers }),
       fetch(`${base}?fields=project`, { headers }),
+      fetch(`${jira_domain}/rest/api/3/issueLinkType`, { headers }),
     ]);
 
     if (!editmetaRes.ok) {
@@ -108,12 +109,26 @@ Deno.serve(async (req) => {
       toStatusName: t.to?.name != null ? String(t.to.name) : undefined,
     }));
 
+    // Issue link types — best-effort; not all Jira deployments have link types or expose them to all users.
+    let linkTypes: { id: string; name: string; inward: string; outward: string }[] = [];
+    if (linkTypesRes.ok) {
+      const linkTypesData = await linkTypesRes.json();
+      const list = Array.isArray(linkTypesData?.issueLinkTypes) ? linkTypesData.issueLinkTypes : [];
+      linkTypes = list.map((t: { id?: string | number; name?: string; inward?: string; outward?: string }) => ({
+        id: String(t.id ?? ''),
+        name: String(t.name ?? ''),
+        inward: String(t.inward ?? ''),
+        outward: String(t.outward ?? ''),
+      })).filter((t: { id: string; name: string }) => t.name && t.id);
+    }
+
     return new Response(
       JSON.stringify({
         issueKey: resolvedKey,
         priorities,
         issueTypes,
         transitions,
+        linkTypes,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
