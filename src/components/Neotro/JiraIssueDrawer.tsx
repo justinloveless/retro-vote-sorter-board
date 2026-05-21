@@ -22,6 +22,11 @@ import { parentBadgeClassName } from '@/lib/parentBadgeTone';
 import { broadcastPokerSessionJiraStoryPoints } from '@/lib/pokerJiraStoryPointsBroadcast';
 import { getSprintBucketFromIssueFields } from '@/lib/jiraSprintFromFields';
 import {
+  normalizeIssueLinks,
+  type JiraIssueLinkRaw,
+} from '@/lib/jiraIssueLinks';
+import { JiraIssueLinksSection } from '@/components/Neotro/JiraIssueLinksSection';
+import {
   buildSprintPickerDataFromCacheAndIssue,
   getCachedTeamSprintPickerOptions,
   setCachedTeamSprintPickerOptions,
@@ -117,6 +122,8 @@ interface JiraIssueFields {
   /** Present when the issue is under a parent (same shape as Jira browse lists). */
   parent?: { key: string; fields?: { summary?: string } } | null;
   labels?: string[];
+  /** Linked work items (e.g. Blocks, Relates to). */
+  issuelinks?: JiraIssueLinkRaw[];
   comment?: { comments: JiraComment[]; total: number };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
@@ -1066,6 +1073,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
           priorities: data.priorities ?? [],
           issueTypes: data.issueTypes ?? [],
           transitions: data.transitions ?? [],
+          linkTypes: data.linkTypes ?? [],
         };
         setCachedIssueFieldOptions(teamId, issueData.key, payload);
         setFieldOptions(payload);
@@ -1567,13 +1575,14 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                     </NeotroPressableButton>
                   ) : externalUrl ? (
                     <NeotroPressableButton
-                      href={externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
+                      onClick={() => window.open(externalUrl, '_blank', 'noopener,noreferrer')}
                       size="compact"
                       isActive
                       activeShowsPressed={false}
                       className="gap-1.5 shrink-0"
+                      aria-label="Open in Jira (new tab)"
+                      title="Open in Jira (new tab)"
                     >
                       <ExternalLink className="h-3 w-3" />
                       Open in Jira
@@ -2343,6 +2352,26 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Linked work items */}
+                {!isPreviewMode && (
+                  <JiraIssueLinksSection
+                    teamId={teamId}
+                    issueKey={issueData?.key ?? null}
+                    jiraDomain={jiraDomain ?? undefined}
+                    links={normalizeIssueLinks(fields.issuelinks)}
+                    linkTypes={fieldOptions?.linkTypes ?? []}
+                    canEdit={canEditJira}
+                    noApiCredentials={noApiCredentials}
+                    portalContainer={jiraDialogPortalContainer}
+                    onLinksChanged={async () => {
+                      if (!teamId || !issueIdOrKey) return;
+                      invalidateJiraIssueCache(teamId, issueIdOrKey);
+                      await fetchIssue(false, { skipCache: true, keepPreviousData: true });
+                    }}
+                  />
+                )}
+
                 {/* Comments */}
                 <Separator />
                 <div>
