@@ -970,7 +970,7 @@ export const MobileView: React.FC = () => {
                             onTicketNumberBlur={handleTicketNumberBlur}
                             teamId={teamId}
                             pokerSessionId={session?.session_id}
-                            onIssueCreated={addTicketToQueue}
+                            onIssueCreated={(k, s) => { void addTicketToQueue(k, s); }}
                         />
                         <div className='flex justify-end pt-2'>
                             <Button variant="outline" size="sm" onClick={() => { setIsDrawerOpen(false); setIsSettingsOpen(true); }}>

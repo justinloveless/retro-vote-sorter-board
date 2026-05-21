@@ -306,7 +306,7 @@ export const PokerAdvisorPanel: React.FC = () => {
         const split = splits[i];
         const hit = getCachedSplitDetails(cacheKeyFull, split.title, split.points ?? null);
         if (hit) {
-          initial[i] = { status: 'ok', summary: hit.summary, description: hit.description };
+          initial[i] = { status: 'ok', summary: hit.summary, description: typeof hit.description === 'string' ? hit.description : JSON.stringify(hit.description) };
         } else {
           initial[i] = { status: 'loading' };
           indicesToFetch.push(i);
@@ -342,7 +342,7 @@ export const PokerAdvisorPanel: React.FC = () => {
             });
             setSplitDetailsCache((prev) => ({
               ...prev,
-              [index]: { status: 'ok', summary: details.summary, description: details.description },
+              [index]: { status: 'ok', summary: details.summary, description: typeof details.description === 'string' ? details.description : JSON.stringify(details.description) },
             }));
           } catch (e) {
             if (splitPrefetchVersion.current !== version) return;
@@ -475,7 +475,7 @@ export const PokerAdvisorPanel: React.FC = () => {
           previewIssue={{ summary: splitPreview.summary, description: splitPreview.description }}
           open
           onOpenChange={(o) => { if (!o && !splitPreviewSubmitting) setSplitPreview(null); }}
-          onCreateInJira={({ summary, description }) => void handleConfirmSplitStoryCreate({ summary, description })}
+          onCreateInJira={({ summary, description }) => void handleConfirmSplitStoryCreate({ summary, description: typeof description === 'string' ? description : JSON.stringify(description) })}
           createInJiraLoading={splitPreviewSubmitting}
         />
       )}
@@ -491,7 +491,7 @@ export const PokerAdvisorPanel: React.FC = () => {
             <span className="truncate">Private advisor (local CLI)</span>
             {showSuggestionHeader && advisor.advice && advisor.adviceReceivedAt != null && (
               <span className="text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400 shrink-0">
-                {advisorPointsLabel(advisor.advice)} ·{' '}
+                {isAdvice(advisor.advice) ? advisorPointsLabel(advisor.advice) : '—'} ·{' '}
                 {formatDistanceToNow(new Date(advisor.adviceReceivedAt), { addSuffix: true })}
               </span>
             )}
@@ -711,9 +711,9 @@ export const PokerAdvisorPanel: React.FC = () => {
                       size="sm"
                       className="h-7 shrink-0 text-xs"
                       onClick={() => advisor.refresh()}
-                      disabled={advisor.status === 'loading' || paused}
+                      disabled={(advisor.status as string) === 'loading' || paused}
                     >
-                      <RefreshCw className={`h-3 w-3 mr-1 ${advisor.status === 'loading' ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-3 w-3 mr-1 ${(advisor.status as string) === 'loading' ? 'animate-spin' : ''}`} />
                       Refresh
                     </Button>
                   </div>
@@ -935,7 +935,7 @@ export const PokerAdvisorPanel: React.FC = () => {
                       onClick={async () => {
                         // Persist advisor questions (if missing), then persist answers as replies, then refresh.
                         const insertedMessageIdsByQid = new Map<string, string>();
-                        for (const q of advisor.advice.questions) {
+                        for (const q of (isQuestions(advisor.advice) ? advisor.advice.questions : [])) {
                           if (!existingAdvisorQuestionsById.has(q.id)) {
                             const insertedId = await sendBotMessage(
                               'Advisor',
@@ -944,7 +944,7 @@ export const PokerAdvisorPanel: React.FC = () => {
                             if (insertedId) insertedMessageIdsByQid.set(q.id, insertedId);
                           }
                         }
-                        for (const q of advisor.advice.questions) {
+                        for (const q of (isQuestions(advisor.advice) ? advisor.advice.questions : [])) {
                           const m = existingAdvisorQuestionsById.get(q.id);
                           const replyToId = m?.messageId ?? insertedMessageIdsByQid.get(q.id);
                           const answer = (draftAnswersByQid[q.id] || '').trim();
@@ -953,7 +953,7 @@ export const PokerAdvisorPanel: React.FC = () => {
                         }
                         advisor.refresh();
                       }}
-                      disabled={paused || advisor.status === 'loading'}
+                      disabled={paused || (advisor.status as string) === 'loading'}
                     >
                       Submit answers
                     </Button>

@@ -1222,7 +1222,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     });
 
     const participating = Object.values(newSelections).filter((s) => s.points !== -1);
-    const winning_points = getPointsWithMostVotes(participating as { points: number }[]);
+    const winning_points = getPointsWithMostVotes(participating as unknown as PlayerSelection[]);
 
     const newState = {
       game_state: 'Playing' as const,
