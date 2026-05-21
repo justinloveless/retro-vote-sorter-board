@@ -6,6 +6,7 @@ import {
   JIRA_STORY_POINT_FIELD_FALLBACK_IDS,
 } from '../_shared/jiraStoryPoints.ts';
 import { createGetSprintMeta } from '../_shared/jiraSprintFields.ts';
+import { loadBoardActiveFutureSprints } from '../_shared/loadBoardSprints.ts';
 
 const DEFAULT_STORY_POINTS_JQL_FIELD_NAME = 'Story Points';
 
@@ -120,6 +121,52 @@ async function fetchAllAgileSprintIssuesPaginated(
     if (total !== undefined && startAt >= total) break;
   }
   return issueObjects;
+}
+
+/** Sprint ids with matching issues outside the board active/future set (e.g. closed refinement buckets). */
+async function discoverOrphanBoardSprintIds(
+  baseUrl: string,
+  authHeaders: Record<string, string>,
+  auxiliaryJqlParts: string[],
+  excludeSprintIds: number[],
+  fieldsParam: string,
+  getSprintMeta: ReturnType<typeof createGetSprintMeta>,
+  maxPages: number,
+): Promise<number[]> {
+  const jqlParts = [...auxiliaryJqlParts, 'sprint is not EMPTY'];
+  if (excludeSprintIds.length > 0) {
+    jqlParts.push(`sprint not in (${excludeSprintIds.join(', ')})`);
+  }
+  const jql = jqlParts.join(' AND ');
+  const orphanIds = new Set<number>();
+  const pageSize = 100;
+  let nextPageToken: string | undefined = undefined;
+
+  for (let page = 0; page < maxPages; page++) {
+    const body: Record<string, unknown> = {
+      jql,
+      maxResults: pageSize,
+      fields: fieldsParam.split(','),
+    };
+    if (nextPageToken) body.nextPageToken = nextPageToken;
+
+    const res = await fetch(`${baseUrl}/rest/api/3/search/jql`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    const batch = data.issues || [];
+    for (const issue of batch) {
+      const meta = getSprintMeta(issue?.fields as Record<string, unknown>);
+      if (meta.sprintId != null) orphanIds.add(meta.sprintId);
+    }
+    if (batch.length === 0 || !data.nextPageToken) break;
+    nextPageToken = data.nextPageToken;
+  }
+
+  return [...orphanIds];
 }
 
 /** Board backlog ordering matches manual backlog ordering on this board's backlog view. */
@@ -393,23 +440,15 @@ Deno.serve(async (req) => {
     let boardActiveFutureSprints: { id: number; startDate?: string; name?: string }[] = [];
     if (resolvedBoardId != null) {
       try {
-        const sprintsRes = await fetch(`${baseUrl}/rest/agile/1.0/board/${resolvedBoardId}/sprint`, { headers: authHeaders });
-        if (sprintsRes.ok) {
-          const sprintsData = await sprintsRes.json();
-          // deno-lint-ignore no-explicit-any
-          const openSprints = (sprintsData?.values || []).filter((s: any) => s?.id != null && (s?.state === 'future' || s?.state === 'active'));
-          boardActiveFutureSprints = openSprints.map((s: any) => {
-            const id = typeof s.id === 'number' ? s.id : parseInt(String(s.id), 10);
-            const startDate = typeof s?.startDate === 'string' && s.startDate ? s.startDate : undefined;
-            const name = typeof s?.name === 'string' && s.name.trim() ? s.name : undefined;
-            if (name) sprintIdToName.set(id, name);
-            if (startDate) sprintIdToStartDate.set(id, startDate);
-            return { id, startDate, name };
-          });
-          if (sprintScope === 'board-open-backlog' && openSprints.length > 0) {
-            // deno-lint-ignore no-explicit-any
-            sprintJql = `(sprint in (${openSprints.map((s: any) => s.id).join(', ')}) OR sprint is EMPTY)`;
-          }
+        boardActiveFutureSprints = await loadBoardActiveFutureSprints(
+          baseUrl,
+          authHeaders,
+          resolvedBoardId,
+          sprintIdToName,
+          sprintIdToStartDate,
+        );
+        if (sprintScope === 'board-open-backlog' && boardActiveFutureSprints.length > 0) {
+          sprintJql = `(sprint in (${boardActiveFutureSprints.map((s) => s.id).join(', ')}) OR sprint is EMPTY)`;
         }
       } catch (_) {
         /* ignore */
@@ -457,6 +496,26 @@ Deno.serve(async (req) => {
           baseUrl,
           authHeaders,
           s.id,
+          fieldsParam,
+          auxiliaryJqlForBoardBrowse,
+          maxPagesOrLoops,
+        );
+        pushUniqueIssues(chunk);
+      }
+      const orphanSprintIds = await discoverOrphanBoardSprintIds(
+        baseUrl,
+        authHeaders,
+        auxiliaryJqlParts,
+        orderedSprints.map((s) => s.id),
+        fieldsParam,
+        getSprintMeta,
+        maxPagesOrLoops,
+      );
+      for (const orphanId of orphanSprintIds) {
+        const chunk = await fetchAllAgileSprintIssuesPaginated(
+          baseUrl,
+          authHeaders,
+          orphanId,
           fieldsParam,
           auxiliaryJqlForBoardBrowse,
           maxPagesOrLoops,
