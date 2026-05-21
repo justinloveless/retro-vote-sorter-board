@@ -63,6 +63,102 @@ function mapIssueToBrowseRow(issue: any, getSprintMeta: ReturnType<typeof create
   };
 }
 
+/** JQL `Rank` reflects global/board-filter rank; sprint column order matches GET sprint/{id}/issue (rank on that sprint). */
+function sortBoardSprintsForStableFetchOrder(
+  sprints: readonly { id: number; startDate?: string; name?: string }[],
+): { id: number; startDate?: string; name?: string }[] {
+  return [...sprints].sort((a, b) => {
+    const aHas = !!(a.startDate && a.startDate !== '');
+    const bHas = !!(b.startDate && b.startDate !== '');
+    if (aHas && bHas) {
+      const ta = new Date(a.startDate!).getTime();
+      const tb = new Date(b.startDate!).getTime();
+      const aOk = !Number.isNaN(ta);
+      const bOk = !Number.isNaN(tb);
+      if (aOk && bOk && ta !== tb) return ta - tb;
+      if (aOk !== bOk) return aOk ? -1 : 1;
+    } else if (aHas !== bHas) {
+      return aHas ? -1 : 1;
+    }
+    const an = (a.name || '').localeCompare((b.name || ''), undefined, { numeric: true });
+    return an !== 0 ? an : a.id - b.id;
+  });
+}
+
+/** Issues are returned ordered by sprint rank (manual board/Sprint ordering). Pagination: classic agile startAt. */
+async function fetchAllAgileSprintIssuesPaginated(
+  baseUrl: string,
+  authHeaders: Record<string, string>,
+  sprintId: number,
+  fieldsCommaSeparated: string,
+  auxiliaryJql: string | undefined,
+  maxLoops: number,
+): Promise<Record<string, unknown>[]> {
+  const issueObjects: Record<string, unknown>[] = [];
+  const pageSize = 100;
+
+  for (let startAt = 0, loop = 0; loop < maxLoops; loop++) {
+    const qs = new URLSearchParams({
+      startAt: String(startAt),
+      maxResults: String(pageSize),
+      fields: fieldsCommaSeparated,
+    });
+    if (auxiliaryJql) qs.append('jql', auxiliaryJql);
+
+    const res = await fetch(
+      `${baseUrl}/rest/agile/1.0/sprint/${sprintId}/issue?${qs.toString()}`,
+      { headers: authHeaders },
+    );
+    if (!res.ok) break;
+    const data = await res.json();
+    // deno-lint-ignore no-explicit-any
+    const batch = (data?.issues || []) as any[];
+    issueObjects.push(...batch);
+    if (batch.length < pageSize) break;
+    startAt += pageSize;
+    const total = typeof data?.total === 'number' ? data.total : undefined;
+    if (total !== undefined && startAt >= total) break;
+  }
+  return issueObjects;
+}
+
+/** Board backlog ordering matches manual backlog ordering on this board's backlog view. */
+async function fetchAllAgileBoardBacklogPaginated(
+  baseUrl: string,
+  authHeaders: Record<string, string>,
+  boardId: number,
+  fieldsCommaSeparated: string,
+  auxiliaryJql: string | undefined,
+  maxLoops: number,
+): Promise<Record<string, unknown>[]> {
+  const issueObjects: Record<string, unknown>[] = [];
+  const pageSize = 100;
+
+  for (let startAt = 0, loop = 0; loop < maxLoops; loop++) {
+    const qs = new URLSearchParams({
+      startAt: String(startAt),
+      maxResults: String(pageSize),
+      fields: fieldsCommaSeparated,
+    });
+    if (auxiliaryJql) qs.append('jql', auxiliaryJql);
+
+    const res = await fetch(
+      `${baseUrl}/rest/agile/1.0/board/${boardId}/backlog?${qs.toString()}`,
+      { headers: authHeaders },
+    );
+    if (!res.ok) break;
+    const data = await res.json();
+    // deno-lint-ignore no-explicit-any
+    const batch = (data?.issues || []) as any[];
+    issueObjects.push(...batch);
+    if (batch.length < pageSize) break;
+    startAt += pageSize;
+    const total = typeof data?.total === 'number' ? data.total : undefined;
+    if (total !== undefined && startAt >= total) break;
+  }
+  return issueObjects;
+}
+
 async function fetchIssuesByKeyChunks(
   baseUrl: string,
   authHeaders: Record<string, string>,
@@ -224,12 +320,14 @@ Deno.serve(async (req) => {
     }
 
     const jqlParts: string[] = [];
+    let sprintPredicateIndex = -1;
     if (projectKeyForJql) {
       jqlParts.push(`project = "${escapeJqlString(projectKeyForJql)}"`);
     }
     jqlParts.push('issuetype NOT IN (Epic, subtaskIssueTypes())');
     if (sprintScope !== 'all') {
       jqlParts.push('(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)');
+      sprintPredicateIndex = jqlParts.length - 1;
     }
     if (statusFilter === 'all') {
       // no status
@@ -291,6 +389,8 @@ Deno.serve(async (req) => {
     let sprintJql = '(sprint in futureSprints() OR sprint in openSprints() OR sprint is EMPTY)';
     const sprintIdToName = new Map<number | string, string>();
     const sprintIdToStartDate = new Map<number | string, string>();
+    /** Active + future board sprints (for Agile sprint/issue ranked fetch). */
+    let boardActiveFutureSprints: { id: number; startDate?: string; name?: string }[] = [];
     if (resolvedBoardId != null) {
       try {
         const sprintsRes = await fetch(`${baseUrl}/rest/agile/1.0/board/${resolvedBoardId}/sprint`, { headers: authHeaders });
@@ -298,10 +398,14 @@ Deno.serve(async (req) => {
           const sprintsData = await sprintsRes.json();
           // deno-lint-ignore no-explicit-any
           const openSprints = (sprintsData?.values || []).filter((s: any) => s?.id != null && (s?.state === 'future' || s?.state === 'active'));
-          for (const s of openSprints) {
-            if (s?.name) sprintIdToName.set(s.id, s.name);
-            if (typeof s?.startDate === 'string' && s.startDate) sprintIdToStartDate.set(s.id, s.startDate);
-          }
+          boardActiveFutureSprints = openSprints.map((s: any) => {
+            const id = typeof s.id === 'number' ? s.id : parseInt(String(s.id), 10);
+            const startDate = typeof s?.startDate === 'string' && s.startDate ? s.startDate : undefined;
+            const name = typeof s?.name === 'string' && s.name.trim() ? s.name : undefined;
+            if (name) sprintIdToName.set(id, name);
+            if (startDate) sprintIdToStartDate.set(id, startDate);
+            return { id, startDate, name };
+          });
           if (sprintScope === 'board-open-backlog' && openSprints.length > 0) {
             // deno-lint-ignore no-explicit-any
             sprintJql = `(sprint in (${openSprints.map((s: any) => s.id).join(', ')}) OR sprint is EMPTY)`;
@@ -312,43 +416,93 @@ Deno.serve(async (req) => {
       }
     }
 
-    const sprintIdx = jqlParts.findIndex((p) => p?.includes('sprint in') || p?.includes('sprint is'));
-    if (sprintIdx >= 0) jqlParts[sprintIdx] = sprintJql;
-    const jql = jqlParts.join(' AND ') + ' ORDER BY Rank ASC';
+    if (sprintPredicateIndex >= 0) jqlParts[sprintPredicateIndex] = sprintJql;
+
+    const auxiliaryJqlParts =
+      sprintPredicateIndex >= 0 ? jqlParts.filter((_, i) => i !== sprintPredicateIndex) : jqlParts.slice();
+    const auxiliaryJqlJoined = auxiliaryJqlParts.join(' AND ').trim();
+    /** Same filters as JQL browse, omitting sprint clause — used by board/sprint backlog APIs (ranked per board). */
+    const auxiliaryJqlForBoardBrowse = auxiliaryJqlJoined.length > 0 ? auxiliaryJqlJoined : undefined;
+
+    const jqlFallback = `${jqlParts.join(' AND ')} ORDER BY Rank ASC`;
 
     const getSprintMeta = createGetSprintMeta(sprintIdToName, sprintIdToStartDate);
 
     const allIssues: Record<string, unknown>[] = [];
     const seenKeys = new Set<string>();
-    const pageSize = 100;
-    const maxPages = 100;
-    let nextPageToken: string | undefined = undefined;
 
-    for (let page = 0; page < maxPages; page++) {
-      const body: Record<string, unknown> = {
-        jql: jql.trim(),
-        maxResults: pageSize,
-        fields: fieldsParam.split(','),
-      };
-      if (nextPageToken) body.nextPageToken = nextPageToken;
+    let jqlReturned: string;
 
-      const res = await fetch(`${baseUrl}/rest/api/3/search/jql`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`Jira API error (${res.status}): ${await res.text()}`);
-      const data = await res.json();
-      const batch = data.issues || [];
-      for (const i of batch) {
-        const k = i?.key;
+    const useBoardRankedIssueFetch =
+      resolvedBoardId != null &&
+      sprintScope === 'board-open-backlog';
+
+    const maxPagesOrLoops = 100;
+    const pushUniqueIssues = (raw: Record<string, unknown>[]) => {
+      for (const i of raw) {
+        const k = i?.key as string | undefined;
         if (k && !seenKeys.has(k)) {
           seenKeys.add(k);
           allIssues.push(i);
         }
       }
-      if (batch.length === 0 || !data.nextPageToken) break;
-      nextPageToken = data.nextPageToken;
+    };
+
+    if (useBoardRankedIssueFetch) {
+      const boardIdResolved = resolvedBoardId as number;
+      jqlReturned = `[board-ranked] board=${boardIdResolved}${auxiliaryJqlForBoardBrowse ? ` ; ${auxiliaryJqlForBoardBrowse}` : ''}`;
+      const orderedSprints = sortBoardSprintsForStableFetchOrder(boardActiveFutureSprints);
+      for (const s of orderedSprints) {
+        const chunk = await fetchAllAgileSprintIssuesPaginated(
+          baseUrl,
+          authHeaders,
+          s.id,
+          fieldsParam,
+          auxiliaryJqlForBoardBrowse,
+          maxPagesOrLoops,
+        );
+        pushUniqueIssues(chunk);
+      }
+      const backlogChunk = await fetchAllAgileBoardBacklogPaginated(
+        baseUrl,
+        authHeaders,
+        boardIdResolved,
+        fieldsParam,
+        auxiliaryJqlForBoardBrowse,
+        maxPagesOrLoops,
+      );
+      pushUniqueIssues(backlogChunk);
+    } else {
+      jqlReturned = jqlFallback.trim();
+      const pageSize = 100;
+      let nextPageToken: string | undefined = undefined;
+
+      for (let page = 0; page < maxPagesOrLoops; page++) {
+        const body: Record<string, unknown> = {
+          jql: jqlFallback.trim(),
+          maxResults: pageSize,
+          fields: fieldsParam.split(','),
+        };
+        if (nextPageToken) body.nextPageToken = nextPageToken;
+
+        const res = await fetch(`${baseUrl}/rest/api/3/search/jql`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Jira API error (${res.status}): ${await res.text()}`);
+        const data = await res.json();
+        const batch = data.issues || [];
+        for (const i of batch) {
+          const k = i?.key;
+          if (k && !seenKeys.has(k)) {
+            seenKeys.add(k);
+            allIssues.push(i);
+          }
+        }
+        if (batch.length === 0 || !data.nextPageToken) break;
+        nextPageToken = data.nextPageToken;
+      }
     }
 
     const searchIssueKey = issueKeyFromSearchText(searchText);
@@ -387,7 +541,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       issues,
       total: issues.length,
-      jql: jql.trim(),
+      jql: jqlReturned,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
