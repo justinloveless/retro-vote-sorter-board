@@ -16,6 +16,8 @@ const MISSING_SUBPATH_STUB_FILES = {
   'code-block': 'editor-common-code-block.ts',
   'react-node-view': 'editor-common-react-node-view.tsx',
   'extensions': 'editor-common-extensions.ts',
+  'table': 'editor-common-table.ts',
+  'transforms': 'editor-common-transforms.ts',
 };
 
 const NODE_SELECTION_STUB = 'editor-common-node-selection.ts';

@@ -12,3 +12,13 @@ export function getDefaultCodeBlockAttrs() {
 export function defaultWrapForMarkdownCodeBlocksInSlice<T>(slice: T): T {
   return slice;
 }
+
+// Newer editor-plugin-code-block toolbar reads these prefs; default to false so the
+// toolbar renders without line numbers / word-wrap toggles being active.
+export function areCodeBlockLineNumbersVisible(_state?: unknown): boolean {
+  return false;
+}
+
+export function isCodeBlockWordWrapEnabled(_state?: unknown): boolean {
+  return false;
+}
