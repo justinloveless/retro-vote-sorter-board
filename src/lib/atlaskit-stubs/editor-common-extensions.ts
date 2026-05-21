@@ -14,3 +14,10 @@ export function getNodeRenderer(
   };
 }
 
+// Extension-key/type constants used by newer @atlaskit/editor-plugin-extension toolbar code.
+export const AGENT_MANAGED_EXTENSION_KEY = 'agent-managed';
+export const NATIVE_EMBED_EXTENSION_KEY = 'native-embed';
+export const NATIVE_EMBED_EXTENSION_TYPE = 'com.atlassian.native-embed';
+export const messages = {} as Record<string, { id: string; defaultMessage: string }>;
+
+
