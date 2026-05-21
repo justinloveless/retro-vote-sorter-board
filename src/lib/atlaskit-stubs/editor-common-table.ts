@@ -7,3 +7,8 @@ export * from '@atlaskit/editor-common/dist/esm/table/index.js';
 export function hasTableBeenResized(_node: unknown): boolean {
   return false;
 }
+
+export function isTableInContentMode(_node: unknown): boolean {
+  return false;
+}
+
