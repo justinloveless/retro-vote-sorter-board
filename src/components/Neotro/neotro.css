@@ -256,6 +256,104 @@
   font-size: inherit;
 }
 
+/*
+ * Atlaskit ADF editor uses --ds-* design tokens (appearance="comment").
+ * Scope dark tokens to the wrapper so the editor matches app dark mode.
+ */
+.dark .atlaskit-editor-wrapper {
+  color-scheme: dark;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  --ds-text: hsl(var(--foreground));
+  --ds-text-subtle: hsl(var(--muted-foreground));
+  --ds-text-subtlest: hsl(var(--muted-foreground));
+  --ds-icon: hsl(var(--foreground));
+  --ds-icon-subtle: hsl(var(--muted-foreground));
+  --ds-icon-subtlest: hsl(var(--muted-foreground));
+  --ds-link: hsl(var(--primary));
+  --ds-link-pressed: hsl(var(--primary));
+  --ds-background-input: hsl(var(--background));
+  --ds-background-input-hovered: hsl(var(--muted));
+  --ds-background-input-pressed: hsl(var(--background));
+  --ds-surface: hsl(var(--muted));
+  --ds-surface-raised: hsl(var(--background));
+  --ds-surface-hovered: hsl(var(--accent));
+  --ds-surface-pressed: hsl(var(--muted));
+  --ds-surface-overlay: hsl(var(--popover));
+  --ds-border: hsl(var(--border));
+  --ds-border-input: hsl(var(--border));
+  --ds-border-bold: hsl(var(--border));
+  --ds-background-accent-gray-subtlest: hsl(var(--muted));
+  --ds-background-accent-gray-subtler: hsl(var(--accent));
+  --ds-background-accent-purple-subtlest: hsl(270 35% 14%);
+  --ds-background-accent-purple-subtler: hsl(270 35% 18%);
+  --ds-background-accent-blue-subtlest: hsl(214 45% 14%);
+  --ds-background-accent-blue-subtler: hsl(214 45% 18%);
+  --ds-background-accent-green-subtlest: hsl(142 35% 14%);
+  --ds-background-accent-green-subtler: hsl(142 35% 18%);
+  --ds-background-accent-yellow-subtlest: hsl(45 35% 14%);
+  --ds-background-accent-yellow-subtler: hsl(45 35% 18%);
+  --ds-background-accent-red-subtlest: hsl(0 35% 14%);
+  --ds-background-accent-red-subtler: hsl(0 35% 18%);
+  --ds-background-accent-teal-subtlest: hsl(180 35% 14%);
+  --ds-background-accent-teal-subtler: hsl(180 35% 18%);
+  --ds-background-accent-magenta-subtlest: hsl(320 35% 14%);
+  --ds-background-accent-magenta-subtler: hsl(320 35% 18%);
+  --ds-background-accent-orange-subtlest: hsl(25 35% 14%);
+  --ds-background-accent-orange-subtler: hsl(25 35% 18%);
+  --ds-text-accent-purple: hsl(270 65% 72%);
+  --ds-text-accent-purple-bolder: hsl(270 65% 82%);
+  --ds-text-accent-blue: hsl(214 75% 72%);
+  --ds-text-accent-blue-bolder: hsl(214 75% 82%);
+  --ds-text-accent-green: hsl(142 55% 65%);
+  --ds-text-accent-green-bolder: hsl(142 55% 75%);
+  --ds-text-accent-yellow: hsl(45 80% 65%);
+  --ds-text-accent-yellow-bolder: hsl(45 80% 75%);
+  --ds-text-accent-red: hsl(0 70% 70%);
+  --ds-text-accent-red-bolder: hsl(0 70% 80%);
+  --ds-icon-accent-purple: hsl(270 55% 65%);
+  --ds-icon-accent-blue: hsl(214 70% 65%);
+  --ds-icon-accent-green: hsl(142 50% 55%);
+  --ds-icon-accent-yellow: hsl(45 70% 55%);
+  --ds-icon-accent-red: hsl(0 60% 55%);
+  --ds-icon-information: hsl(214 70% 65%);
+  --ds-icon-discovery: hsl(270 55% 65%);
+  --ds-icon-success: hsl(142 50% 55%);
+  --ds-icon-warning: hsl(35 80% 55%);
+  --ds-icon-danger: hsl(0 60% 55%);
+  --ds-border-selected: hsl(var(--ring));
+  --ds-blanket-selected: hsl(var(--primary) / 0.12);
+  --ds-border-accent-purple: hsl(270 40% 35%);
+  --ds-border-accent-blue: hsl(214 50% 35%);
+  --ds-background-neutral-subtle: transparent;
+  --ds-background-neutral: hsl(var(--muted) / 0.5);
+  --ds-shadow-raised: none;
+  --ds-shadow-overflow: 0 1px 3px hsl(0 0% 0% / 0.35);
+}
+
+.dark .atlaskit-editor-wrapper .ProseMirror,
+.dark .atlaskit-editor-wrapper .ak-editor-content-area {
+  color: hsl(var(--foreground));
+}
+
+.dark .atlaskit-editor-wrapper .ProseMirror code {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+}
+
+/* Wiki editor panels: keep readable text on tinted panel backgrounds in dark mode */
+.dark .jira-panel-nodeview,
+.dark .jira-panel-nodeview .ProseMirror,
+.dark .jira-panel-nodeview p,
+.dark .jira-panel-nodeview li {
+  color: hsl(var(--foreground));
+}
+
+.dark .jira-panel-nodeview code {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+}
+
 /* Shared width for Neotro Jira + chat scrollbars (Radix default w-2.5 is ~10px; lock to match native) */
 :root {
   --neotro-scrollbar-w: 7px;
