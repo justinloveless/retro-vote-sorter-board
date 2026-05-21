@@ -8,23 +8,10 @@ export type IssueForSprintGrouping = {
   sprintStartDate?: string | null;
 };
 
-/** Key + parent — used to cluster siblings within a sprint bucket. */
+/** Minimal fields for sprint bucketing. Order within each backlog/sprint bucket matches input (Jira rank). */
 export type IssueForSprintBucket = IssueForSprintGrouping & {
   key: string;
-  parent?: { key: string; summary?: string } | null;
 };
-
-const NO_PARENT_SORT = '\uffff\uffff_no_parent_\uffff\uffff';
-
-/** Keeps issues with the same parent adjacent; order by parent key, then issue key. No-parent issues last. */
-function sortIssuesByParentCluster<T extends IssueForSprintBucket>(issues: T[]): T[] {
-  return [...issues].sort((a, b) => {
-    const pa = a.parent?.key ?? NO_PARENT_SORT;
-    const pb = b.parent?.key ?? NO_PARENT_SORT;
-    if (pa !== pb) return pa.localeCompare(pb);
-    return a.key.localeCompare(b.key);
-  });
-}
 
 export function buildJiraBrowseIssuesBySprint<T extends IssueForSprintBucket>(issues: T[]): {
   backlog: T[];
@@ -65,10 +52,10 @@ export function buildJiraBrowseIssuesBySprint<T extends IssueForSprintBucket>(is
   });
 
   return {
-    backlog: sortIssuesByParentCluster(backlog),
+    backlog,
     sprintBuckets: sprintBuckets.map(({ name, issues: bucketIssues }) => ({
       name,
-      issues: sortIssuesByParentCluster(bucketIssues),
+      issues: bucketIssues,
     })),
   };
 }
