@@ -963,7 +963,7 @@ export const MobileView: React.FC = () => {
                         <PointsDetails
                             selectedPoint={activeUserSelection.points}
                             isHandPlayed={displaySession.game_state === 'Playing'}
-                            winningVote={displayWinningVote}
+                            winningPoints={displayWinningPoints}
                             ticketNumber={displayTicketNumber}
                             onTicketNumberChange={handleTicketNumberChange}
                             onTicketNumberFocus={handleTicketNumberFocus}
