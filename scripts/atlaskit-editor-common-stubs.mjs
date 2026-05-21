@@ -13,6 +13,9 @@ const stubsDir = path.join(root, 'src/lib/atlaskit-stubs');
  */
 const MISSING_SUBPATH_STUB_FILES = {
   'block-type': 'editor-common-block-type.ts',
+  'code-block': 'editor-common-code-block.ts',
+  'react-node-view': 'editor-common-react-node-view.tsx',
+  'extensions': 'editor-common-extensions.ts',
 };
 
 const NODE_SELECTION_STUB = 'editor-common-node-selection.ts';
