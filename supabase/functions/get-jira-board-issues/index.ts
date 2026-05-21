@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
 
     const sprintIdx = jqlParts.findIndex((p) => p?.includes('sprint in') || p?.includes('sprint is'));
     if (sprintIdx >= 0) jqlParts[sprintIdx] = sprintJql;
-    const jql = jqlParts.join(' AND ') + ' ORDER BY sprint, created DESC';
+    const jql = jqlParts.join(' AND ') + ' ORDER BY Rank ASC';
 
     const getSprintMeta = createGetSprintMeta(sprintIdToName, sprintIdToStartDate);
 
