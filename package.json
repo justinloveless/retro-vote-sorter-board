@@ -115,6 +115,8 @@
     "vite": "^5.4.1"
   },
   "overrides": {
-    "relay-runtime": "^16.2.0"
+    "relay-runtime": "^16.2.0",
+    "@atlassian/studio-entry-link": "npm:empty-npm-package@1.0.0",
+    "@atlassian/assets-workspace-host": "npm:empty-npm-package@1.0.0"
   }
 }

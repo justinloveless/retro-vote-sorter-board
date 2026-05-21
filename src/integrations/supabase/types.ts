@@ -300,24 +300,6 @@ export type Database = {
           },
         ]
       }
-      feature_flags: {
-        Row: {
-          description: string | null
-          flag_name: string
-          is_enabled: boolean
-        }
-        Insert: {
-          description?: string | null
-          flag_name: string
-          is_enabled?: boolean
-        }
-        Update: {
-          description?: string | null
-          flag_name?: string
-          is_enabled?: boolean
-        }
-        Relationships: []
-      }
       feature_flag_team_overrides: {
         Row: {
           created_at: string
@@ -401,6 +383,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      feature_flags: {
+        Row: {
+          description: string | null
+          flag_name: string
+          is_enabled: boolean
+        }
+        Insert: {
+          description?: string | null
+          flag_name: string
+          is_enabled?: boolean
+        }
+        Update: {
+          description?: string | null
+          flag_name?: string
+          is_enabled?: boolean
+        }
+        Relationships: []
       }
       feedback_reports: {
         Row: {
@@ -1793,33 +1793,6 @@ export type Database = {
           },
         ]
       }
-      user_recent_activity: {
-        Row: {
-          created_at: string
-          entity_id: string
-          entity_type: string
-          id: string
-          last_accessed_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id: string
-          entity_type: string
-          id?: string
-          last_accessed_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string
-          entity_type?: string
-          id?: string
-          last_accessed_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_favorite_teams: {
         Row: {
           created_at: string
@@ -1845,6 +1818,41 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_recent_activity: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          last_accessed_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          last_accessed_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          last_accessed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_recent_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
