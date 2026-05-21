@@ -27,6 +27,7 @@ export default defineConfig(({ mode, command }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        "@atlaskit/editor-common/node-selection": path.resolve(__dirname, "./src/lib/atlaskit-stubs/editor-common-node-selection.ts"),
       },
       dedupe: [
         "react-intl-next",
