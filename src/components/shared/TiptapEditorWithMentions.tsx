@@ -287,11 +287,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                     return true;
                 }
 
-                if (
-                    tryPasteMarkdownLinks(event, (html) => {
-                        editorRef.current?.commands.insertContent(html);
-                    })
-                ) {
+                if (tryPasteMarkdownLinks(view, event)) {
                     return true;
                 }
 

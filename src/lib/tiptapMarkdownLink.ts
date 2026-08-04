@@ -1,4 +1,6 @@
 import { InputRule } from '@tiptap/core';
+import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model';
+import type { EditorView } from '@tiptap/pm/view';
 import Link from '@tiptap/extension-link';
 import {
   escapeHtml,
@@ -53,14 +55,18 @@ export const MarkdownLink = Link.extend({
   },
 });
 
+function insertHtmlAtSelection(view: EditorView, html: string) {
+  const element = document.createElement('div');
+  element.innerHTML = html;
+  const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(element);
+  view.dispatch(view.state.tr.replaceSelection(slice));
+}
+
 /**
  * If clipboard plain text contains markdown links, insert them as TipTap links.
  * Returns true when handled (caller should skip default paste).
  */
-export function tryPasteMarkdownLinks(
-  event: ClipboardEvent,
-  insertHtml: (html: string) => void
-): boolean {
+export function tryPasteMarkdownLinks(view: EditorView, event: ClipboardEvent): boolean {
   const text = event.clipboardData?.getData('text/plain');
   if (!text || !plainTextContainsMarkdownLink(text)) {
     return false;
@@ -69,7 +75,8 @@ export function tryPasteMarkdownLinks(
   const single = parseSingleMarkdownLink(text);
   if (single) {
     event.preventDefault();
-    insertHtml(
+    insertHtmlAtSelection(
+      view,
       `<a href="${escapeHtml(single.href)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(single.label)}</a>`
     );
     return true;
@@ -79,6 +86,6 @@ export function tryPasteMarkdownLinks(
   if (!html) return false;
 
   event.preventDefault();
-  insertHtml(html);
+  insertHtmlAtSelection(view, html);
   return true;
 }

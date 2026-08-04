@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -22,8 +22,6 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   placeholder,
   uploadImage,
 }) => {
-  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -80,11 +78,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           return true;
         }
 
-        if (
-          tryPasteMarkdownLinks(event, (html) => {
-            editorRef.current?.commands.insertContent(html);
-          })
-        ) {
+        if (tryPasteMarkdownLinks(view, event)) {
           return true;
         }
 
@@ -92,10 +86,6 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       },
     },
   });
-
-  useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
 
   useEffect(() => {
     if (editor && !editor.isDestroyed && editor.getHTML() !== content) {
