@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
-import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
+import { TiptapEditorWithMentions, processRichTextForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
+import { cn } from '@/lib/utils';
 
 interface RetroComment {
   id: string;
@@ -153,8 +155,8 @@ export const RetroItemComments: React.FC<RetroItemCommentsProps> = ({
                       )}
                     </div>
                     <div
-                      className="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(makeImagesClickable(comment.text)) }}
+                      className={cn('text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none', RICH_TEXT_DISPLAY_CLASS)}
+                      dangerouslySetInnerHTML={{ __html: processRichTextForDisplay(makeImagesClickable(comment.text)) }}
                       onClick={handleImageClick}
                     />
                   </div>

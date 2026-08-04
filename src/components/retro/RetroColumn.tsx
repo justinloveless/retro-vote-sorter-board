@@ -14,8 +14,10 @@ import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
-import { TiptapEditorWithMentions, processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
+import { TiptapEditorWithMentions, processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
+import { cn } from '@/lib/utils';
 
 interface RetroItem {
   id: string;
@@ -421,8 +423,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
           )}
 
           {sortedItems.map(item => (
-            <Card key={item.id} className={`bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow ${focusedItemId === item.id ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''}`}>
-              <CardContent className={`p-4 ${isActionItemsColumn(column) && (actionStatusMap?.[item.id]?.done ?? false) ? 'opacity-60' : ''}`}>
+            <Card key={item.id} className={`bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm hover:shadow-md transition-shadow overflow-hidden ${focusedItemId === item.id ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''}`}>
+              <CardContent className={`p-4 min-w-0 ${isActionItemsColumn(column) && (actionStatusMap?.[item.id]?.done ?? false) ? 'opacity-60' : ''}`}>
                 {editingItem === item.id ? (
                   <div className="space-y-2">
                     <TiptapEditorWithMentions
@@ -441,8 +443,8 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                 ) : (
                   <>
                     <div
-                      className="text-gray-800 dark:text-gray-200 mb-3 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(makeImagesClickable(item.text)) }}
+                      className={cn('text-gray-800 dark:text-gray-200 mb-3 prose dark:prose-invert max-w-none', RICH_TEXT_DISPLAY_CLASS)}
+                      dangerouslySetInnerHTML={{ __html: processRichTextForDisplay(makeImagesClickable(item.text)) }}
                       onClick={handleImageClick}
                     />
 
