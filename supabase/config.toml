@@ -263,3 +263,6 @@ verify_jwt = false
 
 [functions.admin-manage-subscription]
 verify_jwt = false
+
+[functions.create-feedback-github-issue]
+verify_jwt = false
