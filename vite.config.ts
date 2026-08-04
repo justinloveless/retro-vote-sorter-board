@@ -55,6 +55,10 @@ export default defineConfig(({ mode, command }) => {
     define: {
       "process.env": JSON.stringify({ NODE_ENV: mode }),
     },
+    build: {
+      // Atlaskit's editor graph is huge; sourcemaps blow up Node's heap during build.
+      sourcemap: false,
+    },
     optimizeDeps: {
       include: ["@atlaskit/renderer", "@atlaskit/editor-core", "react-intl-next"],
     },
