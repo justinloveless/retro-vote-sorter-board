@@ -11,8 +11,10 @@ interface PreviousActionItemsColumnProps {
   teamMembers?: { user_id: string; profiles?: { full_name: string | null } | null }[];
   teamId?: string | null;
 }
-import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
+import { processRichTextForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
+import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
+import { cn } from '@/lib/utils';
 
 export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps> = ({ items, onMarkDone, onAssign, isArchived, teamMembers = [], teamId }) => {
   return (
@@ -30,11 +32,11 @@ export const PreviousActionItemsColumn: React.FC<PreviousActionItemsColumnProps>
             <div className="text-sm text-gray-500 dark:text-gray-400">No open action items from previous retros.</div>
           )}
           {items.map(item => (
-            <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm">
-              <CardContent className="p-4">
+            <Card key={item.id} className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-4 min-w-0">
                 <div
-                  className="text-gray-800 dark:text-gray-200 prose dark:prose-invert max-w-none mb-3"
-                  dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(item.text) }}
+                  className={cn('text-gray-800 dark:text-gray-200 prose dark:prose-invert max-w-none mb-3', RICH_TEXT_DISPLAY_CLASS)}
+                  dangerouslySetInnerHTML={{ __html: processRichTextForDisplay(item.text) }}
                 />
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-2">

@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Node, mergeAttributes } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { MentionSuggestions, MentionSuggestionsRef } from './MentionSuggestions';
 import type { UploadImageFn } from '@/hooks/usePokerSessionChat';
+import { convertMarkdownLinksToHtml, RICH_TEXT_EDITOR_CLASS } from '@/lib/richTextDisplay';
+import { MarkdownLink, tryPasteMarkdownLinks } from '@/lib/tiptapMarkdownLink';
 
 interface TeamMember {
     id: string;
@@ -105,6 +106,11 @@ export const processMentionsForDisplay = (htmlContent: string): string => {
     );
 };
 
+/** Mentions + markdown `[label](url)` friendly links for card/comment display. */
+export const processRichTextForDisplay = (htmlContent: string): string => {
+    return processMentionsForDisplay(convertMarkdownLinksToHtml(htmlContent));
+};
+
 // Function to extract mentions from content for searching/filtering
 export const extractMentions = (htmlContent: string): Array<{ userId: string; name: string }> => {
     const mentions: Array<{ userId: string; name: string }> = [];
@@ -165,12 +171,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                 blockquote: false,
                 horizontalRule: false,
             }),
-            Link.configure({
-                openOnClick: true,
-                autolink: true,
-                linkOnPaste: true,
-                validate: href => /^https?:\/\//.test(href),
-            }),
+            MarkdownLink,
             Image.configure({
                 inline: true,
                 allowBase64: false,
@@ -237,7 +238,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
         },
         editorProps: {
             attributes: {
-                class: 'prose dark:prose-invert min-w-full max-w-full focus:outline-none p-2 rounded-md border border-input min-h-[40px] max-h-[120px] overflow-y-auto text-sm',
+                class: RICH_TEXT_EDITOR_CLASS,
             },
             handleKeyDown: (view, event) => {
                 // Handle mention suggestions navigation
@@ -285,6 +286,15 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                     });
                     return true;
                 }
+
+                if (
+                    tryPasteMarkdownLinks(event, (html) => {
+                        editorRef.current?.commands.insertContent(html);
+                    })
+                ) {
+                    return true;
+                }
+
                 return false;
             },
         },

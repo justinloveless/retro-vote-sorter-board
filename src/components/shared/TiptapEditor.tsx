@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import type { UploadImageFn } from '@/hooks/usePokerSessionChat';
+import { RICH_TEXT_EDITOR_CLASS } from '@/lib/richTextDisplay';
+import { MarkdownLink, tryPasteMarkdownLinks } from '@/lib/tiptapMarkdownLink';
 
 interface TiptapEditorProps {
   content: string;
@@ -21,6 +22,8 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   placeholder,
   uploadImage,
 }) => {
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -31,12 +34,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
         blockquote: false,
         horizontalRule: false,
       }),
-      Link.configure({
-        openOnClick: true,
-        autolink: true,
-        linkOnPaste: true,
-        validate: href => /^https?:\/\//.test(href),
-      }),
+      MarkdownLink,
       Image.configure({
         inline: true,
         allowBase64: false,
@@ -51,7 +49,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose dark:prose-invert min-w-full max-w-full focus:outline-none p-2 rounded-md border border-input min-h-[40px] max-h-[120px] overflow-y-auto text-sm',
+        class: RICH_TEXT_EDITOR_CLASS,
       },
       handleKeyDown: (view, event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -81,10 +79,23 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           });
           return true;
         }
+
+        if (
+          tryPasteMarkdownLinks(event, (html) => {
+            editorRef.current?.commands.insertContent(html);
+          })
+        ) {
+          return true;
+        }
+
         return false;
       },
     },
   });
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (editor && !editor.isDestroyed && editor.getHTML() !== content) {
@@ -93,4 +104,4 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   }, [content, editor]);
 
   return <EditorContent editor={editor} />;
-}; 
+};

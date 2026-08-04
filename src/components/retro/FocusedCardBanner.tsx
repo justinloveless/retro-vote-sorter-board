@@ -1,8 +1,10 @@
 import React from 'react';
 import { X, Crosshair, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { processMentionsForDisplay } from '../shared/TiptapEditorWithMentions';
+import { processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { RetroItemComments } from '../RetroItemComments';
+import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
+import { cn } from '@/lib/utils';
 
 interface RetroComment {
   id: string;
@@ -163,8 +165,8 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
               </span>
             </div>
             <div
-              className="text-sm text-foreground prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: processMentionsForDisplay(itemText) }}
+              className={cn('text-sm text-foreground prose dark:prose-invert max-w-none', RICH_TEXT_DISPLAY_CLASS)}
+              dangerouslySetInnerHTML={{ __html: processRichTextForDisplay(itemText) }}
             />
             {/* Comments section */}
             {onAddComment && onDeleteComment && (
