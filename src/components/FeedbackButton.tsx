@@ -42,39 +42,15 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
       }).select('id').single();
       if (insertRes.error) throw insertRes.error;
 
-      // Try to create GitHub issue if similar not found using Admin-configured settings
+      // Create the GitHub issue server-side (token never leaves the backend)
       try {
-        const { data: repoRow } = await supabase.from('app_config').select('value').eq('key', 'GITHUB_REPO').single();
-        const { data: tokenRow } = await supabase.from('app_config').select('value').eq('key', 'GITHUB_TOKEN').single();
-        const ghRepo = repoRow?.value as string | undefined;
-        const ghToken = tokenRow?.value as string | undefined;
-        if (ghToken && ghRepo) {
-          // search similar issues
-          const searchQ = encodeURIComponent(`${title} repo:${ghRepo} in:title state:open`);
-          const searchRes = await fetch(`https://api.github.com/search/issues?q=${searchQ}`, {
-            headers: { Authorization: `Bearer ${ghToken}`, Accept: 'application/vnd.github+json' },
-          });
-          const searchJson = await searchRes.json();
-          const similar = Array.isArray(searchJson.items) ? searchJson.items.find((i: any) => i.title.toLowerCase() === title.toLowerCase()) : null;
-          if (!similar) {
-            const issueRes = await fetch(`https://api.github.com/repos/${ghRepo}/issues`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${ghToken}`, Accept: 'application/vnd.github+json' },
-              body: JSON.stringify({
-                title: `[${type}] ${title}`,
-                body: `${description}\n\nSubmitted by: ${user?.email || 'anonymous'}\nPage: ${pageUrl}`,
-                labels: [type, 'in-app-feedback'],
-              })
-            });
-            if (issueRes.ok) {
-              const issue = await issueRes.json();
-              await supabase.from('feedback_reports').update({ github_issue_url: issue.html_url }).eq('id', insertRes.data.id);
-            }
-          }
-        }
+        await supabase.functions.invoke('create-feedback-github-issue', {
+          body: { feedbackId: insertRes.data.id },
+        });
       } catch (e) {
         // Best-effort; ignore errors
       }
+
 
       toast({ title: 'Thanks for the feedback!' });
       setOpen(false);
