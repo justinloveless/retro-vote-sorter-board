@@ -279,6 +279,7 @@ export const usePokerSession = (
         .insert({
           session_id: sessionData.id,
           round_number: sessionData.current_round_number,
+          sort_order: sessionData.current_round_number,
           selections: initialSelections,
           ticket_number: roundTicketPlaceholder(sessionData.current_round_number),
           is_active: true,
@@ -747,6 +748,7 @@ export const usePokerSession = (
     const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
         session_id: session.session_id,
         round_number: newRoundNumber,
+        sort_order: newRoundNumber,
         selections: resetSelections,
         ticket_number: newTicketNumber?.trim() || roundTicketPlaceholder(newRoundNumber),
         is_active: true,
@@ -821,6 +823,7 @@ export const usePokerSession = (
       .insert({
         session_id: session.session_id,
         round_number: newRoundNumber,
+        sort_order: newRoundNumber,
         selections: resetSelections,
         ticket_number: ticketToStore,
         ticket_title: newTicketTitle ?? null,
@@ -915,17 +918,21 @@ export const usePokerSession = (
     }
 
     const startingRoundNumber = Math.max(session.round_number, highestRoundData?.round_number ?? 0);
-    const roundsToInsert = normalizedTickets.map((ticket, index) => ({
-      session_id: session.session_id,
-      round_number: startingRoundNumber + index + 1,
-      selections: resetSelections,
-      ticket_number: ticket.ticketNumber,
-      ticket_title: ticket.ticketTitle,
-      ticket_parent_key: ticket.ticketParent?.key ?? null,
-      ticket_parent_summary: ticket.ticketParent?.summary ?? null,
-      is_active: true,
-      game_state: 'Selection' as const,
-    }));
+    const roundsToInsert = normalizedTickets.map((ticket, index) => {
+      const roundNumber = startingRoundNumber + index + 1;
+      return {
+        session_id: session.session_id,
+        round_number: roundNumber,
+        sort_order: roundNumber,
+        selections: resetSelections,
+        ticket_number: ticket.ticketNumber,
+        ticket_title: ticket.ticketTitle,
+        ticket_parent_key: ticket.ticketParent?.key ?? null,
+        ticket_parent_summary: ticket.ticketParent?.summary ?? null,
+        is_active: true,
+        game_state: 'Selection' as const,
+      };
+    });
 
     const { error: newRoundsError } = await supabase
       .from('poker_session_rounds')

@@ -33,6 +33,7 @@ import { RoundSelector } from '@/components/Neotro/RoundSelector';
 import { PlayingFieldRoundSlide } from '@/components/Neotro/PlayingFieldRoundSlide';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import { compareRoundsBySortOrder } from '@/lib/pokerRoundSortOrder';
 
 function QueuePanelCard({
   teamId,
@@ -204,7 +205,7 @@ export const DesktopView: React.FC = () => {
     } = usePokerTable();
 
     const activeRoundsSorted = useMemo(
-        () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+        () => rounds.filter((r) => r.is_active).slice().sort(compareRoundsBySortOrder),
         [rounds]
     );
 

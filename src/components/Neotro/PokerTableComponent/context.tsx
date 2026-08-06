@@ -37,6 +37,7 @@ import { isSyntheticRoundTicket, roundTicketPlaceholder } from '@/lib/pokerRound
 import { usePokerSpotlightClientId } from '@/hooks/use-poker-spotlight-client-id';
 import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
 import { POKER_DECK_POINT_VALUES } from '@/lib/pokerPointDeck';
+import { compareRoundsBySortOrder } from '@/lib/pokerRoundSortOrder';
 
 interface PokerTableContextProps {
   session: PokerSessionState | null;
@@ -94,6 +95,8 @@ interface PokerTableContextProps {
   goToCurrentRound: () => void;
   goToRound: (roundNumber: number) => void;
   deleteRound: (roundId: string, options?: { suppressToast?: boolean }) => Promise<boolean>;
+  /** Persist a new display order for round selector chips (by round id). */
+  reorderRounds: (orderedRoundIds: string[]) => Promise<boolean>;
   chatMessagesForRound: ReturnType<typeof usePokerSessionChat>['messages'];
   /** New chat messages on other rounds while viewing a different round (for round strip badges). */
   chatNewMessageCountByRound: Record<number, number>;
@@ -302,6 +305,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToCurrentRound,
     goToRound,
     deleteRound,
+    reorderRounds,
   } = usePokerSessionHistory(
     session?.session_id || null,
     historyInitialRound ?? undefined,
@@ -575,7 +579,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   }, [rounds, optimisticRoundsById]);
 
   const activeRounds = useMemo(
-    () => roundsForUI.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+    () => roundsForUI.filter((r) => r.is_active).slice().sort(compareRoundsBySortOrder),
     [roundsForUI]
   );
 
@@ -1463,6 +1467,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     goToCurrentRound: goToCurrentRoundWithGuardClear,
     goToRound: goToRoundWithGuardClear,
     deleteRound,
+    reorderRounds,
     chatMessagesForRound,
     chatNewMessageCountByRound,
     chatUnreadCount,
