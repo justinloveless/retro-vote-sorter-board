@@ -81,12 +81,27 @@ describe('isMissingSortOrderColumnError', () => {
     ).toBe(true);
   });
 
+  it('detects PostgREST schema-cache miss for sort_order (PGRST204)', () => {
+    expect(
+      isMissingSortOrderColumnError({
+        code: 'PGRST204',
+        message: "Could not find the 'sort_order' column of 'poker_session_rounds' in the schema cache",
+      })
+    ).toBe(true);
+  });
+
   it('ignores unrelated errors', () => {
     expect(isMissingSortOrderColumnError(null)).toBe(false);
     expect(
       isMissingSortOrderColumnError({
         code: '42703',
         message: 'column poker_session_rounds.other does not exist',
+      })
+    ).toBe(false);
+    expect(
+      isMissingSortOrderColumnError({
+        code: 'PGRST204',
+        message: "Could not find the 'other' column of 'poker_session_rounds' in the schema cache",
       })
     ).toBe(false);
     expect(
