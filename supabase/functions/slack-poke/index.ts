@@ -271,6 +271,7 @@ export async function createNewRound(
       .insert({
         session_id: sessionId,
         round_number: newRoundNumber,
+        sort_order: newRoundNumber,
         ticket_number: effectiveTicket,
         ticket_title: ticketTitle,
         selections: {},

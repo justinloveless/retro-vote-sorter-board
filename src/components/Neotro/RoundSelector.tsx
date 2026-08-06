@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Play, Power, Ticket, Trash2, Settings, Eye, EyeOff, Spotlight } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  Play,
+  Power,
+  Ticket,
+  Trash2,
+  Settings,
+  Eye,
+  EyeOff,
+  Spotlight,
+} from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
@@ -10,6 +23,7 @@ import { deriveDisplayGameState } from '@/lib/pokerRoundDisplayGameState';
 import type { JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import { compareRoundsBySortOrder, moveItemInOrder } from '@/lib/pokerRoundSortOrder';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -79,11 +93,16 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
 }) => {
   const { theme, toggleTheme } = useTheme();
   const userInteractingRef = useRef(false);
+  const dragFromIndexRef = useRef<number | null>(null);
+  const dragOverIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
   const {
     spotlightRoundNumber,
     isSpotlightMine,
     onSpotlightClick,
     activateRoundById,
+    reorderRounds,
   } = usePokerTable();
 
   const currentPointsLabel = useMemo(() => {
@@ -128,7 +147,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
 
   const ticketStripItems = useMemo(() => {
     // List every round so completed / inactive rounds without tickets stay reachable (legacy sessions).
-    const sortedRounds = rounds.slice().sort((a, b) => a.round_number - b.round_number);
+    const sortedRounds = rounds.slice().sort(compareRoundsBySortOrder);
     const hasRoundForPointer = sortedRounds.some((r) => r.round_number === sessionPointer);
     const stripCurrentNumber =
       hasRoundForPointer
@@ -208,6 +227,12 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       containScroll: false as const,
       startIndex: selectedStripIndex,
       dragFree: false,
+      // Keep carousel swipe, but let the grip handle own pointer events for reorder DnD.
+      watchDrag: (_api: unknown, event: Event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return true;
+        return !target.closest('[data-round-drag-handle]');
+      },
     }),
     [] // eslint-disable-line react-hooks/exhaustive-deps -- startIndex only needed on mount
   );
@@ -221,8 +246,47 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const [activeSnapIndex, setActiveSnapIndex] = useState(selectedStripIndex);
 
   const activeRoundsSorted = useMemo(
-    () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+    () => rounds.filter((r) => r.is_active).slice().sort(compareRoundsBySortOrder),
     [rounds]
+  );
+
+  const canReorderStrip = ticketStripItems.filter((item) => item.roundId).length > 1;
+
+  const persistStripOrder = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex || isReordering) return;
+      const orderedIds = ticketStripItems
+        .map((item) => item.roundId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+      if (orderedIds.length < 2) return;
+
+      // Strip indexes include only real rounds in normal sessions; map via roundId list order.
+      const fromItem = ticketStripItems[fromIndex];
+      const toItem = ticketStripItems[toIndex];
+      if (!fromItem?.roundId || !toItem?.roundId) return;
+
+      const fromIdIndex = orderedIds.indexOf(fromItem.roundId);
+      const toIdIndex = orderedIds.indexOf(toItem.roundId);
+      if (fromIdIndex < 0 || toIdIndex < 0 || fromIdIndex === toIdIndex) return;
+
+      const nextIds = moveItemInOrder(orderedIds, fromIdIndex, toIdIndex);
+      setIsReordering(true);
+      try {
+        await reorderRounds(nextIds);
+      } finally {
+        setIsReordering(false);
+      }
+    },
+    [isReordering, reorderRounds, ticketStripItems]
+  );
+
+  const moveStripItem = useCallback(
+    (index: number, direction: -1 | 1) => {
+      const target = index + direction;
+      if (target < 0 || target >= ticketStripItems.length) return;
+      void persistStripOrder(index, target);
+    },
+    [persistStripOrder, ticketStripItems.length]
   );
 
   const goToNextActiveRound = useCallback(() => {
@@ -488,15 +552,44 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
 
                 const canDelete = isAdmin && deleteRound && item.roundId && ticketStripItems.filter(i => i.roundId).length > 1;
                 const deleteActionLabel = item.isActive ? 'Cancel round' : 'Delete round';
-                const showRoundContextMenu = !!item.roundId && (canDelete || canActivateRound);
+                const canMoveLeft = canReorderStrip && !!item.roundId && index > 0;
+                const canMoveRight =
+                  canReorderStrip && !!item.roundId && index < ticketStripItems.length - 1;
+                const showRoundContextMenu =
+                  !!item.roundId && (canDelete || canActivateRound || canMoveLeft || canMoveRight);
                 const newChatCount =
                   item.roundNumber != null ? chatNewMessageCountByRound[item.roundNumber] ?? 0 : 0;
                 const isSpotlightRound =
                   spotlightRoundNumber != null &&
                   item.roundNumber != null &&
                   item.roundNumber === spotlightRoundNumber;
+                const isDropTarget = dragOverIndex === index && dragFromIndexRef.current !== index;
                 const chipButton = (
-                  <div className="relative inline-flex">
+                  <div
+                    className={`relative inline-flex ${isDropTarget ? 'ring-2 ring-primary/50 rounded-md' : ''}`}
+                    onDragOver={
+                      canReorderStrip && item.roundId
+                        ? (e) => {
+                            e.preventDefault();
+                            dragOverIndexRef.current = index;
+                            setDragOverIndex(index);
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      canReorderStrip && item.roundId
+                        ? (e) => {
+                            e.preventDefault();
+                            const from = dragFromIndexRef.current;
+                            const to = index;
+                            dragFromIndexRef.current = null;
+                            dragOverIndexRef.current = null;
+                            setDragOverIndex(null);
+                            if (from != null) void persistStripOrder(from, to);
+                          }
+                        : undefined
+                    }
+                  >
                     {newChatCount > 0 && (
                       <span
                         className="pointer-events-none absolute -right-1 -top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-sm tabular-nums"
@@ -505,50 +598,82 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                         {newChatCount > 9 ? '9+' : newChatCount}
                       </span>
                     )}
-                    <div className="relative inline-flex">
+                    <div
+                      className={`relative inline-flex items-stretch overflow-hidden rounded-md border transition-all duration-200 ${
+                        isSelected
+                          ? isRoundActive
+                            ? 'bg-emerald-500/15 border-emerald-400/80 text-foreground scale-110 ring-1 ring-emerald-400/30 shadow-[0_0_14px_rgba(16,185,129,0.35)]'
+                            : 'bg-primary/15 border-primary/80 text-foreground scale-110'
+                          : isRoundActive
+                            ? 'bg-emerald-500/10 border-emerald-400/70 text-foreground ring-1 ring-emerald-400/20 shadow-[0_0_10px_rgba(16,185,129,0.32)]'
+                            : 'bg-card hover:bg-accent/50 opacity-75'
+                      }${
+                        isSpotlightRound
+                          ? ' overflow-visible !border-2 !border-solid !border-amber-400 ring-0 shadow-none'
+                          : ''
+                      }${isReordering ? ' opacity-80' : ''}`}
+                    >
+                      {isSpotlightRound && (
+                        <div
+                          className="pointer-events-none z-0 neotro-spotlight-overlay"
+                          aria-hidden
+                        >
+                          <div className="neotro-spotlight-cone" />
+                        </div>
+                      )}
+                      {canReorderStrip && item.roundId && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          data-round-drag-handle
+                          draggable={!isReordering}
+                          onDragStart={(e) => {
+                            dragFromIndexRef.current = index;
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', item.roundId!);
+                          }}
+                          onDragEnd={() => {
+                            dragFromIndexRef.current = null;
+                            dragOverIndexRef.current = null;
+                            setDragOverIndex(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowLeft') {
+                              e.preventDefault();
+                              moveStripItem(index, -1);
+                            } else if (e.key === 'ArrowRight') {
+                              e.preventDefault();
+                              moveStripItem(index, 1);
+                            }
+                          }}
+                          className="relative z-[1] inline-flex cursor-grab items-center px-1 active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground"
+                          aria-label={`Drag to reorder ${item.ticketKey}`}
+                          title="Drag to reorder"
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </span>
+                      )}
                       <button
                         type="button"
-                        className={`relative inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs whitespace-nowrap transition-all duration-200 ${
-                          isSelected
-                            ? isRoundActive
-                              ? 'bg-emerald-500/15 border-emerald-400/80 text-foreground scale-110 ring-1 ring-emerald-400/30 shadow-[0_0_14px_rgba(16,185,129,0.35)]'
-                              : 'bg-primary/15 border-primary/80 text-foreground scale-110'
-                            : isRoundActive
-                              ? 'bg-emerald-500/10 border-emerald-400/70 text-foreground ring-1 ring-emerald-400/20 shadow-[0_0_10px_rgba(16,185,129,0.32)]'
-                              : 'bg-card hover:bg-accent/50 opacity-75'
-                        }${
-                          isSpotlightRound
-                            ? ' overflow-visible !border-2 !border-solid !border-amber-400 ring-0 shadow-none'
-                            : ''
-                        }`}
+                        className="relative z-[1] inline-flex items-center gap-2 px-2 py-1.5 text-xs whitespace-nowrap"
                         onClick={() => handleChipClick(index)}
                       >
-                        {isSpotlightRound && (
-                          <div
-                            className="pointer-events-none z-0 neotro-spotlight-overlay"
-                            aria-hidden
-                          >
-                            <div className="neotro-spotlight-cone" />
-                          </div>
+                        {iconUrl ? (
+                          <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="relative z-[1] inline-flex items-center gap-2">
-                          {iconUrl ? (
-                            <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
-                          ) : (
-                            <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="font-mono font-semibold">{item.ticketKey}</span>
-                          {item.isPendingRound && (
-                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                              Pending
-                            </span>
-                          )}
-                          {item.pointsLabel && (
-                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                              {item.pointsLabel}
-                            </span>
-                          )}
-                        </span>
+                        <span className="font-mono font-semibold">{item.ticketKey}</span>
+                        {item.isPendingRound && (
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                            Pending
+                          </span>
+                        )}
+                        {item.pointsLabel && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            {item.pointsLabel}
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -561,6 +686,18 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                           {chipButton}
                         </ContextMenuTrigger>
                         <ContextMenuContent>
+                          {canMoveLeft && (
+                            <ContextMenuItem onClick={() => moveStripItem(index, -1)}>
+                              <ChevronLeft className="h-4 w-4 mr-2" />
+                              Move left
+                            </ContextMenuItem>
+                          )}
+                          {canMoveRight && (
+                            <ContextMenuItem onClick={() => moveStripItem(index, 1)}>
+                              <ChevronRight className="h-4 w-4 mr-2" />
+                              Move right
+                            </ContextMenuItem>
+                          )}
                           {canActivateRound && (
                             <ContextMenuItem onClick={() => void activateRoundById(item.roundId!)}>
                               <Power className="h-4 w-4 mr-2" />

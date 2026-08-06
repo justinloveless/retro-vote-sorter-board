@@ -4,6 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GameState } from './usePokerSession';
 import { isUuidLike } from '@/lib/pokerSessionPathSlug';
+import {
+  buildDensifiedSortOrderUpdates,
+  compareRoundsBySortOrder,
+  roundSortKey,
+} from '@/lib/pokerRoundSortOrder';
 
 /** Team poker URLs: resolve DB session id from team + slug so history never depends on merged UI state alone. */
 export type PokerHistoryTeamRoute = { teamId: string; slug: string };
@@ -42,6 +47,8 @@ export interface PokerSessionRound {
   id: string;
   session_id: string;
   round_number: number;
+  /** Display order in the round selector; independent of round_number identity. */
+  sort_order?: number;
   selections: any;
   average_points: number;
   ticket_number: string | null;
@@ -119,7 +126,7 @@ function applyRealtimePayload(
     const merged = { ...prev[idx], ...row } as PokerSessionRound;
     const next = [...prev];
     next[idx] = merged;
-    next.sort((a, b) => a.round_number - b.round_number);
+    next.sort(compareRoundsBySortOrder);
     return { ok: true, next };
   }
 
@@ -131,7 +138,7 @@ function applyRealtimePayload(
     if (prev.some((r) => r.id === row.id)) {
       return { ok: true, next: prev };
     }
-    const next = [...prev, toPokerSessionRound(row)].sort((a, b) => a.round_number - b.round_number);
+    const next = [...prev, toPokerSessionRound(row)].sort(compareRoundsBySortOrder);
     return { ok: true, next };
   }
 
@@ -197,6 +204,7 @@ export const usePokerSessionHistory = (
         .from('poker_session_rounds')
         .select('*')
         .eq('session_id', pk)
+        .order('sort_order', { ascending: true })
         .order('round_number', { ascending: true });
 
       if (error) {
@@ -205,7 +213,7 @@ export const usePokerSessionHistory = (
         return;
       }
 
-      const list = data || [];
+      const list = (data || []).slice().sort(compareRoundsBySortOrder);
       setRounds(list);
 
       const idx = pickRoundIndexForRounds(
@@ -324,6 +332,7 @@ export const usePokerSessionHistory = (
         .insert({
           session_id: sessionId,
           round_number: roundNumber,
+          sort_order: roundNumber,
           selections,
           average_points: averagePoints,
           ticket_number: ticketNumber,
@@ -357,15 +366,91 @@ export const usePokerSessionHistory = (
   };
 
   const goToCurrentRound = () => {
-    if (rounds.length > 0) {
-      setCurrentRoundIndex(rounds.length - 1);
+    if (rounds.length === 0) return;
+    // Prefer the highest round_number (session identity), not the last strip position
+    // after tickets have been reordered via sort_order.
+    let bestIdx = 0;
+    let bestRoundNumber = rounds[0].round_number;
+    for (let i = 1; i < rounds.length; i++) {
+      if (rounds[i].round_number > bestRoundNumber) {
+        bestRoundNumber = rounds[i].round_number;
+        bestIdx = i;
+      }
     }
+    setCurrentRoundIndex(bestIdx);
   };
 
   const goToRound = (roundNumber: number) => {
     const targetIndex = rounds.findIndex((round) => round.round_number === roundNumber);
     if (targetIndex !== -1) {
       setCurrentRoundIndex(targetIndex);
+    }
+  };
+
+  const reorderRounds = async (orderedRoundIds: string[]): Promise<boolean> => {
+    const pk = resolvedSessionPk;
+    if (!pk) return false;
+
+    const current = roundsRef.current;
+    const updates = buildDensifiedSortOrderUpdates(current, orderedRoundIds);
+    if (!updates) return false;
+
+    const unchanged = updates.every((u) => {
+      const existing = current.find((r) => r.id === u.id);
+      return existing != null && roundSortKey(existing) === u.sort_order;
+    });
+    if (unchanged) return true;
+
+    const previous = current;
+    const byId = new Map(updates.map((u) => [u.id, u.sort_order]));
+    const optimistic = current
+      .map((r) => (byId.has(r.id) ? { ...r, sort_order: byId.get(r.id)! } : r))
+      .sort(compareRoundsBySortOrder);
+    roundsRef.current = optimistic;
+    setRounds(optimistic);
+    setCurrentRoundIndex(
+      pickRoundIndexForRounds(
+        optimistic,
+        selectedRoundNumberRef.current,
+        initialRoundNumberRef.current
+      )
+    );
+
+    try {
+      const results = await Promise.all(
+        updates.map((u) =>
+          supabase.from('poker_session_rounds').update({ sort_order: u.sort_order }).eq('id', u.id)
+        )
+      );
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) {
+        console.error('Error reordering rounds:', firstError);
+        roundsRef.current = previous;
+        setRounds(previous);
+        setCurrentRoundIndex(
+          pickRoundIndexForRounds(
+            previous,
+            selectedRoundNumberRef.current,
+            initialRoundNumberRef.current
+          )
+        );
+        toast({ title: 'Error reordering tickets', variant: 'destructive' });
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error reordering rounds:', error);
+      roundsRef.current = previous;
+      setRounds(previous);
+      setCurrentRoundIndex(
+        pickRoundIndexForRounds(
+          previous,
+          selectedRoundNumberRef.current,
+          initialRoundNumberRef.current
+        )
+      );
+      toast({ title: 'Error reordering tickets', variant: 'destructive' });
+      return false;
     }
   };
 
@@ -474,6 +559,7 @@ export const usePokerSessionHistory = (
     goToCurrentRound,
     goToRound,
     deleteRound,
+    reorderRounds,
     fetchRounds,
   };
 };

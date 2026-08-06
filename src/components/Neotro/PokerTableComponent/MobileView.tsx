@@ -26,6 +26,7 @@ import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { DragToPlayProvider, DropZoneOverlay } from '@/components/Neotro/DragToPlay';
 import { useJiraTicketMetadata } from '@/hooks/use-jira-ticket-metadata';
 import { displayTicketLabel, isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
+import { compareRoundsBySortOrder } from '@/lib/pokerRoundSortOrder';
 
 const getGridColumns = (playerCount: number) => {
     if (playerCount <= 2) return 'grid-cols-2';
@@ -103,7 +104,7 @@ export const MobileView: React.FC = () => {
     const { height } = useWindowSize();
 
     const activeRoundsSorted = useMemo(
-        () => rounds.filter((r) => r.is_active).slice().sort((a, b) => a.round_number - b.round_number),
+        () => rounds.filter((r) => r.is_active).slice().sort(compareRoundsBySortOrder),
         [rounds]
     );
 

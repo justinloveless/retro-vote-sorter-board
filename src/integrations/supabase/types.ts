@@ -781,6 +781,7 @@ export type Database = {
           session_id: string
           slack_channel_id: string | null
           slack_message_ts: string | null
+          sort_order: number
           ticket_number: string | null
           ticket_parent_key: string | null
           ticket_parent_summary: string | null
@@ -800,6 +801,7 @@ export type Database = {
           session_id: string
           slack_channel_id?: string | null
           slack_message_ts?: string | null
+          sort_order?: number
           ticket_number?: string | null
           ticket_parent_key?: string | null
           ticket_parent_summary?: string | null
@@ -819,6 +821,7 @@ export type Database = {
           session_id?: string
           slack_channel_id?: string | null
           slack_message_ts?: string | null
+          sort_order?: number
           ticket_number?: string | null
           ticket_parent_key?: string | null
           ticket_parent_summary?: string | null
