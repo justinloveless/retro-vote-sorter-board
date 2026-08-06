@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDensifiedSortOrderUpdates,
   compareRoundsBySortOrder,
+  isMissingSortOrderColumnError,
   moveItemInOrder,
+  omitSortOrder,
   roundSortKey,
 } from './pokerRoundSortOrder';
 
@@ -66,5 +68,41 @@ describe('moveItemInOrder', () => {
     expect(moveItemInOrder(items, 0, 0)).toEqual(['a', 'b']);
     expect(moveItemInOrder(items, -1, 0)).toEqual(['a', 'b']);
     expect(moveItemInOrder(items, 0, 5)).toEqual(['a', 'b']);
+  });
+});
+
+describe('isMissingSortOrderColumnError', () => {
+  it('detects Postgres undefined_column for sort_order', () => {
+    expect(
+      isMissingSortOrderColumnError({
+        code: '42703',
+        message: 'column poker_session_rounds.sort_order does not exist',
+      })
+    ).toBe(true);
+  });
+
+  it('ignores unrelated errors', () => {
+    expect(isMissingSortOrderColumnError(null)).toBe(false);
+    expect(
+      isMissingSortOrderColumnError({
+        code: '42703',
+        message: 'column poker_session_rounds.other does not exist',
+      })
+    ).toBe(false);
+    expect(
+      isMissingSortOrderColumnError({
+        code: '23505',
+        message: 'duplicate key value',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('omitSortOrder', () => {
+  it('removes sort_order and keeps other fields', () => {
+    expect(omitSortOrder({ round_number: 3, sort_order: 3, ticket_number: 'ABC-1' })).toEqual({
+      round_number: 3,
+      ticket_number: 'ABC-1',
+    });
   });
 });

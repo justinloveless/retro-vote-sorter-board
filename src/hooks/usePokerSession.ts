@@ -13,6 +13,10 @@ import {
   pokerSessionSettingsFromPreviousRow,
 } from '@/lib/pokerSessionCloneSettings';
 import { roundTicketPlaceholder } from '@/lib/pokerRoundTicketPlaceholder';
+import {
+  isMissingSortOrderColumnError,
+  omitSortOrder,
+} from '@/lib/pokerRoundSortOrder';
 
 function emitSpotlightServerAligned(sessionId: string, roundNumber: number) {
   window.dispatchEvent(
@@ -274,19 +278,27 @@ export const usePokerSession = (
         };
       }
 
-      const { data: newRound, error: newRoundError } = await supabase
+      const firstRoundRow = {
+        session_id: sessionData.id,
+        round_number: sessionData.current_round_number,
+        sort_order: sessionData.current_round_number,
+        selections: initialSelections,
+        ticket_number: roundTicketPlaceholder(sessionData.current_round_number),
+        is_active: true,
+        game_state: 'Selection' as const,
+      };
+      let { data: newRound, error: newRoundError } = await supabase
         .from('poker_session_rounds')
-        .insert({
-          session_id: sessionData.id,
-          round_number: sessionData.current_round_number,
-          sort_order: sessionData.current_round_number,
-          selections: initialSelections,
-          ticket_number: roundTicketPlaceholder(sessionData.current_round_number),
-          is_active: true,
-          game_state: 'Selection',
-        })
+        .insert(firstRoundRow)
         .select()
         .single();
+      if (isMissingSortOrderColumnError(newRoundError)) {
+        ({ data: newRound, error: newRoundError } = await supabase
+          .from('poker_session_rounds')
+          .insert(omitSortOrder(firstRoundRow))
+          .select()
+          .single());
+      }
 
       if (newRoundError) throw newRoundError;
       roundData = newRound;
@@ -745,15 +757,21 @@ export const usePokerSession = (
       .eq('session_id', session.session_id)
       .eq('is_active', true);
 
-    const { error: newRoundError } = await supabase.from('poker_session_rounds').insert({
+    const nextRoundRow = {
         session_id: session.session_id,
         round_number: newRoundNumber,
         sort_order: newRoundNumber,
         selections: resetSelections,
         ticket_number: newTicketNumber?.trim() || roundTicketPlaceholder(newRoundNumber),
         is_active: true,
-        game_state: 'Selection',
-    });
+        game_state: 'Selection' as const,
+    };
+    let { error: newRoundError } = await supabase.from('poker_session_rounds').insert(nextRoundRow);
+    if (isMissingSortOrderColumnError(newRoundError)) {
+      ({ error: newRoundError } = await supabase
+        .from('poker_session_rounds')
+        .insert(omitSortOrder(nextRoundRow)));
+    }
 
     if (newRoundError) {
         console.error('Error creating new round', newRoundError);
@@ -818,23 +836,31 @@ export const usePokerSession = (
       });
     }
 
-    const { data: insertedRound, error: newRoundError } = await supabase
+    const startRoundRow = {
+      session_id: session.session_id,
+      round_number: newRoundNumber,
+      sort_order: newRoundNumber,
+      selections: resetSelections,
+      ticket_number: ticketToStore,
+      ticket_title: newTicketTitle ?? null,
+      ticket_parent_key: ticketParent?.key ?? null,
+      ticket_parent_summary: ticketParent?.summary ?? null,
+      is_active: true,
+      is_pending_round: options?.pendingRound === true,
+      game_state: 'Selection' as const,
+    };
+    let { data: insertedRound, error: newRoundError } = await supabase
       .from('poker_session_rounds')
-      .insert({
-        session_id: session.session_id,
-        round_number: newRoundNumber,
-        sort_order: newRoundNumber,
-        selections: resetSelections,
-        ticket_number: ticketToStore,
-        ticket_title: newTicketTitle ?? null,
-        ticket_parent_key: ticketParent?.key ?? null,
-        ticket_parent_summary: ticketParent?.summary ?? null,
-        is_active: true,
-        is_pending_round: options?.pendingRound === true,
-        game_state: 'Selection',
-      })
+      .insert(startRoundRow)
       .select('id')
       .single();
+    if (isMissingSortOrderColumnError(newRoundError)) {
+      ({ data: insertedRound, error: newRoundError } = await supabase
+        .from('poker_session_rounds')
+        .insert(omitSortOrder(startRoundRow))
+        .select('id')
+        .single());
+    }
 
     if (newRoundError) {
       console.error('Error creating new round', newRoundError);
@@ -934,9 +960,14 @@ export const usePokerSession = (
       };
     });
 
-    const { error: newRoundsError } = await supabase
+    let { error: newRoundsError } = await supabase
       .from('poker_session_rounds')
       .insert(roundsToInsert);
+    if (isMissingSortOrderColumnError(newRoundsError)) {
+      ({ error: newRoundsError } = await supabase
+        .from('poker_session_rounds')
+        .insert(roundsToInsert.map((row) => omitSortOrder(row))));
+    }
 
     if (newRoundsError) {
       console.error('Error creating new rounds', newRoundsError);

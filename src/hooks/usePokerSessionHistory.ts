@@ -7,6 +7,8 @@ import { isUuidLike } from '@/lib/pokerSessionPathSlug';
 import {
   buildDensifiedSortOrderUpdates,
   compareRoundsBySortOrder,
+  isMissingSortOrderColumnError,
+  omitSortOrder,
   roundSortKey,
 } from '@/lib/pokerRoundSortOrder';
 
@@ -200,11 +202,13 @@ export const usePokerSessionHistory = (
 
     setLoading(true);
     try {
+      // Order only by round_number in SQL — sort_order may not exist until the
+      // migration is applied. Client-side compareRoundsBySortOrder prefers
+      // sort_order when present and falls back to round_number otherwise.
       const { data, error } = await supabase
         .from('poker_session_rounds')
         .select('*')
         .eq('session_id', pk)
-        .order('sort_order', { ascending: true })
         .order('round_number', { ascending: true });
 
       if (error) {
@@ -327,17 +331,19 @@ export const usePokerSessionHistory = (
     ticketTitle?: string
   ) => {
     try {
-      const { error } = await supabase
-        .from('poker_session_rounds')
-        .insert({
-          session_id: sessionId,
-          round_number: roundNumber,
-          sort_order: roundNumber,
-          selections,
-          average_points: averagePoints,
-          ticket_number: ticketNumber,
-          ticket_title: ticketTitle,
-        });
+      const roundRow = {
+        session_id: sessionId,
+        round_number: roundNumber,
+        sort_order: roundNumber,
+        selections,
+        average_points: averagePoints,
+        ticket_number: ticketNumber,
+        ticket_title: ticketTitle,
+      };
+      let { error } = await supabase.from('poker_session_rounds').insert(roundRow);
+      if (isMissingSortOrderColumnError(error)) {
+        ({ error } = await supabase.from('poker_session_rounds').insert(omitSortOrder(roundRow)));
+      }
 
       if (error) {
         console.error('Error saving round:', error);
@@ -434,7 +440,12 @@ export const usePokerSessionHistory = (
             initialRoundNumberRef.current
           )
         );
-        toast({ title: 'Error reordering tickets', variant: 'destructive' });
+        toast({
+          title: isMissingSortOrderColumnError(firstError)
+            ? 'Ticket reorder requires a database update'
+            : 'Error reordering tickets',
+          variant: 'destructive',
+        });
         return false;
       }
       return true;
