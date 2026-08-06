@@ -266,21 +266,36 @@ export async function createNewRound(
     const effectiveTicket =
       (ticketNumber && ticketNumber.trim()) || `round:${newRoundNumber}`;
 
-    const { data: newRound, error } = await supabase
+    const roundRow = {
+      session_id: sessionId,
+      round_number: newRoundNumber,
+      sort_order: newRoundNumber,
+      ticket_number: effectiveTicket,
+      ticket_title: ticketTitle,
+      selections: {},
+      game_state: 'Selection',
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    let { data: newRound, error } = await supabase
       .from('poker_session_rounds')
-      .insert({
-        session_id: sessionId,
-        round_number: newRoundNumber,
-        sort_order: newRoundNumber,
-        ticket_number: effectiveTicket,
-        ticket_title: ticketTitle,
-        selections: {},
-        game_state: 'Selection',
-        is_active: true,
-        created_at: new Date().toISOString()
-      })
+      .insert(roundRow)
       .select()
       .single();
+
+    // Tolerate DBs that have not yet applied the sort_order migration.
+    const missingSortOrder =
+      !!error &&
+      (error.message?.includes('sort_order') ?? false) &&
+      (error.code === '42703' || (error.message?.includes('does not exist') ?? false));
+    if (missingSortOrder) {
+      const { sort_order: _ignored, ...withoutSortOrder } = roundRow;
+      ({ data: newRound, error } = await supabase
+        .from('poker_session_rounds')
+        .insert(withoutSortOrder)
+        .select()
+        .single());
+    }
 
     if (error) {
       throw error;

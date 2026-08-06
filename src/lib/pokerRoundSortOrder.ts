@@ -9,6 +9,22 @@ export function roundSortKey(round: RoundSortable): number {
   return typeof round.sort_order === 'number' ? round.sort_order : round.round_number;
 }
 
+/** True when Postgres/PostgREST rejects a query because sort_order is not on the table yet. */
+export function isMissingSortOrderColumnError(
+  error: { code?: string | null; message?: string | null } | null | undefined
+): boolean {
+  if (!error) return false;
+  const message = error.message ?? '';
+  if (!message.includes('sort_order')) return false;
+  return error.code === '42703' || message.includes('does not exist');
+}
+
+/** Drop sort_order so inserts/updates can proceed before the migration is applied. */
+export function omitSortOrder<T extends { sort_order?: unknown }>(row: T): Omit<T, 'sort_order'> {
+  const { sort_order: _ignored, ...rest } = row;
+  return rest;
+}
+
 export function compareRoundsBySortOrder(a: RoundSortable, b: RoundSortable): number {
   const bySort = roundSortKey(a) - roundSortKey(b);
   if (bySort !== 0) return bySort;
