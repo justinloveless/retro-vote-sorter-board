@@ -1,5 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  resolveJiraIssueDetailFieldsParam,
+  trimIssueComments,
+} from '../_shared/jiraIssueDetailFields.ts';
 
 Deno.serve(async (req) => {
   // This is needed if you're planning to invoke your function from a browser.
@@ -59,13 +63,20 @@ Deno.serve(async (req) => {
     }
 
     const auth = btoa(`${jira_email}:${jira_api_key}`);
-    const jiraUrl = `${jira_domain}/rest/api/3/issue/${encodeURIComponent(resolvedKey)}`;
+    const authHeaders = {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json',
+    };
+    const baseUrl = jira_domain.replace(/\/$/, '');
+    const fieldsParam = resolveJiraIssueDetailFieldsParam(teamId, baseUrl, authHeaders);
+    // Request only drawer fields + nested comments (trimmed before return).
+    const fieldsQuery = `${fieldsParam},comment`;
+    const jiraUrl =
+      `${baseUrl}/rest/api/3/issue/${encodeURIComponent(resolvedKey)}` +
+      `?fields=${encodeURIComponent(fieldsQuery)}`;
 
     const jiraResponse = await fetch(jiraUrl, {
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
+      headers: authHeaders,
     });
 
     if (!jiraResponse.ok) {
@@ -73,7 +84,7 @@ Deno.serve(async (req) => {
       throw new Error(`Jira API error (${jiraResponse.status}): ${errorBody}`);
     }
 
-    const issueData = await jiraResponse.json();
+    const issueData = trimIssueComments(await jiraResponse.json());
 
     return new Response(JSON.stringify({ ...issueData, shouldUseIframe: false, domain: jira_domain }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -86,4 +97,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

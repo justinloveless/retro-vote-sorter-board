@@ -705,6 +705,18 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
     return () => { cancelled = true; };
   }, [noApiCredentials, teamId, profile?.id]);
 
+  const applyIssueResponseToState = React.useCallback((data: JiraIssueData & { domain?: string; shouldUseIframe?: boolean }) => {
+    if (data.shouldUseIframe) {
+      setJiraDomain(data.domain || null);
+      setNoApiCredentials(true);
+      setIssueData(null);
+    } else {
+      setIssueData(data);
+      setJiraDomain(data.domain || null);
+      setNoApiCredentials(false);
+    }
+  }, []);
+
   const fetchIssue = React.useCallback(async (
     openOnComplete: boolean,
     options?: { skipCache?: boolean; keepPreviousData?: boolean },
@@ -719,18 +731,17 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
     }
 
     const cacheKey = `${teamId}:${issueIdOrKey}`;
+    // Hover prefetch should warm the cache only — applying issueData while closed
+    // re-runs description/comment rendering on every poker table re-render.
+    const applyToUi = openOnComplete || Boolean(options?.keepPreviousData);
 
     if (!options?.skipCache) {
       const cached = getCached(cacheKey);
       if (cached) {
-        if (cached.shouldUseIframe) {
-          setJiraDomain(cached.domain);
-          setNoApiCredentials(true);
-        } else {
-          setIssueData(cached);
-          setJiraDomain(cached.domain || null);
+        if (applyToUi) {
+          applyIssueResponseToState(cached);
+          if (openOnComplete) setIsOpen(true);
         }
-        if (openOnComplete) setIsOpen(true);
         return;
       }
     }
@@ -738,12 +749,14 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
     if (fetchRef.current === cacheKey && !openOnComplete) return;
     fetchRef.current = cacheKey;
 
-    setIsLoading(true);
-    setError(null);
-    if (!options?.keepPreviousData) {
-      setIssueData(null);
+    if (applyToUi) {
+      setIsLoading(true);
+      setError(null);
+      if (!options?.keepPreviousData) {
+        setIssueData(null);
+      }
+      setNoApiCredentials(false);
     }
-    setNoApiCredentials(false);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('get-jira-issue-v3', {
@@ -755,23 +768,23 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
 
       setCache(cacheKey, data);
 
-      if (data.shouldUseIframe) {
-        setJiraDomain(data.domain);
-        setNoApiCredentials(true);
-      } else {
-        setIssueData(data);
-        setJiraDomain(data.domain || null);
+      if (applyToUi) {
+        applyIssueResponseToState(data);
+        if (openOnComplete) setIsOpen(true);
       }
-      if (openOnComplete) setIsOpen(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      if (openOnComplete) setIsOpen(true);
+      if (applyToUi) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (openOnComplete) setIsOpen(true);
+      }
     } finally {
-      setIsLoading(false);
-      setClicked(false);
+      if (applyToUi) {
+        setIsLoading(false);
+        setClicked(false);
+      }
       fetchRef.current = null;
     }
-  }, [issueIdOrKey, teamId, isPreviewMode, setIsOpen]);
+  }, [issueIdOrKey, teamId, isPreviewMode, setIsOpen, applyIssueResponseToState]);
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -996,6 +1009,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       setDescriptionEditing(false);
       setDescriptionEditorKind(null);
       setDescriptionDraft('');
+      setDescriptionAdf(null);
       setAssignPopoverOpen(false);
       setPointsPopoverOpen(false);
       setNewCommentDraft('');
@@ -1005,7 +1019,12 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       setPriorityPopoverOpen(false);
       setIssueTypePopoverOpen(false);
       setSprintPopoverOpen(false);
-      if (isPreviewMode) setIssueData(null);
+      setFieldOptions(null);
+      setSprintPickerData(null);
+      setError(null);
+      // Drop heavy issue state while closed; cache still serves instant reopen.
+      // Keep adfRendererComponent — reloading @atlaskit/renderer on every open is costly.
+      setIssueData(null);
     }
   }, [isOpen, isPreviewMode, previewIssue]);
 
@@ -1045,7 +1064,9 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
   }, [pointsPopoverOpen, storyPoints]);
 
   useEffect(() => {
-    if (!canEditJira || !teamId || !issueData?.key) {
+    // Only load edit metadata while the drawer is open (hover prefetch must not fan out).
+    if (!isOpen || !canEditJira || !teamId || !issueData?.key) {
+      if (!isOpen) return;
       setFieldOptions(null);
       return;
     }
@@ -1084,10 +1105,11 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [canEditJira, teamId, issueData?.key]);
+  }, [isOpen, canEditJira, teamId, issueData?.key]);
 
   useEffect(() => {
-    if (!canEditJira || !teamId || !issueData?.key || noApiCredentials) {
+    if (!isOpen || !canEditJira || !teamId || !issueData?.key || noApiCredentials) {
+      if (!isOpen) return;
       setSprintPickerData(null);
       return;
     }
@@ -1132,6 +1154,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       cancelled = true;
     };
   }, [
+    isOpen,
     canEditJira,
     teamId,
     issueData?.key,
@@ -1511,6 +1534,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
       {!isPreviewMode && triggerElement}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        {/* Skip evaluating the heavy drawer tree while closed (Radix still receives children as props). */}
+        {isOpen ? (
         <DialogContent
           ref={setJiraDialogPortalContainer}
           className="sm:max-w-[60vw] max-h-[90vh] min-h-0 overflow-x-hidden overflow-visible p-0 gap-0 flex flex-col"
@@ -2379,9 +2404,14 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
                   <div className="flex items-center gap-1 mb-3">
                     <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Comments ({fields.comment?.comments?.length ?? 0})
+                      Comments ({fields.comment?.total ?? fields.comment?.comments?.length ?? 0})
                     </p>
                   </div>
+                  {(fields.comment?.total ?? 0) > (fields.comment?.comments?.length ?? 0) && (
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      Showing newest {fields.comment?.comments?.length ?? 0} of {fields.comment?.total} comments.
+                    </p>
+                  )}
                   {canEditJira && (
                     <div className="space-y-2 mb-4">
                       <Textarea
@@ -2452,26 +2482,28 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
             </ScrollArea>
           </div>
         </DialogContent>
+        ) : null}
       </Dialog>
 
       {/* Image preview dialog — same pattern as chat */}
+      {previewImage ? (
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Image Preview</DialogTitle>
           </DialogHeader>
           <div className="p-6 pt-0">
-            {previewImage && (
-              <img
-                src={previewImage}
-                alt="Full size preview"
-                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
-              />
-            )}
+            <img
+              src={previewImage}
+              alt="Full size preview"
+              className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+            />
           </div>
         </DialogContent>
       </Dialog>
+      ) : null}
 
+      {cloneDialogOpen ? (
       <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
         <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
@@ -2504,6 +2536,7 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      ) : null}
     </JiraUserMapContext.Provider>
     </ImagePreviewContext.Provider>
   );
