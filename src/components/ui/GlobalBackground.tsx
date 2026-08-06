@@ -29,7 +29,9 @@ const Blob = ({
 }) => (
   <div
     className={cn(
-      'absolute rounded-full opacity-50 dark:opacity-30 mix-blend-multiply dark:mix-blend-lighten filter blur-[40px] sm:blur-3xl md:blur-[300px]',
+      // Cap blur radius: md:blur-[300px] is extremely expensive on Safari / low-end GPUs.
+      'absolute rounded-full opacity-50 dark:opacity-30 mix-blend-multiply dark:mix-blend-lighten filter blur-[40px] sm:blur-2xl md:blur-[100px]',
+      'motion-reduce:animate-none',
       animationClass
     )}
     style={{

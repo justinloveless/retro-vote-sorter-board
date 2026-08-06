@@ -119,7 +119,7 @@ function SprintBucket({
 }) {
   return (
     <Collapsible open={isOpen} onOpenChange={onOpenChange} className="mb-4">
-      <div className="sticky top-0 z-10 flex w-full items-center gap-0.5 rounded bg-background/95 backdrop-blur">
+      <div className="sticky top-0 z-10 flex w-full items-center gap-0.5 rounded bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm">
         <CollapsibleTrigger asChild>
           <button
             type="button"

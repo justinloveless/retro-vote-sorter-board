@@ -60,7 +60,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
       !(isMobile && p.key === 'details')
   );
   return (
-    <div className="w-full flex items-center justify-center gap-1 py-2 px-3 bg-background/80 backdrop-blur border-t border-border">
+    <div className="w-full flex items-center justify-center gap-1 py-2 px-3 bg-background/95 border-t border-border supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-sm">
       {showObserverButton && (
         <div className="contents">
         {isMobile && (
