@@ -655,7 +655,7 @@ export const useRetroBoard = (roomId: string) => {
     try {
       const targetColumn = columns.find(c => c.id === columnId);
       if (newItem && targetColumn?.is_action_items && board.team_id) {
-        await supabase
+        const { data: actionItem, error: actionError } = await supabase
           .from('team_action_items')
           .insert([{
             team_id: board.team_id,
@@ -663,7 +663,24 @@ export const useRetroBoard = (roomId: string) => {
             source_board_id: board.id,
             source_item_id: newItem.id,
             created_by: effectiveAuthorId
-          }]);
+          }])
+          .select('id')
+          .single();
+
+        if (actionError) {
+          console.error('Error creating team action item:', actionError);
+          toast({
+            title: 'Error creating action item',
+            description: 'The card was added, but assignment may not work until you refresh.',
+            variant: 'destructive',
+          });
+        } else if (actionItem) {
+          // Keep local status in sync so assign/done work immediately (don't wait on realtime)
+          setBoardActionStatus(prev => ({
+            ...prev,
+            [newItem.id]: { id: actionItem.id, done: false, assigned_to: null },
+          }));
+        }
       }
     } catch (e) {
       console.error('Error creating team action item:', e);
@@ -687,75 +704,158 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
+  const resolveBoardActionLink = async (
+    sourceItemId: string
+  ): Promise<{ id: string; done: boolean; assigned_to?: string | null } | null> => {
+    const existingLink = boardActionStatus[sourceItemId];
+    if (existingLink) return existingLink;
+
+    const { data: existing, error: lookupError } = await supabase
+      .from('team_action_items')
+      .select('id, done, assigned_to')
+      .eq('source_item_id', sourceItemId)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('Error looking up team action item:', lookupError);
+      return null;
+    }
+
+    if (existing) {
+      const link = { id: existing.id, done: !!existing.done, assigned_to: existing.assigned_to };
+      setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: link }));
+      return link;
+    }
+
+    return null;
+  };
+
   const toggleBoardActionItemDone = async (sourceItemId: string, nextDone: boolean) => {
-    // Find linked action item id
-    const link = boardActionStatus[sourceItemId];
-    const actionId = link?.id;
-    if (!actionId && nextDone) {
+    let link = await resolveBoardActionLink(sourceItemId);
+
+    if (!link && nextDone) {
       // If no action record exists but toggling to done from board, create one linked to this item
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
         const { data, error } = await supabase
           .from('team_action_items')
-          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, done: true, done_at: new Date().toISOString(), done_by: profile?.id || null }])
+          .insert([{
+            team_id: board.team_id,
+            text: targetItem.text,
+            source_board_id: board.id,
+            source_item_id: sourceItemId,
+            created_by: profile?.id || null,
+            done: true,
+            done_at: new Date().toISOString(),
+            done_by: profile?.id || null,
+          }])
           .select('id')
           .single();
-        if (!error && data) {
-          setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: data.id, done: true } }));
+        if (error || !data) {
+          // Unique race: another client may have created it — look up and update instead
+          const raced = await resolveBoardActionLink(sourceItemId);
+          if (!raced) {
+            console.error('Error creating team action item:', error);
+            toast({ title: 'Error updating action item', variant: 'destructive' });
+            return;
+          }
+          link = raced;
+        } else {
+          link = { id: data.id, done: true, assigned_to: null };
+          setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: link! }));
+          return;
         }
-        return;
       }
-      return;
     }
 
-    if (!actionId) return;
+    if (!link) return;
+
+    const actionId = link.id;
+    const previous = { ...link };
 
     // Optimistic update
-    setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: nextDone } }));
+    setBoardActionStatus(prev => ({
+      ...prev,
+      [sourceItemId]: { ...link!, done: nextDone },
+    }));
     const { error } = await supabase
       .from('team_action_items')
-      .update({ done: nextDone, done_at: nextDone ? new Date().toISOString() : null, done_by: nextDone ? (profile?.id || null) : null })
+      .update({
+        done: nextDone,
+        done_at: nextDone ? new Date().toISOString() : null,
+        done_by: nextDone ? (profile?.id || null) : null,
+      })
       .eq('id', actionId);
     if (error) {
-      // Revert
-      setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: actionId, done: !nextDone } }));
+      setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: previous }));
       toast({ title: 'Error updating action item', variant: 'destructive' });
     }
   };
 
   const assignTeamActionItem = async (actionItemId: string, userId: string | null) => {
     // Optimistic update for Open Action Items list
+    const previous = teamActionItems;
     setTeamActionItems(prev => prev.map(a => a.id === actionItemId ? { ...a, assigned_to: userId } : a));
     const { error } = await supabase
       .from('team_action_items')
       .update({ assigned_to: userId })
       .eq('id', actionItemId);
     if (error) {
+      setTeamActionItems(previous);
       toast({ title: 'Error assigning action item', variant: 'destructive' });
     }
   };
 
   const assignBoardActionItem = async (sourceItemId: string, userId: string | null) => {
-    const link = boardActionStatus[sourceItemId];
+    let link = await resolveBoardActionLink(sourceItemId);
+
     if (!link) {
       const targetItem = items.find(i => i.id === sourceItemId);
-      if (board?.team_id && targetItem) {
-        const { data, error } = await supabase
-          .from('team_action_items')
-          .insert([{ team_id: board.team_id, text: targetItem.text, source_board_id: board.id, source_item_id: sourceItemId, created_by: profile?.id || null, assigned_to: userId ?? null }])
-          .select('id')
-          .single();
-        if (!error && data) {
-          setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { id: data.id, done: false, assigned_to: userId ?? null } }));
-        }
+      if (!board?.team_id || !targetItem) return;
+
+      const { data, error } = await supabase
+        .from('team_action_items')
+        .insert([{
+          team_id: board.team_id,
+          text: targetItem.text,
+          source_board_id: board.id,
+          source_item_id: sourceItemId,
+          created_by: profile?.id || null,
+          assigned_to: userId ?? null,
+        }])
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        setBoardActionStatus(prev => ({
+          ...prev,
+          [sourceItemId]: { id: data.id, done: false, assigned_to: userId ?? null },
+        }));
+        return;
       }
-      return;
+
+      // Unique constraint race: row already exists — look up and update instead
+      link = await resolveBoardActionLink(sourceItemId);
+      if (!link) {
+        console.error('Error assigning action item:', error);
+        toast({ title: 'Error assigning action item', variant: 'destructive' });
+        return;
+      }
     }
-    setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: { ...prev[sourceItemId], assigned_to: userId ?? null } }));
-    await supabase
+
+    const previous = { ...link };
+    setBoardActionStatus(prev => ({
+      ...prev,
+      [sourceItemId]: { ...link!, assigned_to: userId ?? null },
+    }));
+    const { error } = await supabase
       .from('team_action_items')
       .update({ assigned_to: userId ?? null })
       .eq('id', link.id);
+    if (error) {
+      setBoardActionStatus(prev => ({ ...prev, [sourceItemId]: previous }));
+      toast({ title: 'Error assigning action item', variant: 'destructive' });
+    }
   };
 
   const addColumn = async (title: string) => {
