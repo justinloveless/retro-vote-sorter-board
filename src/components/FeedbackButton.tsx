@@ -13,17 +13,40 @@ interface Props {
   size?: React.ComponentProps<typeof Button>['size'];
   className?: string;
   onOpenRequested?: () => void;
+  /** Controlled open state. When provided with onOpenChange, the dialog is controlled. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** When false, only the dialog is rendered (no trigger button). Defaults to true. */
+  showTrigger?: boolean;
 }
 
-export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 'sm', className, onOpenRequested }) => {
+export const FeedbackButton: React.FC<Props> = ({
+  variant = 'outline',
+  size = 'sm',
+  className,
+  onOpenRequested,
+  open: controlledOpen,
+  onOpenChange,
+  showTrigger = true,
+}) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [type, setType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const pageUrl = useMemo(() => window.location.href, []);
   const [loading, setLoading] = useState(false);
+
+  const isControlled = controlledOpen !== undefined && onOpenChange !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) {
+      onOpenChange(next);
+    } else {
+      setUncontrolledOpen(next);
+    }
+  };
 
   const submit = async () => {
     if (!title.trim()) {
@@ -56,8 +79,9 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
       setOpen(false);
       setTitle('');
       setDescription('');
-    } catch (e: any) {
-      toast({ title: 'Failed to submit feedback', description: e.message || String(e), variant: 'destructive' });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Failed to submit feedback', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -65,13 +89,15 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
 
   return (
     <>
-      <Button variant={variant} size={size} onClick={() => {
-        onOpenRequested?.();
-        setOpen(true);
-      }} className={className || 'inline-flex items-center gap-2'}>
-        <Github className="h-4 w-4" />
-        Feedback
-      </Button>
+      {showTrigger && (
+        <Button variant={variant} size={size} onClick={() => {
+          onOpenRequested?.();
+          setOpen(true);
+        }} className={className || 'inline-flex items-center gap-2'}>
+          <Github className="h-4 w-4" />
+          Feedback
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -80,7 +106,11 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600 dark:text-gray-300">Type</label>
-              <select className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground" value={type} onChange={(e) => setType(e.target.value as any)}>
+              <select
+                className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground"
+                value={type}
+                onChange={(e) => setType(e.target.value as 'bug' | 'feature' | 'other')}
+              >
                 <option value="bug">Bug</option>
                 <option value="feature">Feature</option>
                 <option value="other">Other</option>
@@ -107,5 +137,3 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
     </>
   );
 };
-
-
