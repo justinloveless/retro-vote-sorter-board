@@ -97,6 +97,13 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const dragOverIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+  const isReorderingRef = useRef(false);
+  const ticketStripItemsRef = useRef<
+    Array<{ roundId?: string }>
+  >([]);
+  const persistStripOrderRef = useRef<(fromIndex: number, toIndex: number) => Promise<void>>(
+    async () => {}
+  );
   const {
     spotlightRoundNumber,
     isSpotlightMine,
@@ -254,7 +261,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
 
   const persistStripOrder = useCallback(
     async (fromIndex: number, toIndex: number) => {
-      if (fromIndex === toIndex || isReordering) return;
+      if (fromIndex === toIndex || isReorderingRef.current) return;
       const orderedIds = ticketStripItems
         .map((item) => item.roundId)
         .filter((id): id is string => typeof id === 'string' && id.length > 0);
@@ -270,14 +277,16 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       if (fromIdIndex < 0 || toIdIndex < 0 || fromIdIndex === toIdIndex) return;
 
       const nextIds = moveItemInOrder(orderedIds, fromIdIndex, toIdIndex);
+      isReorderingRef.current = true;
       setIsReordering(true);
       try {
         await reorderRounds(nextIds);
       } finally {
+        isReorderingRef.current = false;
         setIsReordering(false);
       }
     },
-    [isReordering, reorderRounds, ticketStripItems]
+    [reorderRounds, ticketStripItems]
   );
 
   const moveStripItem = useCallback(
@@ -287,6 +296,89 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
       void persistStripOrder(index, target);
     },
     [persistStripOrder, ticketStripItems.length]
+  );
+
+  ticketStripItemsRef.current = ticketStripItems;
+  persistStripOrderRef.current = persistStripOrder;
+
+  // Native DnD listeners (not React delegation):
+  // - dragstart on the handle must stopPropagation so Embla's viewport bubble
+  //   listener never preventDefault()s the operation.
+  // - dragover/drop are also native so they stay reliable inside Radix asChild.
+  const bindRoundDragHandle = useCallback((index: number, roundId: string) => {
+    return (el: HTMLSpanElement | null) => {
+      if (!el) return;
+      el.dataset.stripIndex = String(index);
+      el.dataset.roundId = roundId;
+      if (el.dataset.roundDragBound === '1') return;
+      el.dataset.roundDragBound = '1';
+      el.addEventListener('dragstart', (event) => {
+        const from = Number(el.dataset.stripIndex);
+        const id = el.dataset.roundId ?? '';
+        if (!Number.isFinite(from) || !id) return;
+        dragFromIndexRef.current = from;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', id);
+        // Must stop before the event bubbles to Embla's viewport listener.
+        event.stopPropagation();
+      });
+      el.addEventListener('dragend', () => {
+        // Prefer drop when it fires; if the browser skips drop (common with
+        // nested carousel/portal trees), commit from the last dragover target.
+        const from = dragFromIndexRef.current;
+        const to = dragOverIndexRef.current;
+        if (from != null && to != null && from !== to) {
+          void persistStripOrderRef.current(from, to);
+        }
+        dragFromIndexRef.current = null;
+        dragOverIndexRef.current = null;
+        setDragOverIndex(null);
+      });
+    };
+  }, []);
+
+  const bindRoundDropTarget = useCallback(
+    (index: number, roundId: string | undefined, enabled: boolean) => {
+      return (el: HTMLDivElement | null) => {
+        if (!el) return;
+        el.dataset.stripIndex = String(index);
+        if (roundId) el.dataset.roundId = roundId;
+        else delete el.dataset.roundId;
+        el.dataset.dropEnabled = enabled ? '1' : '0';
+        if (el.dataset.roundDropBound === '1') return;
+        el.dataset.roundDropBound = '1';
+        el.addEventListener('dragover', (event) => {
+          if (el.dataset.dropEnabled !== '1') return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          const to = Number(el.dataset.stripIndex);
+          if (!Number.isFinite(to)) return;
+          if (dragOverIndexRef.current !== to) {
+            dragOverIndexRef.current = to;
+            setDragOverIndex(to);
+          }
+        });
+        el.addEventListener('drop', (event) => {
+          if (el.dataset.dropEnabled !== '1') return;
+          event.preventDefault();
+          event.stopPropagation();
+          const to = Number(el.dataset.stripIndex);
+          const fromId = event.dataTransfer.getData('text/plain');
+          const fromById =
+            fromId.length > 0
+              ? ticketStripItemsRef.current.findIndex((item) => item.roundId === fromId)
+              : -1;
+          const from = fromById >= 0 ? fromById : dragFromIndexRef.current;
+          dragFromIndexRef.current = null;
+          dragOverIndexRef.current = null;
+          setDragOverIndex(null);
+          if (from != null && Number.isFinite(to) && from !== to) {
+            void persistStripOrderRef.current(from, to);
+          }
+        });
+      };
+    },
+    []
   );
 
   const goToNextActiveRound = useCallback(() => {
@@ -566,29 +658,8 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                 const isDropTarget = dragOverIndex === index && dragFromIndexRef.current !== index;
                 const chipButton = (
                   <div
+                    ref={bindRoundDropTarget(index, item.roundId, canReorderStrip && !!item.roundId)}
                     className={`relative inline-flex ${isDropTarget ? 'ring-2 ring-primary/50 rounded-md' : ''}`}
-                    onDragOver={
-                      canReorderStrip && item.roundId
-                        ? (e) => {
-                            e.preventDefault();
-                            dragOverIndexRef.current = index;
-                            setDragOverIndex(index);
-                          }
-                        : undefined
-                    }
-                    onDrop={
-                      canReorderStrip && item.roundId
-                        ? (e) => {
-                            e.preventDefault();
-                            const from = dragFromIndexRef.current;
-                            const to = index;
-                            dragFromIndexRef.current = null;
-                            dragOverIndexRef.current = null;
-                            setDragOverIndex(null);
-                            if (from != null) void persistStripOrder(from, to);
-                          }
-                        : undefined
-                    }
                   >
                     {newChatCount > 0 && (
                       <span
@@ -623,20 +694,11 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                       )}
                       {canReorderStrip && item.roundId && (
                         <span
+                          ref={bindRoundDragHandle(index, item.roundId)}
                           role="button"
                           tabIndex={0}
                           data-round-drag-handle
                           draggable={!isReordering}
-                          onDragStart={(e) => {
-                            dragFromIndexRef.current = index;
-                            e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('text/plain', item.roundId!);
-                          }}
-                          onDragEnd={() => {
-                            dragFromIndexRef.current = null;
-                            dragOverIndexRef.current = null;
-                            setDragOverIndex(null);
-                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowLeft') {
                               e.preventDefault();
@@ -650,7 +712,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                           aria-label={`Drag to reorder ${item.ticketKey}`}
                           title="Drag to reorder"
                         >
-                          <GripVertical className="h-3.5 w-3.5" />
+                          <GripVertical className="h-3.5 w-3.5 pointer-events-none" />
                         </span>
                       )}
                       <button
