@@ -399,6 +399,24 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     };
   }, [emblaApi, ticketStripItems, navigateToItem]);
 
+  // Embla always preventDefault()'s `dragstart` on the viewport (bubble). That
+  // cancels HTML5 DnD for our grip handles. Stop the event in capture on the
+  // viewport when it originates from a handle so Embla never sees it.
+  useEffect(() => {
+    if (!emblaApi) return;
+    const viewport = emblaApi.rootNode();
+    const allowHandleDragStart = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest('[data-round-drag-handle]')) return;
+      event.stopImmediatePropagation();
+    };
+    viewport.addEventListener('dragstart', allowHandleDragStart, true);
+    return () => {
+      viewport.removeEventListener('dragstart', allowHandleDragStart, true);
+    };
+  }, [emblaApi]);
+
   const canShowRoundStrip = showRoundStrip;
 
   return (
@@ -627,12 +645,18 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                           tabIndex={0}
                           data-round-drag-handle
                           draggable={!isReordering}
-                          onDragStart={(e) => {
+                          // Embla registers a bubble-phase `dragstart` listener on the
+                          // carousel root that always calls preventDefault (to block
+                          // native image/link dragging while swiping). Handle that in
+                          // capture so we can stopPropagation before Embla cancels DnD.
+                          onDragStartCapture={(e) => {
                             dragFromIndexRef.current = index;
                             e.dataTransfer.effectAllowed = 'move';
                             e.dataTransfer.setData('text/plain', item.roundId!);
+                            e.stopPropagation();
                           }}
-                          onDragEnd={() => {
+                          onDragEnd={(e) => {
+                            e.stopPropagation();
                             dragFromIndexRef.current = null;
                             dragOverIndexRef.current = null;
                             setDragOverIndex(null);
@@ -650,7 +674,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                           aria-label={`Drag to reorder ${item.ticketKey}`}
                           title="Drag to reorder"
                         >
-                          <GripVertical className="h-3.5 w-3.5" />
+                          <GripVertical className="h-3.5 w-3.5 pointer-events-none" />
                         </span>
                       )}
                       <button
