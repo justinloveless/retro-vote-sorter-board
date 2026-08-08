@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrgSelector } from '@/contexts/OrgSelectorContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2, LayoutDashboard } from 'lucide-react';
+import { Users, User, LogIn, LogOut, Shield, Home, ArrowLeft, Menu, Building2, LayoutDashboard, Github } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
@@ -70,6 +70,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     const { theme, toggleTheme } = useTheme();
     const isMobile = useIsMobile();
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
 
     const { organizations, selectedOrgId, selectedOrg, selectedOrgRole, setSelectedOrgId, hasOrgs } = useOrgSelector();
     const { isFeatureEnabled, loading: flagsLoading } = useFeatureFlags();
@@ -210,6 +211,14 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                             Account
                         </Button>
                     )}
+                    <Button
+                        variant="outline"
+                        onClick={() => setFeedbackOpen(true)}
+                        className="justify-start"
+                    >
+                        <Github className="h-4 w-4 mr-2" />
+                        Feedback
+                    </Button>
                     <Button variant="outline" onClick={signOut} className="justify-start">
                         <LogOut className="h-4 w-4 mr-2" />
                         Sign Out
@@ -308,12 +317,18 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                                         Account
                                     </Button>
                                 )}
-                                <FeedbackButton
+                                <Button
                                     variant="ghost"
                                     size="sm"
                                     className="w-full justify-start"
-                                    onOpenRequested={() => setProfileMenuOpen(false)}
-                                />
+                                    onClick={() => {
+                                        setProfileMenuOpen(false);
+                                        setFeedbackOpen(true);
+                                    }}
+                                >
+                                    <Github className="h-4 w-4 mr-2" />
+                                    Feedback
+                                </Button>
                                 <Button variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700" onClick={() => {
                                     setProfileMenuOpen(false);
                                     signOut();
@@ -341,51 +356,61 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
     );
 
     return (
-        <header className={`flex justify-between items-center px-4 py-2 md:px-6 md:py-3 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
-            <div className="flex items-center space-x-4">
-                {!isMobile && renderOrgSelector()}
-                {renderLeftContent()}
-            </div>
-            <div id="app-header-center-slot" className="flex-grow flex justify-center">
-                {children}
-            </div>
-            <div className="flex items-center space-x-2">
-                {isMobile ? (
-                    <>
-                        {user && (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
-                                            <AvatarFallback className="text-xs">{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
-                                        <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        )}
-                        <Sheet>
-                            <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <Menu className="h-5 w-5" />
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="right">
-                                <SheetHeader>
-                                    <SheetTitle>Menu</SheetTitle>
-                                </SheetHeader>
-                                {renderMobileMenuItems()}
-                            </SheetContent>
-                        </Sheet>
-                    </>
-                ) : (
-                    renderDesktopActions()
-                )}
-            </div>
-        </header>
+        <>
+            <header className={`flex justify-between items-center px-4 py-2 md:px-6 md:py-3 ${isMobile ? 'fixed top-0 left-0 right-0 z-50 bg-background/40 backdrop-blur-sm' : ''}`}>
+                <div className="flex items-center space-x-4">
+                    {!isMobile && renderOrgSelector()}
+                    {renderLeftContent()}
+                </div>
+                <div id="app-header-center-slot" className="flex-grow flex justify-center">
+                    {children}
+                </div>
+                <div className="flex items-center space-x-2">
+                    {isMobile ? (
+                        <>
+                            {user && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email || 'User Avatar'} />
+                                                <AvatarFallback className="text-xs">{(profile?.full_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {profile?.full_name && <p className="font-semibold">{profile.full_name}</p>}
+                                            <p className="text-sm text-muted-foreground">{impersonatedEmail || user.email}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                            <Sheet>
+                                <SheetTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <Menu className="h-5 w-5" />
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="right">
+                                    <SheetHeader>
+                                        <SheetTitle>Menu</SheetTitle>
+                                    </SheetHeader>
+                                    {renderMobileMenuItems()}
+                                </SheetContent>
+                            </Sheet>
+                        </>
+                    ) : (
+                        renderDesktopActions()
+                    )}
+                </div>
+            </header>
+            {/* Keep dialog mounted outside menus/popovers so they can close without unmounting it */}
+            {user && (
+                <FeedbackButton
+                    showTrigger={false}
+                    open={feedbackOpen}
+                    onOpenChange={setFeedbackOpen}
+                />
+            )}
+        </>
     );
 };
