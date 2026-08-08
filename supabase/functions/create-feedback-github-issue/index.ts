@@ -83,12 +83,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const descriptionText =
+      typeof report.description === "string" && report.description.trim()
+        ? report.description.trim()
+        : "(no description provided)";
+
     const issueRes = await fetch(`https://api.github.com/repos/${ghRepo}/issues`, {
       method: "POST",
       headers: ghHeaders,
       body: JSON.stringify({
         title: `[${report.type}] ${report.title}`,
-        body: `${report.description}\n\nSubmitted by: ${report.email || "anonymous"}\nPage: ${report.page_url || "n/a"}`,
+        body: `${descriptionText}\n\nSubmitted by: ${report.email || "anonymous"}\nPage: ${report.page_url || "n/a"}`,
         labels: [report.type, "in-app-feedback"],
       }),
     });

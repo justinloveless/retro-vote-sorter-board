@@ -26,8 +26,8 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    if (!title.trim() || !description.trim()) {
-      toast({ title: 'Please provide a title and description', variant: 'destructive' });
+    if (!title.trim()) {
+      toast({ title: 'Please provide a title', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -36,8 +36,8 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
         user_id: user?.id || null,
         email: user?.email || null,
         type,
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         page_url: pageUrl,
       }).select('id').single();
       if (insertRes.error) throw insertRes.error;
@@ -91,7 +91,9 @@ export const FeedbackButton: React.FC<Props> = ({ variant = 'outline', size = 's
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary" />
             </div>
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-300">Description</label>
+              <label className="text-sm text-gray-600 dark:text-gray-300">
+                Description <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+              </label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What happened? What did you expect?" rows={6} />
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Page: {pageUrl}</div>
