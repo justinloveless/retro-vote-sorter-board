@@ -6,7 +6,7 @@ import { RetroItemComments } from '../RetroItemComments';
 import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
 import { cn } from '@/lib/utils';
 import type { ItemVoter } from '@/hooks/useRetroBoard';
-import { VoterAvatarStack } from './VoterAvatarStack';
+import { VotersTooltip } from './VoterAvatarStack';
 
 interface RetroComment {
   id: string;
@@ -164,12 +164,11 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
               <span className="text-xs text-muted-foreground">
                 by {itemAuthor}
               </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                {voteEmoji || '👍'} {voteCount}
-              </span>
-              {voters.length > 0 && (
-                <VoterAvatarStack voters={voters} maxVisible={6} sizeClassName="h-5 w-5" />
-              )}
+              <VotersTooltip voters={voters}>
+                <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-default">
+                  {voteEmoji || '👍'} {voteCount}
+                </span>
+              </VotersTooltip>
             </div>
             <div
               className={cn('text-sm text-foreground prose dark:prose-invert max-w-none', RICH_TEXT_DISPLAY_CLASS)}

@@ -1,54 +1,65 @@
 import React from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { UserAvatar } from '@/components/ui/UserAvatar';
 import type { ItemVoter } from '@/hooks/useRetroBoard';
 
-interface VoterAvatarStackProps {
+interface VotersTooltipProps {
   voters: ItemVoter[];
-  maxVisible?: number;
-  sizeClassName?: string;
+  /** When false, renders children without a voters tooltip. */
+  enabled?: boolean;
+  children: React.ReactNode;
 }
 
-export const VoterAvatarStack: React.FC<VoterAvatarStackProps> = ({
-  voters,
-  maxVisible = 5,
-  sizeClassName = 'h-6 w-6',
-}) => {
-  if (!voters.length) return null;
+const getInitials = (name: string) => {
+  if (!name) return 'A';
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 
-  const visible = voters.slice(0, maxVisible);
-  const overflow = voters.slice(maxVisible);
+/**
+ * Wraps the vote counter and reveals who voted on hover.
+ */
+export const VotersTooltip: React.FC<VotersTooltipProps> = ({
+  voters,
+  enabled = true,
+  children,
+}) => {
+  if (!enabled || voters.length === 0) {
+    return <>{children}</>;
+  }
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="flex items-center -space-x-2" aria-label={`Voted by ${voters.map(v => v.name).join(', ')}`}>
-        {visible.map((voter) => (
-          <UserAvatar
-            key={voter.key}
-            name={voter.name}
-            avatarUrl={voter.avatarUrl}
-            className={`${sizeClassName} border-2 border-white dark:border-gray-800`}
-          />
-        ))}
-        {overflow.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className={`flex items-center justify-center ${sizeClassName} rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 text-[10px] font-medium text-gray-600 dark:text-gray-300`}
-              >
-                +{overflow.length}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="space-y-0.5">
-                {overflow.map((voter) => (
-                  <p key={voter.key}>{voter.name}</p>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{children}</span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs p-2">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Voted by
+          </p>
+          <ul className="space-y-1">
+            {voters.map((voter) => (
+              <li key={voter.key} className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={voter.avatarUrl ?? undefined} alt={voter.name} />
+                  <AvatarFallback className="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                    {getInitials(voter.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-xs">{voter.name}</span>
+              </li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
     </TooltipProvider>
   );
 };
+
+/** @deprecated Prefer VotersTooltip; kept for any lingering imports. */
+export const VoterAvatarStack = VotersTooltip;

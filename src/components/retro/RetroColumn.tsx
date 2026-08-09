@@ -14,7 +14,7 @@ import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 import { AudioSummaryState, ItemVoter, RetroStage } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
-import { VoterAvatarStack } from './VoterAvatarStack';
+import { VotersTooltip } from './VoterAvatarStack';
 import { TiptapEditorWithMentions, processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
@@ -472,34 +472,37 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             className="h-6 w-6"
                           />
                         )}
-                        {/* Always show vote count, but only make clickable when voting is allowed */}
-                        {canVoteOnItem(board?.retro_stage, boardConfig, item, user, isAnonymousUser, sessionId) ? (
-                          <Button
-                            variant={userVotes.includes(item.id) ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => onUpvoteItem(item.id)}
-                            className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          >
-                            {boardConfig?.vote_emoji ? (
-                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
-                            ) : (
-                              <ThumbsUp className="h-3 w-3" />
-                            )}
-                            {item.votes}
-                          </Button>
-                        ) : (
-                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                            {boardConfig?.vote_emoji ? (
-                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
-                            ) : (
-                              <ThumbsUp className="h-3 w-3" />
-                            )}
-                            {item.votes}
-                          </div>
-                        )}
-                        {canShowVoters(board?.retro_stage, boardConfig, isArchived) && (
-                          <VoterAvatarStack voters={votersByItemId[item.id] || []} />
-                        )}
+                        {/* Always show vote count, but only make clickable when voting is allowed.
+                            Voter names appear on hover when visibility is allowed for the stage. */}
+                        <VotersTooltip
+                          voters={votersByItemId[item.id] || []}
+                          enabled={canShowVoters(board?.retro_stage, boardConfig, isArchived)}
+                        >
+                          {canVoteOnItem(board?.retro_stage, boardConfig, item, user, isAnonymousUser, sessionId) ? (
+                            <Button
+                              variant={userVotes.includes(item.id) ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onUpvoteItem(item.id)}
+                              className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                            >
+                              {boardConfig?.vote_emoji ? (
+                                <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              {item.votes}
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-default">
+                              {boardConfig?.vote_emoji ? (
+                                <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              {item.votes}
+                            </div>
+                          )}
+                        </VotersTooltip>
                       </div>
 
                       {/* Row 2: Buttons */}
