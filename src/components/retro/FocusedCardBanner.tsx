@@ -5,6 +5,8 @@ import { processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { RetroItemComments } from '../RetroItemComments';
 import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
 import { cn } from '@/lib/utils';
+import type { ItemVoter } from '@/hooks/useRetroBoard';
+import { VotersTooltip } from './VoterAvatarStack';
 
 interface RetroComment {
   id: string;
@@ -95,6 +97,7 @@ interface FocusedCardBannerProps {
   columnColor: string;
   voteCount: number;
   voteEmoji?: string | null;
+  voters?: ItemVoter[];
   comments: RetroComment[];
   userName: string;
   currentUserId?: string;
@@ -120,6 +123,7 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
   columnColor,
   voteCount,
   voteEmoji,
+  voters = [],
   comments,
   userName,
   currentUserId,
@@ -160,9 +164,11 @@ export const FocusedCardBanner: React.FC<FocusedCardBannerProps> = ({
               <span className="text-xs text-muted-foreground">
                 by {itemAuthor}
               </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                {voteEmoji || '👍'} {voteCount}
-              </span>
+              <VotersTooltip voters={voters}>
+                <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-default">
+                  {voteEmoji || '👍'} {voteCount}
+                </span>
+              </VotersTooltip>
             </div>
             <div
               className={cn('text-sm text-foreground prose dark:prose-invert max-w-none', RICH_TEXT_DISPLAY_CLASS)}

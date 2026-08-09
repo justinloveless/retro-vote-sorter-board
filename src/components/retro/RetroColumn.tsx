@@ -12,8 +12,9 @@ import { UserAvatar } from '../ui/UserAvatar';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 
-import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';
+import { AudioSummaryState, ItemVoter, RetroStage } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
+import { VotersTooltip } from './VoterAvatarStack';
 import { TiptapEditorWithMentions, processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
@@ -78,6 +79,7 @@ interface RetroColumnProps {
   isArchived: boolean;
   sessionId?: string | null;
   userVotes: string[];
+  votersByItemId?: Record<string, ItemVoter[]>;
   teamMembers?: TeamMember[];
   previousActionItems?: { id: string; text: string }[];
   onMarkActionItemDone?: (id: string) => void;
@@ -233,6 +235,18 @@ const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
   return stage === 'discussing';
 };
 
+/** Show voter identities after voting (or when stages are off / board archived). */
+const canShowVoters = (
+  stage: RetroStage | null,
+  boardConfig: any,
+  isArchived: boolean
+): boolean => {
+  if (isArchived) return true;
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing' || stage === 'closed';
+};
+
 export const RetroColumn: React.FC<RetroColumnProps> = ({
   board,
   column,
@@ -249,6 +263,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   isArchived,
   sessionId,
   userVotes,
+  votersByItemId = {},
   teamMembers,
   onAddItem,
   onUpdateColumn,
@@ -457,31 +472,37 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             className="h-6 w-6"
                           />
                         )}
-                        {/* Always show vote count, but only make clickable when voting is allowed */}
-                        {canVoteOnItem(board?.retro_stage, boardConfig, item, user, isAnonymousUser, sessionId) ? (
-                          <Button
-                            variant={userVotes.includes(item.id) ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => onUpvoteItem(item.id)}
-                            className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          >
-                            {boardConfig?.vote_emoji ? (
-                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
-                            ) : (
-                              <ThumbsUp className="h-3 w-3" />
-                            )}
-                            {item.votes}
-                          </Button>
-                        ) : (
-                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                            {boardConfig?.vote_emoji ? (
-                              <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
-                            ) : (
-                              <ThumbsUp className="h-3 w-3" />
-                            )}
-                            {item.votes}
-                          </div>
-                        )}
+                        {/* Always show vote count, but only make clickable when voting is allowed.
+                            Voter names appear on hover when visibility is allowed for the stage. */}
+                        <VotersTooltip
+                          voters={votersByItemId[item.id] || []}
+                          enabled={canShowVoters(board?.retro_stage, boardConfig, isArchived)}
+                        >
+                          {canVoteOnItem(board?.retro_stage, boardConfig, item, user, isAnonymousUser, sessionId) ? (
+                            <Button
+                              variant={userVotes.includes(item.id) ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onUpvoteItem(item.id)}
+                              className="flex items-center gap-1 h-auto px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                            >
+                              {boardConfig?.vote_emoji ? (
+                                <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              {item.votes}
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-default">
+                              {boardConfig?.vote_emoji ? (
+                                <span className="h-3 w-3 inline-flex items-center justify-center">{boardConfig.vote_emoji}</span>
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              {item.votes}
+                            </div>
+                          )}
+                        </VotersTooltip>
                       </div>
 
                       {/* Row 2: Buttons */}

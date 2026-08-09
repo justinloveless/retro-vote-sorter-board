@@ -63,6 +63,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     sessionId,
     presenceChannel,
     userVotes,
+    votersByItemId,
     teamActionItems,
     boardActionStatus,
     audioSummaryState,
@@ -318,6 +319,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
               columnColor={focusedColumn.color}
               voteCount={focusedItem.votes}
               voteEmoji={boardConfig?.vote_emoji}
+              voters={votersByItemId[focusedItem.id] || []}
               comments={getCommentsForItem(focusedItem.id)}
               userName={userName}
               currentUserId={user?.id}
@@ -377,6 +379,7 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
                 isArchived={isArchived}
                 sessionId={sessionId}
                 userVotes={userVotes}
+                votersByItemId={votersByItemId}
                 audioSummaryState={audioSummaryState}
                 updateAudioSummaryState={updateAudioSummaryState}
                 teamMembers={teamMembers}
