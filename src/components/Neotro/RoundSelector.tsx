@@ -708,11 +708,15 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                               moveStripItem(index, 1);
                             }
                           }}
-                          className="relative z-[1] inline-flex cursor-grab items-center px-1 active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground"
+                          className="relative z-[2] inline-flex shrink-0 self-stretch cursor-grab items-center justify-center px-2.5 active:cursor-grabbing touch-none select-none text-muted-foreground hover:text-foreground"
                           aria-label={`Drag to reorder ${item.ticketKey}`}
                           title="Drag to reorder"
                         >
-                          <GripVertical className="h-3.5 w-3.5 pointer-events-none" />
+                          <span
+                            aria-hidden="true"
+                            className="absolute -inset-y-1 -left-1.5 -right-2.5"
+                          />
+                          <GripVertical className="relative h-3.5 w-3.5 pointer-events-none" />
                         </span>
                       )}
                       <button
