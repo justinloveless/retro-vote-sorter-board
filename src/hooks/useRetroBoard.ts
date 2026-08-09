@@ -84,9 +84,23 @@ interface RetroBoardConfig {
 
 interface ActiveUser {
   id: string;
+  user_id?: string;
   user_name: string;
   last_seen: string;
   avatar_url?: string;
+}
+
+export interface RetroVote {
+  id: string;
+  item_id: string;
+  user_id: string | null;
+  session_id: string | null;
+}
+
+export interface ItemVoter {
+  key: string;
+  name: string;
+  avatarUrl?: string | null;
 }
 
 export type AudioSummaryStatus = 'generating' | 'ready' | 'playing' | 'paused';
@@ -104,7 +118,7 @@ export const useRetroBoard = (roomId: string) => {
   const [comments, setComments] = useState<RetroComment[]>([]);
   const [boardConfig, setBoardConfig] = useState<RetroBoardConfig | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
-  const [userVotes, setUserVotes] = useState<string[]>([]);
+  const [votes, setVotes] = useState<RetroVote[]>([]);
   const [teamActionItems, setTeamActionItems] = useState<TeamActionItem[]>([]);
   const [boardActionStatus, setBoardActionStatus] = useState<Record<string, { id: string; done: boolean; assigned_to?: string | null }>>({});
   const [loading, setLoading] = useState(true);
@@ -330,19 +344,45 @@ export const useRetroBoard = (roomId: string) => {
           setBoardActionStatus({});
         }
 
-        // Load user's votes
-        const currentUserId = profile?.id || null;
-        const voteQuery = supabase.from('retro_votes').select('item_id').eq('board_id', boardData.id);
-        if (currentUserId) {
-          voteQuery.eq('user_id', currentUserId);
+        // Load all votes for items on this board (includes legacy rows with null board_id)
+        const itemIds = (itemsData || []).map(item => item.id);
+        if (itemIds.length > 0) {
+          const { data: votesData, error: votesError } = await supabase
+            .from('retro_votes')
+            .select('id, item_id, user_id, session_id')
+            .in('item_id', itemIds);
+
+          if (votesError) throw votesError;
+
+          const loadedVotes = (votesData || []).filter(
+            (vote): vote is RetroVote => !!vote.item_id
+          ) as RetroVote[];
+          setVotes(loadedVotes);
+
+          // Batch-fetch profiles for voters not already cached from items/comments
+          const voterIds = [...new Set(
+            loadedVotes
+              .map(vote => vote.user_id)
+              .filter((id): id is string => !!id && !itemProfiles[id] && !commentProfiles[id])
+          )];
+
+          if (voterIds.length > 0) {
+            const { data: voterProfiles } = await supabase
+              .from('profiles')
+              .select('id, avatar_url, full_name')
+              .in('id', voterIds);
+
+            if (voterProfiles?.length) {
+              const voterProfileMap: Record<string, { avatar_url: string; full_name: string }> = {};
+              voterProfiles.forEach(p => {
+                voterProfileMap[p.id] = { avatar_url: p.avatar_url, full_name: p.full_name };
+              });
+              setProfileCache(prev => ({ ...prev, ...voterProfileMap }));
+            }
+          }
         } else {
-          voteQuery.eq('session_id', sessionId);
+          setVotes([]);
         }
-
-        const { data: userVotesData, error: userVotesError } = await voteQuery;
-
-        if (userVotesError) throw userVotesError;
-        setUserVotes((userVotesData || []).map(v => v.item_id));
 
       } catch (error) {
         console.error('Error loading board data:', error);
@@ -453,6 +493,52 @@ export const useRetroBoard = (roomId: string) => {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'retro_votes',
+        filter: `board_id=eq.${board.id}`,
+      }, async (payload) => {
+        const newVote = payload.new as RetroVote;
+        if (!newVote?.item_id) return;
+
+        setVotes(current => {
+          if (current.some(vote => vote.id === newVote.id)) return current;
+          // Drop optimistic temp vote for the same voter/item if present
+          const withoutTemp = current.filter(vote => {
+            if (!vote.id.startsWith('temp-')) return true;
+            const sameItem = vote.item_id === newVote.item_id;
+            const sameUser = !!newVote.user_id && vote.user_id === newVote.user_id;
+            const sameSession = !!newVote.session_id && vote.session_id === newVote.session_id;
+            return !(sameItem && (sameUser || sameSession));
+          });
+          return [...withoutTemp, newVote];
+        });
+
+        if (newVote.user_id) {
+          await fetchProfileData(newVote.user_id);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'retro_votes',
+        filter: `board_id=eq.${board.id}`,
+      }, (payload) => {
+        const deletedVote = payload.old as Partial<RetroVote>;
+        setVotes(current => {
+          if (deletedVote.id) {
+            return current.filter(vote => vote.id !== deletedVote.id);
+          }
+          // Fallback match when DELETE payload lacks full row (replica identity default)
+          return current.filter(vote => {
+            const sameItem = vote.item_id === deletedVote.item_id;
+            const sameUser = deletedVote.user_id != null && vote.user_id === deletedVote.user_id;
+            const sameSession = deletedVote.session_id != null && vote.session_id === deletedVote.session_id;
+            return !(sameItem && (sameUser || sameSession));
+          });
+        });
       })
       // Team action items realtime for this team
       .on('postgres_changes', {
@@ -575,7 +661,7 @@ export const useRetroBoard = (roomId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [board, sessionId, handleNewItem, handleNewComment]);
+  }, [board, sessionId, handleNewItem, handleNewComment, fetchProfileData]);
 
   const updateBoardTitle = async (title: string) => {
     if (!board) return;
@@ -989,10 +1075,13 @@ export const useRetroBoard = (roomId: string) => {
   const upvoteItem = async (itemId: string) => {
     if (!board || !boardConfig) return;
 
-    const userId = profile?.id;
-    const voteSessionId = !userId ? sessionId : undefined;
-
-    const hasVoted = userVotes.includes(itemId);
+    const userId = profile?.id ?? null;
+    const voteSessionId = !userId ? sessionId : null;
+    const existingVote = votes.find(vote =>
+      vote.item_id === itemId &&
+      (userId ? vote.user_id === userId : vote.session_id === sessionId)
+    );
+    const hasVoted = !!existingVote;
 
     // Prevent self-votes when disallowed
     if (!hasVoted && boardConfig.allow_self_votes === false) {
@@ -1008,7 +1097,10 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     // Prevent adding a new vote if the limit is reached
-    if (!hasVoted && boardConfig.max_votes_per_user && userVotes.length >= boardConfig.max_votes_per_user) {
+    const currentUserVoteCount = votes.filter(vote =>
+      userId ? vote.user_id === userId : vote.session_id === sessionId
+    ).length;
+    if (!hasVoted && boardConfig.max_votes_per_user && currentUserVoteCount >= boardConfig.max_votes_per_user) {
       toast({
         title: 'Vote limit reached',
         description: `You can only vote ${boardConfig.max_votes_per_user} times.`,
@@ -1017,8 +1109,22 @@ export const useRetroBoard = (roomId: string) => {
       return;
     }
 
+    const tempVoteId = `temp-${Date.now()}-${itemId}`;
+
     // Optimistic UI updates
-    setUserVotes(prev => (hasVoted ? prev.filter(id => id !== itemId) : [...prev, itemId]));
+    if (hasVoted && existingVote) {
+      setVotes(prev => prev.filter(vote => vote.id !== existingVote.id));
+    } else {
+      setVotes(prev => [
+        ...prev,
+        {
+          id: tempVoteId,
+          item_id: itemId,
+          user_id: userId,
+          session_id: voteSessionId,
+        },
+      ]);
+    }
     setItems(prevItems =>
       prevItems.map(item =>
         item.id === itemId
@@ -1029,15 +1135,24 @@ export const useRetroBoard = (roomId: string) => {
 
     if (hasVoted) {
       // Remove vote from server
-      const { error } = await supabase
+      let deleteQuery = supabase
         .from('retro_votes')
         .delete()
-        .match({ item_id: itemId, board_id: board.id, user_id: userId, session_id: voteSessionId });
+        .eq('item_id', itemId)
+        .eq('board_id', board.id);
+
+      if (userId) {
+        deleteQuery = deleteQuery.eq('user_id', userId);
+      } else {
+        deleteQuery = deleteQuery.eq('session_id', sessionId);
+      }
+
+      const { error } = await deleteQuery;
 
       if (error) {
         toast({ title: 'Error removing vote', variant: 'destructive' });
         // Revert UI changes on error
-        setUserVotes(prev => [...prev, itemId]);
+        setVotes(prev => [...prev, existingVote]);
         setItems(prevItems =>
           prevItems.map(item =>
             item.id === itemId ? { ...item, votes: item.votes + 1 } : item
@@ -1046,22 +1161,32 @@ export const useRetroBoard = (roomId: string) => {
       }
     } else {
       // Add vote to server
-      const { error } = await supabase.from('retro_votes').insert({
-        item_id: itemId,
-        board_id: board.id,
-        user_id: userId,
-        session_id: voteSessionId,
-      });
+      const { data: insertedVote, error } = await supabase
+        .from('retro_votes')
+        .insert({
+          item_id: itemId,
+          board_id: board.id,
+          user_id: userId,
+          session_id: voteSessionId,
+        })
+        .select('id, item_id, user_id, session_id')
+        .single();
 
       if (error) {
         toast({ title: 'Error adding vote', variant: 'destructive' });
         // Revert UI changes on error
-        setUserVotes(prev => prev.filter(id => id !== itemId));
+        setVotes(prev => prev.filter(vote => vote.id !== tempVoteId));
         setItems(prevItems =>
           prevItems.map(item =>
             item.id === itemId ? { ...item, votes: item.votes - 1 } : item
           )
         );
+      } else if (insertedVote?.item_id) {
+        setVotes(prev => {
+          const withoutTemp = prev.filter(vote => vote.id !== tempVoteId);
+          if (withoutTemp.some(vote => vote.id === insertedVote.id)) return withoutTemp;
+          return [...withoutTemp, insertedVote as RetroVote];
+        });
       }
     }
   };
@@ -1244,6 +1369,60 @@ export const useRetroBoard = (roomId: string) => {
     }
   };
 
+  const userVotes = useMemo(() => {
+    const currentUserId = profile?.id || null;
+    return votes
+      .filter(vote =>
+        currentUserId ? vote.user_id === currentUserId : vote.session_id === sessionId
+      )
+      .map(vote => vote.item_id);
+  }, [votes, profile?.id, sessionId]);
+
+  const votersByItemId = useMemo(() => {
+    const map: Record<string, ItemVoter[]> = {};
+
+    const resolvePresence = (identity: string) =>
+      activeUsers.find(user => user.user_id === identity || user.id === identity);
+
+    for (const vote of votes) {
+      if (!vote.item_id) continue;
+      const key = vote.user_id || vote.session_id;
+      if (!key) continue;
+
+      let name = 'Anonymous';
+      let avatarUrl: string | null | undefined;
+
+      if (vote.user_id) {
+        const cached = profileCache[vote.user_id];
+        if (cached) {
+          name = cached.full_name || 'Anonymous';
+          avatarUrl = cached.avatar_url;
+        } else {
+          const presence = resolvePresence(vote.user_id);
+          if (presence) {
+            name = presence.user_name || 'Anonymous';
+            avatarUrl = presence.avatar_url;
+          }
+        }
+      } else if (vote.session_id) {
+        const presence = resolvePresence(vote.session_id);
+        if (presence) {
+          name = presence.user_name || 'Anonymous';
+          avatarUrl = presence.avatar_url;
+        }
+      }
+
+      if (!map[vote.item_id]) {
+        map[vote.item_id] = [];
+      }
+      if (!map[vote.item_id].some(voter => voter.key === key)) {
+        map[vote.item_id].push({ key, name, avatarUrl });
+      }
+    }
+
+    return map;
+  }, [votes, profileCache, activeUsers]);
+
   return {
     board,
     columns,
@@ -1252,6 +1431,7 @@ export const useRetroBoard = (roomId: string) => {
     boardConfig,
     activeUsers,
     userVotes,
+    votersByItemId,
     teamActionItems,
     boardActionStatus,
     loading,

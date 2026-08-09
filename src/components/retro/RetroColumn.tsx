@@ -12,8 +12,9 @@ import { UserAvatar } from '../ui/UserAvatar';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 
 
-import { AudioSummaryState, RetroStage } from '@/hooks/useRetroBoard';
+import { AudioSummaryState, ItemVoter, RetroStage } from '@/hooks/useRetroBoard';
 import { SummaryButton } from './SummaryButton';
+import { VoterAvatarStack } from './VoterAvatarStack';
 import { TiptapEditorWithMentions, processRichTextForDisplay } from '../shared/TiptapEditorWithMentions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RICH_TEXT_DISPLAY_CLASS } from '@/lib/richTextDisplay';
@@ -78,6 +79,7 @@ interface RetroColumnProps {
   isArchived: boolean;
   sessionId?: string | null;
   userVotes: string[];
+  votersByItemId?: Record<string, ItemVoter[]>;
   teamMembers?: TeamMember[];
   previousActionItems?: { id: string; text: string }[];
   onMarkActionItemDone?: (id: string) => void;
@@ -233,6 +235,18 @@ const canFocusItem = (stage: RetroStage | null, boardConfig: any): boolean => {
   return stage === 'discussing';
 };
 
+/** Show voter identities after voting (or when stages are off / board archived). */
+const canShowVoters = (
+  stage: RetroStage | null,
+  boardConfig: any,
+  isArchived: boolean
+): boolean => {
+  if (isArchived) return true;
+  if (!isRetroStagesEnabled(boardConfig)) return true;
+  if (!stage) return true;
+  return stage === 'discussing' || stage === 'closed';
+};
+
 export const RetroColumn: React.FC<RetroColumnProps> = ({
   board,
   column,
@@ -249,6 +263,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
   isArchived,
   sessionId,
   userVotes,
+  votersByItemId = {},
   teamMembers,
   onAddItem,
   onUpdateColumn,
@@ -481,6 +496,9 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
                             )}
                             {item.votes}
                           </div>
+                        )}
+                        {canShowVoters(board?.retro_stage, boardConfig, isArchived) && (
+                          <VoterAvatarStack voters={votersByItemId[item.id] || []} />
                         )}
                       </div>
 
