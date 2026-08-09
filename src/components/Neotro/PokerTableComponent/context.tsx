@@ -3,8 +3,10 @@ import {
   PlayerSelection,
   PokerSession,
   PokerSessionState,
+  createDefaultPlayerSelection,
   getPointsWithMostVotes,
   getWinningVoteFromSelections,
+  shouldAutoRevealSelections,
   winningVoteToStoredAveragePoints,
   type WinningPoints,
 } from '@/hooks/usePokerSession';
@@ -1008,11 +1010,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
         (fromSession?.name && String(fromSession.name).trim()) ||
         activeUserDisplayName?.trim() ||
         'Player';
-      const synthetic: PlayerSelection = {
-        points: 0,
-        locked: false,
-        name,
-      };
+      const synthetic = createDefaultPlayerSelection(name);
       return {
         next: { ...selections, [activeUserId!]: synthetic },
         user: synthetic,
@@ -1285,17 +1283,10 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     if (effectiveCurrentRound.auto_reveal_enabled === false) return;
 
     const selections = effectiveCurrentRound.selections || {};
-    const entries = Object.entries(selections);
-    // Need at least 1 player to auto-reveal
-    if (entries.length === 0) return;
-
-    const allReady = entries.every(([, sel]) => {
-      const s = sel as PlayerSelection;
-      return s.locked || s.points === -1;
-    });
-
-    // Not everyone ready (e.g. someone unlocked): allow a future auto-reveal for this round.
-    if (!allReady) {
+    const selectionList = Object.values(selections) as PlayerSelection[];
+    // Need at least 1 player, everyone ready, and at least one non-abstain lock-in
+    // (new rounds start everyone abstained — do not auto-reveal that default state).
+    if (!shouldAutoRevealSelections(selectionList)) {
       autoRevealTriggeredRef.current = null;
       return;
     }

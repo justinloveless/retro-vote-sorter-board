@@ -17,6 +17,9 @@ import {
   isMissingSortOrderColumnError,
   omitSortOrder,
 } from '@/lib/pokerRoundSortOrder';
+import { createDefaultPlayerSelection } from '@/lib/pokerPlayerSelection';
+
+export { createDefaultPlayerSelection, shouldAutoRevealSelections } from '@/lib/pokerPlayerSelection';
 
 function emitSpotlightServerAligned(sessionId: string, roundNumber: number) {
   window.dispatchEvent(
@@ -159,11 +162,7 @@ export const usePokerSession = (
     const selections: Selections = {};
     for (const uid of userIds) {
       const existing = existingSelections?.[uid];
-      selections[uid] = existing ?? {
-        points: 1,
-        locked: false,
-        name: profileMap.get(uid) || 'Player',
-      };
+      selections[uid] = existing ?? createDefaultPlayerSelection(profileMap.get(uid) || 'Player');
     }
     return selections;
   }, []);
@@ -270,11 +269,11 @@ export const usePokerSession = (
       if (effectiveTeamId) {
         initialSelections = await fetchTeamSelections(effectiveTeamId, undefined, observerIds) ?? {};
         if (!isCurrentUserObserver && Object.keys(initialSelections).length === 0) {
-          initialSelections = { [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName } };
+          initialSelections = { [currentUserId]: createDefaultPlayerSelection(currentUserDisplayName) };
         }
       } else {
         initialSelections = isCurrentUserObserver ? {} : {
-          [currentUserId]: { points: 1, locked: false, name: currentUserDisplayName },
+          [currentUserId]: createDefaultPlayerSelection(currentUserDisplayName),
         };
       }
 
@@ -330,11 +329,7 @@ export const usePokerSession = (
       }
     } else if (roundData && !roundData.selections[currentUserId] && !observerIds.includes(currentUserId)) {
       // Non-team session: add the current user if they aren't already in selections and aren't an observer
-      roundData.selections[currentUserId] = {
-        points: 1,
-        locked: false,
-        name: currentUserDisplayName,
-      };
+      roundData.selections[currentUserId] = createDefaultPlayerSelection(currentUserDisplayName);
       const { data: updatedRound, error: updateRoundError } = await supabase
         .from('poker_session_rounds')
         .update({ selections: roundData.selections })
@@ -648,7 +643,8 @@ export const usePokerSession = (
           const { data: profiles } = await supabase.from('profiles').select('id, full_name, nickname').in('id', toAddBack);
           const profileMap = new Map((profiles || []).map(p => [p.id, p.nickname || p.full_name || 'Player']));
           toAddBack.forEach(uid => {
-            newSelections[uid] = session.selections[uid] ?? { points: 1, locked: false, name: profileMap.get(uid) || 'Player' };
+            newSelections[uid] =
+              session.selections[uid] ?? createDefaultPlayerSelection(profileMap.get(uid) || 'Player');
           });
         }
       }
@@ -745,7 +741,7 @@ export const usePokerSession = (
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
           const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
-          resetSelections[key] = { ...selBase, points: 1, locked: false };
+          resetSelections[key] = { ...selBase, points: -1, locked: true };
         }
       });
     }
@@ -831,7 +827,7 @@ export const usePokerSession = (
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
           const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
-          resetSelections[key] = { ...selBase, points: 1, locked: false };
+          resetSelections[key] = { ...selBase, points: -1, locked: true };
         }
       });
     }
@@ -925,7 +921,7 @@ export const usePokerSession = (
       Object.entries(session.selections).forEach(([key, sel]) => {
         if (!observerSet.has(key)) {
           const { betweenHighPoints: _bn, ...selBase } = sel as PlayerSelection;
-          resetSelections[key] = { ...selBase, points: 1, locked: false };
+          resetSelections[key] = { ...selBase, points: -1, locked: true };
         }
       });
     }
