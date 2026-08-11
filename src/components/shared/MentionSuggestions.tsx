@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { dedupeTeamMembersByUserId, memberMatchesMentionQuery } from '@/lib/mentionMatching';
 
 interface TeamMember {
     id: string;
@@ -8,6 +9,7 @@ interface TeamMember {
     profiles?: {
         full_name: string | null;
         nickname?: string | null;
+        avatar_url?: string | null;
     } | null;
 }
 
@@ -21,21 +23,45 @@ export interface MentionSuggestionsRef {
     onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
+const displayNameFor = (member: TeamMember): string => {
+    return member.profiles?.full_name?.trim() || member.profiles?.nickname?.trim() || 'Unknown User';
+};
+
+/** When multiple people share a full name, surface nickname (or a short id) to tell them apart. */
+const disambiguationLabel = (member: TeamMember, duplicateNames: Set<string>): string | null => {
+    const fullName = member.profiles?.full_name?.trim() || '';
+    const nickname = member.profiles?.nickname?.trim() || '';
+    if (nickname) return nickname;
+    if (fullName && duplicateNames.has(fullName.toLowerCase())) {
+        return member.user_id.slice(0, 8);
+    }
+    return null;
+};
+
 export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSuggestionsProps>(
     ({ query, teamMembers, onSelect }, ref) => {
         const [selectedIndex, setSelectedIndex] = useState(0);
-        const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
+
+        const filteredMembers = useMemo(() => {
+            const unique = dedupeTeamMembersByUserId(teamMembers);
+            return unique
+                .filter(member => memberMatchesMentionQuery(member, query))
+                .sort((a, b) => displayNameFor(a).localeCompare(displayNameFor(b)));
+        }, [query, teamMembers]);
+
+        const duplicateNames = useMemo(() => {
+            const counts = new Map<string, number>();
+            for (const member of filteredMembers) {
+                const key = (member.profiles?.full_name || '').trim().toLowerCase();
+                if (!key) continue;
+                counts.set(key, (counts.get(key) || 0) + 1);
+            }
+            return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([name]) => name));
+        }, [filteredMembers]);
 
         useEffect(() => {
-            const filtered = teamMembers.filter(member => {
-                const name = member.profiles?.full_name || 'Unknown User';
-                const nickname = member.profiles?.nickname || '';
-                const q = query.toLowerCase();
-                return name.toLowerCase().includes(q) || nickname.toLowerCase().includes(q);
-            });
-            setFilteredMembers(filtered);
             setSelectedIndex(0);
-        }, [query, teamMembers]);
+        }, [filteredMembers]);
 
         useImperativeHandle(ref, () => ({
             onKeyDown: (event: KeyboardEvent) => {
@@ -67,7 +93,7 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
                         return false;
                 }
             }
-        }));
+        }), [filteredMembers, selectedIndex, onSelect]);
 
         if (filteredMembers.length === 0) {
             return null;
@@ -76,31 +102,36 @@ export const MentionSuggestions = forwardRef<MentionSuggestionsRef, MentionSugge
         return (
             <Card className="absolute z-[9999] mt-1 max-h-60 w-64 overflow-y-auto bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-600">
                 <CardContent className="p-2">
-                    {filteredMembers.map((member, index) => (
-                        <div
-                            key={member.user_id}
-                            className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${index === selectedIndex
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                                }`}
-                            onClick={() => onSelect(member)}
-                        >
-                            <UserAvatar
-                                name={member.profiles?.full_name || 'Unknown User'}
-                                className="w-6 h-6"
-                            />
-                            <span className="text-sm font-medium">
-                                {member.profiles?.full_name || 'Unknown User'}
-                                {member.profiles?.nickname && (
-                                    <span className="text-muted-foreground ml-1">({member.profiles.nickname})</span>
-                                )}
-                            </span>
-                        </div>
-                    ))}
+                    {filteredMembers.map((member, index) => {
+                        const name = displayNameFor(member);
+                        const secondary = disambiguationLabel(member, duplicateNames);
+                        return (
+                            <div
+                                key={member.user_id}
+                                className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${index === selectedIndex
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
+                                onClick={() => onSelect(member)}
+                            >
+                                <UserAvatar
+                                    name={name}
+                                    avatarUrl={member.profiles?.avatar_url || undefined}
+                                    className="w-6 h-6"
+                                />
+                                <span className="text-sm font-medium truncate">
+                                    {name}
+                                    {secondary && secondary !== name && (
+                                        <span className="text-muted-foreground ml-1 font-normal">({secondary})</span>
+                                    )}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </CardContent>
             </Card>
         );
     }
 );
 
-MentionSuggestions.displayName = 'MentionSuggestions'; 
+MentionSuggestions.displayName = 'MentionSuggestions';
