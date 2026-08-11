@@ -26,6 +26,7 @@ import {
   JIRA_BROWSE_DISABLED_REASON_META,
 } from '@/lib/jiraBrowseDisabledReason';
 import { buildJiraBrowseIssuesBySprint } from '@/lib/jiraBrowseSprintBuckets';
+import { issueKeyFromSearchText } from '@/lib/jiraIssueKeySearch';
 
 interface JiraIssue {
   key: string;
@@ -248,15 +249,20 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
       const includeKeySet = new Set<string>();
       for (const k of ticketKeysOnSessionRoundsRef.current) includeKeySet.add(k);
       const includeKeys = includeKeySet.size > 0 ? Array.from(includeKeySet) : undefined;
+      // Exact key → keysOnly path (skips multi-sprint board fan-out). Filters are ignored so
+      // estimated/Done tickets still resolve when the user pastes a specific key.
+      const exactKey = issueKeyFromSearchText(searchText);
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
-        body: {
-          teamId,
-          searchText: searchText || undefined,
-          statusFilter: apiStatusFilter,
-          pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
-          sprintScopeFilter,
-          includeKeys,
-        },
+        body: exactKey
+          ? { teamId, keysOnly: true, includeKeys: [exactKey] }
+          : {
+              teamId,
+              searchText: searchText || undefined,
+              statusFilter: apiStatusFilter,
+              pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
+              sprintScopeFilter,
+              includeKeys,
+            },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -273,7 +279,10 @@ export const TicketQueuePanel: React.FC<TicketQueuePanelProps> = ({
     if (isOpen && teamId && isJiraConfigured) {
       fetchAllIssues();
     }
-  }, [isOpen, teamId, isJiraConfigured, statusFilter, pointsFilter, sprintScopeFilter, fetchAllIssues]);
+    // Omit fetchAllIssues / searchText: typing in search should not hit Jira until Enter or Search.
+    // Filter changes still refetch using the latest fetchAllIssues from this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, teamId, isJiraConfigured, statusFilter, pointsFilter, sprintScopeFilter]);
 
   const handleAddManualTicket = async () => {
     const key = manualTicketKey.trim();

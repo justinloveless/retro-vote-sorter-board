@@ -7,20 +7,16 @@ import {
 } from '../_shared/jiraStoryPoints.ts';
 import { createGetSprintMeta } from '../_shared/jiraSprintFields.ts';
 import { loadBoardActiveFutureSprints } from '../_shared/loadBoardSprints.ts';
+import {
+  hasNonEmptySearchText,
+  issueKeyFromSearchText,
+  shouldUseBoardRankedIssueFetch,
+} from '../_shared/jiraBoardIssuesSearch.ts';
 
 const DEFAULT_STORY_POINTS_JQL_FIELD_NAME = 'Story Points';
 
 function escapeJqlString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
-/** If the user typed a bare issue key, fetch it by key — board JQL sprint/issuetype filters often hide those issues. */
-function issueKeyFromSearchText(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const t = raw.trim();
-  const m = t.match(/^([A-Za-z][A-Za-z0-9_]*)-(\d+)$/);
-  if (!m) return null;
-  return `${m[1].toUpperCase()}-${m[2]}`;
 }
 
 /** Project key from board config — needed when team stores numeric Agile board id (invalid in `project = "…"` JQL). */
@@ -206,6 +202,26 @@ async function fetchAllAgileBoardBacklogPaginated(
   return issueObjects;
 }
 
+/** Single-issue GET — preferred for exact key lookup (avoids deprecated /search and board fan-out). */
+async function fetchIssueByKey(
+  baseUrl: string,
+  authHeaders: Record<string, string>,
+  fieldsParam: string,
+  key: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/rest/api/3/issue/${encodeURIComponent(key)}?fields=${encodeURIComponent(fieldsParam)}`,
+      { headers: authHeaders },
+    );
+    if (!res.ok) return null;
+    const issue = await res.json();
+    return issue && typeof issue === 'object' ? issue as Record<string, unknown> : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function fetchIssuesByKeyChunks(
   baseUrl: string,
   authHeaders: Record<string, string>,
@@ -217,11 +233,18 @@ async function fetchIssuesByKeyChunks(
   const seenKeys = new Set<string>();
   const fieldsArr = fieldsParam.split(',');
 
+  // One key: use the issue resource (fast + reliable). /rest/api/3/search is deprecated on Jira Cloud.
+  if (keysToFetch.length === 1) {
+    const issue = await fetchIssueByKey(baseUrl, authHeaders, fieldsParam, keysToFetch[0]);
+    if (issue?.key) allIssues.push(issue);
+    return allIssues;
+  }
+
   for (let i = 0; i < keysToFetch.length; i += KEY_CHUNK) {
     const chunk = keysToFetch.slice(i, i + KEY_CHUNK);
     const keysJql = `key in (${chunk.map((k: string) => `"${String(k).replace(/"/g, '\\"')}"`).join(', ')})`;
     try {
-      const incRes = await fetch(`${baseUrl}/rest/api/3/search`, {
+      const incRes = await fetch(`${baseUrl}/rest/api/3/search/jql`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -230,7 +253,20 @@ async function fetchIssuesByKeyChunks(
           fields: fieldsArr,
         }),
       });
-      if (!incRes.ok) continue;
+      if (!incRes.ok) {
+        // Fallback: parallel issue GETs if enhanced search rejects the bulk JQL.
+        const fetched = await Promise.all(
+          chunk.map((k) => fetchIssueByKey(baseUrl, authHeaders, fieldsParam, k)),
+        );
+        for (const issue of fetched) {
+          const k = issue?.key as string | undefined;
+          if (k && !seenKeys.has(k)) {
+            seenKeys.add(k);
+            allIssues.push(issue!);
+          }
+        }
+        continue;
+      }
       const incData = await incRes.json();
       for (const issue of incData.issues || []) {
         const k = issue?.key;
@@ -296,6 +332,45 @@ Deno.serve(async (req) => {
     const isNumericBoardId =
       trimmedBoardSetting !== '' && !isNaN(boardIdNum) && String(boardIdNum) === trimmedBoardSetting;
 
+    const coreFieldNames = ['summary', 'status', 'priority', 'assignee', 'reporter', 'parent', 'issuetype'];
+    const buildFieldsParam = (sprintFieldId: string | null, storyPointsFieldId: string | null) => {
+      const pointFieldIdSet = new Set<string>([...JIRA_STORY_POINT_FIELD_FALLBACK_IDS]);
+      if (storyPointsFieldId) pointFieldIdSet.add(storyPointsFieldId);
+      const fieldsArray = [
+        ...coreFieldNames,
+        ...pointFieldIdSet,
+        ...(sprintFieldId ? [sprintFieldId] : ['customfield_10020', 'customfield_10021']),
+      ];
+      return [...new Set(fieldsArray)].join(',');
+    };
+
+    /**
+     * Exact issue-key search: one issue GET (plus team creds). Skip /field discovery and
+     * board/sprint fan-out (often 10+ sequential Jira calls). Ignore browse filters —
+     * typing a key means "get this ticket", even if estimated/Done/closed-sprint.
+     */
+    const exactSearchKey = issueKeyFromSearchText(searchText);
+    if (exactSearchKey && keysOnly !== true) {
+      const fieldsParamFast = buildFieldsParam(null, null);
+      const emptyName = new Map<number | string, string>();
+      const emptyStart = new Map<number | string, string>();
+      const getSprintMeta = createGetSprintMeta(emptyName, emptyStart);
+      const rawIssues = await fetchIssuesByKeyChunks(baseUrl, authHeaders, fieldsParamFast, [exactSearchKey]);
+      // deno-lint-ignore no-explicit-any
+      const issues = rawIssues.map((issue: any) => mapIssueToBrowseRow(issue, getSprintMeta, null));
+      return new Response(
+        JSON.stringify({
+          issues,
+          total: issues.length,
+          jql: `issuekey = "${exactSearchKey}"`,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+    }
+
     let sprintFieldId: string | null = null;
     let storyPointsFieldId: string | null = null;
     let fieldsList: { id?: string; name?: string; schema?: { custom?: string } }[] = [];
@@ -314,15 +389,7 @@ Deno.serve(async (req) => {
       /* ignore */
     }
 
-    const coreFieldNames = ['summary', 'status', 'priority', 'assignee', 'reporter', 'parent', 'issuetype'];
-    const pointFieldIdSet = new Set<string>([...JIRA_STORY_POINT_FIELD_FALLBACK_IDS]);
-    if (storyPointsFieldId) pointFieldIdSet.add(storyPointsFieldId);
-    const fieldsArray = [
-      ...coreFieldNames,
-      ...pointFieldIdSet,
-      ...(sprintFieldId ? [sprintFieldId] : ['customfield_10020', 'customfield_10021']),
-    ];
-    const fieldsParam = [...new Set(fieldsArray)].join(',');
+    const fieldsParam = buildFieldsParam(sprintFieldId, storyPointsFieldId);
 
     if (keysOnly === true) {
       if (!Array.isArray(includeKeys) || includeKeys.length === 0) {
@@ -354,6 +421,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    const searching = hasNonEmptySearchText(searchText);
     const storyPointsJqlField = `"${escapeJqlString(DEFAULT_STORY_POINTS_JQL_FIELD_NAME)}"`;
 
     /** Jira `project` JQL must use a project key, not a numeric Agile board id (teams often store board id in jira_board_id). */
@@ -400,7 +468,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (resolvedBoardId == null && projectKeyForJql) {
+    // Board discovery + sprint paging are only needed for ranked board browse (not text search).
+    if (!searching && resolvedBoardId == null && projectKeyForJql) {
       try {
         const boardsRes = await fetch(
           `${baseUrl}/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(projectKeyForJql)}&maxResults=100`,
@@ -438,7 +507,7 @@ Deno.serve(async (req) => {
     const sprintIdToStartDate = new Map<number | string, string>();
     /** Active + future board sprints (for Agile sprint/issue ranked fetch). */
     let boardActiveFutureSprints: { id: number; startDate?: string; name?: string }[] = [];
-    if (resolvedBoardId != null) {
+    if (!searching && resolvedBoardId != null) {
       try {
         boardActiveFutureSprints = await loadBoardActiveFutureSprints(
           baseUrl,
@@ -472,9 +541,11 @@ Deno.serve(async (req) => {
 
     let jqlReturned: string;
 
-    const useBoardRankedIssueFetch =
-      resolvedBoardId != null &&
-      sprintScope === 'board-open-backlog';
+    const useBoardRankedIssueFetch = shouldUseBoardRankedIssueFetch({
+      resolvedBoardId,
+      sprintScope,
+      searchText,
+    });
 
     const maxPagesOrLoops = 100;
     const pushUniqueIssues = (raw: Record<string, unknown>[]) => {
