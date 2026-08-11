@@ -23,6 +23,7 @@ import {
   JIRA_BROWSE_DISABLED_REASON_META,
 } from '@/lib/jiraBrowseDisabledReason';
 import { buildJiraBrowseIssuesBySprint } from '@/lib/jiraBrowseSprintBuckets';
+import { issueKeyFromSearchText } from '@/lib/jiraIssueKeySearch';
 import type { JiraTicketMeta } from '@/hooks/use-jira-ticket-metadata';
 import { usePersistedJiraBrowseCollapsedBuckets } from '@/hooks/use-persisted-jira-browse-collapsed-buckets';
 import { usePersistedJiraBrowseFilters } from '@/hooks/use-persisted-jira-browse-filters';
@@ -418,15 +419,20 @@ export const EmbeddedTicketQueue: React.FC<EmbeddedTicketQueueProps> = ({
       const includeKeySet = new Set<string>();
       for (const k of ticketKeysOnSessionRoundsRef.current) includeKeySet.add(k);
       const includeKeys = includeKeySet.size > 0 ? Array.from(includeKeySet) : undefined;
+      // Exact key → keysOnly path (skips multi-sprint board fan-out). Filters are ignored so
+      // estimated/Done tickets still resolve when the user pastes a specific key.
+      const exactKey = issueKeyFromSearchText(searchText);
       const { data, error } = await supabase.functions.invoke('get-jira-board-issues', {
-        body: {
-          teamId,
-          searchText: searchText || undefined,
-          statusFilter: apiStatusFilter,
-          pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
-          sprintScopeFilter,
-          includeKeys,
-        },
+        body: exactKey
+          ? { teamId, keysOnly: true, includeKeys: [exactKey] }
+          : {
+              teamId,
+              searchText: searchText || undefined,
+              statusFilter: apiStatusFilter,
+              pointsFilter: pointsFilter !== 'any' ? pointsFilter : undefined,
+              sprintScopeFilter,
+              includeKeys,
+            },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
