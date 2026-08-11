@@ -42,13 +42,17 @@ Still open: storage backend (disk volume vs MinIO vs Hetzner Object Storage), pr
 ```
 Browser (React SPA)
     │
-    ├─ Auth + REST + Edge replacements ──► Node API (Fastify)
-    │                                         │
-    │                                         ├─► PostgreSQL (app schema + auth schema + RLS)
-    │                                         ├─► Object storage (local disk or S3-compatible, e.g. MinIO / Hetzner Object Storage)
-    │                                         └─► WebSocket realtime (Socket.IO or `pg` LISTEN/NOTIFY fanout)
+    ├─ Auth + privileged/edge routes ──► Node API (Fastify)  ──┐
+    │                                                         ├─► PostgreSQL (schema + RLS)
+    ├─ Table CRUD (user JWT) ──► PostgREST (Coolify-internal) �─► PostgreSQL (schema + RLS)
+    ├─ Table CRUD (user JWT) ──► PostgREST (Coolify-internal) ┘
     │
-    └─ (optional during migration) ──► Hosted Supabase (when admin toggle = "supabase")
+    ├─ Realtime ──► Node WebSockets (Socket.IO / LISTEN-NOTIFY)
+    ├─ Storage ──► Docker volume (default) or S3-compatible
+    │
+    └─ (dual-path) ──► Hosted Supabase when admin toggle = "supabase"
+
+Edge: Coolify Traefik (TLS + domains). PostgREST has no public domain.
 ```
 
 ### Recommended lean stack (Coolify Docker Compose)
@@ -250,7 +254,7 @@ src/lib/backend/
     client.ts              # existing hosted client
   selfhosted/
     authClient.ts
-    restClient.ts          # PostgREST or proxy fluent API
+    restClient.ts          # PostgREST fluent API
     realtimeClient.ts
     storageClient.ts
 src/pages/admin/AdminBackendPage.tsx
