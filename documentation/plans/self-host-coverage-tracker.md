@@ -25,5 +25,7 @@ Legend for Status: Not started | In progress | Covered | Switched | Deprecated
 | Stripe billing | subscription hooks | Edge Functions | check-subscription, checkout | Decision pending | Not started | |
 | Storage avatars | account components | Storage | avatars | MinIO/disk | Not started | |
 | Backend toggle | (new) Admin Backend page | Config | app_config.backend_provider | Node + FE facade | Not started | Admin-only |
+| PostgREST data path | selfhosted restClient | PostgREST | local tables + RLS | Coolify-internal PostgREST | Not started | Sidecar approved; no public domain |
+| Coolify deploy | docker-compose.selfhost.yml | Ops | web/api/postgres/postgrest | Coolify resource | Not started | Shared VPS; expose + limits |
 
 Update this table whenever a call site is migrated.

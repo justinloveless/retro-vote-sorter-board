@@ -8,20 +8,22 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 0.1 | Publish migration plan | Land plan doc + this task list; get stakeholder approval on PostgREST sidecar + storage choice | In review | - | DUN-74 |
+| 0.1 | Publish migration plan | Land plan doc + this task list | Done | - | DUN-74 |
 | 0.2 | Inventory FE Supabase call sites | Seed `documentation/plans/self-host-coverage-tracker.md` from ripgrep of `.from(`, `.rpc(`, `.functions.`, `.channel(`, `.storage.` | Not started | 0.1 | Reuse ideas from csharp-api-coverage-tracker |
-| 0.3 | Decide VPS topology | Confirm Hetzner size, domain, TLS, backup target | Not started | 0.1 | |
+| 0.3 | Coolify topology | Confirm Coolify FQDNs for web/api, storage choice, backup strategy on shared VPS | In progress | 0.1 | PostgREST sidecar **accepted**; hosting = Coolify |
+| 0.4 | Lock PostgREST decision | Use PostgREST sidecar in compose (not optional) | Done | 0.1 | Stakeholder approved |
 
 ### Phase 1 — Skeleton
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
 | 1.1 | Scaffold `server/` Fastify app | Healthz/readyz, config from env, TypeScript build, Dockerfile | Not started | 0.1 | |
-| 1.2 | Compose stack | `docker-compose.selfhost.yml`: postgres, api, web (nginx), optional postgrest/minio | Not started | 1.1 | Keep under ~4GB RAM total |
+| 1.2 | Coolify compose stack | `docker-compose.selfhost.yml`: postgres, postgrest, api, web — `expose` only, memory/CPU limits, no host ports | Not started | 1.1 | Target ≤ ~1.0–1.5GB total; good neighbor on shared Coolify VPS |
 | 1.3 | FE backend facade stub | `src/lib/backend/getDataClient.ts` + mode types; default still Supabase | Not started | 0.1 | |
 | 1.4 | `app_config.backend_provider` | Migration + types for mode + self-hosted base URL | Not started | 1.3 | |
 | 1.5 | Admin Backend page | `/admin/backend` toggle UI, admin-only, confirm dialog, session preview override | Not started | 1.4 | Gate via `profiles.role === 'admin'` |
-| 1.6 | Nginx routes | Proxy `/api`, `/auth`, `/realtime` to Node; SPA fallback | Not started | 1.2 | |
+| 1.6 | Coolify domains + proxy | Map web/api FQDNs; keep PostgREST internal; enable WS on api; SPA nginx | Not started | 1.2 | Steal patterns from prior `COOLIFY_DEPLOYMENT.md` |
+| 1.7 | Coolify env docs | Document build-time `VITE_*` vs runtime secrets; sample Coolify env block | Not started | 1.2 | Rebuild FE when Vite vars change |
 
 ### Phase 2 — Auth
 
@@ -41,7 +43,7 @@ Status values: Not started | In progress | Blocked | In review | Done
 |---|---|---|---|---|---|
 | 3.1 | Postgres roles + RLS bootstrap | `anon` / `authenticated` / `service_role`; grant patterns | Not started | 1.2 | See api-dotnet `api/postgres/init` as reference only |
 | 3.2 | Staging restore | `pg_dump`/`pg_restore` from hosted Supabase to VPS | Not started | 3.1 | |
-| 3.3 | PostgREST or Node REST proxy | JWT → DB role; expose tables | Not started | 3.2 | Prefer PostgREST sidecar |
+| 3.3 | PostgREST sidecar | JWT → DB role; expose tables; not publicly routed in Coolify | Not started | 3.2 | Locked decision |
 | 3.4 | FE rest client | Fluent proxy compatible with common `.from().select()` usage | Not started | 3.3, 1.3 | Inspired by csharp `supabaseProxyClient` |
 | 3.5 | Migrate core hooks | profiles, teams, members, notifications, retro board CRUD behind facade | Not started | 3.4 | |
 | 3.6 | Migrate poker + orgs hooks | Sessions, rounds, chat metadata (without realtime yet if needed) | Not started | 3.5 | |
