@@ -2,28 +2,32 @@
 
 Source plan: `documentation/plans/self-host-node-postgres-migration-plan.md`
 
+Coverage tracker: `documentation/plans/self-host-coverage-tracker.md`
+
 Status values: Not started | In progress | Blocked | In review | Done
 
-### Phase 0 — Plan
+### Phase 0 — Plan (**Done**)
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
 | 0.1 | Publish migration plan | Land plan doc + this task list | Done | - | DUN-74 |
-| 0.2 | Inventory FE Supabase call sites | Seed `documentation/plans/self-host-coverage-tracker.md` from ripgrep of `.from(`, `.rpc(`, `.functions.`, `.channel(`, `.storage.` | Not started | 0.1 | Reuse ideas from csharp-api-coverage-tracker |
-| 0.3 | Coolify topology | Confirm Coolify FQDNs for web/api, storage choice, backup strategy on shared VPS | In progress | 0.1 | PostgREST sidecar **accepted**; hosting = Coolify |
+| 0.2 | Inventory FE Supabase call sites | Full inventory in `self-host-coverage-tracker.md` (tables, RPCs, edge fns, realtime, storage) | Done | 0.1 | ~280 `.from`, 29 edge fns, 5 RPCs, 15 channels, 3 FE storage buckets |
+| 0.3 | Coolify topology | Coolify shared VPS constraints documented; compose rules (`expose`, limits) | Done | 0.1 | FQDNs still TBD for Phase 1 |
 | 0.4 | Lock PostgREST decision | Use PostgREST sidecar in compose (not optional) | Done | 0.1 | Stakeholder approved |
+| 0.5 | Lock storage decision | Docker volumes (`retroscope_uploads` + bucket prefixes) | Done | 0.1 | Stakeholder approved |
 
 ### Phase 1 — Skeleton
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
 | 1.1 | Scaffold `server/` Fastify app | Healthz/readyz, config from env, TypeScript build, Dockerfile | Not started | 0.1 | |
-| 1.2 | Coolify compose stack | `docker-compose.selfhost.yml`: postgres, postgrest, api, web — `expose` only, memory/CPU limits, no host ports | Not started | 1.1 | Target ≤ ~1.0–1.5GB total; good neighbor on shared Coolify VPS |
+| 1.2 | Coolify compose stack | `docker-compose.selfhost.yml`: postgres, postgrest, api, web + `retroscope_pg_data` / `retroscope_uploads` — `expose` only, memory/CPU limits | Not started | 1.1 | Target ≤ ~1.0–1.5GB total |
 | 1.3 | FE backend facade stub | `src/lib/backend/getDataClient.ts` + mode types; default still Supabase | Not started | 0.1 | |
 | 1.4 | `app_config.backend_provider` | Migration + types for mode + self-hosted base URL | Not started | 1.3 | |
 | 1.5 | Admin Backend page | `/admin/backend` toggle UI, admin-only, confirm dialog, session preview override | Not started | 1.4 | Gate via `profiles.role === 'admin'` |
-| 1.6 | Coolify domains + proxy | Map web/api FQDNs; keep PostgREST internal; enable WS on api; SPA nginx | Not started | 1.2 | Steal patterns from prior `COOLIFY_DEPLOYMENT.md` |
+| 1.6 | Coolify domains + proxy | Map web/api FQDNs; keep PostgREST internal; enable WS on api; SPA nginx | Not started | 1.2 | Placeholders OK until DNS ready |
 | 1.7 | Coolify env docs | Document build-time `VITE_*` vs runtime secrets; sample Coolify env block | Not started | 1.2 | Rebuild FE when Vite vars change |
+| 1.8 | Uploads volume wiring | Mount `retroscope_uploads` into Node; stub storage routes for avatars/chat/audio prefixes | Not started | 1.2 | Storage choice locked |
 
 ### Phase 2 — Auth
 
@@ -31,7 +35,7 @@ Status values: Not started | In progress | Blocked | In review | Done
 |---|---|---|---|---|---|
 | 2.1 | Auth schema | Local `auth.users`, `auth.identities`, `auth.refresh_tokens`, verification codes | Not started | 1.2 | Preserve UUID PK shape |
 | 2.2 | Password signup/login/refresh | Supabase-compatible `/auth/v1/*` token endpoints | Not started | 2.1 | bcrypt compatible with Supabase hashes |
-| 2.3 | Google OAuth | authorize + callback; link by provider_id / verified email | Not started | 2.2 | New redirect URI on VPS domain |
+| 2.3 | Google OAuth | authorize + callback; link by provider_id / verified email | Not started | 2.2 | Needs Coolify API FQDN |
 | 2.4 | Password reset email | Recover + confirm; SMTP/Resend | Not started | 2.2 | |
 | 2.5 | User/identity import script | Export from Supabase → import local with same UUIDs | Not started | 2.1 | |
 | 2.6 | FE auth facade | Switch `useAuth` to facade; toggle selects hosted vs Node auth | Not started | 2.2, 1.5 | |
@@ -53,8 +57,8 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 4.1 | Storage backend | Disk or MinIO; buckets for avatars + chat images | Not started | 1.2 | |
-| 4.2 | Copy existing objects | Migrate blobs; fix public URLs if host changes | Not started | 4.1, 3.2 | |
+| 4.1 | Storage backend on volume | Serve/sign uploads from `retroscope_uploads` bucket prefixes | Not started | 1.8 | Docker volumes locked |
+| 4.2 | Copy existing objects | Migrate blobs from Supabase Storage into volume; fix public URLs if host changes | Not started | 4.1, 3.2 | |
 | 4.3 | Admin/notify edge ports | search users, send notification, team members, invites email | Not started | 2.2, 3.3 | |
 | 4.4 | Jira/Slack ports (if used) | Move only integrations you rely on | Not started | 3.3 | Can defer |
 | 4.5 | Stripe decision | Keep on Supabase temporarily or port | Not started | - | Explicit product choice |
@@ -72,10 +76,10 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 6.1 | Backup + restore drill | Nightly dump + successful restore test | Not started | 3.2 | |
-| 6.2 | Production freeze + final sync | Maintenance window; final dump/restore | Not started | 2.7, 3.5, 4.3, 5.4 | |
+| 6.1 | Backup + restore drill | Coolify volume backups + nightly dump + successful restore test | Not started | 3.2 | Include `retroscope_uploads` |
+| 6.2 | Production freeze + final sync | Maintenance window; final dump/restore + object copy | Not started | 2.7, 3.5, 4.3, 5.4 | |
 | 6.3 | Flip default toggle to selfhosted | Monitor errors; rollback plan = flip back | Not started | 6.2 | |
-| 6.4 | DNS / leave Lovable | Serve production from VPS; stop Lovable publish | Not started | 6.3 | |
+| 6.4 | DNS / leave Lovable | Serve production from Coolify; stop Lovable publish | Not started | 6.3 | |
 | 6.5 | Decommission Supabase | After soak (~2 weeks), cancel hosted Supabase | Not started | 6.3, 6.4 | |
 | 6.6 | Remove hosted code paths | Delete dual-path once stable; tracker 100% | Not started | 6.5 | |
 

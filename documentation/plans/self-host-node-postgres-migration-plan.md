@@ -11,8 +11,9 @@
 | Data API sidecar | **PostgREST — yes** | Approved; keeps RLS + avoids rewriting ~280 FE query sites |
 | Orchestration | **Coolify** on the existing Hetzner VPS | VPS already hosts many personal projects via Coolify |
 | App stack | Node (Fastify) + Postgres + PostgREST + static FE | No full Supabase self-host |
+| Object storage | **Docker volumes** | Named volume (e.g. `retroscope_uploads`) mounted into Node; bucket prefixes for `avatars`, `poker-session-chat-images`, `retro-audio`, later `tts-audio-cache` |
 
-Still open: storage backend (disk volume vs MinIO vs Hetzner Object Storage), production domain / Coolify FQDNs.
+Still open for Phase 1: production Coolify FQDNs for `web` + `api` (needed for Google OAuth redirect URI).
 
 ---
 
@@ -42,13 +43,12 @@ Still open: storage backend (disk volume vs MinIO vs Hetzner Object Storage), pr
 ```
 Browser (React SPA)
     │
-    ├─ Auth + privileged/edge routes ──► Node API (Fastify)  ──┐
-    │                                                         ├─► PostgreSQL (schema + RLS)
-    ├─ Table CRUD (user JWT) ──► PostgREST (Coolify-internal) �─► PostgreSQL (schema + RLS)
-    ├─ Table CRUD (user JWT) ──► PostgREST (Coolify-internal) ┘
+    ├─ Auth + privileged/edge routes ──► Node API (Fastify) ──┐
+    │                                                        ├─► PostgreSQL (schema + RLS)
+    ├─ Table CRUD (user JWT) ──► PostgREST (internal only) ──┘
     │
     ├─ Realtime ──► Node WebSockets (Socket.IO / LISTEN-NOTIFY)
-    ├─ Storage ──► Docker volume (default) or S3-compatible
+    ├─ Storage ──► Docker volume (`retroscope_uploads` bucket prefixes)
     │
     └─ (dual-path) ──► Hosted Supabase when admin toggle = "supabase"
 
@@ -63,11 +63,11 @@ Edge: Coolify Traefik (TLS + domains). PostgREST has no public domain.
 | **Node (Fastify)** | Auth, edge-function ports, storage signed URLs, WebSockets; proxies/guards PostgREST | One process you control; small RAM footprint |
 | **PostgREST (sidecar)** | Expose tables with existing RLS via JWT `role` claim | Approved; avoids rewriting 280 query shapes; ~50–100MB RAM |
 | **FE (Nginx static)** | Built SPA image | Coolify Traefik terminates TLS |
-| **Volume / Object storage** | Replace Supabase Storage | Prefer a Docker volume first on shared VPS; MinIO only if you already run it |
+| **Docker volume storage** | Replace Supabase Storage | Locked: `retroscope_uploads` (or similar) with per-bucket prefixes; served/signed by Node |
 
 **Data path:** Browser → Node (auth + privileged routes) and/or PostgREST (table CRUD with user JWT). FE keeps a Supabase-compatible fluent client pointed at self-hosted URLs when the admin toggle is `selfhosted`.
 
-**Shared-VPS reality:** This app is one Coolify project among many. Budget Retroscope tightly so neighbors stay healthy. Target **steady-state ≤ ~1.0–1.5 GB RAM** for the whole compose stack (Postgres + PostgREST + Node + FE). Do **not** add Coqui TTS, pgAdmin, or MinIO to the production compose unless you already share those services cluster-wide.
+**Shared-VPS reality:** This app is one Coolify project among many. Budget Retroscope tightly so neighbors stay healthy. Target **steady-state ≤ ~1.0–1.5 GB RAM** for the whole compose stack (Postgres + PostgREST + Node + FE). Do **not** add Coqui TTS, pgAdmin, or MinIO to the production compose.
 
 ---
 
@@ -192,7 +192,7 @@ const client = mode === 'selfhosted' ? selfHostedClient : supabaseClient;
 2. Restore into VPS Postgres.
 3. Ensure roles exist for RLS: `anon`, `authenticated`, `service_role` (patterns already explored on the api-dotnet branch under `api/postgres/init/`).
 4. Replay/verify critical RPCs (`accept_team_invitation`, `is_team_member`, `get_user_email_if_admin`, etc.).
-5. Copy storage objects (avatars, chat images, TTS cache) to MinIO/disk; rewrite public URLs in DB if host changes.
+5. Copy storage objects (avatars, chat images, TTS cache) into the Coolify Docker volume bucket prefixes; rewrite public URLs in DB if host changes.
 
 ### Dual-path period
 
@@ -288,7 +288,7 @@ Ship Coolify-oriented compose files (reuse lessons from `feature/api-dotnet-solu
    - PostgREST stays **internal-only** (no public domain); Node proxies or FE talks through API/CORS as designed.
 4. **Vite env vars are build-time.** Set `VITE_*` in Coolify and **rebuild** when they change (`VITE_API_BASE_URL`, eventual self-host flags, etc.).
 5. **Set `deploy.resources.limits`** on every service so a runaway Postgres/Node cannot starve sibling apps.
-6. **Named volumes only for Retroscope data** (`retroscope_pg_data`, `retroscope_uploads`). Do not share a Postgres container with unrelated Coolify apps unless you intentionally run a central DB service — default is **dedicated Postgres in this compose** for blast-radius isolation.
+6. **Named volumes only for Retroscope data** (`retroscope_pg_data`, `retroscope_uploads`). Mount `retroscope_uploads` into the Node API for bucket prefixes (`avatars/`, `poker-session-chat-images/`, `retro-audio/`, …). Enable Coolify volume backups for both. Do not share a Postgres container with unrelated Coolify apps unless you intentionally run a central DB service — default is **dedicated Postgres in this compose** for blast-radius isolation.
 7. **WebSockets:** ensure Coolify/Traefik has websocket support enabled for the `api` domain (needed for self-hosted realtime).
 8. **Healthchecks** on `api` and `postgres` so Coolify restart policy behaves.
 
@@ -358,11 +358,13 @@ ALLOW_ORIGINS=https://retro.example.com
 
 ## Phased delivery
 
-### Phase 0 — Plan & inventory (this PR)
+### Phase 0 — Plan & inventory (**complete**)
 
 - Publish this plan + task list.
-- ~~PostgREST sidecar~~ — **accepted**.
-- Confirm Coolify domains + storage choice on the shared VPS.
+- PostgREST sidecar — **accepted**.
+- Object storage — **Docker volumes accepted**.
+- FE Supabase call-site inventory seeded in `documentation/plans/self-host-coverage-tracker.md`.
+- Coolify FQDNs for `web`/`api` remain open (needed to start Phase 1 OAuth wiring; compose scaffold can proceed with placeholders).
 
 ### Phase 1 — Skeleton on Coolify
 
@@ -431,9 +433,9 @@ ALLOW_ORIGINS=https://retro.example.com
 
 ---
 
-## Immediate next actions
+## Immediate next actions (Phase 1)
 
-1. Choose storage: **Docker volume (recommended default on shared Coolify)** vs MinIO vs Hetzner Object Storage.
-2. Pick Coolify FQDNs for `web` + `api` and add Google OAuth redirect URI for the API domain.
-3. Start Phase 1 scaffold PR: `server/` + Coolify compose (Postgres + PostgREST + Node + FE) + Admin Backend toggle.
-4. Schedule a staging Coolify resource + restore of production dump to validate schema/RLS under memory caps.
+1. Pick Coolify FQDNs for `web` + `api` (placeholders OK in compose until DNS exists).
+2. Scaffold `server/` Fastify app + `docker-compose.selfhost.yml` (Postgres, PostgREST, Node, FE, `retroscope_uploads` volume) with `expose` + resource limits.
+3. Add Admin Backend toggle wired to `app_config.backend_provider` (both modes still Supabase until Phase 2).
+4. Document Coolify env var block (build-time `VITE_*` vs runtime secrets).
