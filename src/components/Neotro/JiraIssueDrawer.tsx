@@ -887,12 +887,8 @@ export const JiraIssueDrawer: React.FC<JiraIssueDrawerProps> = ({
     if (!isAdfDoc(fields?.description)) return;
     if (adfRendererComponent || adfRendererLoadFailed) return;
     let cancelled = false;
-    import('prosemirror-state').then(({ Selection }) => {
-      const orig = Selection.jsonID;
-      Selection.jsonID = function (id: string, cls: any) {
-        try { return orig.call(this, id, cls); } catch { return cls; }
-      };
-    }).catch(() => {}).then(() => import('@atlaskit/renderer'))
+    import('@/lib/patchProseMirrorSelection')
+      .then(() => import('@atlaskit/renderer'))
       .then((mod) => {
         if (cancelled) return;
         setAdfRendererComponent(() => mod.ReactRenderer as AdfRendererComponent);
