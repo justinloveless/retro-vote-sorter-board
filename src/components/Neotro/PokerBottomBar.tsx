@@ -2,7 +2,18 @@ import React from 'react';
 import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu, Spotlight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
+
+function spotlightHolderInitials(name: string) {
+  if (!name) return '?';
+  return name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export interface PanelVisibility {
   chat: boolean;
@@ -51,7 +62,13 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
   mobilePanelKeys,
 }) => {
   const showObserverButton = !!(onEnterObserverMode || onLeaveObserverMode);
-  const { isSpotlightMine, spotlightHolderDisplayName, onSpotlightClick } = usePokerTable();
+  const {
+    isSpotlightMine,
+    spotlightHolderDisplayName,
+    spotlightHolderAvatarName,
+    spotlightHolderAvatarUrl,
+    onSpotlightClick,
+  } = usePokerTable();
   const spotlightButtonLabel = isSpotlightMine
     ? 'Stop spotlighting'
     : spotlightHolderDisplayName
@@ -77,11 +94,22 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
           <div className="contents">
             {spotlightHolderDisplayName && (
               <span
-                className="max-w-[5.5rem] truncate px-1 text-[11px] font-medium text-amber-800 dark:text-amber-300"
+                className="inline-flex px-0.5"
                 title={`${spotlightHolderDisplayName} has the spotlight`}
                 aria-live="polite"
               >
-                {spotlightHolderDisplayName}
+                <Avatar className="h-7 w-7 ring-2 ring-amber-400/80">
+                  <AvatarImage
+                    src={spotlightHolderAvatarUrl ?? undefined}
+                    alt={spotlightHolderAvatarName || spotlightHolderDisplayName}
+                  />
+                  <AvatarFallback className="bg-amber-500/25 text-[11px] font-semibold text-amber-950 dark:text-amber-100">
+                    {spotlightHolderInitials(
+                      spotlightHolderAvatarName || spotlightHolderDisplayName
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="sr-only">{`${spotlightHolderDisplayName} has the spotlight`}</span>
               </span>
             )}
             <Tooltip>

@@ -31,9 +31,20 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 
 type PokerRoundGameStateMerge = Pick<PokerSessionState, 'game_state' | 'average_points' | 'selections'>;
+
+function spotlightHolderInitials(name: string) {
+  if (!name) return '?';
+  return name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 interface RoundSelectorProps {
   rounds: PokerSessionRound[];
@@ -108,6 +119,8 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
     spotlightRoundNumber,
     isSpotlightMine,
     spotlightHolderDisplayName,
+    spotlightHolderAvatarName,
+    spotlightHolderAvatarUrl,
     onSpotlightClick,
     activateRoundById,
     reorderRounds,
@@ -579,11 +592,22 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
               <div className="flex min-w-0 items-center gap-1.5">
                 {spotlightHolderDisplayName && (
                   <span
-                    className="hidden max-w-[6.5rem] truncate text-xs font-medium text-amber-800 dark:text-amber-300 sm:inline"
+                    className="hidden sm:inline-flex"
                     title={`${spotlightHolderDisplayName} has the spotlight`}
                     aria-live="polite"
                   >
-                    {spotlightHolderDisplayName}
+                    <Avatar className="h-7 w-7 ring-2 ring-amber-400/80">
+                      <AvatarImage
+                        src={spotlightHolderAvatarUrl ?? undefined}
+                        alt={spotlightHolderAvatarName || spotlightHolderDisplayName}
+                      />
+                      <AvatarFallback className="bg-amber-500/25 text-[11px] font-semibold text-amber-950 dark:text-amber-100">
+                        {spotlightHolderInitials(
+                          spotlightHolderAvatarName || spotlightHolderDisplayName
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="sr-only">{`${spotlightHolderDisplayName} has the spotlight`}</span>
                   </span>
                 )}
                 <Tooltip>
@@ -759,12 +783,20 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                         )}
                         <span className="font-mono font-semibold">{item.ticketKey}</span>
                         {isSpotlightRound && spotlightHolderDisplayName && (
-                          <span
-                            className="relative z-[1] rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200"
+                          <Avatar
+                            className="relative z-[1] h-6 w-6 ring-1 ring-amber-400/80"
                             title={`${spotlightHolderDisplayName} has the spotlight`}
                           >
-                            {spotlightHolderDisplayName}
-                          </span>
+                            <AvatarImage
+                              src={spotlightHolderAvatarUrl ?? undefined}
+                              alt=""
+                            />
+                            <AvatarFallback className="bg-amber-500/25 text-[10px] font-semibold text-amber-950 dark:text-amber-100">
+                              {spotlightHolderInitials(
+                                spotlightHolderAvatarName || spotlightHolderDisplayName
+                              )}
+                            </AvatarFallback>
+                          </Avatar>
                         )}
                         {item.isPendingRound && (
                           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
