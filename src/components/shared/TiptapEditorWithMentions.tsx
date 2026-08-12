@@ -9,6 +9,7 @@ import { MentionSuggestions, MentionSuggestionsRef } from './MentionSuggestions'
 import type { UploadImageFn } from '@/hooks/usePokerSessionChat';
 import { convertMarkdownLinksToHtml, RICH_TEXT_EDITOR_CLASS } from '@/lib/richTextDisplay';
 import { MarkdownLink, tryPasteMarkdownLinks } from '@/lib/tiptapMarkdownLink';
+import { dedupeTeamMembersByUserId, memberMatchesMentionQuery } from '@/lib/mentionMatching';
 
 interface TeamMember {
     id: string;
@@ -71,8 +72,6 @@ const Mention = Node.create({
         ];
     },
 
-
-
     renderHTML({ node, HTMLAttributes }) {
         const { userId, name } = node.attrs;
         return [
@@ -94,8 +93,6 @@ const Mention = Node.create({
         const { userId, name } = node.attrs;
         return `[[mention:${userId}:${name}]]`;
     },
-
-
 });
 
 // Function to convert mention delimiters to styled links
@@ -143,6 +140,8 @@ const convertMentionSpansToDelimiters = (htmlContent: string): string => {
     );
 };
 
+export { memberMatchesMentionQuery, dedupeTeamMembersByUserId } from '@/lib/mentionMatching';
+
 export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> = ({
     content,
     onChange,
@@ -158,8 +157,23 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
     const mentionSuggestionsRef = useRef<MentionSuggestionsRef>(null);
     const editorRef = useRef<any>(null);
 
+    // TipTap's useEditor captures callbacks once; keep latest values in refs.
+    const uniqueTeamMembers = dedupeTeamMembersByUserId(teamMembers);
+    const teamMembersRef = useRef(uniqueTeamMembers);
+    const showMentionsRef = useRef(showMentions);
+    const mentionTriggerRef = useRef(mentionTrigger);
+    const contentRef = useRef(content);
+    const onChangeRef = useRef(onChange);
+    const onSubmitRef = useRef(onSubmit);
+    const uploadImageRef = useRef(uploadImage);
 
-
+    teamMembersRef.current = uniqueTeamMembers;
+    showMentionsRef.current = showMentions;
+    mentionTriggerRef.current = mentionTrigger;
+    contentRef.current = content;
+    onChangeRef.current = onChange;
+    onSubmitRef.current = onSubmit;
+    uploadImageRef.current = uploadImage;
 
     const editor = useEditor({
         extensions: [
@@ -188,19 +202,20 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             const contentWithDelimiters = convertMentionSpansToDelimiters(htmlContent);
 
             // Only update content if it actually changed to avoid interference
-            if (contentWithDelimiters !== content) {
-                onChange(contentWithDelimiters);
+            if (contentWithDelimiters !== contentRef.current) {
+                onChangeRef.current(contentWithDelimiters);
             }
 
-            // Handle mention logic
+            // Handle mention logic against the latest team member list
+            const members = teamMembersRef.current;
             const { state } = editor;
             const { from } = state.selection;
             const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\n');
-            
+
             // First check for explicit @ trigger
             const mentionMatch = textBefore.match(/@(\w*)$/);
-            if (mentionMatch && teamMembers.length > 0) {
-                if (!showMentions || mentionTrigger !== '@') {
+            if (mentionMatch && members.length > 0) {
+                if (!showMentionsRef.current || mentionTriggerRef.current !== '@') {
                     const coords = editor.view.coordsAtPos(from);
                     setMentionPos({ x: coords.left, y: coords.bottom });
                     setShowMentions(true);
@@ -212,16 +227,11 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
 
             // Then check if the current word matches a team member name (min 2 chars)
             const wordMatch = textBefore.match(/(?:^|\s)(\w{2,})$/);
-            if (wordMatch && teamMembers.length > 0) {
-                const typed = wordMatch[1].toLowerCase();
-                const hasMatch = teamMembers.some(m => {
-                    const name = m.profiles?.full_name?.toLowerCase() || '';
-                    const nickname = m.profiles?.nickname?.toLowerCase() || '';
-                    return name.split(/\s+/).some(part => part.startsWith(typed)) || 
-                           (nickname && nickname.startsWith(typed));
-                });
+            if (wordMatch && members.length > 0) {
+                const typed = wordMatch[1];
+                const hasMatch = members.some(m => memberMatchesMentionQuery(m, typed));
                 if (hasMatch) {
-                    if (!showMentions || mentionTrigger !== 'name') {
+                    if (!showMentionsRef.current || mentionTriggerRef.current !== 'name') {
                         const coords = editor.view.coordsAtPos(from);
                         setMentionPos({ x: coords.left, y: coords.bottom });
                         setShowMentions(true);
@@ -232,7 +242,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                 }
             }
 
-            if (showMentions) {
+            if (showMentionsRef.current) {
                 setShowMentions(false);
             }
         },
@@ -240,9 +250,9 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             attributes: {
                 class: RICH_TEXT_EDITOR_CLASS,
             },
-            handleKeyDown: (view, event) => {
+            handleKeyDown: (_view, event) => {
                 // Handle mention suggestions navigation
-                if (showMentions && mentionSuggestionsRef.current) {
+                if (showMentionsRef.current && mentionSuggestionsRef.current) {
                     const handled = mentionSuggestionsRef.current.onKeyDown(event);
                     if (handled) {
                         return true;
@@ -251,14 +261,12 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
 
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
-                    onSubmit();
+                    onSubmitRef.current();
                     return true;
                 }
 
-
-
                 // Handle escape to close mentions
-                if (event.key === 'Escape' && showMentions) {
+                if (event.key === 'Escape' && showMentionsRef.current) {
                     setShowMentions(false);
                     return true;
                 }
@@ -275,9 +283,10 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                 if (imageItem) {
                     event.preventDefault();
                     const file = imageItem.getAsFile();
-                    if (!file || !uploadImage) return true;
+                    const upload = uploadImageRef.current;
+                    if (!file || !upload) return true;
 
-                    uploadImage(file).then(url => {
+                    upload(file).then(url => {
                         if (url) {
                             const { tr } = view.state;
                             const node = view.state.schema.nodes.image.create({ src: url });
@@ -309,8 +318,6 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
         }
     }, [content, editor]);
 
-
-
     // Store editor reference for mention handling
     useEffect(() => {
         editorRef.current = editor;
@@ -323,11 +330,12 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
         const { from } = state.selection;
 
         const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\n');
-        
-        let mentionStart: number;
-        let mentionEnd: number = from;
 
-        if (mentionTrigger === '@') {
+        let mentionStart: number;
+        const mentionEnd: number = from;
+        const trigger = mentionTriggerRef.current;
+
+        if (trigger === '@') {
             // Find the @ symbol position
             const mentionMatch = textBefore.match(/@(\w*)$/);
             if (!mentionMatch) { setShowMentions(false); return; }
@@ -339,7 +347,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             mentionStart = from - wordMatch[1].length;
         }
 
-        const nickname = member.profiles?.nickname;
+        const nickname = member.profiles?.nickname?.trim();
         const memberName = nickname || member.profiles?.full_name || 'Unknown User';
 
         editor.chain()
@@ -353,11 +361,11 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             .run();
 
         setShowMentions(false);
-    }, [editor, mentionTrigger]);
+    }, [editor]);
 
     // Click outside to close mentions
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = () => {
             if (showMentions) {
                 setShowMentions(false);
             }
@@ -371,7 +379,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
         <div className="relative">
             <EditorContent editor={editor} />
 
-            {showMentions && teamMembers.length > 0 && createPortal(
+            {showMentions && uniqueTeamMembers.length > 0 && createPortal(
                 <div
                     style={{
                         position: 'fixed',
@@ -383,7 +391,7 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
                     <MentionSuggestions
                         ref={mentionSuggestionsRef}
                         query={mentionQuery}
-                        teamMembers={teamMembers}
+                        teamMembers={uniqueTeamMembers}
                         onSelect={handleMentionSelect}
                     />
                 </div>,
@@ -391,4 +399,4 @@ export const TiptapEditorWithMentions: React.FC<TiptapEditorWithMentionsProps> =
             )}
         </div>
     );
-}; 
+};
