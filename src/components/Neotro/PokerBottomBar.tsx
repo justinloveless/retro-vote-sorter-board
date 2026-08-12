@@ -98,12 +98,12 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
                 title={`${spotlightHolderDisplayName} has the spotlight`}
                 aria-live="polite"
               >
-                <Avatar className="h-6 w-6 ring-2 ring-amber-400/70">
+                <Avatar className="h-7 w-7 ring-2 ring-amber-400/80">
                   <AvatarImage
                     src={spotlightHolderAvatarUrl ?? undefined}
                     alt={spotlightHolderAvatarName || spotlightHolderDisplayName}
                   />
-                  <AvatarFallback className="bg-amber-500/20 text-[10px] font-semibold text-amber-900 dark:text-amber-200">
+                  <AvatarFallback className="bg-amber-500/25 text-[11px] font-semibold text-amber-950 dark:text-amber-100">
                     {spotlightHolderInitials(
                       spotlightHolderAvatarName || spotlightHolderDisplayName
                     )}
