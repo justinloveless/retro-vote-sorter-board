@@ -1,11 +1,13 @@
-# Coolify production stack for Retroscope self-host (DUN-76 / Phase 1).
-# Rules: use `expose` only (no host `ports`), set CPU/memory limits,
-# keep PostgREST internal (no Coolify public domain).
+# Coolify production stack using GHCR prebuilt images (DUN-83).
+# Prefer this on small Hetzner/Coolify hosts — the VPS only pulls images; it never
+# runs Atlaskit `vite build` / `npm ci` (which pegs CPU + disk).
 #
-# Build CPU (DUN-83): Prefer docker-compose.selfhost.prebuilt.yml on small VPS
-# hosts so Coolify never runs vite/npm ci. This file builds from Dockerfiles
-# (local/dev or build server only). If you must build here: set
-# COMPOSE_PARALLEL_LIMIT=1 and Concurrent builds = 1.
+# Images are published by .github/workflows/coolify-images.yml
+#   ghcr.io/<owner>/retro-vote-sorter-board-web:latest
+#   ghcr.io/<owner>/retro-vote-sorter-board-api:latest
+#
+# Coolify: set compose path to this file, authenticate GHCR on the server if
+# packages are private, then deploy (pull + up only).
 
 services:
   postgres:
@@ -47,8 +49,6 @@ services:
         condition: service_healthy
     expose:
       - '3000'
-    # No healthcheck: postgrest image is scratch-based (no wget/curl/shell).
-    # Readiness is covered by api /readyz.
     deploy:
       resources:
         limits:
@@ -56,11 +56,7 @@ services:
           memory: 256M
 
   api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-      args:
-        BUILD_CPU_LIST: ${BUILD_CPU_LIST:-0}
+    image: ${API_IMAGE:-ghcr.io/justinloveless/retro-vote-sorter-board-api:latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -82,7 +78,13 @@ services:
     expose:
       - '3000'
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/healthz']
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -93,17 +95,7 @@ services:
           memory: 512M
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        # Keep ≤3072 on shared Coolify VPS (see COOLIFY_SELFHOST.md / DUN-83).
-        BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-3072}
-        # Pin vite build to one host CPU (taskset). Override only if you know you have spare cores.
-        BUILD_CPU_LIST: ${BUILD_CPU_LIST:-0}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://retro-api.example.com}
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+    image: ${WEB_IMAGE:-ghcr.io/justinloveless/retro-vote-sorter-board-web:latest}
     restart: unless-stopped
     depends_on:
       - api

@@ -17,6 +17,8 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV npm_config_maxsockets=2
 ENV npm_config_fetch_retries=2
+# Warning-only; browserslist does not auto-update. Silence noisy Coolify logs.
+ENV BROWSERSLIST_IGNORE_OLD_DATA=1
 
 RUN apk add --no-cache util-linux
 
