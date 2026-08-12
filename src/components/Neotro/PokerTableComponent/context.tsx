@@ -163,6 +163,8 @@ interface PokerTableContextProps {
 
   spotlightRoundNumber: number | null;
   isSpotlightMine: boolean;
+  /** Display name of who currently holds spotlight; null when nobody does. */
+  spotlightHolderDisplayName: string | null;
   onSpotlightClick: () => void;
 }
 
@@ -585,11 +587,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
 
   const isViewingHistoryEffective = effectiveCurrentRound ? !effectiveCurrentRound.is_active : isViewingHistory;
 
-  const spotlightOtherDisplayName = useMemo(() => {
+  const spotlightNameFromSelections = useMemo(() => {
     if (!spotlightUserId) return '';
-    if (spotlightUserId === activeUserId) {
-      return isSpotlightMine ? '' : 'You (another window)';
-    }
     const rn = session?.spotlight_round_number;
     if (typeof rn === 'number') {
       const spotlightRound = roundsForUI.find((r) => r.round_number === rn);
@@ -605,11 +604,62 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     return '';
   }, [
     spotlightUserId,
-    activeUserId,
-    isSpotlightMine,
     session?.selections,
     session?.spotlight_round_number,
     roundsForUI,
+  ]);
+
+  const [spotlightProfileName, setSpotlightProfileName] = useState('');
+
+  useEffect(() => {
+    if (!spotlightUserId || spotlightUserId === activeUserId || spotlightNameFromSelections) {
+      setSpotlightProfileName('');
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('nickname, full_name')
+        .eq('id', spotlightUserId)
+        .maybeSingle();
+      if (cancelled) return;
+      const name = data?.nickname?.trim() || data?.full_name?.trim() || '';
+      setSpotlightProfileName(name);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [spotlightUserId, activeUserId, spotlightNameFromSelections]);
+
+  /** Name used in takeover dialog when someone else (or another window) holds spotlight. */
+  const spotlightOtherDisplayName = useMemo(() => {
+    if (!spotlightUserId) return '';
+    if (spotlightUserId === activeUserId) {
+      return isSpotlightMine ? '' : 'You (another window)';
+    }
+    return spotlightNameFromSelections || spotlightProfileName;
+  }, [
+    spotlightUserId,
+    activeUserId,
+    isSpotlightMine,
+    spotlightNameFromSelections,
+    spotlightProfileName,
+  ]);
+
+  /** Visible label for who currently has spotlight (including "You"). */
+  const spotlightHolderDisplayName = useMemo(() => {
+    if (!spotlightUserId) return null;
+    if (spotlightUserId === activeUserId) {
+      return isSpotlightMine ? 'You' : 'You (another window)';
+    }
+    return spotlightNameFromSelections || spotlightProfileName || 'Someone';
+  }, [
+    spotlightUserId,
+    activeUserId,
+    isSpotlightMine,
+    spotlightNameFromSelections,
+    spotlightProfileName,
   ]);
 
   const [spotlightTakeoverOpen, setSpotlightTakeoverOpen] = useState(false);
@@ -1513,6 +1563,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     pokerToolbarExtras,
     spotlightRoundNumber,
     isSpotlightMine,
+    spotlightHolderDisplayName,
     onSpotlightClick,
   };
 

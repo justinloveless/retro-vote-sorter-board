@@ -107,10 +107,22 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   const {
     spotlightRoundNumber,
     isSpotlightMine,
+    spotlightHolderDisplayName,
     onSpotlightClick,
     activateRoundById,
     reorderRounds,
   } = usePokerTable();
+
+  const spotlightButtonLabel = isSpotlightMine
+    ? 'Stop spotlighting'
+    : spotlightHolderDisplayName
+      ? `${spotlightHolderDisplayName} has the spotlight — click to take it`
+      : 'Spotlight this round';
+  const spotlightButtonAriaLabel = isSpotlightMine
+    ? 'Stop spotlighting'
+    : spotlightHolderDisplayName
+      ? `Take spotlight from ${spotlightHolderDisplayName}`
+      : 'Spotlight this round';
 
   const currentPointsLabel = useMemo(() => {
     const rawTicket = displayTicketNumber || currentRound?.ticket_number || '';
@@ -564,22 +576,33 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
               {theme === 'light' ? '🌙' : '☀️'}
             </Button>
             {!isMobile && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <NeotroPressableButton
-                    variant="gold"
-                    size="sm"
-                    isActive={isSpotlightMine}
-                    onClick={onSpotlightClick}
-                    aria-label={isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
+              <div className="flex min-w-0 items-center gap-1.5">
+                {spotlightHolderDisplayName && (
+                  <span
+                    className="hidden max-w-[6.5rem] truncate text-xs font-medium text-amber-800 dark:text-amber-300 sm:inline"
+                    title={`${spotlightHolderDisplayName} has the spotlight`}
+                    aria-live="polite"
                   >
-                    <Spotlight className="h-4 w-4" />
-                  </NeotroPressableButton>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
-                </TooltipContent>
-              </Tooltip>
+                    {spotlightHolderDisplayName}
+                  </span>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <NeotroPressableButton
+                      variant="gold"
+                      size="sm"
+                      isActive={isSpotlightMine}
+                      onClick={onSpotlightClick}
+                      aria-label={spotlightButtonAriaLabel}
+                    >
+                      <Spotlight className="h-4 w-4" />
+                    </NeotroPressableButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {spotlightButtonLabel}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             )}
             {(onEnterObserverMode || onLeaveObserverMode) && (
               <Tooltip>
@@ -723,6 +746,11 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                         type="button"
                         className="relative z-[1] inline-flex items-center gap-2 px-2 py-1.5 text-xs whitespace-nowrap"
                         onClick={() => handleChipClick(index)}
+                        aria-label={
+                          isSpotlightRound && spotlightHolderDisplayName
+                            ? `${item.ticketKey}, spotlight held by ${spotlightHolderDisplayName}`
+                            : undefined
+                        }
                       >
                         {iconUrl ? (
                           <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0" />
@@ -730,6 +758,14 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                           <Ticket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         )}
                         <span className="font-mono font-semibold">{item.ticketKey}</span>
+                        {isSpotlightRound && spotlightHolderDisplayName && (
+                          <span
+                            className="relative z-[1] rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200"
+                            title={`${spotlightHolderDisplayName} has the spotlight`}
+                          >
+                            {spotlightHolderDisplayName}
+                          </span>
+                        )}
                         {item.isPendingRound && (
                           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
                             Pending
