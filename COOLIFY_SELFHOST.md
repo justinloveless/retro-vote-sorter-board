@@ -108,3 +108,16 @@ OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
 | web | 0.10 | 128M |
 
 Total ≈ **1.6GB** ceiling; tune after soak (prefer raising Postgres first).
+
+## Troubleshooting
+
+### `npm ci` / ERESOLVE during `web` build
+
+Coolify builds the frontend with Docker `npm ci`. This repo requires `.npmrc` (`legacy-peer-deps=true`) because Atlaskit pulls `react-intl@5` with a TypeScript 4 peer range while the app uses TypeScript 5.
+
+The root `Dockerfile` copies `.npmrc` before `npm ci`. Do not remove that step, and keep `.npmrc` in the repo.
+
+### PostgREST shows no healthcheck
+
+Expected. The official PostgREST image is scratch-based (no `wget`/`curl`). Use `GET /readyz` on the API domain for Postgres + PostgREST readiness.
+

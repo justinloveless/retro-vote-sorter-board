@@ -1,7 +1,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+# .npmrc sets legacy-peer-deps=true (required for Atlaskit/react-intl peer graph).
+# scripts/ is needed so postinstall can run during npm ci.
+COPY package.json package-lock.json .npmrc ./
+COPY scripts ./scripts
 RUN npm ci
+
 COPY . .
 
 # Vite env vars are build-time — Coolify must rebuild web when these change.
