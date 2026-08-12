@@ -51,7 +51,17 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
   mobilePanelKeys,
 }) => {
   const showObserverButton = !!(onEnterObserverMode || onLeaveObserverMode);
-  const { isSpotlightMine, onSpotlightClick } = usePokerTable();
+  const { isSpotlightMine, spotlightHolderDisplayName, onSpotlightClick } = usePokerTable();
+  const spotlightButtonLabel = isSpotlightMine
+    ? 'Stop spotlighting'
+    : spotlightHolderDisplayName
+      ? `${spotlightHolderDisplayName} has the spotlight — click to take it`
+      : 'Spotlight this round';
+  const spotlightButtonAriaLabel = isSpotlightMine
+    ? 'Stop spotlighting'
+    : spotlightHolderDisplayName
+      ? `Take spotlight from ${spotlightHolderDisplayName}`
+      : 'Spotlight this round';
   const panels = PANELS.filter(
     (p) => (!p.requiresJira || isJiraConfigured) &&
       (p.key !== 'settings' || visibility.settings) &&
@@ -65,19 +75,28 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
         <div className="contents">
         {isMobile && (
           <div className="contents">
+            {spotlightHolderDisplayName && (
+              <span
+                className="max-w-[5.5rem] truncate px-1 text-[11px] font-medium text-amber-800 dark:text-amber-300"
+                title={`${spotlightHolderDisplayName} has the spotlight`}
+                aria-live="polite"
+              >
+                {spotlightHolderDisplayName}
+              </span>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <NeotroPressableButton
                   variant="gold"
                   isActive={isSpotlightMine}
                   onClick={onSpotlightClick}
-                  aria-label={isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
+                  aria-label={spotlightButtonAriaLabel}
                 >
                   <Spotlight className="h-4 w-4" />
                 </NeotroPressableButton>
               </TooltipTrigger>
               <TooltipContent side="top">
-                {isSpotlightMine ? 'Stop spotlighting' : 'Spotlight this round'}
+                {spotlightButtonLabel}
               </TooltipContent>
             </Tooltip>
           </div>
