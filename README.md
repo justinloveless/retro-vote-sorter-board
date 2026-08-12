@@ -64,6 +64,8 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/321ef3d9-3afa-40d2-ae7f-3b5e17f2818c) and click on Share -> Publish.
 
+For Coolify self-host (Postgres + PostgREST + Node API + FE), see [`COOLIFY_SELFHOST.md`](./COOLIFY_SELFHOST.md) and `docker-compose.selfhost.yml`.
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

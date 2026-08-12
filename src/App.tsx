@@ -30,6 +30,7 @@ import AdminTierLimitsPage from "./pages/admin/AdminTierLimitsPage";
 import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
 import AdminUsersTeamsPage from "./pages/admin/AdminUsersTeamsPage";
 import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
+import AdminBackendPage from "./pages/admin/AdminBackendPage";
 import OrgDashboard from "./pages/OrgDashboard";
 import OrgAdmin from "./pages/OrgAdmin";
 import OrgInviteAccept from "./pages/OrgInviteAccept";
@@ -90,6 +91,7 @@ const App = () => (
                     <Route path="notifications" element={<AdminNotificationsPage />} />
                     <Route path="users-teams" element={<AdminUsersTeamsPage />} />
                     <Route path="integrations" element={<AdminIntegrationsPage />} />
+                    <Route path="backend" element={<AdminBackendPage />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
