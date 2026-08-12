@@ -42,11 +42,8 @@ services:
         condition: service_healthy
     expose:
       - '3000'
-    healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000']
-      interval: 30s
-      timeout: 5s
-      retries: 3
+    # No healthcheck: postgrest image is scratch-based (no wget/curl/shell).
+    # Readiness is covered by api /readyz.
     deploy:
       resources:
         limits:

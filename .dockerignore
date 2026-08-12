@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.github
+coverage
+*.log
+.env
+.env.*
+bun.lock
+bun.lockb
+server/node_modules
+server/dist
+documentation
+tasks
+tools/poker-local-advisor/node_modules
