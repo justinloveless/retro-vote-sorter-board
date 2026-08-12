@@ -1,5 +1,7 @@
 ## Tasks: C# Passthrough API (Front End → C# → Supabase)
 
+> **DUN-74:** Prefer the Node + PostgreSQL self-host task list instead: `tasks/tasks-self-host-node-postgres.md`.
+
 Source plan: `documentation/plans/csharp-pass-through-api-plan.md`
 
 Process guide: `documentation/plans/development-process.md`

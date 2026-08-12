@@ -1,5 +1,7 @@
 ## C# Passthrough API Plan (Front End → C# → Supabase)
 
+> **DUN-74 update:** The preferred self-host path is now **Node + PostgreSQL**, not full Supabase self-host and not C# as the primary stack. See `documentation/plans/self-host-node-postgres-migration-plan.md` and `tasks/tasks-self-host-node-postgres.md`. Keep this document as historical context; reuse inventory/phasing ideas only.
+
 Author: Principal Engineer
 
 Audience: Junior developer (follow every step exactly as written)
