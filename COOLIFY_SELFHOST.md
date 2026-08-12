@@ -2,7 +2,10 @@
 
 Lean stack for Retroscope on a shared Coolify VPS: **Postgres + PostgREST + Node API + Nginx FE**.
 
-Compose file: `docker-compose.selfhost.yml`
+| Compose file | When to use |
+|--------------|-------------|
+| **`docker-compose.selfhost.prebuilt.yml`** | **Recommended on small Hetzner/Coolify hosts** — pulls GHCR images; VPS never runs `vite build` |
+| `docker-compose.selfhost.yml` | Local/dev or a dedicated build server (builds `api`/`web` from Dockerfiles) |
 
 ## Services & domains
 
@@ -24,48 +27,36 @@ Replace `retro.example.com` / `retro-api.example.com` with real FQDNs when DNS i
 5. Vite `VITE_*` vars are **build-time** — change → **rebuild** the `web` service.
 6. Cap **build** concurrency (see [Deploy CPU](#deploy-cpu-shared-vps)) — image builds ignore runtime CPU limits and can freeze a small Hetzner VPS.
 
-## Deploy CPU (shared VPS)
+## Deploy CPU (shared VPS) — use prebuilt images
 
-Coolify runs `docker compose build` on the same host as other apps. Runtime `deploy.resources.limits` do **not** apply during builds. Retroscope’s Atlaskit frontend `npm ci` + `vite build` is heavy enough to peg CPU and thrash memory if left unbounded.
+On a 2–4 GB / 3 vCPU Hetzner box, Atlaskit `vite build` will still saturate CPU and disk (multi‑GB `node_modules` reads during `transforming...`) even with `taskset` / `nice`. The browserslist “run `npx update-browserslist-db`” line in Coolify logs is only a **warning**, not a command Coolify runs.
 
-**Do this once on the Coolify server**
+**Recommended: build on GitHub Actions, pull on Coolify**
 
-1. **Servers → [your VPS] → Configuration → Advanced**
-2. Set **Number of concurrent builds** to **`1`** (Coolify default is `2`).
-3. Optionally raise **Deployment timeout** if a single capped build exceeds 60 minutes.
+1. In the GitHub repo set:
+   - **Variables:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`
+   - **Secret:** `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - Optional: Variable `COOLIFY_DEPLOY_WEBHOOK` + Secret `COOLIFY_TOKEN` to redeploy after push
+2. Merge to `main` (or run workflow **Coolify images** manually) so GHCR gets:
+   - `ghcr.io/justinloveless/retro-vote-sorter-board-web:latest`
+   - `ghcr.io/justinloveless/retro-vote-sorter-board-api:latest`
+3. If packages are private, on the VPS once:
+   ```bash
+   echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
+   ```
+   Or set the GHCR package visibility to **Public**.
+4. In Coolify, point the resource compose path to **`docker-compose.selfhost.prebuilt.yml`** and redeploy.
+5. Confirm the deploy log shows **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
-**Do this on the Retroscope compose resource**
+`VITE_*` changes require a new Actions build (they are baked into the web image), then a Coolify pull/redeploy.
 
-Add environment variable:
+### Fallback: build on the VPS (not recommended on small hosts)
 
-```bash
-COMPOSE_PARALLEL_LIMIT=1
-```
+Use `docker-compose.selfhost.yml` only if you have spare CPU/RAM or a Coolify [build server](https://coolify.io/docs/knowledge-base/server/build-server).
 
-This forces `api` and `web` images to build one at a time instead of in parallel.
-
-**Already baked into the Dockerfiles**
-
-| Cap | Value | Why |
-|-----|-------|-----|
-| `BUILD_MAX_OLD_SPACE_SIZE` / Node heap | `3072` (web) | Atlaskit needs ~3GB; old `8192` swap-thrashed small VPS hosts |
-| `taskset -c ${BUILD_CPU_LIST:-0}` | core `0` | **Hard** CPU pin for `npm ci` / `vite build` (`nice` alone still pegs all cores) |
-| `GOMAXPROCS` / `RAYON_NUM_THREADS` | `1` | Limits esbuild (Go) + SWC (Rayon) worker pools |
-| `UV_THREADPOOL_SIZE` | `1` | Limits libuv thread pool |
-| `npm_config_maxsockets` | `2` | Gentler `npm ci` network/extract parallelism |
-| `vite.build.reportCompressedSize` | `false` | Gzipping multi‑MB chunks for size logs pegged CPU at the end of step 6/6 |
-| npm `postinstall` during image build | skipped | Advisor zip runs once via `prebuild` |
-
-Optional overrides on the resource:
-
-```bash
-BUILD_MAX_OLD_SPACE_SIZE=3584   # only if the web build OOMs
-BUILD_CPU_LIST=0                # default; use 0,1 only on a larger host
-```
-
-Expect the web image build to be slower (one core) but the VPS should stay responsive.
-
-If deploys still starve the host, offload builds to a Coolify [build server](https://coolify.io/docs/knowledge-base/server/build-server) so compile work never runs on the production VPS.
+1. Server → Advanced → **Concurrent builds = 1**
+2. Resource env: `COMPOSE_PARALLEL_LIMIT=1`
+3. Dockerfiles still apply `taskset`, heap caps, and `reportCompressedSize: false` — expect a slow, still-heavy build.
 
 ## Named volumes
 
@@ -122,14 +113,15 @@ OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
 
 ## Deploy steps
 
-1. Coolify → **New Resource** → **Docker Compose**.
-2. Point at this repo; set compose path to `docker-compose.selfhost.yml`.
-3. Paste env vars above.
-4. Domains:
+1. Publish images via GitHub Actions (**Coolify images** workflow) after setting `VITE_*` repo vars/secrets.
+2. Coolify → **New Resource** → **Docker Compose** (or edit existing).
+3. Point at this repo; set compose path to **`docker-compose.selfhost.prebuilt.yml`**.
+4. Paste **runtime** env vars above (Postgres/JWT/CORS). `VITE_*` are baked in CI — not required at Coolify build time when using prebuilt.
+5. Domains:
    - `web` → production FE FQDN, port `80`
    - `api` → API FQDN, port `3000`, WebSockets on
-5. Deploy.
-6. Verify:
+6. Deploy (should pull GHCR images only).
+7. Verify:
    - `https://retro-api.example.com/healthz` → `{ "status": "healthy" }`
    - `https://retro-api.example.com/readyz` → Postgres + PostgREST green
    - FE loads; Admin → **Backend** page (admin users only)
@@ -157,14 +149,9 @@ Total ≈ **1.6GB** ceiling; tune after soak (prefer raising Postgres first).
 
 ### VPS freezes / 100% CPU during Coolify deploy
 
-Image builds ignore runtime CPU limits. The heavy spike is usually **web Dockerfile step 6/6** (`vite build` / Atlaskit). Confirm:
+If logs show `vite build` / `transforming...` / huge disk reads, Coolify is still **building on the VPS**. Switch the compose path to `docker-compose.selfhost.prebuilt.yml` and confirm Actions has published GHCR images.
 
-1. Server **Concurrent builds = 1**
-2. Resource has `COMPOSE_PARALLEL_LIMIT=1`
-3. Deployed commit includes `taskset` CPU pinning + `reportCompressedSize: false`
-4. During deploy, `htop` should show the build bound to roughly **one** core
-
-A capped web build is slower but should leave the host responsive. If the machine has under ~4GB free RAM during deploy, add swap or use a Coolify build server.
+The browserslist “Please run: npx update-browserslist-db” line is informational only.
 
 ### `npm ci` / ERESOLVE during `web` build
 
