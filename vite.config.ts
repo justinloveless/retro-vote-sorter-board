@@ -58,6 +58,9 @@ export default defineConfig(({ mode, command }) => {
     build: {
       // Atlaskit's editor graph is huge; sourcemaps blow up Node's heap during build.
       sourcemap: false,
+      // Gzipping multi‑MB Atlaskit chunks just to print sizes pegs shared Coolify VPS CPUs
+      // at the end of `vite build` (Docker step 6/6). Keep minify; skip the report.
+      reportCompressedSize: false,
     },
     optimizeDeps: {
       include: ["@atlaskit/renderer", "@atlaskit/editor-core", "react-intl-next"],
