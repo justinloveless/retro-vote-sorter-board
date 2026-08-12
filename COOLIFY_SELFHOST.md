@@ -49,17 +49,21 @@ This forces `api` and `web` images to build one at a time instead of in parallel
 | Cap | Value | Why |
 |-----|-------|-----|
 | `BUILD_MAX_OLD_SPACE_SIZE` / Node heap | `3072` (web) | Atlaskit needs ~3GB; old `8192` swap-thrashed small VPS hosts |
-| `GOMAXPROCS` | `1` | Limits esbuild/Go worker threads during build |
-| `UV_THREADPOOL_SIZE` | `2` | Limits libuv thread pool |
+| `taskset -c ${BUILD_CPU_LIST:-0}` | core `0` | **Hard** CPU pin for `npm ci` / `vite build` (`nice` alone still pegs all cores) |
+| `GOMAXPROCS` / `RAYON_NUM_THREADS` | `1` | Limits esbuild (Go) + SWC (Rayon) worker pools |
+| `UV_THREADPOOL_SIZE` | `1` | Limits libuv thread pool |
 | `npm_config_maxsockets` | `2` | Gentler `npm ci` network/extract parallelism |
-| `nice -n 10` | build steps | Yields CPU to Coolify + sibling apps |
+| `vite.build.reportCompressedSize` | `false` | Gzipping multi‑MB chunks for size logs pegged CPU at the end of step 6/6 |
 | npm `postinstall` during image build | skipped | Advisor zip runs once via `prebuild` |
 
-Optional override on the resource (only if a build OOMs):
+Optional overrides on the resource:
 
 ```bash
-BUILD_MAX_OLD_SPACE_SIZE=3584
+BUILD_MAX_OLD_SPACE_SIZE=3584   # only if the web build OOMs
+BUILD_CPU_LIST=0                # default; use 0,1 only on a larger host
 ```
+
+Expect the web image build to be slower (one core) but the VPS should stay responsive.
 
 If deploys still starve the host, offload builds to a Coolify [build server](https://coolify.io/docs/knowledge-base/server/build-server) so compile work never runs on the production VPS.
 
@@ -153,11 +157,12 @@ Total ≈ **1.6GB** ceiling; tune after soak (prefer raising Postgres first).
 
 ### VPS freezes / 100% CPU during Coolify deploy
 
-Image builds ignore runtime CPU limits. Confirm:
+Image builds ignore runtime CPU limits. The heavy spike is usually **web Dockerfile step 6/6** (`vite build` / Atlaskit). Confirm:
 
 1. Server **Concurrent builds = 1**
 2. Resource has `COMPOSE_PARALLEL_LIMIT=1`
-3. Latest Dockerfiles (GOMAXPROCS / 3GB heap caps) are on the deployed branch
+3. Deployed commit includes `taskset` CPU pinning + `reportCompressedSize: false`
+4. During deploy, `htop` should show the build bound to roughly **one** core
 
 A capped web build is slower but should leave the host responsive. If the machine has under ~4GB free RAM during deploy, add swap or use a Coolify build server.
 

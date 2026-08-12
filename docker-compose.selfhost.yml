@@ -61,6 +61,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      args:
+        BUILD_CPU_LIST: ${BUILD_CPU_LIST:-0}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -99,6 +101,8 @@ services:
       args:
         # Keep ≤3072 on shared Coolify VPS (see COOLIFY_SELFHOST.md / DUN-83).
         BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-3072}
+        # Pin vite build to one host CPU (taskset). Override only if you know you have spare cores.
+        BUILD_CPU_LIST: ${BUILD_CPU_LIST:-0}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://retro-api.example.com}
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
