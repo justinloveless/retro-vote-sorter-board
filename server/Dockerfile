@@ -6,7 +6,8 @@ WORKDIR /app
 ENV GOMAXPROCS=1
 ENV UV_THREADPOOL_SIZE=2
 ENV npm_config_maxsockets=2
-ENV NODE_ENV=production
+# Do NOT set NODE_ENV=production before npm ci — that omits devDependencies
+# (typescript/tsc) and breaks `npm run build`. Production is set in runtime only.
 
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
@@ -14,7 +15,8 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY tsconfig.json ./
 COPY src ./src
-RUN nice -n 10 npm run build && npm prune --omit=dev
+RUN nice -n 10 npm run build \
+  && npm prune --omit=dev
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
