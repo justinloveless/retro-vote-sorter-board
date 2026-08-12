@@ -19,9 +19,49 @@ Replace `retro.example.com` / `retro-api.example.com` with real FQDNs when DNS i
 
 1. Compose uses **`expose` only** — never host `ports` (avoids collisions on the shared VPS).
 2. Attach Coolify domains to **`web`** and **`api` only**.
-3. Set **CPU/memory limits** (already in compose).
+3. Set **CPU/memory limits** (already in compose) — these apply to **running** containers only.
 4. Enable Coolify **volume backups** for `retroscope_pg_data` and `retroscope_uploads`.
 5. Vite `VITE_*` vars are **build-time** — change → **rebuild** the `web` service.
+6. Cap **build** concurrency (see [Deploy CPU](#deploy-cpu-shared-vps)) — image builds ignore runtime CPU limits and can freeze a small Hetzner VPS.
+
+## Deploy CPU (shared VPS)
+
+Coolify runs `docker compose build` on the same host as other apps. Runtime `deploy.resources.limits` do **not** apply during builds. Retroscope’s Atlaskit frontend `npm ci` + `vite build` is heavy enough to peg CPU and thrash memory if left unbounded.
+
+**Do this once on the Coolify server**
+
+1. **Servers → [your VPS] → Configuration → Advanced**
+2. Set **Number of concurrent builds** to **`1`** (Coolify default is `2`).
+3. Optionally raise **Deployment timeout** if a single capped build exceeds 60 minutes.
+
+**Do this on the Retroscope compose resource**
+
+Add environment variable:
+
+```bash
+COMPOSE_PARALLEL_LIMIT=1
+```
+
+This forces `api` and `web` images to build one at a time instead of in parallel.
+
+**Already baked into the Dockerfiles**
+
+| Cap | Value | Why |
+|-----|-------|-----|
+| `BUILD_MAX_OLD_SPACE_SIZE` / Node heap | `3072` (web) | Atlaskit needs ~3GB; old `8192` swap-thrashed small VPS hosts |
+| `GOMAXPROCS` | `1` | Limits esbuild/Go worker threads during build |
+| `UV_THREADPOOL_SIZE` | `2` | Limits libuv thread pool |
+| `npm_config_maxsockets` | `2` | Gentler `npm ci` network/extract parallelism |
+| `nice -n 10` | build steps | Yields CPU to Coolify + sibling apps |
+| npm `postinstall` during image build | skipped | Advisor zip runs once via `prebuild` |
+
+Optional override on the resource (only if a build OOMs):
+
+```bash
+BUILD_MAX_OLD_SPACE_SIZE=3584
+```
+
+If deploys still starve the host, offload builds to a Coolify [build server](https://coolify.io/docs/knowledge-base/server/build-server) so compile work never runs on the production VPS.
 
 ## Named volumes
 
@@ -110,6 +150,16 @@ OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
 Total ≈ **1.6GB** ceiling; tune after soak (prefer raising Postgres first).
 
 ## Troubleshooting
+
+### VPS freezes / 100% CPU during Coolify deploy
+
+Image builds ignore runtime CPU limits. Confirm:
+
+1. Server **Concurrent builds = 1**
+2. Resource has `COMPOSE_PARALLEL_LIMIT=1`
+3. Latest Dockerfiles (GOMAXPROCS / 3GB heap caps) are on the deployed branch
+
+A capped web build is slower but should leave the host responsive. If the machine has under ~4GB free RAM during deploy, add swap or use a Coolify build server.
 
 ### `npm ci` / ERESOLVE during `web` build
 

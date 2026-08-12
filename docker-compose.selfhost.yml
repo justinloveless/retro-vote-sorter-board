@@ -1,6 +1,13 @@
 # Coolify production stack for Retroscope self-host (DUN-76 / Phase 1).
 # Rules: use `expose` only (no host `ports`), set CPU/memory limits,
 # keep PostgREST internal (no Coolify public domain).
+#
+# Build CPU (DUN-83): runtime deploy.resources.limits do NOT apply to
+# `docker compose build`. On the Coolify resource, set:
+#   COMPOSE_PARALLEL_LIMIT=1
+# so api + web are not compiled at once, and on the server set
+# Configuration → Advanced → Concurrent builds = 1.
+# Dockerfiles also cap GOMAXPROCS / Node heap during image builds.
 
 services:
   postgres:
@@ -90,6 +97,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
+        # Keep ≤3072 on shared Coolify VPS (see COOLIFY_SELFHOST.md / DUN-83).
+        BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-3072}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://retro-api.example.com}
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
