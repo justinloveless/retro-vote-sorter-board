@@ -3,6 +3,7 @@ import { IntlProvider } from 'react-intl-next';
 import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
 import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import { ensureAtlaskitFeatureGates } from '@/lib/ensureAtlaskitFeatureGates';
+import { patchProseMirrorSelectionJsonID } from '@/lib/patchProseMirrorSelection';
 type EditorActions = any;
 
 export interface AtlaskitDescriptionEditorHandle {
@@ -38,20 +39,10 @@ const AtlaskitDescriptionEditorInner: React.ForwardRefRenderFunction<
 
   React.useEffect(() => {
     let cancelled = false;
+    // Ensure patch is applied even if this module loads without going through main.tsx
+    // (tests, alternate entrypoints). Idempotent.
+    patchProseMirrorSelectionJsonID();
     ensureAtlaskitFeatureGates()
-      .then(() => {
-        if (cancelled) return;
-        return import('prosemirror-state');
-      })
-      .then((pm) => {
-        if (cancelled || !pm) return;
-        const { Selection } = pm;
-        const orig = Selection.jsonID;
-        Selection.jsonID = function (id: string, cls: any) {
-          try { return orig.call(this, id, cls); } catch { return cls; }
-        };
-      })
-      .catch(() => {})
       .then(() => {
         if (cancelled) return;
         return import('@atlaskit/editor-core');
