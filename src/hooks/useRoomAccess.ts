@@ -19,7 +19,9 @@ export const useRoomAccess = (roomId: string, user: any) => {
     }
 
     try {
-      setAccessStatus('loading');
+      // Avoid flashing the full-page loading screen (and unmounting the board)
+      // when re-checking access after auth token refresh / tab focus.
+      setAccessStatus((prev) => (prev === 'granted' ? prev : 'loading'));
       const { data: board, error } = await supabase
         .from('retro_boards')
         .select(`

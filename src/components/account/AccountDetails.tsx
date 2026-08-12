@@ -64,7 +64,8 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                                 // Use profile.id (impersonated user) instead of user.id (admin)
                                 const fileName = `${profile?.id || user.id}.png`;
                                 // Upload to supabase storage bucket 'avatars'
-                                await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                                if (uploadError) throw uploadError;
                                 const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
                                 const publicUrl = data.publicUrl;
                                 // Set hidden input so existing form submit keeps working

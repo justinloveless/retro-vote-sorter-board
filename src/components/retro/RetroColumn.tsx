@@ -434,6 +434,7 @@ export const RetroColumn: React.FC<RetroColumnProps> = ({
               onAddItem={onAddItem}
               allowAnonymous={boardConfig.allow_anonymous && !isAnonymousUser}
               teamMembers={teamMembers}
+              draftKey={board?.id && column?.id ? `${board.id}:${column.id}` : undefined}
             />
           )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -136,13 +136,16 @@ export const useRetroBoard = (roomId: string) => {
   const [audioUrlToPlay, setAudioUrlToPlay] = useState<string | null>(null);
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [profileCache, setProfileCache] = useState<Record<string, { avatar_url: string; full_name: string }>>({});
+  const profileCacheRef = useRef(profileCache);
+  profileCacheRef.current = profileCache;
   const { toast } = useToast();
   const { profile } = useAuth();
 
-  // Helper function to fetch and cache profiles
+  // Helper function to fetch and cache profiles.
+  // Keep this callback identity stable — it is used by the realtime channel effect.
   const fetchProfileData = useCallback(async (authorId: string) => {
-    if (profileCache[authorId]) {
-      return profileCache[authorId];
+    if (profileCacheRef.current[authorId]) {
+      return profileCacheRef.current[authorId];
     }
 
     try {
@@ -162,7 +165,7 @@ export const useRetroBoard = (roomId: string) => {
       console.error('Error fetching profile:', error);
     }
     return null;
-  }, [profileCache]);
+  }, []);
 
   // Update user presence using Supabase realtime presence
   const updatePresence = useCallback(async (userName: string, avatarUrl?: string) => {
@@ -399,43 +402,71 @@ export const useRetroBoard = (roomId: string) => {
     loadBoardData();
   }, [roomId, toast]);
 
+  // Stable refs for collections used by realtime handlers. Updating `.current`
+  // does not recreate the channel subscription.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+
   const handleNewItem = useCallback(async (payload: any) => {
     const newItem = payload.new as RetroItem;
-    // Check if item already exists to prevent duplicates from optimistic updates
-    if (items.some(item => item.id === newItem.id)) {
+    if (itemsRef.current.some(item => item.id === newItem.id)) {
       return;
     }
-    
+
     if (newItem.author_id) {
       const profileData = await fetchProfileData(newItem.author_id);
       newItem.profiles = profileData;
     }
-    
-    setItems(prevItems => [...prevItems, newItem]);
-  }, [items, fetchProfileData]);
+
+    setItems(prevItems => {
+      if (prevItems.some(item => item.id === newItem.id)) return prevItems;
+      return [...prevItems, newItem];
+    });
+  }, [fetchProfileData]);
 
   const handleNewComment = useCallback(async (payload: any) => {
     const newComment = payload.new as RetroComment;
-    if (items.some(item => item.id === newComment.item_id)) {
-      // Check if comment already exists
-      if (comments.some(comment => comment.id === newComment.id)) {
-        return;
-      }
-      
-      if (newComment.author_id) {
-        const profileData = await fetchProfileData(newComment.author_id);
-        newComment.profiles = profileData;
-      }
-      
-      setComments(prevComments => [...prevComments, newComment]);
+    if (!itemsRef.current.some(item => item.id === newComment.item_id)) {
+      return;
     }
-  }, [items, comments, fetchProfileData]);
+    if (commentsRef.current.some(comment => comment.id === newComment.id)) {
+      return;
+    }
 
-  // Set up realtime presence and data subscriptions
+    if (newComment.author_id) {
+      const profileData = await fetchProfileData(newComment.author_id);
+      newComment.profiles = profileData;
+    }
+
+    setComments(prevComments => {
+      if (prevComments.some(comment => comment.id === newComment.id)) return prevComments;
+      return [...prevComments, newComment];
+    });
+  }, [fetchProfileData]);
+
+  // Keep latest handlers in refs so the realtime channel can stay subscribed
+  // for the lifetime of a board without tearing down on every render / item update.
+  const handleNewItemRef = useRef(handleNewItem);
+  handleNewItemRef.current = handleNewItem;
+  const handleNewCommentRef = useRef(handleNewComment);
+  handleNewCommentRef.current = handleNewComment;
+  const fetchProfileDataRef = useRef(fetchProfileData);
+  fetchProfileDataRef.current = fetchProfileData;
+
+  // Set up realtime presence and data subscriptions.
+  // IMPORTANT: only re-subscribe when the board identity (or team) changes.
+  // Depending on unstable handler identities / the whole `board` object caused
+  // the channel to drop and rejoin constantly — presence cleared then
+  // repopulated, and the board UI felt like it "reloaded" on tab focus.
   useEffect(() => {
-    if (!board) return;
+    if (!board?.id) return;
 
-    const channel = supabase.channel(`retro-board-${board.id}`, {
+    const boardId = board.id;
+    const teamId = board.team_id;
+
+    const channel = supabase.channel(`retro-board-${boardId}`, {
       config: {
         presence: {
           key: sessionId,
@@ -443,11 +474,27 @@ export const useRetroBoard = (roomId: string) => {
       },
     });
 
-    // Presence events
+    // Presence events — debounce empty syncs so brief reconnect gaps don't
+    // flash an empty "online" list (common when alt-tabbing).
+    let emptyPresenceTimer: ReturnType<typeof setTimeout> | null = null;
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
-      const users = Object.values(state).map((p: any) => p[0]);
-      setActiveUsers(users as ActiveUser[]);
+      const users = Object.values(state).map((p: any) => p[0]) as ActiveUser[];
+
+      if (emptyPresenceTimer) {
+        clearTimeout(emptyPresenceTimer);
+        emptyPresenceTimer = null;
+      }
+
+      if (users.length === 0) {
+        emptyPresenceTimer = setTimeout(() => {
+          setActiveUsers([]);
+          emptyPresenceTimer = null;
+        }, 400);
+        return;
+      }
+
+      setActiveUsers(users);
     });
 
     // Broadcast events
@@ -476,7 +523,9 @@ export const useRetroBoard = (roomId: string) => {
     });
 
     // Database changes
-    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, handleNewItem)
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, (payload) => {
+        void handleNewItemRef.current(payload);
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'retro_items' }, (payload) => {
         const updatedItem = payload.new as RetroItem;
         setItems(currentItems =>
@@ -489,7 +538,9 @@ export const useRetroBoard = (roomId: string) => {
         const deletedItem = payload.old as RetroItem;
         setItems(currentItems => currentItems.filter(item => item.id !== deletedItem.id));
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, handleNewComment)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, (payload) => {
+        void handleNewCommentRef.current(payload);
+      })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
@@ -498,7 +549,7 @@ export const useRetroBoard = (roomId: string) => {
         event: 'INSERT',
         schema: 'public',
         table: 'retro_votes',
-        filter: `board_id=eq.${board.id}`,
+        filter: `board_id=eq.${boardId}`,
       }, async (payload) => {
         const newVote = payload.new as RetroVote;
         if (!newVote?.item_id) return;
@@ -517,14 +568,14 @@ export const useRetroBoard = (roomId: string) => {
         });
 
         if (newVote.user_id) {
-          await fetchProfileData(newVote.user_id);
+          await fetchProfileDataRef.current(newVote.user_id);
         }
       })
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
         table: 'retro_votes',
-        filter: `board_id=eq.${board.id}`,
+        filter: `board_id=eq.${boardId}`,
       }, (payload) => {
         const deletedVote = payload.old as Partial<RetroVote>;
         setVotes(current => {
@@ -545,19 +596,19 @@ export const useRetroBoard = (roomId: string) => {
         event: '*',
         schema: 'public',
         table: 'team_action_items',
-        filter: board?.team_id ? `team_id=eq.${board.team_id}` : undefined as any
+        filter: teamId ? `team_id=eq.${teamId}` : undefined as any
       }, (payload) => {
         const newAction = payload.new as any;
         const oldAction = payload.old as any;
         if (payload.eventType === 'INSERT') {
           if (newAction && newAction.done === false) {
             // Skip showing items sourced from the current board in the Open Action Items column
-            if (!board?.id || newAction.source_board_id == null || newAction.source_board_id !== board.id) {
+            if (newAction.source_board_id == null || newAction.source_board_id !== boardId) {
               setTeamActionItems(prev => [...prev, newAction]);
             }
           }
           // Update board status map for items on this board
-          if (newAction?.source_board_id === board?.id && newAction?.source_item_id) {
+          if (newAction?.source_board_id === boardId && newAction?.source_item_id) {
             setBoardActionStatus(prev => ({ ...prev, [newAction.source_item_id]: { id: newAction.id, done: !!newAction.done, assigned_to: newAction.assigned_to } }));
           }
         } else if (payload.eventType === 'UPDATE') {
@@ -565,20 +616,20 @@ export const useRetroBoard = (roomId: string) => {
             setTeamActionItems(prev => prev.filter(a => a.id !== newAction.id));
           } else {
             // If this action item belongs to the current board, ensure it's not listed
-            if (board?.id && newAction.source_board_id === board.id) {
+            if (newAction.source_board_id === boardId) {
               setTeamActionItems(prev => prev.filter(a => a.id !== newAction.id));
             } else {
               setTeamActionItems(prev => prev.map(a => a.id === newAction.id ? newAction : a));
             }
           }
-          if (newAction?.source_board_id === board?.id && newAction?.source_item_id) {
+          if (newAction?.source_board_id === boardId && newAction?.source_item_id) {
             setBoardActionStatus(prev => ({ ...prev, [newAction.source_item_id]: { id: newAction.id, done: !!newAction.done, assigned_to: newAction.assigned_to } }));
           }
         } else if (payload.eventType === 'DELETE') {
           if (oldAction) {
             setTeamActionItems(prev => prev.filter(a => a.id !== oldAction.id));
           }
-          if (oldAction?.source_board_id === board?.id && oldAction?.source_item_id) {
+          if (oldAction?.source_board_id === boardId && oldAction?.source_item_id) {
             setBoardActionStatus(prev => {
               const clone = { ...prev };
               delete clone[oldAction.source_item_id];
@@ -591,7 +642,7 @@ export const useRetroBoard = (roomId: string) => {
         event: 'UPDATE',
         schema: 'public',
         table: 'retro_board_config',
-        filter: `board_id=eq.${board.id}`
+        filter: `board_id=eq.${boardId}`
       }, (payload) => {
         const updatedConfig = payload.new as RetroBoardConfig;
         setBoardConfig(current => current ? { ...current, ...updatedConfig } : updatedConfig);
@@ -624,7 +675,7 @@ export const useRetroBoard = (roomId: string) => {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'retro_boards',
-        filter: `id=eq.${board.id}`
+        filter: `id=eq.${boardId}`
       }, (payload) => {
         const updatedBoard = payload.new as RetroBoard;
         // Update board state with new stage and other properties
@@ -659,9 +710,11 @@ export const useRetroBoard = (roomId: string) => {
     });
 
     return () => {
+      if (emptyPresenceTimer) clearTimeout(emptyPresenceTimer);
+      setPresenceChannel((current: any) => (current === channel ? null : current));
       supabase.removeChannel(channel);
     };
-  }, [board, sessionId, handleNewItem, handleNewComment, fetchProfileData]);
+  }, [board?.id, board?.team_id, sessionId, toast]);
 
   const updateBoardTitle = async (title: string) => {
     if (!board) return;

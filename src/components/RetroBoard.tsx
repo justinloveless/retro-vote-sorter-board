@@ -149,19 +149,19 @@ export const RetroBoard: React.FC<RetroBoardProps> = ({
     return (name: string, avatarUrl?: string) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        if (name.trim() && board) {
+        if (name.trim() && board?.id) {
           updatePresence(name, avatarUrl);
         }
       }, 1000); // 1 second delay after user stops typing
     };
-  }, [updatePresence, board]);
+  }, [updatePresence, board?.id]);
 
   // Update presence when user name changes (debounced)
   useEffect(() => {
-    if (userName && board) {
+    if (userName && board?.id) {
       debouncedUpdatePresence(userName, profile?.avatar_url);
     }
-  }, [userName, board, debouncedUpdatePresence, profile?.avatar_url]);
+  }, [userName, board?.id, debouncedUpdatePresence, profile?.avatar_url]);
 
   const handleAddItem = (columnId: string) => (text: string, isAnonymousCheckbox: boolean) => {
     if (isArchived) return;
