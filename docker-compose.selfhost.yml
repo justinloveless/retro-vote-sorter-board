@@ -1,0 +1,119 @@
+# Coolify production stack for Retroscope self-host (DUN-76 / Phase 1).
+# Rules: use `expose` only (no host `ports`), set CPU/memory limits,
+# keep PostgREST internal (no Coolify public domain).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-retroscope}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - retroscope_pg_data:/var/lib/postgresql/data
+      - ./server/postgres/init:/docker-entrypoint-initdb.d:ro
+    expose:
+      - '5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 768M
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: ${PGRST_DB_URI:-postgresql://authenticator:retroscope_authenticator_pass@postgres:5432/retroscope}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public}
+      PGRST_DB_ANON_ROLE: ${PGRST_DB_ANON_ROLE:-anon}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (min 32 chars)}
+      PGRST_DB_EXTRA_SEARCH_PATH: public
+      # Internal only — do not attach a Coolify domain to this service.
+      PGRST_OPENAPI_SERVER_PROXY_URI: ${PGRST_OPENAPI_SERVER_PROXY_URI:-http://postgrest:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:-postgresql://retroscope_app:retroscope_app_pass@postgres:5432/retroscope}
+      POSTGREST_URL: ${POSTGREST_URL:-http://postgrest:3000}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (min 32 chars)}
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-https://retro.example.com}
+      UPLOADS_DIR: /data/uploads
+      SELF_HOSTED_API_BASE_URL: ${SELF_HOSTED_API_BASE_URL:-https://retro-api.example.com}
+    volumes:
+      - retroscope_uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgrest:
+        condition: service_started
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://retro-api.example.com}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+    restart: unless-stopped
+    depends_on:
+      - api
+    expose:
+      - '80'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 128M
+
+volumes:
+  retroscope_pg_data:
+    name: retroscope_pg_data
+  retroscope_uploads:
+    name: retroscope_uploads

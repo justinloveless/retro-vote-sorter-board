@@ -20,14 +20,14 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 1.1 | Scaffold `server/` Fastify app | Healthz/readyz, config from env, TypeScript build, Dockerfile | Not started | 0.1 | |
-| 1.2 | Coolify compose stack | `docker-compose.selfhost.yml`: postgres, postgrest, api, web + `retroscope_pg_data` / `retroscope_uploads` — `expose` only, memory/CPU limits | Not started | 1.1 | Target ≤ ~1.0–1.5GB total |
-| 1.3 | FE backend facade stub | `src/lib/backend/getDataClient.ts` + mode types; default still Supabase | Not started | 0.1 | |
-| 1.4 | `app_config.backend_provider` | Migration + types for mode + self-hosted base URL | Not started | 1.3 | |
-| 1.5 | Admin Backend page | `/admin/backend` toggle UI, admin-only, confirm dialog, session preview override | Not started | 1.4 | Gate via `profiles.role === 'admin'` |
-| 1.6 | Coolify domains + proxy | Map web/api FQDNs; keep PostgREST internal; enable WS on api; SPA nginx | Not started | 1.2 | Placeholders OK until DNS ready |
-| 1.7 | Coolify env docs | Document build-time `VITE_*` vs runtime secrets; sample Coolify env block | Not started | 1.2 | Rebuild FE when Vite vars change |
-| 1.8 | Uploads volume wiring | Mount `retroscope_uploads` into Node; stub storage routes for avatars/chat/audio prefixes | Not started | 1.2 | Storage choice locked |
+| 1.1 | Scaffold `server/` Fastify app | Healthz/readyz, config from env, TypeScript build, Dockerfile | Done | 0.1 | DUN-76 |
+| 1.2 | Coolify compose stack | `docker-compose.selfhost.yml`: postgres, postgrest, api, web + `retroscope_pg_data` / `retroscope_uploads` — `expose` only, memory/CPU limits | Done | 1.1 | DUN-76 |
+| 1.3 | FE backend facade stub | `src/lib/backend/getDataClient.ts` + mode types; default still Supabase | Done | 0.1 | DUN-76 |
+| 1.4 | `app_config.backend_provider` | Migration + types for mode + self-hosted base URL | Done | 1.3 | DUN-76 |
+| 1.5 | Admin Backend page | `/admin/backend` toggle UI, admin-only, confirm dialog, session preview override | Done | 1.4 | Gate via `profiles.role === 'admin'` |
+| 1.6 | Coolify domains + proxy | Map web/api FQDNs; keep PostgREST internal; enable WS on api; SPA nginx | Done | 1.2 | Placeholders in `COOLIFY_SELFHOST.md` |
+| 1.7 | Coolify env docs | Document build-time `VITE_*` vs runtime secrets; sample Coolify env block | Done | 1.2 | `COOLIFY_SELFHOST.md` |
+| 1.8 | Uploads volume wiring | Mount `retroscope_uploads` into Node; stub storage routes for avatars/chat/audio prefixes | Done | 1.2 | DUN-76 |
 
 ### Phase 2 — Auth
 

@@ -14,6 +14,7 @@ const ADMIN_NAV_ITEMS = [
     { to: '/admin/notifications', label: 'Notifications' },
     { to: '/admin/users-teams', label: 'Users & Teams' },
     { to: '/admin/integrations', label: 'Integrations' },
+    { to: '/admin/backend', label: 'Backend' },
 ];
 
 function activeAdminPath(pathname: string): string {

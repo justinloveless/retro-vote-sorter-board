@@ -34,6 +34,11 @@ const ADMIN_SECTIONS = [
         description: 'Configure TTS and GitHub issue settings.',
         to: '/admin/integrations',
     },
+    {
+        title: 'Backend',
+        description: 'Toggle hosted Supabase vs self-hosted Node backend.',
+        to: '/admin/backend',
+    },
 ];
 
 const AdminPage: React.FC = () => {
