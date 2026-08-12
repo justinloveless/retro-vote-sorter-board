@@ -44,7 +44,11 @@ function buildNightlyVersion(stableVersion) {
  */
 async function writeZip(outPath, sourceDir) {
   const output = createWriteStream(outPath);
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  // Level 6 is far cheaper on CPU than 9 (Coolify builds share a small VPS).
+  const zipLevel = Number.parseInt(process.env.PACK_ADVISOR_ZIP_LEVEL || '6', 10);
+  const archive = archiver('zip', {
+    zlib: { level: Number.isFinite(zipLevel) ? Math.min(9, Math.max(0, zipLevel)) : 6 },
+  });
 
   await new Promise((resolve, reject) => {
     output.on('close', resolve);

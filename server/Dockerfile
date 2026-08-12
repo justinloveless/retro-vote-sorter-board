@@ -1,12 +1,20 @@
+# syntax=docker/dockerfile:1
+# Cap build parallelism so Coolify deploys stay neighbor-friendly on shared VPS.
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+ENV GOMAXPROCS=1
+ENV UV_THREADPOOL_SIZE=2
+ENV npm_config_maxsockets=2
+ENV NODE_ENV=production
+
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN --mount=type=cache,target=/root/.npm \
+  if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi
 
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build && npm prune --omit=dev
+RUN nice -n 10 npm run build && npm prune --omit=dev
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
