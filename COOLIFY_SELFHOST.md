@@ -171,15 +171,9 @@ Expected. The official PostgREST image is scratch-based (no `wget`/`curl`). Use 
 
 Postgres only runs `/docker-entrypoint-initdb.d` on a **brand-new** data volume. If `retroscope_pg_data` already existed from an earlier deploy, the `authenticator` / `retroscope_app` roles were never created.
 
-Compose includes a `db-init` one-shot that re-applies `server/postgres/init/01-roles.sql` on every deploy. Redeploy after that change lands.
+Compose includes a `db-init` one-shot that re-applies `server/postgres/init/01-roles.sql` on every deploy (via Docker **configs**, not bind mounts — Coolify empties `./` bind mounts).
 
-**Immediate fix (no code wait):** in Coolify → postgres terminal / execute:
-
-```bash
-psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/01-roles.sql
-```
-
-Or, if the mount is missing, paste the contents of `server/postgres/init/01-roles.sql` into `psql` as the `postgres` superuser.
+**Immediate fix (no code wait):** in Coolify → postgres terminal, paste/run the contents of `server/postgres/init/01-roles.sql` as the `postgres` superuser, then restart `postgrest`.
 
 Ensure Coolify env matches the bootstrap passwords (or change both together):
 
@@ -188,5 +182,12 @@ PGRST_DB_URI=postgresql://authenticator:retroscope_authenticator_pass@postgres:5
 DATABASE_URL=postgresql://retroscope_app:retroscope_app_pass@postgres:5432/retroscope
 ```
 
-Then restart `postgrest` (and `api`).
+### `db-init`: `/init/01-roles.sql: No such file or directory`
+
+Old compose used a bind mount Coolify rewrites to an empty host dir. Use a release that defines `configs.retroscope_roles_sql` (file → `/init/01-roles.sql`).
+
+### `deploy-coolify` skipped / Coolify deploys before new images exist
+
+1. GitHub Actions secret **`COOLIFY_WEBHOOK`** must be set (Coolify → resource → Deploy Webhook URL). Without it the job no-ops.
+2. **Disable Coolify Auto Deploy** on git push for this app; otherwise Coolify redeploys from git immediately and pulls stale `:latest` while Actions is still building.
 
