@@ -7,6 +7,11 @@
 # (local/dev or build server only). If you must build here: set
 # COMPOSE_PARALLEL_LIMIT=1 and Concurrent builds = 1.
 
+configs:
+  # Prefer compose configs over bind mounts (Coolify remaps ./ binds to empty dirs).
+  retroscope_roles_sql:
+    file: ./server/postgres/init/01-roles.sql
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,7 +22,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - retroscope_pg_data:/var/lib/postgresql/data
-      - ./server/postgres/init:/docker-entrypoint-initdb.d:ro
+    configs:
+      - source: retroscope_roles_sql
+        target: /docker-entrypoint-initdb.d/01-roles.sql
+        mode: 0444
     expose:
       - '5432'
     healthcheck:
@@ -42,8 +50,10 @@ services:
       PGUSER: ${POSTGRES_USER:-postgres}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-retroscope}
-    volumes:
-      - ./server/postgres/init:/init:ro
+    configs:
+      - source: retroscope_roles_sql
+        target: /init/01-roles.sql
+        mode: 0444
     command: ['psql', '-v', 'ON_ERROR_STOP=1', '-f', '/init/01-roles.sql']
     depends_on:
       postgres:

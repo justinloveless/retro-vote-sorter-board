@@ -35,20 +35,24 @@ On a 2–4 GB / 3 vCPU Hetzner box, Atlaskit `vite build` will still saturat
 
 1. In the GitHub repo set:
    - **Variables:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`
-   - **Secret:** `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - Optional: Variable `COOLIFY_DEPLOY_WEBHOOK` + Secret `COOLIFY_TOKEN` to redeploy after push
-2. Merge to `main` (or run workflow **Coolify images** manually) so GHCR gets:
-   - `ghcr.io/justinloveless/retro-vote-sorter-board-web:latest`
-   - `ghcr.io/justinloveless/retro-vote-sorter-board-api:latest`
-3. If packages are private, on the VPS once:
+   - **Secrets:** `VITE_SUPABASE_PUBLISHABLE_KEY`, **`COOLIFY_WEBHOOK`** (required for post-image deploy)
+   - Optional secret: `COOLIFY_TOKEN` if your Coolify webhook requires Bearer auth
+2. In Coolify for this resource:
+   - Compose path: **`docker-compose.selfhost.prebuilt.yml`**
+   - **Disable Auto Deploy** on git push (Configuration → General / Webhooks). Git auto-deploy races GHCR and starts before new images exist.
+   - Copy **Deploy Webhook** URL → GitHub secret `COOLIFY_WEBHOOK`
+3. Merge to `main` (or run workflow **Coolify images** manually). Order is:
+   1. Actions builds/pushes `*-api` + `*-web` to GHCR  
+   2. `deploy-coolify` calls the webhook  
+   3. Coolify pulls (`pull_policy: always`) and restarts
+4. If packages are private, on the VPS once:
    ```bash
    echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
    ```
    Or set the GHCR package visibility to **Public**.
-4. In Coolify, point the resource compose path to **`docker-compose.selfhost.prebuilt.yml`** and redeploy.
-5. Confirm the deploy log shows **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
+5. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
-`VITE_*` changes require a new Actions build (they are baked into the web image), then a Coolify pull/redeploy.
+`VITE_*` changes require a new Actions build (baked into the web image), then the webhook redeploy.
 
 ### Fallback: build on the VPS (not recommended on small hosts)
 

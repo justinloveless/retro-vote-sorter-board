@@ -1,6 +1,10 @@
 # Build Retroscope images on GitHub runners and push to GHCR.
 # Coolify on the small Hetzner VPS should pull these (see docker-compose.selfhost.prebuilt.yml)
 # instead of running Atlaskit `vite build` locally (DUN-83).
+#
+# Deploy ordering: disable Coolify "Auto Deploy" on git push for this resource.
+# Set secret COOLIFY_WEBHOOK (Deploy Webhook URL from Coolify) so this workflow
+# redeploys ONLY after api/web images are on GHCR.
 name: Coolify images
 
 on:
@@ -9,6 +13,7 @@ on:
     paths:
       - 'Dockerfile'
       - 'docker-compose.selfhost.prebuilt.yml'
+      - 'docker-compose.selfhost.yml'
       - 'package.json'
       - 'package-lock.json'
       - '.npmrc'
@@ -119,16 +124,30 @@ jobs:
 
   deploy-coolify:
     needs: [build-api, build-web]
-    if: ${{ vars.COOLIFY_DEPLOY_WEBHOOK != '' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Coolify redeploy
+      - name: Trigger Coolify redeploy after GHCR push
         env:
-          WEBHOOK: ${{ vars.COOLIFY_DEPLOY_WEBHOOK }}
+          # Prefer secret (Coolify docs). Var name kept as fallback.
+          WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          WEBHOOK_FALLBACK: ${{ vars.COOLIFY_DEPLOY_WEBHOOK }}
           TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          if [ -n "$TOKEN" ]; then
-            curl --fail-with-body --request GET "$WEBHOOK" --header "Authorization: Bearer $TOKEN"
-          else
-            curl --fail-with-body --request GET "$WEBHOOK"
+          set -euo pipefail
+          URL="${WEBHOOK:-}"
+          if [ -z "$URL" ]; then
+            URL="${WEBHOOK_FALLBACK:-}"
           fi
+          if [ -z "$URL" ]; then
+            echo "::warning::deploy-coolify skipped: set GitHub Actions secret COOLIFY_WEBHOOK to your Coolify Deploy Webhook URL."
+            echo "Also disable Coolify git Auto Deploy for this resource so deploys wait for GHCR images."
+            exit 0
+          fi
+          echo "Triggering Coolify webhook after images were pushed..."
+          if [ -n "${TOKEN:-}" ]; then
+            curl --fail-with-body --request GET "$URL" --header "Authorization: Bearer $TOKEN"
+          else
+            curl --fail-with-body --request GET "$URL"
+          fi
+          echo
+          echo "Coolify deploy triggered."
