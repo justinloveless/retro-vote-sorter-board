@@ -1,28 +1,36 @@
 -- Minimal roles so PostgREST can start in Phase 1.
 -- Full schema + RLS bootstrap lands in Phase 3.
 --
--- Coolify compose embeds this SQL via configs.content (not file: / bind mounts).
--- Keep docker-compose.selfhost*.yml `retroscope_roles_sql` in sync when editing.
+-- Use psql \gexec instead of PL/pgSQL DO blocks. Docker Compose interpolates
+-- dollar signs in compose YAML, which corrupted dollar-quoted DO bodies under
+-- Coolify. \gexec runs each SELECT result as SQL (psql only — used by db-init).
+--
+-- Coolify compose embeds this via configs.content — keep compose in sync.
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
-    CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD 'retroscope_authenticator_pass';
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'retroscope_app') THEN
-    CREATE ROLE retroscope_app LOGIN PASSWORD 'retroscope_app_pass';
-  END IF;
-END
-$$;
+SELECT format('CREATE ROLE %I NOLOGIN', rolname)
+FROM (VALUES ('anon'), ('authenticated')) AS t(rolname)
+WHERE NOT EXISTS (SELECT FROM pg_roles r WHERE r.rolname = t.rolname)
+\gexec
+
+SELECT format('CREATE ROLE %I NOLOGIN BYPASSRLS', 'service_role')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role')
+\gexec
+
+SELECT format(
+  'CREATE ROLE %I NOINHERIT LOGIN PASSWORD %L',
+  'authenticator',
+  'retroscope_authenticator_pass'
+)
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator')
+\gexec
+
+SELECT format(
+  'CREATE ROLE %I LOGIN PASSWORD %L',
+  'retroscope_app',
+  'retroscope_app_pass'
+)
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'retroscope_app')
+\gexec
 
 GRANT anon TO authenticator;
 GRANT authenticated TO authenticator;
