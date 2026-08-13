@@ -192,9 +192,11 @@ PGRST_DB_URI=postgresql://authenticator:retroscope_authenticator_pass@postgres:5
 DATABASE_URL=postgresql://retroscope_app:retroscope_app_pass@postgres:5432/retroscope
 ```
 
-### `db-init`: `/init/01-roles.sql: No such file or directory`
+### `db-init`: `/init/01-roles.sql` missing or `bind source path does not exist`
 
-Old compose used a bind mount Coolify rewrites to an empty host dir. Use a release that defines `configs.retroscope_roles_sql` (file → `/init/01-roles.sql`).
+Coolify runs `docker compose` inside a helper container. Host bind mounts and `configs.file:` paths under `/artifacts/...` are **not** visible to the Docker daemon, so they fail.
+
+Use a release that defines `configs.retroscope_roles_sql` with **inline `content:`** (not `file:`).
 
 ### `deploy-coolify` skipped / Coolify deploys before new images exist
 
