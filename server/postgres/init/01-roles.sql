@@ -1,5 +1,8 @@
 -- Minimal roles so PostgREST can start in Phase 1.
 -- Full schema + RLS bootstrap lands in Phase 3.
+--
+-- Coolify compose embeds this SQL via configs.content (not file: / bind mounts).
+-- Keep docker-compose.selfhost*.yml `retroscope_roles_sql` in sync when editing.
 
 DO $$
 BEGIN
