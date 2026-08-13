@@ -198,6 +198,10 @@ Coolify runs `docker compose` inside a helper container. Host bind mounts and `c
 
 Use a release that defines `configs.retroscope_roles_sql` with **inline `content:`** (not `file:`).
 
+### `db-init`: `syntax error at or near "$"` / `DO $`
+
+Docker Compose treats `$$` as an escaped `$`, so PL/pgSQL `DO $$ ... $$` becomes `DO $ ... $` and fails. Roles SQL uses psql `\gexec` instead (no dollar-quoting). Keep the SQL free of `$` characters when embedding in compose.
+
 ### `deploy-coolify` skipped / Coolify deploys before new images exist
 
 Using a **GitHub App** does not set `COOLIFY_WEBHOOK` by itself. The App notifies Coolify of git changes; the Actions job needs the separate **Deploy Webhook** URL.
