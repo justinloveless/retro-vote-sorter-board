@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getAuthClient, resolveAuthBackendMode } from '@/lib/auth/client';
 
 export interface Profile {
   id: string;
@@ -114,35 +114,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id, impersonatedProfile?.id]);
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
 
-      if (newSession) {
-        localStorage.setItem('session', JSON.stringify(newSession));
-        // Always refresh the real profile for the authenticated user once per auth change
+    void (async () => {
+      await resolveAuthBackendMode();
+      if (cancelled) return;
 
-        fetchProfile(newSession.user.id);
-      } else {
-        localStorage.removeItem('session');
-        localStorage.removeItem('profile');
-        localStorage.removeItem('impersonated_profile');
-        setProfile(null);
-        setImpersonatedProfile(null);
-      }
+      const {
+        data: { subscription },
+      } = getAuthClient().onAuthStateChange((_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
 
-      setLoading(false);
-    });
+        if (newSession) {
+          localStorage.setItem('session', JSON.stringify(newSession));
+          fetchProfile(newSession.user.id);
+        } else {
+          localStorage.removeItem('session');
+          localStorage.removeItem('profile');
+          localStorage.removeItem('impersonated_profile');
+          setProfile(null);
+          setImpersonatedProfile(null);
+        }
+
+        setLoading(false);
+      });
+
+      unsubscribe = () => subscription.unsubscribe();
+    })();
 
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
+      unsubscribe?.();
     };
   }, [fetchProfile]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await resolveAuthBackendMode();
+    await getAuthClient().signOut();
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {

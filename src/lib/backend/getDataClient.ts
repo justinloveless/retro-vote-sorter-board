@@ -13,7 +13,10 @@ export type DataClient = SupabaseClient<Database>;
 export interface ResolvedBackendClient {
   mode: BackendMode;
   config: BackendProviderConfig;
-  /** Phase 1: always the hosted Supabase client for both modes. */
+  /**
+   * Data client. Phase 2: still hosted Supabase for table CRUD in both modes.
+   * Auth switches via `src/lib/auth/client.ts` when mode is selfhosted.
+   */
   client: DataClient;
   apiBaseUrl: string;
 }
@@ -21,15 +24,14 @@ export interface ResolvedBackendClient {
 /**
  * Facade for choosing hosted Supabase vs self-hosted clients.
  *
- * Phase 1: both modes return the hosted Supabase client. Self-hosted auth/data
- * clients land in later phases; the toggle still persists mode for cutover prep.
+ * Phase 2: auth uses Node `/auth/v1/*` when mode is selfhosted (see
+ * `src/lib/auth/client.ts`). Table CRUD still uses hosted Supabase until Phase 3.
  */
 export async function getDataClient(): Promise<ResolvedBackendClient> {
   const config = await fetchBackendProviderConfig();
   const mode = resolveBackendMode(config);
   const apiBaseUrl = config.selfHostedApiBaseUrl || getViteApiBaseUrl();
 
-  // Phase 1 dual-path: selfhosted mode still talks to hosted Supabase.
   return {
     mode,
     config,

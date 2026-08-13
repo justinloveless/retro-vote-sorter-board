@@ -33,13 +33,13 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 2.1 | Auth schema | Local `auth.users`, `auth.identities`, `auth.refresh_tokens`, verification codes | Not started | 1.2 | Preserve UUID PK shape |
-| 2.2 | Password signup/login/refresh | Supabase-compatible `/auth/v1/*` token endpoints | Not started | 2.1 | bcrypt compatible with Supabase hashes |
-| 2.3 | Google OAuth | authorize + callback; link by provider_id / verified email | Not started | 2.2 | Needs Coolify API FQDN |
-| 2.4 | Password reset email | Recover + confirm; SMTP/Resend | Not started | 2.2 | |
-| 2.5 | User/identity import script | Export from Supabase → import local with same UUIDs | Not started | 2.1 | |
-| 2.6 | FE auth facade | Switch `useAuth` to facade; toggle selects hosted vs Node auth | Not started | 2.2, 1.5 | |
-| 2.7 | Auth QA | Google + password for QA user; profile UUID unchanged | Not started | 2.3, 2.5, 2.6 | |
+| 2.1 | Auth schema | Local `auth.users`, `auth.identities`, `auth.refresh_tokens`, verification codes | Done | 1.2 | `server/postgres/init/02-auth-schema.sql` + compose embed |
+| 2.2 | Password signup/login/refresh | Supabase-compatible `/auth/v1/*` token endpoints | Done | 2.1 | bcrypt via `bcrypt`; JWT HS256 for PostgREST |
+| 2.3 | Google OAuth | authorize + callback; link by provider_id / verified email | Done | 2.2 | Needs Coolify API FQDN + Google client env |
+| 2.4 | Password reset email | Recover + confirm; SMTP/Resend | Done | 2.2 | Resend / SMTP / console fallback |
+| 2.5 | User/identity import script | Export from Supabase → import local with same UUIDs | Done | 2.1 | `npm run import-auth-users` |
+| 2.6 | FE auth facade | Switch `useAuth` to facade; toggle selects hosted vs Node auth | Done | 2.2, 1.5 | `src/lib/auth/client.ts` |
+| 2.7 | Auth QA | Google + password for QA user; profile UUID unchanged | In progress | 2.3, 2.5, 2.6 | Needs deployed API FQDN + import against staging DB |
 
 ### Phase 3 — Data
 
