@@ -52,16 +52,16 @@ Keep your **GitHub App** connection (repo access). For prebuilt images you only 
    - Compose path: **`docker-compose.selfhost.prebuilt.yml`**
    - **Disable Auto Deploy** (Configuration → Advanced → Deployment & Git). Leave the GitHub App source as-is.
    - On self-hosted Coolify, ensure **API access is enabled** (and GitHub Actions IPs are allowed if you use an API IP allowlist)
-3. Merge to `main` (or run workflow **Coolify images** manually). Order is:
+4. Merge to `main` (or run workflow **Coolify images** manually). Order is:
    1. Actions builds/pushes `*-api` + `*-web` to GHCR  
-   2. `deploy-coolify` calls the Deploy Webhook  
+   2. `deploy-coolify` calls the Deploy Webhook with `Authorization: Bearer`  
    3. Coolify pulls (`pull_policy: always`) and restarts
-4. If packages are private, on the VPS once:
+5. If packages are private, on the VPS once:
    ```bash
    echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
    ```
    Or set the GHCR package visibility to **Public**.
-5. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
+6. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
 `VITE_*` changes require a new Actions build (baked into the web image), then the post-image redeploy.
 
