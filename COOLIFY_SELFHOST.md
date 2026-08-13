@@ -33,17 +33,25 @@ On a 2–4 GB / 3 vCPU Hetzner box, Atlaskit `vite build` will still saturat
 
 **Recommended: build on GitHub Actions, pull on Coolify**
 
+Keep your **GitHub App** connection (repo access). For prebuilt images you only change *when* Coolify deploys:
+
+| Mechanism | Role |
+|-----------|------|
+| **GitHub App** | Stays installed — Coolify can read the repo / compose file |
+| **Auto Deploy** (Advanced → Deployment & Git) | **Turn OFF** — otherwise merge-to-main deploys immediately and pulls stale GHCR `:latest` while Actions is still building |
+| **Deploy Webhook** (not a “manual Git webhook”) | Coolify URL that **GitHub Actions** calls *after* images are pushed. Direction is CI → Coolify, opposite of the GitHub App’s git events |
+
 1. In the GitHub repo set:
    - **Variables:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`
-   - **Secrets:** `VITE_SUPABASE_PUBLISHABLE_KEY`, **`COOLIFY_WEBHOOK`** (required for post-image deploy)
-   - Optional secret: `COOLIFY_TOKEN` if your Coolify webhook requires Bearer auth
+   - **Secrets:** `VITE_SUPABASE_PUBLISHABLE_KEY`, **`COOLIFY_WEBHOOK`**
+   - Optional secret: `COOLIFY_TOKEN` if your Coolify instance requires Bearer auth on deploy API calls
 2. In Coolify for this resource:
    - Compose path: **`docker-compose.selfhost.prebuilt.yml`**
-   - **Disable Auto Deploy** on git push (Configuration → General / Webhooks). Git auto-deploy races GHCR and starts before new images exist.
-   - Copy **Deploy Webhook** URL → GitHub secret `COOLIFY_WEBHOOK`
+   - **Disable Auto Deploy** (Configuration → Advanced → Deployment & Git). Leave the GitHub App source as-is.
+   - Open the resource **Deploy Webhook** / deploy API URL → save it as GitHub secret `COOLIFY_WEBHOOK`
 3. Merge to `main` (or run workflow **Coolify images** manually). Order is:
    1. Actions builds/pushes `*-api` + `*-web` to GHCR  
-   2. `deploy-coolify` calls the webhook  
+   2. `deploy-coolify` calls the Deploy Webhook  
    3. Coolify pulls (`pull_policy: always`) and restarts
 4. If packages are private, on the VPS once:
    ```bash
@@ -52,7 +60,9 @@ On a 2–4 GB / 3 vCPU Hetzner box, Atlaskit `vite build` will still saturat
    Or set the GHCR package visibility to **Public**.
 5. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
-`VITE_*` changes require a new Actions build (baked into the web image), then the webhook redeploy.
+`VITE_*` changes require a new Actions build (baked into the web image), then the post-image redeploy.
+
+If you keep GitHub App **Auto Deploy** on, every merge will race GHCR; you’d need to click **Redeploy** in Coolify after the Actions workflow finishes (or accept stale images).
 
 ### Fallback: build on the VPS (not recommended on small hosts)
 
@@ -188,6 +198,8 @@ Old compose used a bind mount Coolify rewrites to an empty host dir. Use a relea
 
 ### `deploy-coolify` skipped / Coolify deploys before new images exist
 
-1. GitHub Actions secret **`COOLIFY_WEBHOOK`** must be set (Coolify → resource → Deploy Webhook URL). Without it the job no-ops.
-2. **Disable Coolify Auto Deploy** on git push for this app; otherwise Coolify redeploys from git immediately and pulls stale `:latest` while Actions is still building.
+Using a **GitHub App** does not set `COOLIFY_WEBHOOK` by itself. The App notifies Coolify of git changes; the Actions job needs the separate **Deploy Webhook** URL.
+
+1. Coolify → resource → copy **Deploy Webhook** → GitHub Actions secret **`COOLIFY_WEBHOOK`**. Without it, `deploy-coolify` warns and exits 0 (appears “skipped” / no-op).
+2. Coolify → Advanced → Deployment & Git → **disable Auto Deploy**. Keep the GitHub App; only stop deploy-on-push so CI can deploy after GHCR is updated.
 

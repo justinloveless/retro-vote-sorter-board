@@ -2,9 +2,10 @@
 # Coolify on the small Hetzner VPS should pull these (see docker-compose.selfhost.prebuilt.yml)
 # instead of running Atlaskit `vite build` locally (DUN-83).
 #
-# Deploy ordering: disable Coolify "Auto Deploy" on git push for this resource.
-# Set secret COOLIFY_WEBHOOK (Deploy Webhook URL from Coolify) so this workflow
-# redeploys ONLY after api/web images are on GHCR.
+# Deploy ordering (GitHub App users): keep the GitHub App installed, but disable
+# Coolify "Auto Deploy" so merge-to-main does not race GHCR. Set secret
+# COOLIFY_WEBHOOK to the resource's Deploy Webhook URL (CI → Coolify). That is
+# not a manual Git webhook — the App still owns git access.
 name: Coolify images
 
 on:
