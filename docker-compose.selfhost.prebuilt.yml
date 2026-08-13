@@ -33,6 +33,29 @@ services:
           cpus: '0.50'
           memory: 768M
 
+  # docker-entrypoint-initdb.d only runs on an empty volume. Re-apply idempotent
+  # roles on every deploy so PostgREST's authenticator exists after volume reuse.
+  db-init:
+    image: postgres:16-alpine
+    restart: on-failure
+    environment:
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-retroscope}
+    volumes:
+      - ./server/postgres/init:/init:ro
+    command: ['psql', '-v', 'ON_ERROR_STOP=1', '-f', '/init/01-roles.sql']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 64M
+
   postgrest:
     image: postgrest/postgrest:v12.2.3
     restart: unless-stopped
@@ -47,6 +70,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     expose:
       - '3000'
     deploy:
@@ -73,6 +98,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       postgrest:
         condition: service_started
     expose:

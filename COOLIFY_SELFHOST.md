@@ -163,3 +163,26 @@ The root `Dockerfile` copies `.npmrc` before `npm ci`. Do not remove that step, 
 
 Expected. The official PostgREST image is scratch-based (no `wget`/`curl`). Use `GET /readyz` on the API domain for Postgres + PostgREST readiness.
 
+### `password authentication failed for user "authenticator"` / role does not exist
+
+Postgres only runs `/docker-entrypoint-initdb.d` on a **brand-new** data volume. If `retroscope_pg_data` already existed from an earlier deploy, the `authenticator` / `retroscope_app` roles were never created.
+
+Compose includes a `db-init` one-shot that re-applies `server/postgres/init/01-roles.sql` on every deploy. Redeploy after that change lands.
+
+**Immediate fix (no code wait):** in Coolify → postgres terminal / execute:
+
+```bash
+psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/01-roles.sql
+```
+
+Or, if the mount is missing, paste the contents of `server/postgres/init/01-roles.sql` into `psql` as the `postgres` superuser.
+
+Ensure Coolify env matches the bootstrap passwords (or change both together):
+
+```bash
+PGRST_DB_URI=postgresql://authenticator:retroscope_authenticator_pass@postgres:5432/retroscope
+DATABASE_URL=postgresql://retroscope_app:retroscope_app_pass@postgres:5432/retroscope
+```
+
+Then restart `postgrest` (and `api`).
+
