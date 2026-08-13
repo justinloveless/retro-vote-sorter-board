@@ -33,22 +33,36 @@ On a 2–4 GB / 3 vCPU Hetzner box, Atlaskit `vite build` will still saturat
 
 **Recommended: build on GitHub Actions, pull on Coolify**
 
+Keep your **GitHub App** connection (repo access). For prebuilt images you only change *when* Coolify deploys:
+
+| Mechanism | Role |
+|-----------|------|
+| **GitHub App** | Stays installed — Coolify can read the repo / compose file |
+| **Auto Deploy** (Advanced → Deployment & Git) | **Turn OFF** — otherwise merge-to-main deploys immediately and pulls stale GHCR `:latest` while Actions is still building |
+| **Deploy Webhook** (not a “manual Git webhook”) | Coolify URL that **GitHub Actions** calls *after* images are pushed. Direction is CI → Coolify, opposite of the GitHub App’s git events |
+
 1. In the GitHub repo set:
    - **Variables:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`
-   - **Secret:** `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - Optional: Variable `COOLIFY_DEPLOY_WEBHOOK` + Secret `COOLIFY_TOKEN` to redeploy after push
-2. Merge to `main` (or run workflow **Coolify images** manually) so GHCR gets:
-   - `ghcr.io/justinloveless/retro-vote-sorter-board-web:latest`
-   - `ghcr.io/justinloveless/retro-vote-sorter-board-api:latest`
-3. If packages are private, on the VPS once:
+   - **Secrets:** `VITE_SUPABASE_PUBLISHABLE_KEY`, **`COOLIFY_WEBHOOK`**
+   - Optional secret: `COOLIFY_TOKEN` if your Coolify instance requires Bearer auth on deploy API calls
+2. In Coolify for this resource:
+   - Compose path: **`docker-compose.selfhost.prebuilt.yml`**
+   - **Disable Auto Deploy** (Configuration → Advanced → Deployment & Git). Leave the GitHub App source as-is.
+   - Open the resource **Deploy Webhook** / deploy API URL → save it as GitHub secret `COOLIFY_WEBHOOK`
+3. Merge to `main` (or run workflow **Coolify images** manually). Order is:
+   1. Actions builds/pushes `*-api` + `*-web` to GHCR  
+   2. `deploy-coolify` calls the Deploy Webhook  
+   3. Coolify pulls (`pull_policy: always`) and restarts
+4. If packages are private, on the VPS once:
    ```bash
    echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
    ```
    Or set the GHCR package visibility to **Public**.
-4. In Coolify, point the resource compose path to **`docker-compose.selfhost.prebuilt.yml`** and redeploy.
-5. Confirm the deploy log shows **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
+5. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
-`VITE_*` changes require a new Actions build (they are baked into the web image), then a Coolify pull/redeploy.
+`VITE_*` changes require a new Actions build (baked into the web image), then the post-image redeploy.
+
+If you keep GitHub App **Auto Deploy** on, every merge will race GHCR; you’d need to click **Redeploy** in Coolify after the Actions workflow finishes (or accept stale images).
 
 ### Fallback: build on the VPS (not recommended on small hosts)
 
@@ -167,15 +181,9 @@ Expected. The official PostgREST image is scratch-based (no `wget`/`curl`). Use 
 
 Postgres only runs `/docker-entrypoint-initdb.d` on a **brand-new** data volume. If `retroscope_pg_data` already existed from an earlier deploy, the `authenticator` / `retroscope_app` roles were never created.
 
-Compose includes a `db-init` one-shot that re-applies `server/postgres/init/01-roles.sql` on every deploy. Redeploy after that change lands.
+Compose includes a `db-init` one-shot that re-applies `server/postgres/init/01-roles.sql` on every deploy (via Docker **configs**, not bind mounts — Coolify empties `./` bind mounts).
 
-**Immediate fix (no code wait):** in Coolify → postgres terminal / execute:
-
-```bash
-psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/01-roles.sql
-```
-
-Or, if the mount is missing, paste the contents of `server/postgres/init/01-roles.sql` into `psql` as the `postgres` superuser.
+**Immediate fix (no code wait):** in Coolify → postgres terminal, paste/run the contents of `server/postgres/init/01-roles.sql` as the `postgres` superuser, then restart `postgrest`.
 
 Ensure Coolify env matches the bootstrap passwords (or change both together):
 
@@ -184,5 +192,14 @@ PGRST_DB_URI=postgresql://authenticator:retroscope_authenticator_pass@postgres:5
 DATABASE_URL=postgresql://retroscope_app:retroscope_app_pass@postgres:5432/retroscope
 ```
 
-Then restart `postgrest` (and `api`).
+### `db-init`: `/init/01-roles.sql: No such file or directory`
+
+Old compose used a bind mount Coolify rewrites to an empty host dir. Use a release that defines `configs.retroscope_roles_sql` (file → `/init/01-roles.sql`).
+
+### `deploy-coolify` skipped / Coolify deploys before new images exist
+
+Using a **GitHub App** does not set `COOLIFY_WEBHOOK` by itself. The App notifies Coolify of git changes; the Actions job needs the separate **Deploy Webhook** URL.
+
+1. Coolify → resource → copy **Deploy Webhook** → GitHub Actions secret **`COOLIFY_WEBHOOK`**. Without it, `deploy-coolify` warns and exits 0 (appears “skipped” / no-op).
+2. Coolify → Advanced → Deployment & Git → **disable Auto Deploy**. Keep the GitHub App; only stop deploy-on-push so CI can deploy after GHCR is updated.
 

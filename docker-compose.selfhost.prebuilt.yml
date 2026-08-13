@@ -7,7 +7,14 @@
 #   ghcr.io/<owner>/retro-vote-sorter-board-api:latest
 #
 # Coolify: set compose path to this file, authenticate GHCR on the server if
-# packages are private, then deploy (pull + up only).
+# packages are private, disable git auto-deploy, and let GitHub Actions call the
+# deploy webhook AFTER images are pushed (see COOLIFY_SELFHOST.md).
+
+configs:
+  # Use compose configs (not bind mounts). Coolify remaps ./host paths to empty
+  # persistent dirs, which broke db-init (/init/01-roles.sql missing).
+  retroscope_roles_sql:
+    file: ./server/postgres/init/01-roles.sql
 
 services:
   postgres:
@@ -19,7 +26,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - retroscope_pg_data:/var/lib/postgresql/data
-      - ./server/postgres/init:/docker-entrypoint-initdb.d:ro
+    configs:
+      - source: retroscope_roles_sql
+        target: /docker-entrypoint-initdb.d/01-roles.sql
+        mode: 0444
     expose:
       - '5432'
     healthcheck:
@@ -44,8 +54,10 @@ services:
       PGUSER: ${POSTGRES_USER:-postgres}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-retroscope}
-    volumes:
-      - ./server/postgres/init:/init:ro
+    configs:
+      - source: retroscope_roles_sql
+        target: /init/01-roles.sql
+        mode: 0444
     command: ['psql', '-v', 'ON_ERROR_STOP=1', '-f', '/init/01-roles.sql']
     depends_on:
       postgres:
@@ -82,6 +94,7 @@ services:
 
   api:
     image: ${API_IMAGE:-ghcr.io/justinloveless/retro-vote-sorter-board-api:latest}
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -123,6 +136,7 @@ services:
 
   web:
     image: ${WEB_IMAGE:-ghcr.io/justinloveless/retro-vote-sorter-board-web:latest}
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       - api
