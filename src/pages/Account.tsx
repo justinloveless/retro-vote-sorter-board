@@ -222,7 +222,10 @@ const Account = () => {
                             } else {
                               // Normal case: update own avatar
                               const fileName = `${user.id}.png`;
-                              await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              const { error: uploadError } = await supabase.storage
+                                .from('avatars')
+                                .upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              if (uploadError) throw uploadError;
                               const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
                               await updateProfile({ avatar_url: data.publicUrl });
                               toast({ title: 'Profile picture updated' });

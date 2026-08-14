@@ -1,10 +1,16 @@
 
-import React, { useState } from 'react';
-import { Plus, Image } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TiptapEditorWithMentions } from '@/components/shared/TiptapEditorWithMentions';
+import {
+  addItemDraftStorageKey,
+  parseAddItemDraft,
+  serializeAddItemDraft,
+  type AddItemDraftState,
+} from '@/lib/addItemDraft';
 
 interface TeamMember {
   id: string;
@@ -18,12 +24,52 @@ interface AddItemCardProps {
   onAddItem: (text: string, isAnonymous: boolean) => void;
   allowAnonymous?: boolean;
   teamMembers?: TeamMember[];
+  /** Stable key used to persist in-progress drafts across remounts (e.g. boardId:columnId). */
+  draftKey?: string;
 }
 
-export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonymous, teamMembers }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [text, setText] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
+const readDraft = (draftKey?: string): AddItemDraftState | null => {
+  if (!draftKey || typeof window === 'undefined') return null;
+  try {
+    return parseAddItemDraft(sessionStorage.getItem(addItemDraftStorageKey(draftKey)));
+  } catch {
+    return null;
+  }
+};
+
+const writeDraft = (draftKey: string | undefined, draft: AddItemDraftState) => {
+  if (!draftKey || typeof window === 'undefined') return;
+  try {
+    const serialized = serializeAddItemDraft(draft);
+    const key = addItemDraftStorageKey(draftKey);
+    if (serialized == null) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+    sessionStorage.setItem(key, serialized);
+  } catch {
+    // Ignore quota / private-mode failures
+  }
+};
+
+const clearDraft = (draftKey?: string) => {
+  if (!draftKey || typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(addItemDraftStorageKey(draftKey));
+  } catch {
+    // no-op
+  }
+};
+
+export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonymous, teamMembers, draftKey }) => {
+  const saved = readDraft(draftKey);
+  const [isExpanded, setIsExpanded] = useState(() => saved?.isExpanded ?? false);
+  const [text, setText] = useState(() => saved?.text ?? '');
+  const [isAnonymous, setIsAnonymous] = useState(() => saved?.isAnonymous ?? false);
+
+  useEffect(() => {
+    writeDraft(draftKey, { text, isAnonymous, isExpanded });
+  }, [draftKey, text, isAnonymous, isExpanded]);
 
   const uploadImage = async (file: File): Promise<string | null> => {
     // For now, convert to base64 for inline display
@@ -42,12 +88,14 @@ export const AddItemCard: React.FC<AddItemCardProps> = ({ onAddItem, allowAnonym
     setText('');
     setIsAnonymous(false);
     setIsExpanded(false);
+    clearDraft(draftKey);
   };
 
   const handleCancel = () => {
     setText('');
     setIsAnonymous(false);
     setIsExpanded(false);
+    clearDraft(draftKey);
   };
 
   if (!isExpanded) {
