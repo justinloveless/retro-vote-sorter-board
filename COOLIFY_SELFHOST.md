@@ -1,6 +1,6 @@
-# Coolify Self-Host Deployment (Phase 1)
+# Coolify Self-Host Deployment (Phase 1–2)
 
-Lean stack for Retroscope on a shared Coolify VPS: **Postgres + PostgREST + Node API + Nginx FE**.
+Lean stack for Retroscope on a shared Coolify VPS: **Postgres + PostgREST + Node API + Nginx FE**. Phase 2 adds local `/auth/v1/*` (Google + password) on the API.
 
 | Compose file | When to use |
 |--------------|-------------|
@@ -91,7 +91,7 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGc...
 ```
 
-Phase 1 still uses hosted Supabase for auth/data regardless of the admin toggle. Keep Supabase Vite vars set until Phase 2+.
+When the admin Backend toggle is **Hosted Supabase**, auth + data stay on Supabase. When set to **Self-hosted**, the FE auth facade talks to Node `/auth/v1/*` (data CRUD still uses hosted Supabase until Phase 3). Keep Supabase Vite vars set through dual-path cutover.
 
 ### Runtime secrets (`api` / `postgres` / `postgrest`)
 
@@ -113,17 +113,36 @@ PGRST_DB_ANON_ROLE=anon
 # CORS + public API URL used in health/status payloads
 ALLOW_ORIGINS=https://retro.example.com
 SELF_HOSTED_API_BASE_URL=https://retro-api.example.com
+PUBLIC_SITE_URL=https://retro.example.com
+
+# Phase 2 — Google OAuth (redirect URI must match Coolify API FQDN)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
+
+# Phase 2 — password reset email (Resend preferred; SMTP optional)
+RESEND_API_KEY=...
+EMAIL_FROM=Retroscope <noreply@yourdomain.com>
+# SMTP_HOST=...
+# SMTP_PORT=587
+# SMTP_USER=...
+# SMTP_PASS=...
 ```
 
 > Default DB role passwords in `server/postgres/init/01-roles.sql` are for bootstrap only. Change them (and matching `DATABASE_URL` / `PGRST_DB_URI`) before any real data restore.
 
-### Optional later (Phase 2+)
+### Auth import (Phase 2)
+
+Export from hosted Supabase, then import with UUID preservation:
 
 ```bash
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
+# From server/
+DATABASE_URL=postgresql://... npm run import-auth-users -- \
+  --users ./export/users.json \
+  --identities ./export/identities.json
 ```
+
+See `server/src/scripts/import-auth-users.ts` for the SQL export shape.
 
 ## Deploy steps
 

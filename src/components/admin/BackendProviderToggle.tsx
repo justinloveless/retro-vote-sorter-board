@@ -31,6 +31,7 @@ import type {
   BackendStatusResponse,
 } from '@/lib/backend/types';
 import { DEFAULT_BACKEND_PROVIDER } from '@/lib/backend/types';
+import { invalidateAuthBackendModeCache, resolveAuthBackendMode } from '@/lib/auth/client';
 import { Loader2 } from 'lucide-react';
 
 type ApplyScope = 'all' | 'session';
@@ -124,6 +125,7 @@ export const BackendProviderToggle: React.FC = () => {
       if (statusRes?.ok) {
         const status = (await statusRes.json()) as BackendStatusResponse;
         next.realtime = status.checks?.realtime;
+        if (status.checks?.auth) next.auth = status.checks.auth;
         if (status.checks?.postgres) next.postgres = status.checks.postgres;
         if (status.checks?.postgrest) next.postgrest = status.checks.postgrest;
       } else {
@@ -167,9 +169,14 @@ export const BackendProviderToggle: React.FC = () => {
         setSessionOverrideState(null);
         toast({
           title: 'Backend provider saved',
-          description: `Global mode is now "${saved.mode}". Phase 1 still routes both modes to hosted Supabase.`,
+          description:
+            saved.mode === 'selfhosted'
+              ? 'Global mode is self-hosted: auth uses Node /auth/v1/*; data still uses hosted Supabase until Phase 3.'
+              : 'Global mode is hosted Supabase for auth and data.',
         });
       }
+      invalidateAuthBackendModeCache();
+      await resolveAuthBackendMode(true);
       setConfirmOpen(false);
     } catch (error) {
       toast({
@@ -186,6 +193,8 @@ export const BackendProviderToggle: React.FC = () => {
     setSessionBackendOverride(null);
     setSessionOverrideState(null);
     setDraftMode(persisted.mode);
+    invalidateAuthBackendModeCache();
+    void resolveAuthBackendMode(true);
     toast({
       title: 'Session override cleared',
       description: 'This session now follows the global app_config mode.',
@@ -211,8 +220,8 @@ export const BackendProviderToggle: React.FC = () => {
         <CardHeader>
           <CardTitle>Backend provider</CardTitle>
           <CardDescription>
-            Choose hosted Supabase or the self-hosted Node stack. Phase 1 persists the toggle only —
-            both modes still use hosted Supabase until auth/data cutover (Phase 2+).
+            Choose hosted Supabase or the self-hosted Node stack. In self-hosted mode, auth uses
+            Node `/auth/v1/*` (Google + password). Table CRUD still uses hosted Supabase until Phase 3.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -224,6 +233,7 @@ export const BackendProviderToggle: React.FC = () => {
 
           <div className="flex flex-wrap gap-2">
             <HealthChip label="API" ok={checks.api?.ok} detail={checks.api?.error} />
+            <HealthChip label="Auth" ok={checks.auth?.ok} detail={checks.auth?.error} />
             <HealthChip label="DB" ok={checks.postgres?.ok} detail={checks.postgres?.error} />
             <HealthChip
               label="PostgREST"

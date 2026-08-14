@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  getAuthClient,
+  resolveAuthBackendMode,
+  setAuthSession,
+  updateAuthUser,
+} from '@/lib/auth/client';
 import { useToast } from '@/hooks/use-toast';
 import { GlobalBackground } from '@/components/ui/GlobalBackground';
 import { AppHeader } from '@/components/AppHeader';
@@ -22,10 +27,12 @@ const ResetPassword = () => {
         let authSubscription: any;
 
         const checkTokenValidity = async () => {
+            await resolveAuthBackendMode();
+
             // Debug: log all URL parameters
             console.log('All URL parameters:', Object.fromEntries(searchParams.entries()));
 
-            // Also check URL hash parameters (Supabase might use fragments)
+            // Also check URL hash parameters (Supabase / self-hosted may use fragments)
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             console.log('Hash parameters:', Object.fromEntries(hashParams.entries()));
 
@@ -37,7 +44,7 @@ const ResetPassword = () => {
             console.log('Password reset parameters:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
 
             // Set up auth state change listener
-            authSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+            authSubscription = getAuthClient().onAuthStateChange(async (event, session) => {
                 console.log('Auth state change:', event, !!session);
 
                 if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session && type === 'recovery')) {
@@ -64,11 +71,7 @@ const ResetPassword = () => {
             if (type === 'recovery' && accessToken && refreshToken) {
                 try {
                     console.log('Attempting to set session...');
-                    // Set the session with the tokens from the URL
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
+                    const { data, error } = await setAuthSession(accessToken, refreshToken);
 
                     console.log('Session set result:', { data: !!data, error });
 
@@ -131,7 +134,7 @@ const ResetPassword = () => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
+            const { error } = await updateAuthUser({
                 password: password,
             });
 

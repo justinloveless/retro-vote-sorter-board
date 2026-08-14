@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { closePool } from './lib/db.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerStorageRoutes } from './routes/storage.js';
 
@@ -22,11 +23,24 @@ async function main(): Promise<void> {
   await registerHealthRoutes(app, config);
   await registerAdminRoutes(app, config);
   await registerStorageRoutes(app, config);
+  await registerAuthRoutes(app, config);
 
   app.get('/', async () => ({
     name: 'retroscope-api',
-    phase: 1,
-    endpoints: ['/healthz', '/readyz', '/api/admin/backend-status', '/api/storage/buckets'],
+    phase: 2,
+    endpoints: [
+      '/healthz',
+      '/readyz',
+      '/auth/v1/signup',
+      '/auth/v1/token',
+      '/auth/v1/user',
+      '/auth/v1/logout',
+      '/auth/v1/authorize',
+      '/auth/v1/callback',
+      '/auth/v1/recover',
+      '/api/admin/backend-status',
+      '/api/storage/buckets',
+    ],
   }));
 
   const shutdown = async (signal: string) => {

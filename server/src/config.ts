@@ -7,9 +7,21 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
   POSTGREST_URL: z.string().default('http://postgrest:3000'),
   JWT_SECRET: z.string().min(32).optional(),
+  JWT_ISSUER: z.string().default('retroscope-auth'),
+  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   ALLOW_ORIGINS: z.string().default('*'),
   UPLOADS_DIR: z.string().default('/data/uploads'),
   SELF_HOSTED_API_BASE_URL: z.string().optional(),
+  PUBLIC_SITE_URL: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  OAUTH_GOOGLE_REDIRECT_URI: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema> & {

@@ -16,6 +16,7 @@ export const BACKEND_SESSION_OVERRIDE_KEY = 'retroscope.backend.sessionOverride'
 
 export interface BackendHealthChecks {
   api?: { ok: boolean; error?: string };
+  auth?: { ok: boolean; error?: string };
   postgres?: { ok: boolean; error?: string };
   postgrest?: { ok: boolean; error?: string; status?: number };
   realtime?: { ok: boolean; error?: string };

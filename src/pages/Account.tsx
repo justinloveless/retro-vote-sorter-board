@@ -14,6 +14,11 @@ import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  getAuthSession,
+  signInWithPassword,
+  updateAuthUser,
+} from '@/lib/auth/client';
 import { currentEnvironment } from '@/config/environment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
@@ -115,17 +120,17 @@ const Account = () => {
 
     try {
       // First verify current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user!.email!,
-        password: passwordData.currentPassword,
-      });
+      const { error: signInError } = await signInWithPassword(
+        user!.email!,
+        passwordData.currentPassword
+      );
 
       if (signInError) {
         throw new Error('Current password is incorrect');
       }
 
       // Update password
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await updateAuthUser({
         password: passwordData.newPassword,
       });
 
@@ -198,7 +203,7 @@ const Account = () => {
                             if (isImpersonating && profile?.id) {
                               // When impersonating, call admin Edge Function to set avatar for target user
                               const arrayBuffer = await blob.arrayBuffer();
-                              const { data: { session } } = await supabase.auth.getSession();
+                              const { data: { session } } = await getAuthSession();
                               const resp = await fetch(`${currentEnvironment.supabaseUrl}/functions/v1/admin-set-avatar?user_id=${profile.id}`, {
                                 method: 'POST',
                                 headers: {

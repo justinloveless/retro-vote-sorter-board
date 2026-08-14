@@ -5,7 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  resetPasswordForEmail,
+  signInWithOAuth,
+  signInWithPassword,
+  signUpWithEmail,
+} from '@/lib/auth/client';
 import { useToast } from '@/hooks/use-toast';
 import { GlobalBackground } from './ui/GlobalBackground';
 
@@ -46,12 +51,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo })
     setGoogleLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectURL,
-        }
-      });
+      const { error } = await signInWithOAuth('google', redirectURL);
 
       if (error) throw error;
 
@@ -72,9 +72,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo })
 
     try {
       const resetURL = new URL('/reset-password', window.location.origin).href;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: resetURL,
-      });
+      const { error } = await resetPasswordForEmail(email, resetURL);
 
       if (error) throw error;
 
@@ -100,16 +98,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo })
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-          emailRedirectTo: redirectURL,
-        }
-      });
+      const { error } = await signUpWithEmail(email, password, fullName, redirectURL);
 
       if (error) throw error;
 
@@ -135,10 +124,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, redirectTo })
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signInWithPassword(email, password);
 
       if (error) throw error;
 
