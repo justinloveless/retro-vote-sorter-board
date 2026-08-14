@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 
 export type AccessStatus = 'loading' | 'granted' | 'denied' | 'password_required';
@@ -20,7 +20,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
 
     try {
       setAccessStatus('loading');
-      const { data: board, error } = await supabase
+      const { data: board, error } = await getDb()
         .from('retro_boards')
         .select(`
           *,
@@ -86,7 +86,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
         const createNewRoom = async () => {
           try {
             const newBoardTitle = 'Quick Retro Board';
-            const { data: newBoard, error: boardError } = await supabase
+            const { data: newBoard, error: boardError } = await getDb()
               .from('retro_boards')
               .insert([{
                 room_id: roomId,
@@ -101,7 +101,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
               throw boardError;
             }
 
-            const { error: configError } = await supabase
+            const { error: configError } = await getDb()
               .from('retro_board_config')
               .insert([{
                 board_id: newBoard.id,
@@ -116,7 +116,7 @@ export const useRoomAccess = (roomId: string, user: any) => {
             }
 
             // Refetch board data to include team info if any
-            const { data: board, error } = await supabase
+            const { data: board, error } = await getDb()
               .from('retro_boards')
               .select(`
                 *,

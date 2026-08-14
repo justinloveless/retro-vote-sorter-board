@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 import { useSubscriptionLimits } from './useSubscriptionLimits';
@@ -29,7 +29,7 @@ export const useTeams = () => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('teams')
         .select(`
           *,
@@ -67,7 +67,7 @@ export const useTeams = () => {
 
   const createTeam = async (name: string, description?: string, organizationId?: string | null) => {
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check team creation limit
@@ -81,7 +81,7 @@ export const useTeams = () => {
         return;
       }
 
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('teams')
         .insert([{
           name,
@@ -110,7 +110,7 @@ export const useTeams = () => {
 
   const updateTeam = async (teamId: string, updates: Partial<Pick<Team, 'name' | 'description'>>) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('teams')
         .update(updates)
         .eq('id', teamId);
@@ -135,7 +135,7 @@ export const useTeams = () => {
 
   const deleteTeam = async (teamId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('teams')
         .delete()
         .eq('id', teamId);

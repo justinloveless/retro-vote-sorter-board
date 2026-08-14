@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionLimits } from './useSubscriptionLimits';
 
@@ -27,7 +27,7 @@ export const useInviteLinks = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('team_invitations')
         .select('*')
         .eq('team_id', teamId)
@@ -57,7 +57,7 @@ export const useInviteLinks = (teamId: string | null) => {
 
     setLoading(true);
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check member limit before creating invite link
@@ -71,7 +71,7 @@ export const useInviteLinks = (teamId: string | null) => {
         return null;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('team_invitations')
         .insert([{
           team_id: teamId,
@@ -106,7 +106,7 @@ export const useInviteLinks = (teamId: string | null) => {
 
   const toggleInviteLink = async (linkId: string, isActive: boolean) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_invitations')
         .update({ is_active: isActive })
         .eq('id', linkId);
@@ -133,7 +133,7 @@ export const useInviteLinks = (teamId: string | null) => {
 
   const deleteInviteLink = async (linkId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_invitations')
         .delete()
         .eq('id', linkId);

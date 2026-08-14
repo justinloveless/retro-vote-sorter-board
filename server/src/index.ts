@@ -5,6 +5,7 @@ import { closePool } from './lib/db.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerRestProxyRoutes } from './routes/restProxy.js';
 import { registerStorageRoutes } from './routes/storage.js';
 
 async function main(): Promise<void> {
@@ -24,13 +25,15 @@ async function main(): Promise<void> {
   await registerAdminRoutes(app, config);
   await registerStorageRoutes(app, config);
   await registerAuthRoutes(app, config);
+  await registerRestProxyRoutes(app, config);
 
   app.get('/', async () => ({
     name: 'retroscope-api',
-    phase: 2,
+    phase: 3,
     endpoints: [
       '/healthz',
       '/readyz',
+      '/rest/v1/*',
       '/auth/v1/signup',
       '/auth/v1/token',
       '/auth/v1/user',

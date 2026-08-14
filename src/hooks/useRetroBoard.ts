@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -146,7 +146,7 @@ export const useRetroBoard = (roomId: string) => {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('profiles')
         .select('avatar_url, full_name')
         .eq('id', authorId)
@@ -223,7 +223,7 @@ export const useRetroBoard = (roomId: string) => {
         setLoading(true);
 
         // Load or create board
-        let { data: boardData, error: boardError } = await supabase
+        let { data: boardData, error: boardError } = await getDb()
           .from('retro_boards')
           .select('*')
           .eq('room_id', roomId)
@@ -231,7 +231,7 @@ export const useRetroBoard = (roomId: string) => {
 
         if (boardError && boardError.code === 'PGRST116') {
           // Board doesn't exist, create it
-          const { data: newBoard, error: createError } = await supabase
+          const { data: newBoard, error: createError } = await getDb()
             .from('retro_boards')
             .insert([{ room_id: roomId, title: 'RetroScope Session' }])
             .select()
@@ -246,7 +246,7 @@ export const useRetroBoard = (roomId: string) => {
         setBoard(boardData);
 
         // Load board config
-        const { data: configData, error: configError } = await supabase
+        const { data: configData, error: configError } = await getDb()
           .from('retro_board_config')
           .select('*')
           .eq('board_id', boardData.id)
@@ -254,7 +254,7 @@ export const useRetroBoard = (roomId: string) => {
 
         if (configError && configError.code === 'PGRST116') {
           // Config doesn't exist, create it
-          const { data: newConfig, error: createConfigError } = await supabase
+          const { data: newConfig, error: createConfigError } = await getDb()
             .from('retro_board_config')
             .insert([{ board_id: boardData.id }])
             .select()
@@ -269,7 +269,7 @@ export const useRetroBoard = (roomId: string) => {
         }
 
         // Load columns
-        const { data: columnsData, error: columnsError } = await supabase
+        const { data: columnsData, error: columnsError } = await getDb()
           .from('retro_columns')
           .select('*')
           .eq('board_id', boardData.id)
@@ -279,7 +279,7 @@ export const useRetroBoard = (roomId: string) => {
         setColumns(columnsData || []);
 
         // Load items
-        const { data: itemsData, error: itemsError } = await supabase
+        const { data: itemsData, error: itemsError } = await getDb()
           .from('retro_items')
           .select('*, profiles(avatar_url, full_name)')
           .eq('board_id', boardData.id)
@@ -298,7 +298,7 @@ export const useRetroBoard = (roomId: string) => {
         setProfileCache(prev => ({ ...prev, ...itemProfiles }));
 
         // Load comments
-        const { data: commentsData, error: commentsError } = await supabase
+        const { data: commentsData, error: commentsError } = await getDb()
           .from('retro_comments')
           .select('*, profiles(avatar_url, full_name)')
           .in('item_id', (itemsData || []).map(item => item.id))
@@ -318,7 +318,7 @@ export const useRetroBoard = (roomId: string) => {
 
         // Load open team action items for this board's team, excluding items from the current board
         if (boardData.team_id) {
-          const { data: openActions, error: actionsError } = await supabase
+          const { data: openActions, error: actionsError } = await getDb()
             .from('team_action_items')
             .select('*')
             .eq('team_id', boardData.team_id)
@@ -329,7 +329,7 @@ export const useRetroBoard = (roomId: string) => {
           if (actionsError) throw actionsError;
           setTeamActionItems(openActions || []);
           // Also load status mapping for items on this board (done may be true)
-          const { data: boardActions } = await supabase
+          const { data: boardActions } = await getDb()
             .from('team_action_items')
             .select('id, source_item_id, done, assigned_to')
             .eq('team_id', boardData.team_id)
@@ -347,7 +347,7 @@ export const useRetroBoard = (roomId: string) => {
         // Load all votes for items on this board (includes legacy rows with null board_id)
         const itemIds = (itemsData || []).map(item => item.id);
         if (itemIds.length > 0) {
-          const { data: votesData, error: votesError } = await supabase
+          const { data: votesData, error: votesError } = await getDb()
             .from('retro_votes')
             .select('id, item_id, user_id, session_id')
             .in('item_id', itemIds);
@@ -367,7 +367,7 @@ export const useRetroBoard = (roomId: string) => {
           )];
 
           if (voterIds.length > 0) {
-            const { data: voterProfiles } = await supabase
+            const { data: voterProfiles } = await getDb()
               .from('profiles')
               .select('id, avatar_url, full_name')
               .in('id', voterIds);
@@ -435,7 +435,7 @@ export const useRetroBoard = (roomId: string) => {
   useEffect(() => {
     if (!board) return;
 
-    const channel = supabase.channel(`retro-board-${board.id}`, {
+    const channel = getDb().channel(`retro-board-${board.id}`, {
       config: {
         presence: {
           key: sessionId,
@@ -659,7 +659,7 @@ export const useRetroBoard = (roomId: string) => {
     });
 
     return () => {
-      supabase.removeChannel(channel);
+      getDb().removeChannel(channel);
     };
   }, [board, sessionId, handleNewItem, handleNewComment, fetchProfileData]);
 
@@ -669,7 +669,7 @@ export const useRetroBoard = (roomId: string) => {
     const oldTitle = board.title;
     setBoard(prev => prev ? { ...prev, title } : null); // Optimistic update
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_boards')
       .update({ title })
       .eq('id', board.id);
@@ -691,7 +691,7 @@ export const useRetroBoard = (roomId: string) => {
     const oldConfig = { ...boardConfig };
     setBoardConfig(prev => prev ? { ...prev, ...config } : null); // Optimistic update
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_board_config')
       .update(config)
       .eq('board_id', board.id);
@@ -712,7 +712,7 @@ export const useRetroBoard = (roomId: string) => {
 
     const effectiveAuthorId = profile?.id || null;
 
-    const { data: newItem, error } = await supabase
+    const { data: newItem, error } = await getDb()
       .from('retro_items')
       .insert([{
         board_id: board.id,
@@ -741,7 +741,7 @@ export const useRetroBoard = (roomId: string) => {
     try {
       const targetColumn = columns.find(c => c.id === columnId);
       if (newItem && targetColumn?.is_action_items && board.team_id) {
-        const { data: actionItem, error: actionError } = await supabase
+        const { data: actionItem, error: actionError } = await getDb()
           .from('team_action_items')
           .insert([{
             team_id: board.team_id,
@@ -778,7 +778,7 @@ export const useRetroBoard = (roomId: string) => {
     const prevOpen = teamActionItems;
     setTeamActionItems(prev => prev.filter(a => a.id !== actionItemId));
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('team_action_items')
       .update({ done: true, done_at: new Date().toISOString(), done_by: profile?.id || null })
       .eq('id', actionItemId);
@@ -796,7 +796,7 @@ export const useRetroBoard = (roomId: string) => {
     const existingLink = boardActionStatus[sourceItemId];
     if (existingLink) return existingLink;
 
-    const { data: existing, error: lookupError } = await supabase
+    const { data: existing, error: lookupError } = await getDb()
       .from('team_action_items')
       .select('id, done, assigned_to')
       .eq('source_item_id', sourceItemId)
@@ -823,7 +823,7 @@ export const useRetroBoard = (roomId: string) => {
       // If no action record exists but toggling to done from board, create one linked to this item
       const targetItem = items.find(i => i.id === sourceItemId);
       if (board?.team_id && targetItem) {
-        const { data, error } = await supabase
+        const { data, error } = await getDb()
           .from('team_action_items')
           .insert([{
             team_id: board.team_id,
@@ -864,7 +864,7 @@ export const useRetroBoard = (roomId: string) => {
       ...prev,
       [sourceItemId]: { ...link!, done: nextDone },
     }));
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('team_action_items')
       .update({
         done: nextDone,
@@ -882,7 +882,7 @@ export const useRetroBoard = (roomId: string) => {
     // Optimistic update for Open Action Items list
     const previous = teamActionItems;
     setTeamActionItems(prev => prev.map(a => a.id === actionItemId ? { ...a, assigned_to: userId } : a));
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('team_action_items')
       .update({ assigned_to: userId })
       .eq('id', actionItemId);
@@ -899,7 +899,7 @@ export const useRetroBoard = (roomId: string) => {
       const targetItem = items.find(i => i.id === sourceItemId);
       if (!board?.team_id || !targetItem) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('team_action_items')
         .insert([{
           team_id: board.team_id,
@@ -934,7 +934,7 @@ export const useRetroBoard = (roomId: string) => {
       ...prev,
       [sourceItemId]: { ...link!, assigned_to: userId ?? null },
     }));
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('team_action_items')
       .update({ assigned_to: userId ?? null })
       .eq('id', link.id);
@@ -954,7 +954,7 @@ export const useRetroBoard = (roomId: string) => {
       'bg-indigo-100 border-indigo-300'
     ];
 
-    const { data: newColumn, error } = await supabase
+    const { data: newColumn, error } = await getDb()
       .from('retro_columns')
       .insert([{
         board_id: board.id,
@@ -993,7 +993,7 @@ export const useRetroBoard = (roomId: string) => {
       
       // Update all columns in the database - set others to false
       if (board) {
-        const { error: resetError } = await supabase
+        const { error: resetError } = await getDb()
           .from('retro_columns')
           .update({ is_action_items: false })
           .eq('board_id', board.id)
@@ -1011,7 +1011,7 @@ export const useRetroBoard = (roomId: string) => {
       );
     }
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_columns')
       .update(updates)
       .eq('id', columnId);
@@ -1036,7 +1036,7 @@ export const useRetroBoard = (roomId: string) => {
 
   const deleteColumn = async (columnId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('retro_columns')
         .delete()
         .eq('id', columnId);
@@ -1065,7 +1065,7 @@ export const useRetroBoard = (roomId: string) => {
     }));
 
     for (const update of updates) {
-      await supabase
+      await getDb()
         .from('retro_columns')
         .update({ position: update.position, sort_order: update.sort_order })
         .eq('id', update.id);
@@ -1135,7 +1135,7 @@ export const useRetroBoard = (roomId: string) => {
 
     if (hasVoted) {
       // Remove vote from server
-      let deleteQuery = supabase
+      let deleteQuery = getDb()
         .from('retro_votes')
         .delete()
         .eq('item_id', itemId)
@@ -1161,7 +1161,7 @@ export const useRetroBoard = (roomId: string) => {
       }
     } else {
       // Add vote to server
-      const { data: insertedVote, error } = await supabase
+      const { data: insertedVote, error } = await getDb()
         .from('retro_votes')
         .insert({
           item_id: itemId,
@@ -1205,7 +1205,7 @@ export const useRetroBoard = (roomId: string) => {
       setTeamActionItems(prev => prev.map(a => a.id === linkedAction.id ? { ...a, text } as TeamActionItem : a));
     }
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_items')
       .update({ text })
       .eq('id', itemId);
@@ -1233,7 +1233,7 @@ export const useRetroBoard = (roomId: string) => {
       const updatedItem = items.find(i => i.id === itemId);
       const actionColumn = updatedItem ? columns.find(c => c.id === updatedItem.column_id)?.is_action_items : false;
       if (board?.team_id && actionColumn) {
-        await supabase
+        await getDb()
           .from('team_action_items')
           .update({ text })
           .eq('source_item_id', itemId);
@@ -1249,7 +1249,7 @@ export const useRetroBoard = (roomId: string) => {
       currentItems.filter(item => item.id !== itemId)
     );
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_items')
       .delete()
       .eq('id', itemId);
@@ -1268,7 +1268,7 @@ export const useRetroBoard = (roomId: string) => {
   const addComment = async (itemId: string, text: string, author: string, isAnonymous: boolean) => {
     const authorId = profile?.id || null;
 
-    const { data: newComment, error } = await supabase
+    const { data: newComment, error } = await getDb()
       .from('retro_comments')
       .insert([{
         item_id: itemId,
@@ -1296,7 +1296,7 @@ export const useRetroBoard = (roomId: string) => {
     const oldComments = [...comments];
     setComments(prevComments => prevComments.filter(c => c.id !== commentId));
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_comments')
       .delete()
       .eq('id', commentId);
@@ -1327,7 +1327,7 @@ export const useRetroBoard = (roomId: string) => {
     const oldBoard = { ...board };
     setBoard(prev => prev ? { ...prev, retro_stage: newStage } : null);
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_boards')
       .update({ retro_stage: newStage })
       .eq('id', board.id);
@@ -1354,7 +1354,7 @@ export const useRetroBoard = (roomId: string) => {
             .map(u => u.id)
             .filter(Boolean);
           if (userIds.length > 0) {
-            await supabase.functions.invoke('notify-retro-start', {
+            await getDb().functions.invoke('notify-retro-start', {
               body: {
                 roomId: board.room_id,
                 title: board.title || 'Retrospective',

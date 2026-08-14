@@ -1,5 +1,5 @@
 -- Minimal roles so PostgREST can start in Phase 1.
--- Full schema + RLS bootstrap lands in Phase 3.
+-- Phase 3 adds auth.uid()/grants in 03-rls-helpers.sql.
 --
 -- Use psql \gexec instead of PL/pgSQL DO blocks. Docker Compose interpolates
 -- dollar signs in compose YAML, which corrupted dollar-quoted DO bodies under

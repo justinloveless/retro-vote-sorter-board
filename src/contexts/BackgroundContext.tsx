@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 export type BackgroundAnimation = 'static' | 'slow' | 'normal' | 'fast' | 'animate-blob-1' | 'animate-blob-2' | 'animate-blob-3';
 
@@ -146,7 +146,7 @@ export const BackgroundProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (user) {
       try {
-        await supabase
+        await getDb()
           .from('profiles')
           .upsert({
             id: user.id,

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useTeamData } from '@/contexts/TeamDataContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { AuthForm } from '@/components/AuthForm';
 import { TeamHeader } from '@/components/team/TeamHeader';
 import { TeamBoardsList } from '@/components/team/TeamBoardsList';
@@ -48,10 +48,10 @@ const Team = () => {
     // Generate a unique room_id for this session
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    const previousRow = await fetchLatestPokerSessionRowForTeam(supabase, teamId);
+    const previousRow = await fetchLatestPokerSessionRowForTeam(getDb(), teamId);
     const settingsFromPrevious = pokerSessionSettingsFromPreviousRow(previousRow);
 
-    const { data, error } = await supabase
+    const { data, error } = await getDb()
       .from('poker_sessions')
       .insert({
         ...settingsFromPrevious,
@@ -150,7 +150,7 @@ const Team = () => {
         passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('retro_boards')
         .insert([{
           room_id: roomId,

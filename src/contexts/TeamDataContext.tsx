@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 // Types
@@ -167,7 +167,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updateCache(teamId, 'members', [], true);
 
       // First get team members
-      const { data: membersData, error: membersError } = await supabase
+      const { data: membersData, error: membersError } = await getDb()
         .from('team_members')
         .select('*')
         .eq('team_id', teamId)
@@ -177,7 +177,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Then get profiles for those users
       const userIds = membersData?.map(member => member.user_id) || [];
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data: profilesData, error: profilesError } = await getDb()
         .from('profiles')
         .select('id, full_name')
         .in('id', userIds);
@@ -202,7 +202,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'invitations', [], true);
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('team_invitations')
         .select('*')
         .eq('team_id', teamId)
@@ -229,7 +229,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'boards', [], true);
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('retro_boards')
         .select('*')
         .eq('team_id', teamId)
@@ -248,7 +248,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'actionItems', [], true);
 
-      const { data } = await supabase
+      const { data } = await getDb()
         .from('team_action_items')
         .select('id, text, assigned_to, done, created_at, source_board_id, source_item_id')
         .eq('team_id', teamId)
@@ -259,7 +259,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let titleMap: Record<string, string> = {};
       
       if (boardIds.length > 0) {
-        const { data: boards } = await supabase
+        const { data: boards } = await getDb()
           .from('retro_boards')
           .select('id, title')
           .in('id', boardIds);
@@ -284,7 +284,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       updateCache(teamId, 'teamInfo', null, true);
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('teams')
         .select(`
           *,
@@ -313,7 +313,7 @@ export const TeamDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
       updateCache(teamId, 'actionItemComments', updatedComments, true);
 
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('retro_comments')
         .select('*, profiles(avatar_url, full_name)')
         .eq('item_id', itemId)

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Building2, Users, Settings, Loader2, Crown, Shield, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 const roleIcons = { owner: Crown, admin: Shield, member: User };
 
@@ -19,7 +19,7 @@ const OrgDashboard = () => {
 
   useEffect(() => {
     if (!organization) return;
-    supabase
+    getDb()
       .from('teams')
       .select('id, name, description')
       .eq('organization_id', organization.id)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -82,7 +82,7 @@ export const usePokerSessionChat = (
 
       setFetchingRound(roundNumber);
       try {
-        const { data, error } = await supabase
+        const { data, error } = await getDb()
           .from('poker_session_chat_with_details')
           .select('*')
           .eq('session_id', sid)
@@ -211,7 +211,7 @@ export const usePokerSessionChat = (
   useEffect(() => {
     if (!sessionId) return;
 
-    const channel = supabase.channel(`poker_chat:${sessionId}`);
+    const channel = getDb().channel(`poker_chat:${sessionId}`);
     insertChannelRef.current = channel;
 
     channel.on(
@@ -228,7 +228,7 @@ export const usePokerSessionChat = (
         const viewingRound = currentRoundNumberRef.current;
 
         if (newMessage.reply_to_message_id) {
-          const { data: repliedToMessage, error } = await supabase
+          const { data: repliedToMessage, error } = await getDb()
             .from('poker_session_chat')
             .select('user_name, message')
             .eq('id', newMessage.reply_to_message_id)
@@ -267,7 +267,7 @@ export const usePokerSessionChat = (
       }
     );
 
-    const reactionChannel = supabase.channel(`poker_chat_reactions:${sessionId}`);
+    const reactionChannel = getDb().channel(`poker_chat_reactions:${sessionId}`);
     reactionChannelRef.current = reactionChannel;
 
     reactionChannel
@@ -318,11 +318,11 @@ export const usePokerSessionChat = (
 
     return () => {
       if (insertChannelRef.current) {
-        supabase.removeChannel(insertChannelRef.current);
+        getDb().removeChannel(insertChannelRef.current);
         insertChannelRef.current = null;
       }
       if (reactionChannelRef.current) {
-        supabase.removeChannel(reactionChannelRef.current);
+        getDb().removeChannel(reactionChannelRef.current);
         reactionChannelRef.current = null;
       }
     };
@@ -332,7 +332,7 @@ export const usePokerSessionChat = (
     if (!sessionId || !currentUserId || !currentUserName || !messageText.trim()) return false;
 
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('poker_session_chat')
         .insert({
           session_id: sessionId,
@@ -361,7 +361,7 @@ export const usePokerSessionChat = (
     if (!sessionId || !messageText.trim()) return false;
 
     try {
-      const { error } = await supabase.from('poker_session_chat').insert({
+      const { error } = await getDb().from('poker_session_chat').insert({
         session_id: sessionId,
         round_number: currentRoundNumber,
         user_id: null,
@@ -385,7 +385,7 @@ export const usePokerSessionChat = (
     if (!sessionId || !botName.trim() || !messageText.trim()) return null;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('poker_session_chat')
         .insert({
           session_id: sessionId,
@@ -411,7 +411,7 @@ export const usePokerSessionChat = (
 
   const addReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId || !currentUserName || !sessionId) return;
-    const { error } = await supabase.from('poker_session_chat_message_reactions').insert({
+    const { error } = await getDb().from('poker_session_chat_message_reactions').insert({
       message_id: messageId,
       user_id: currentUserId,
       user_name: currentUserName,
@@ -425,7 +425,7 @@ export const usePokerSessionChat = (
 
   const removeReaction = async (messageId: string, emoji: string) => {
     if (!currentUserId) return;
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('poker_session_chat_message_reactions')
       .delete()
       .eq('message_id', messageId)
@@ -449,7 +449,7 @@ export const usePokerSessionChat = (
     const filePath = `${sessionId}/${currentRoundNumber}/${fileName}`;
     const bucketName = 'poker-session-chat-images';
 
-    const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, file, {
+    const { error: uploadError } = await getDb().storage.from(bucketName).upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,
     });
@@ -460,7 +460,7 @@ export const usePokerSessionChat = (
       return null;
     }
 
-    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+    const { data } = getDb().storage.from(bucketName).getPublicUrl(filePath);
 
     if (!data.publicUrl) {
       toast({ title: 'Failed to get image URL', variant: 'destructive' });

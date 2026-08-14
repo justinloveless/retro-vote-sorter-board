@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface InvitationResponse {
@@ -17,7 +17,7 @@ export const useInvitationAccept = () => {
   const acceptInvitation = async (token: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('accept_team_invitation', {
+      const { data, error } = await getDb().rpc('accept_team_invitation', {
         invitation_token: token
       });
 

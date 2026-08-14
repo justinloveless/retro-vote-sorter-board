@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface BoardTemplate {
@@ -44,7 +44,7 @@ export const useBoardTemplates = (teamId: string | null) => {
     }
 
     try {
-      const { data: templatesData, error: templatesError } = await supabase
+      const { data: templatesData, error: templatesError } = await getDb()
         .from('board_templates')
         .select('*')
         .eq('team_id', teamId)
@@ -57,7 +57,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       // Load columns for all templates
       if (templatesData && templatesData.length > 0) {
         const templateIds = templatesData.map(t => t.id);
-        const { data: columnsData, error: columnsError } = await supabase
+        const { data: columnsData, error: columnsError } = await getDb()
           .from('template_columns')
           .select('*')
           .in('template_id', templateIds)
@@ -93,13 +93,13 @@ export const useBoardTemplates = (teamId: string | null) => {
 
     try {
       // First, unset all default templates for this team
-      await supabase
+      await getDb()
         .from('board_templates')
         .update({ is_default: false })
         .eq('team_id', teamId);
 
       // Then set the selected template as default
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('board_templates')
         .update({ is_default: true })
         .eq('id', templateId);
@@ -139,7 +139,7 @@ export const useBoardTemplates = (teamId: string | null) => {
     if (!teamId) return null;
 
     try {
-      const { data: template, error: templateError } = await supabase
+      const { data: template, error: templateError } = await getDb()
         .from('board_templates')
         .insert([{
           team_id: teamId,
@@ -160,7 +160,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       if (templateError) throw templateError;
 
       // Create template columns
-      const { error: columnsError } = await supabase
+      const { error: columnsError } = await getDb()
         .from('template_columns')
         .insert(
           columns.map(col => ({
@@ -211,7 +211,7 @@ export const useBoardTemplates = (teamId: string | null) => {
 
     try {
       // Update template
-      const { error: templateError } = await supabase
+      const { error: templateError } = await getDb()
         .from('board_templates')
         .update({
           name: name.trim(),
@@ -229,7 +229,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       if (templateError) throw templateError;
 
       // Delete existing columns
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await getDb()
         .from('template_columns')
         .delete()
         .eq('template_id', templateId);
@@ -237,7 +237,7 @@ export const useBoardTemplates = (teamId: string | null) => {
       if (deleteError) throw deleteError;
 
       // Create new columns
-      const { error: columnsError } = await supabase
+      const { error: columnsError } = await getDb()
         .from('template_columns')
         .insert(
           columns.map(col => ({
@@ -271,7 +271,7 @@ export const useBoardTemplates = (teamId: string | null) => {
 
   const deleteTemplate = async (templateId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('board_templates')
         .delete()
         .eq('id', templateId);

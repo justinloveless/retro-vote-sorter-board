@@ -1,5 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 /**
  * Row fields that must not be cloned onto a new poker_sessions row.
  * Anything else on the row is treated as a team-level setting (e.g. observers, toggles)
@@ -34,8 +32,29 @@ export function pokerSessionSettingsFromPreviousRow(
   return out;
 }
 
+/** Minimal query surface shared by hosted Supabase and self-hosted rest client. */
+type PokerDataClient = {
+  from: (table: string) => {
+    select: (columns?: string) => {
+      eq: (column: string, value: unknown) => {
+        order: (
+          column: string,
+          options?: { ascending?: boolean }
+        ) => {
+          limit: (count: number) => {
+            maybeSingle: () => PromiseLike<{
+              data: unknown;
+              error: { message?: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+  };
+};
+
 export async function fetchLatestPokerSessionRowForTeam(
-  client: SupabaseClient,
+  client: PokerDataClient,
   teamId: string
 ): Promise<Record<string, unknown> | null> {
   const { data, error } = await client

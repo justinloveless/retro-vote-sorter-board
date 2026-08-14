@@ -32,6 +32,10 @@ import type {
 } from '@/lib/backend/types';
 import { DEFAULT_BACKEND_PROVIDER } from '@/lib/backend/types';
 import { invalidateAuthBackendModeCache, resolveAuthBackendMode } from '@/lib/auth/client';
+import {
+  invalidateDataBackendModeCache,
+  resolveDataBackendMode,
+} from '@/lib/backend/getDataClient';
 import { Loader2 } from 'lucide-react';
 
 type ApplyScope = 'all' | 'session';
@@ -171,12 +175,13 @@ export const BackendProviderToggle: React.FC = () => {
           title: 'Backend provider saved',
           description:
             saved.mode === 'selfhosted'
-              ? 'Global mode is self-hosted: auth uses Node /auth/v1/*; data still uses hosted Supabase until Phase 3.'
+              ? 'Global mode is self-hosted: auth uses Node /auth/v1/*; table CRUD uses local PostgREST via /rest/v1 (realtime still hosted until Phase 5).'
               : 'Global mode is hosted Supabase for auth and data.',
         });
       }
       invalidateAuthBackendModeCache();
-      await resolveAuthBackendMode(true);
+      invalidateDataBackendModeCache();
+      await Promise.all([resolveAuthBackendMode(true), resolveDataBackendMode(true)]);
       setConfirmOpen(false);
     } catch (error) {
       toast({
@@ -194,7 +199,8 @@ export const BackendProviderToggle: React.FC = () => {
     setSessionOverrideState(null);
     setDraftMode(persisted.mode);
     invalidateAuthBackendModeCache();
-    void resolveAuthBackendMode(true);
+    invalidateDataBackendModeCache();
+    void Promise.all([resolveAuthBackendMode(true), resolveDataBackendMode(true)]);
     toast({
       title: 'Session override cleared',
       description: 'This session now follows the global app_config mode.',
@@ -221,7 +227,8 @@ export const BackendProviderToggle: React.FC = () => {
           <CardTitle>Backend provider</CardTitle>
           <CardDescription>
             Choose hosted Supabase or the self-hosted Node stack. In self-hosted mode, auth uses
-            Node `/auth/v1/*` (Google + password). Table CRUD still uses hosted Supabase until Phase 3.
+            Node `/auth/v1/*` and table CRUD uses local PostgREST via `/rest/v1`. Realtime channels
+            still use hosted Supabase until Phase 5.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
