@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RetroStage } from './useRetroBoard';
 
@@ -57,7 +57,7 @@ export const useUserReadiness = (
 
   // Get current user ID
   const getCurrentUserId = useCallback(async () => {
-    const currentUser = (await supabase.auth.getUser()).data.user;
+    const currentUser = (await getDb().auth.getUser()).data.user;
     return currentUser?.id || sessionId;
   }, [sessionId]);
 
@@ -125,7 +125,7 @@ export const useUserReadiness = (
     try {
       const userId = await getCurrentUserId();
       const newReadyState = !isCurrentUserReady;
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       const currentUserName = activeUsers.find(u => (u.user_id || u.id) === userId)?.user_name || 'Unknown';
 
       console.log('🔄 Toggling readiness:', {
@@ -153,7 +153,7 @@ export const useUserReadiness = (
         upsertData.session_id = sessionId;
       }
 
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('retro_user_readiness')
         .upsert(upsertData, {
           onConflict: currentUser ? 'board_id,user_id,current_stage' : 'board_id,session_id,current_stage'
@@ -300,7 +300,7 @@ export const useUserReadiness = (
         });
 
         // Load all readiness records for this board and stage
-        const { data: readinessRecords, error } = await supabase
+        const { data: readinessRecords, error } = await getDb()
           .from('retro_user_readiness')
           .select('*')
           .eq('board_id', boardId)

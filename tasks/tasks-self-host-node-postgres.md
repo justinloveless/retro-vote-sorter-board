@@ -45,13 +45,13 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 3.1 | Postgres roles + RLS bootstrap | `anon` / `authenticated` / `service_role`; grant patterns | Not started | 1.2 | See api-dotnet `api/postgres/init` as reference only |
-| 3.2 | Staging restore | `pg_dump`/`pg_restore` from hosted Supabase to VPS | Not started | 3.1 | |
-| 3.3 | PostgREST sidecar | JWT → DB role; expose tables; not publicly routed in Coolify | Not started | 3.2 | Locked decision |
-| 3.4 | FE rest client | Fluent proxy compatible with common `.from().select()` usage | Not started | 3.3, 1.3 | Inspired by csharp `supabaseProxyClient` |
-| 3.5 | Migrate core hooks | profiles, teams, members, notifications, retro board CRUD behind facade | Not started | 3.4 | |
-| 3.6 | Migrate poker + orgs hooks | Sessions, rounds, chat metadata (without realtime yet if needed) | Not started | 3.5 | |
-| 3.7 | RPC parity | Port or proxy critical RPCs used by FE | Not started | 3.3 | |
+| 3.1 | Postgres roles + RLS bootstrap | `anon` / `authenticated` / `service_role`; grant patterns | Done | 1.2 | `03-rls-helpers.sql` + compose `db-init` |
+| 3.2 | Staging restore | `pg_dump`/`pg_restore` from hosted Supabase to VPS | Done | 3.1 | `scripts/selfhost/dump-from-supabase.sh` + `restore-to-local.sh` |
+| 3.3 | PostgREST sidecar | JWT → DB role; expose tables; not publicly routed in Coolify | Done | 3.2 | Node proxies `/rest/v1/*`; PostgREST internal-only |
+| 3.4 | FE rest client | Fluent proxy compatible with common `.from().select()` usage | Done | 3.3, 1.3 | `src/lib/backend/selfhosted/restClient.ts` |
+| 3.5 | Migrate core hooks | profiles, teams, members, notifications, retro board CRUD behind facade | Done | 3.4 | `getDb()` facade |
+| 3.6 | Migrate poker + orgs hooks | Sessions, rounds, chat metadata (without realtime yet if needed) | Done | 3.5 | Realtime still hosted until Phase 5 |
+| 3.7 | RPC parity | Port or proxy critical RPCs used by FE | Done | 3.3 | Via PostgREST `/rpc/*` + JWT `auth.uid()` |
 
 ### Phase 4 — Storage & edge ports
 

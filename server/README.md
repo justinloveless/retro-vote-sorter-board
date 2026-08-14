@@ -1,4 +1,4 @@
-# Retroscope API (Phase 2 — local auth)
+# Retroscope API (Phase 3 — local auth + PostgREST proxy)
 
 Fastify service for the self-hosted Coolify stack.
 
@@ -19,6 +19,7 @@ npm run import-auth-users -- --users users.json --identities identities.json
 |--------|------|-------|
 | GET | `/healthz` | Liveness |
 | GET | `/readyz` | Postgres + PostgREST readiness |
+| * | `/rest/v1/*` | Proxies to Coolify-internal PostgREST (forwards JWT / Prefer / Range) |
 | POST | `/auth/v1/signup` | Email/password register |
 | POST | `/auth/v1/token?grant_type=password` | Login |
 | POST | `/auth/v1/token?grant_type=refresh_token` | Refresh |
@@ -34,15 +35,17 @@ npm run import-auth-users -- --users users.json --identities identities.json
 | GET | `/api/storage/buckets` | Lists volume bucket prefixes |
 | GET/PUT | `/api/storage/:bucket/*` | 501 stubs until Phase 4 |
 
-## Auth schema
+## Auth + RLS schema
 
 Applied by `db-init` / Postgres init:
 
-- `server/postgres/init/01-roles.sql`
-- `server/postgres/init/02-auth-schema.sql` (`auth.users`, `auth.identities`, `auth.refresh_tokens`, `auth.verification_codes`)
+- `postgres/init/01-roles.sql` — `anon` / `authenticated` / `service_role` / `authenticator` / `retroscope_app`
+- `postgres/init/02-auth-schema.sql` — local `auth.users` / identities / refresh / verification
+- `postgres/init/03-rls-helpers.sql` — `auth.uid()` / `auth.role()` / `auth.jwt()` + PostgREST grants
+- `postgres/init/04-post-restore-grants.sql` — run after staging `pg_restore`
 
-Keep compose `configs.content` in sync with those files (no `$` in SQL — Compose interpolates).
+Access JWTs are HS256 with `role=authenticated` and `sub=<user uuid>` so PostgREST RLS matches hosted Supabase.
 
-## Env
+## Staging restore
 
-See [`../COOLIFY_SELFHOST.md`](../COOLIFY_SELFHOST.md).
+See `../scripts/selfhost/dump-from-supabase.sh` and `restore-to-local.sh`, plus `COOLIFY_SELFHOST.md`.

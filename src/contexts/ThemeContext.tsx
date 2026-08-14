@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 type Theme = 'light' | 'dark';
 
@@ -53,7 +53,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     // Save theme preference to user profile if authenticated
     if (user) {
       try {
-        await supabase
+        await getDb()
           .from('profiles')
           .upsert({
             id: user.id,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,7 +17,7 @@ const OrgInviteAccept = () => {
 
     const accept = async () => {
       try {
-        const { data, error } = await supabase.rpc('accept_org_invitation', {
+        const { data, error } = await getDb().rpc('accept_org_invitation', {
           invitation_token: token,
         });
 

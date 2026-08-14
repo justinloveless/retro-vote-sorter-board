@@ -13,7 +13,7 @@ import { MentionsReceived } from '@/components/account/MentionsReceived';
 import { AppHeader } from '@/components/AppHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import {
   getAuthSession,
   signInWithPassword,
@@ -58,7 +58,7 @@ const Account = () => {
         return;
       }
       try {
-        const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
+        const { data, error } = await getDb().rpc('get_user_email_if_admin', { target_user: profile.id });
         if (error) throw error as any;
         setImpersonatedEmail((data as any) || null);
       } catch (e) {
@@ -222,8 +222,8 @@ const Account = () => {
                             } else {
                               // Normal case: update own avatar
                               const fileName = `${user.id}.png`;
-                              await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
-                              const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                              await getDb().storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              const { data } = getDb().storage.from('avatars').getPublicUrl(fileName);
                               await updateProfile({ avatar_url: data.publicUrl });
                               toast({ title: 'Profile picture updated' });
                             }

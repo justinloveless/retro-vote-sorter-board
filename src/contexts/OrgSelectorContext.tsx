@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useOrganizations, Organization } from '@/hooks/useOrganizations';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 interface OrgSelectorContextType {
   organizations: Organization[];
@@ -61,7 +61,7 @@ export const OrgSelectorProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setSelectedOrgRole(null);
       return;
     }
-    supabase
+    getDb()
       .from('organization_members')
       .select('role')
       .eq('organization_id', selectedOrgId)

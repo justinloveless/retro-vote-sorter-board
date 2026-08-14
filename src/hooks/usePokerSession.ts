@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import {
@@ -138,7 +138,7 @@ export const usePokerSession = (
     existingSelections?: Selections,
     observerIds: string[] = []
   ): Promise<Selections | null> => {
-    const { data: members, error: membersError } = await supabase
+    const { data: members, error: membersError } = await getDb()
       .from('team_members')
       .select('user_id')
       .eq('team_id', tId);
@@ -147,7 +147,7 @@ export const usePokerSession = (
 
     const observerSet = new Set(observerIds);
     const userIds = members.map(m => m.user_id).filter(uid => !observerSet.has(uid));
-    const { data: profiles } = await supabase
+    const { data: profiles } = await getDb()
       .from('profiles')
       .select('id, full_name, nickname')
       .in('id', userIds);
@@ -162,7 +162,7 @@ export const usePokerSession = (
       selections[uid] = existing ?? {
         points: 1,
         locked: false,
-        name: profileMap.get(uid) || 'Player',
+        name: String(profileMap.get(uid) || 'Player'),
       };
     }
     return selections;
@@ -180,14 +180,14 @@ export const usePokerSession = (
     if (showLoading) setLoading(true);
 
     // 1. Fetch the main session by room_id, or by id when the URL uses the session UUID (legacy null room_id rows).
-    let { data: sessionData, error } = await supabase
+    let { data: sessionData, error } = await getDb()
       .from('poker_sessions')
       .select('*')
       .eq('room_id', slug)
       .single();
 
     if (error?.code === 'PGRST116' && isUuidLike(slug)) {
-      const { data: byId, error: idError } = await supabase
+      const { data: byId, error: idError } = await getDb()
         .from('poker_sessions')
         .select('*')
         .eq('id', slug)
@@ -205,7 +205,7 @@ export const usePokerSession = (
     if (error && error.code === 'PGRST116' && shouldCreate) {
       let settingsFromPrevious: Record<string, unknown> = {};
       if (teamId) {
-        const previousRow = await fetchLatestPokerSessionRowForTeam(supabase, teamId);
+        const previousRow = await fetchLatestPokerSessionRowForTeam(getDb(), teamId);
         settingsFromPrevious = pokerSessionSettingsFromPreviousRow(previousRow);
       }
 
@@ -216,7 +216,7 @@ export const usePokerSession = (
       };
       if (teamId) insertPayload.team_id = teamId;
 
-      const { data: newSession, error: createError } = await supabase
+      const { data: newSession, error: createError } = await getDb()
         .from('poker_sessions')
         .insert(insertPayload)
         .select()
@@ -239,7 +239,7 @@ export const usePokerSession = (
 
     // For team-bound sessions, verify the current user is a team member
     if (effectiveTeamId) {
-      const { data: membership } = await supabase
+      const { data: membership } = await getDb()
         .from('team_members')
         .select('id')
         .eq('team_id', effectiveTeamId)
@@ -255,7 +255,7 @@ export const usePokerSession = (
     }
 
     // 3. Fetch the current round for the session
-    let { data: roundData, error: roundError } = await supabase
+    let { data: roundData, error: roundError } = await getDb()
       .from('poker_session_rounds')
       .select('*')
       .eq('session_id', sessionData.id)
@@ -287,13 +287,13 @@ export const usePokerSession = (
         is_active: true,
         game_state: 'Selection' as const,
       };
-      let { data: newRound, error: newRoundError } = await supabase
+      let { data: newRound, error: newRoundError } = await getDb()
         .from('poker_session_rounds')
         .insert(firstRoundRow)
         .select()
         .single();
       if (isMissingSortOrderColumnError(newRoundError)) {
-        ({ data: newRound, error: newRoundError } = await supabase
+        ({ data: newRound, error: newRoundError } = await getDb()
           .from('poker_session_rounds')
           .insert(omitSortOrder(firstRoundRow))
           .select()
@@ -317,7 +317,7 @@ export const usePokerSession = (
 
         if (needsUpdate) {
           roundData.selections = reconciledSelections;
-          const { data: updatedRound, error: updateRoundError } = await supabase
+          const { data: updatedRound, error: updateRoundError } = await getDb()
             .from('poker_session_rounds')
             .update({ selections: reconciledSelections })
             .eq('id', roundData.id)
@@ -335,7 +335,7 @@ export const usePokerSession = (
         locked: false,
         name: currentUserDisplayName,
       };
-      const { data: updatedRound, error: updateRoundError } = await supabase
+      const { data: updatedRound, error: updateRoundError } = await getDb()
         .from('poker_session_rounds')
         .update({ selections: roundData.selections })
         .eq('id', roundData.id)
@@ -375,7 +375,7 @@ export const usePokerSession = (
   useEffect(() => {
     if (!session || !currentUserId || !currentUserDisplayName) return;
 
-    const channel = supabase.channel(`poker_session:${session.session_id}`, {
+    const channel = getDb().channel(`poker_session:${session.session_id}`, {
       config: {
         presence: { key: currentUserId },
       },
@@ -383,7 +383,7 @@ export const usePokerSession = (
 
     sessionChannelRef.current = channel;
 
-    channel.on<PokerSession>(
+    channel.on(
       'postgres_changes',
       {
         event: 'UPDATE',
@@ -512,7 +512,7 @@ export const usePokerSession = (
 
     return () => {
       if (sessionChannelRef.current) {
-        supabase.removeChannel(sessionChannelRef.current);
+        getDb().removeChannel(sessionChannelRef.current);
         sessionChannelRef.current = null;
       }
     };
@@ -522,7 +522,7 @@ export const usePokerSession = (
   useEffect(() => {
     // Remove previous round channel if it exists
     if (roundChannelRef.current) {
-      supabase.removeChannel(roundChannelRef.current);
+      getDb().removeChannel(roundChannelRef.current);
       roundChannelRef.current = null;
     }
   }, [session?.id, session?.round_number]);
@@ -540,7 +540,7 @@ export const usePokerSession = (
 
   const updateRoundState = async (newState: Partial<PokerSessionRound>) => {
     if (!session) return;
-    const { data, error } = await supabase
+    const { data, error } = await getDb()
       .from('poker_session_rounds')
       .update(newState)
       .eq('id', session.id)
@@ -601,7 +601,7 @@ export const usePokerSession = (
 
   const updateSessionConfig = async (newConfig: Partial<PokerSession>) => {
     if (!session) return;
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('poker_sessions')
       .update(newConfig)
       .eq('id', session.session_id);
@@ -645,7 +645,7 @@ export const usePokerSession = (
         newConfig.observer_ids.forEach(uid => delete newSelections[uid]);
         const toAddBack = oldObserverIds.filter(uid => !newObserverSet.has(uid));
         if (toAddBack.length > 0) {
-          const { data: profiles } = await supabase.from('profiles').select('id, full_name, nickname').in('id', toAddBack);
+          const { data: profiles } = await getDb().from('profiles').select('id, full_name, nickname').in('id', toAddBack);
           const profileMap = new Map((profiles || []).map(p => [p.id, p.nickname || p.full_name || 'Player']));
           toAddBack.forEach(uid => {
             newSelections[uid] = session.selections[uid] ?? { points: 1, locked: false, name: profileMap.get(uid) || 'Player' };
@@ -714,7 +714,7 @@ export const usePokerSession = (
         const notificationUrl = teamId 
           ? `/teams/${teamId}/poker/${pathSlug}`
           : `/poker/${pathSlug}`;
-        await supabase.functions.invoke('admin-send-notification', {
+        await getDb().functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map(id => ({ userId: id })),
             type: 'poker_session',
@@ -751,7 +751,7 @@ export const usePokerSession = (
     }
 
     // Deactivate all currently-active rounds (Next Round is the "single active" flow).
-    await supabase
+    await getDb()
       .from('poker_session_rounds')
       .update({ is_active: false })
       .eq('session_id', session.session_id)
@@ -766,9 +766,9 @@ export const usePokerSession = (
         is_active: true,
         game_state: 'Selection' as const,
     };
-    let { error: newRoundError } = await supabase.from('poker_session_rounds').insert(nextRoundRow);
+    let { error: newRoundError } = await getDb().from('poker_session_rounds').insert(nextRoundRow);
     if (isMissingSortOrderColumnError(newRoundError)) {
-      ({ error: newRoundError } = await supabase
+      ({ error: newRoundError } = await getDb()
         .from('poker_session_rounds')
         .insert(omitSortOrder(nextRoundRow)));
     }
@@ -790,7 +790,7 @@ export const usePokerSession = (
     if (currentUserId && session.spotlight_user_id === currentUserId) {
       sessionPatch.spotlight_round_number = newRoundNumber;
     }
-    await supabase.from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
+    await getDb().from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
     if (sessionPatch.spotlight_round_number != null) {
       emitSpotlightServerAligned(session.session_id, newRoundNumber);
     }
@@ -849,13 +849,13 @@ export const usePokerSession = (
       is_pending_round: options?.pendingRound === true,
       game_state: 'Selection' as const,
     };
-    let { data: insertedRound, error: newRoundError } = await supabase
+    let { data: insertedRound, error: newRoundError } = await getDb()
       .from('poker_session_rounds')
       .insert(startRoundRow)
       .select('id')
       .single();
     if (isMissingSortOrderColumnError(newRoundError)) {
-      ({ data: insertedRound, error: newRoundError } = await supabase
+      ({ data: insertedRound, error: newRoundError } = await getDb()
         .from('poker_session_rounds')
         .insert(omitSortOrder(startRoundRow))
         .select('id')
@@ -878,7 +878,7 @@ export const usePokerSession = (
     if (currentUserId && session.spotlight_user_id === currentUserId) {
       sessionPatch.spotlight_round_number = newRoundNumber;
     }
-    await supabase.from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
+    await getDb().from('poker_sessions').update(sessionPatch).eq('id', session.session_id);
     if (sessionPatch.spotlight_round_number != null) {
       emitSpotlightServerAligned(session.session_id, newRoundNumber);
     }
@@ -930,7 +930,7 @@ export const usePokerSession = (
       });
     }
 
-    const { data: highestRoundData, error: highestRoundError } = await supabase
+    const { data: highestRoundData, error: highestRoundError } = await getDb()
       .from('poker_session_rounds')
       .select('round_number')
       .eq('session_id', session.session_id)
@@ -960,11 +960,11 @@ export const usePokerSession = (
       };
     });
 
-    let { error: newRoundsError } = await supabase
+    let { error: newRoundsError } = await getDb()
       .from('poker_session_rounds')
       .insert(roundsToInsert);
     if (isMissingSortOrderColumnError(newRoundsError)) {
-      ({ error: newRoundsError } = await supabase
+      ({ error: newRoundsError } = await getDb()
         .from('poker_session_rounds')
         .insert(roundsToInsert.map((row) => omitSortOrder(row))));
     }
@@ -980,7 +980,7 @@ export const usePokerSession = (
     if (currentUserId && session.spotlight_user_id === currentUserId) {
       batchSessionPatch.spotlight_round_number = latestRoundNumber;
     }
-    await supabase.from('poker_sessions').update(batchSessionPatch).eq('id', session.session_id);
+    await getDb().from('poker_sessions').update(batchSessionPatch).eq('id', session.session_id);
     if (batchSessionPatch.spotlight_round_number != null) {
       emitSpotlightServerAligned(session.session_id, latestRoundNumber);
     }
@@ -999,7 +999,7 @@ export const usePokerSession = (
   const deleteAllRounds = async () => {
     if (!session) return;
     try {
-      const { error } = await supabase.functions.invoke('delete-session-data', {
+      const { error } = await getDb().functions.invoke('delete-session-data', {
         body: { session_id: session.session_id },
       });
       if (error) throw new Error(`Function invocation failed: ${error.message}`);

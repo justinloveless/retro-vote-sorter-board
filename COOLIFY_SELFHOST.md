@@ -91,7 +91,7 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGc...
 ```
 
-When the admin Backend toggle is **Hosted Supabase**, auth + data stay on Supabase. When set to **Self-hosted**, the FE auth facade talks to Node `/auth/v1/*` (data CRUD still uses hosted Supabase until Phase 3). Keep Supabase Vite vars set through dual-path cutover.
+When the admin Backend toggle is **Hosted Supabase**, auth + data stay on Supabase. When set to **Self-hosted**, the FE auth facade talks to Node `/auth/v1/*` and table CRUD / RPCs go to local PostgREST via Node `/rest/v1/*` (PostgREST itself stays Coolify-internal). Realtime channels still use hosted Supabase until Phase 5. Keep Supabase Vite vars set through dual-path cutover.
 
 ### Runtime secrets (`api` / `postgres` / `postgrest`)
 
@@ -144,6 +144,31 @@ DATABASE_URL=postgresql://... npm run import-auth-users -- \
 
 See `server/src/scripts/import-auth-users.ts` for the SQL export shape.
 
+### Staging DB restore (Phase 3)
+
+Dump hosted Supabase Postgres, restore into Coolify Postgres, then re-apply PostgREST roles/RLS helpers:
+
+```bash
+# On a machine with network access to Supabase + pg_dump
+SUPABASE_DB_URL='postgresql://postgres:…@db.…supabase.co:5432/postgres' \
+  ./scripts/selfhost/dump-from-supabase.sh
+
+# Against the VPS / compose Postgres (superuser URL recommended)
+DATABASE_URL='postgresql://postgres:…@postgres:5432/retroscope' \
+  ./scripts/selfhost/restore-to-local.sh
+```
+
+Init SQL applied on every Coolify deploy via `db-init`:
+
+- `server/postgres/init/01-roles.sql` — `anon` / `authenticated` / `service_role` / `authenticator`
+- `server/postgres/init/02-auth-schema.sql` — local auth tables
+- `server/postgres/init/03-rls-helpers.sql` — `auth.uid()` / `auth.role()` / `auth.jwt()` + grants
+
+After restore, confirm:
+
+- `GET /readyz` → postgres + postgrest green
+- With a self-hosted access JWT: `GET /rest/v1/profiles?select=id&limit=1` (via API domain)
+
 ## Deploy steps
 
 1. Publish images via GitHub Actions (**Coolify images** workflow) after setting `VITE_*` repo vars/secrets.
@@ -165,6 +190,7 @@ See `server/src/scripts/import-auth-users.ts` for the SQL export shape.
 |------|---------|
 | `GET /healthz` | Process liveness |
 | `GET /readyz` | Postgres + PostgREST readiness (503 if either fails) |
+| `GET|POST|PATCH|DELETE /rest/v1/*` | PostgREST proxy (JWT forwarded; internal PostgREST only) |
 | `GET /api/admin/backend-status` | Bearer-token stub status for the admin UI |
 
 ## Resource budget (starting point)

@@ -1,8 +1,8 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 export const fetchChatMessagesForRound = async (sessionId: string, roundNumber: number) => {
   if (!sessionId) return [];
-  const { data, error } = await supabase
+  const { data, error } = await getDb()
     .from('poker_session_chat')
     .select('user_name, message')
     .eq('session_id', sessionId)

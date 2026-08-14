@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb, resolveDataBackendMode } from '@/lib/backend/getDataClient';
 import { getAuthClient, resolveAuthBackendMode } from '@/lib/auth/client';
 
 export interface Profile {
@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      const { data: profileData, error } = await supabase
+      const { data: profileData, error } = await getDb()
         .from('profiles')
         .select(PROFILE_SELECT)
         .eq('id', userId)
@@ -99,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const uid = impersonatedProfile?.id ?? user?.id;
     if (!uid) return;
     try {
-      const { data, error } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', uid).single();
+      const { data, error } = await getDb().from('profiles').select(PROFILE_SELECT).eq('id', uid).single();
       if (error) throw error;
       if (impersonatedProfile) {
         localStorage.setItem('impersonated_profile', JSON.stringify(data));
@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let cancelled = false;
 
     void (async () => {
-      await resolveAuthBackendMode();
+      await Promise.all([resolveAuthBackendMode(), resolveDataBackendMode()]);
       if (cancelled) return;
 
       const {
@@ -162,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetId = impersonatedProfile?.id || user.id;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('profiles')
         .update(updates)
         .eq('id', targetId)
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshImpersonatedProfile = useCallback(async () => {
     if (!impersonatedProfile?.id) return;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('profiles')
         .select(PROFILE_SELECT)
         .eq('id', impersonatedProfile.id)
@@ -206,7 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Only allow if current profile is admin
     if (profile?.role !== 'admin') throw new Error('Only admins can impersonate');
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('profiles')
         .select(PROFILE_SELECT)
         .eq('id', userId)

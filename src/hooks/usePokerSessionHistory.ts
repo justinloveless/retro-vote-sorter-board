@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { GameState } from './usePokerSession';
 import { isUuidLike } from '@/lib/pokerSessionPathSlug';
@@ -22,7 +22,7 @@ async function resolvePokerSessionPk(
   const slug = teamRoute?.slug?.trim();
   const teamId = teamRoute?.teamId?.trim();
   if (teamId && slug && slug !== 'null' && slug !== 'undefined') {
-    let q = supabase.from('poker_sessions').select('id').eq('team_id', teamId);
+    let q = getDb().from('poker_sessions').select('id').eq('team_id', teamId);
     if (isUuidLike(slug)) {
       q = q.or(`id.eq.${slug},room_id.eq.${slug}`);
     } else {
@@ -205,7 +205,7 @@ export const usePokerSessionHistory = (
       // Order only by round_number in SQL — sort_order may not exist until the
       // migration is applied. Client-side compareRoundsBySortOrder prefers
       // sort_order when present and falls back to round_number otherwise.
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('poker_session_rounds')
         .select('*')
         .eq('session_id', pk)
@@ -278,7 +278,7 @@ export const usePokerSessionHistory = (
       setCurrentRoundIndex(idx);
     };
 
-    const channel = supabase
+    const channel = getDb()
       .channel(`poker_session_rounds-changes-for-${pk}`)
       .on(
         'postgres_changes',
@@ -297,7 +297,7 @@ export const usePokerSessionHistory = (
 
     return () => {
       window.removeEventListener(POKER_FOLLOW_CURRENT_ROUND_EVENT, handleFollowCurrentRound);
-      supabase.removeChannel(channel);
+      getDb().removeChannel(channel);
       window.removeEventListener('rounds-deleted', handleRoundsDeleted);
     };
   }, [resolvedSessionPk, fetchRounds]);
@@ -340,9 +340,9 @@ export const usePokerSessionHistory = (
         ticket_number: ticketNumber,
         ticket_title: ticketTitle,
       };
-      let { error } = await supabase.from('poker_session_rounds').insert(roundRow);
+      let { error } = await getDb().from('poker_session_rounds').insert(roundRow);
       if (isMissingSortOrderColumnError(error)) {
-        ({ error } = await supabase.from('poker_session_rounds').insert(omitSortOrder(roundRow)));
+        ({ error } = await getDb().from('poker_session_rounds').insert(omitSortOrder(roundRow)));
       }
 
       if (error) {
@@ -425,7 +425,7 @@ export const usePokerSessionHistory = (
     try {
       const results = await Promise.all(
         updates.map((u) =>
-          supabase.from('poker_session_rounds').update({ sort_order: u.sort_order }).eq('id', u.id)
+          getDb().from('poker_session_rounds').update({ sort_order: u.sort_order }).eq('id', u.id)
         )
       );
       const firstError = results.find((r) => r.error)?.error;
@@ -482,7 +482,7 @@ export const usePokerSessionHistory = (
       const successTitle = roundToDelete.is_active ? 'Round cancelled' : 'Round deleted';
       const remaining = rounds.filter((r) => r.id !== roundId);
 
-      const { data: sessionRow, error: sessionFetchError } = await supabase
+      const { data: sessionRow, error: sessionFetchError } = await getDb()
         .from('poker_sessions')
         .select('current_round_number')
         .eq('id', pk)
@@ -498,7 +498,7 @@ export const usePokerSessionHistory = (
 
       if (pointerWasDeleted && remaining.length > 0) {
         const newCurrent = Math.max(...remaining.map((r) => r.round_number));
-        const { error: sessionUpdateError } = await supabase
+        const { error: sessionUpdateError } = await getDb()
           .from('poker_sessions')
           .update({ current_round_number: newCurrent })
           .eq('id', pk);
@@ -507,8 +507,8 @@ export const usePokerSessionHistory = (
           toast({ title: 'Error cancelling round', variant: 'destructive' });
           return false;
         }
-        await supabase.from('poker_session_rounds').update({ is_active: false }).eq('session_id', pk);
-        await supabase
+        await getDb().from('poker_session_rounds').update({ is_active: false }).eq('session_id', pk);
+        await getDb()
           .from('poker_session_rounds')
           .update({ is_active: true })
           .eq('session_id', pk)
@@ -521,7 +521,7 @@ export const usePokerSessionHistory = (
         );
       }
 
-      const { error } = await supabase.from('poker_session_rounds').delete().eq('id', roundId);
+      const { error } = await getDb().from('poker_session_rounds').delete().eq('id', roundId);
 
       if (error) {
         console.error('Error deleting round:', error);

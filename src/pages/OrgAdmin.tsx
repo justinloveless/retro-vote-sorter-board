@@ -16,7 +16,7 @@ import {
   Mail, Trash2, UserPlus, Unlink, Save, Copy, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useEffect } from 'react';
 
 const OrgAdmin = () => {
@@ -45,9 +45,9 @@ const OrgAdmin = () => {
       setOrgDesc(organization.description || '');
       // Fetch org teams and invite codes
       Promise.all([
-        supabase.from('teams').select('id, name, organization_id')
+        getDb().from('teams').select('id, name, organization_id')
           .eq('organization_id', organization.id),
-        supabase.from('org_team_invite_codes').select('*')
+        getDb().from('org_team_invite_codes').select('*')
           .eq('organization_id', organization.id)
           .eq('is_active', true)
           .order('created_at', { ascending: false }),
@@ -109,7 +109,7 @@ const OrgAdmin = () => {
     if (!organization || !user) return;
     setGeneratingCode(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('org_team_invite_codes')
         .insert({
           organization_id: organization.id,
@@ -130,7 +130,7 @@ const OrgAdmin = () => {
 
   const handleDeactivateCode = async (codeId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('org_team_invite_codes')
         .update({ is_active: false })
         .eq('id', codeId);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +31,7 @@ const JoinOrg = () => {
 
       try {
         // Fetch invite details via RPC (avoids leaking orgs/invite codes via RLS)
-        const { data: inviteResult, error: inviteError } = await supabase.rpc('get_org_team_invite', {
+        const { data: inviteResult, error: inviteError } = await getDb().rpc('get_org_team_invite', {
           invite_code: code,
         });
 
@@ -47,7 +47,7 @@ const JoinOrg = () => {
         setOrgName(result.organization_name || 'Unknown Organization');
 
         // Fetch user's owned unlinked teams
-        const { data: teamsData, error: teamsError } = await supabase
+        const { data: teamsData, error: teamsError } = await getDb()
           .from('teams')
           .select('id, name, description, organization_id, team_members!inner(role, user_id)')
           .eq('team_members.user_id', user.id)
@@ -93,7 +93,7 @@ const JoinOrg = () => {
     try {
       const ids = Array.from(selectedTeamIds);
       // Update all selected teams
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('teams')
         .update({ organization_id: invite.organization_id })
         .in('id', ids);

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionLimits } from './useSubscriptionLimits';
 
@@ -31,7 +31,7 @@ export const useTeamBoards = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('retro_boards')
         .select('*')
         .eq('team_id', teamId)
@@ -60,7 +60,7 @@ export const useTeamBoards = (teamId: string | null) => {
     if (!teamId) return null;
 
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check board creation limit
@@ -77,7 +77,7 @@ export const useTeamBoards = (teamId: string | null) => {
       // Generate a room ID
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      const { data: board, error } = await supabase
+      const { data: board, error } = await getDb()
         .from('retro_boards')
         .insert([{
           room_id: roomId,
@@ -93,7 +93,7 @@ export const useTeamBoards = (teamId: string | null) => {
       if (error) throw error;
 
       // Get the default template for this team to apply its settings
-      const { data: defaultTemplate } = await supabase
+      const { data: defaultTemplate } = await getDb()
         .from('board_templates')
         .select('*')
         .eq('team_id', teamId)
@@ -101,7 +101,7 @@ export const useTeamBoards = (teamId: string | null) => {
         .single();
 
       if (defaultTemplate && board) {
-        await supabase
+        await getDb()
           .from('retro_board_config')
           .insert([{
             board_id: board.id,
@@ -112,14 +112,14 @@ export const useTeamBoards = (teamId: string | null) => {
             retro_stages_enabled: defaultTemplate.retro_stages_enabled
           }]);
       } else {
-        const { data: defaultSettings } = await supabase
+        const { data: defaultSettings } = await getDb()
           .from('team_default_settings')
           .select('*')
           .eq('team_id', teamId)
           .single();
 
         if (defaultSettings && board) {
-          await supabase
+          await getDb()
             .from('retro_board_config')
             .insert([{
               board_id: board.id,
@@ -130,7 +130,7 @@ export const useTeamBoards = (teamId: string | null) => {
               retro_stages_enabled: defaultSettings.retro_stages_enabled || false
             }]);
         } else if (board) {
-          await supabase
+          await getDb()
             .from('retro_board_config')
             .insert([{
               board_id: board.id,

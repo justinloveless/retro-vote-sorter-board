@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface EndorsementType {
@@ -29,7 +29,7 @@ export function useEndorsementTypes(teamId: string | null) {
   const fetchTypes = useCallback(async () => {
     if (!teamId) return;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('endorsement_types')
         .select('*')
         .eq('team_id', teamId)
@@ -44,7 +44,7 @@ export function useEndorsementTypes(teamId: string | null) {
   const fetchSettings = useCallback(async () => {
     if (!teamId) return;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('endorsement_settings')
         .select('*')
         .eq('team_id', teamId)
@@ -64,7 +64,7 @@ export function useEndorsementTypes(teamId: string | null) {
   const addType = useCallback(async (name: string, description: string, iconUrl: string) => {
     if (!teamId) return;
     const maxPos = types.length > 0 ? Math.max(...types.map(t => t.position)) + 1 : 1;
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsement_types')
       .insert({ team_id: teamId, name, description, icon_url: iconUrl, position: maxPos } as any);
     if (error) {
@@ -75,7 +75,7 @@ export function useEndorsementTypes(teamId: string | null) {
   }, [teamId, types, fetchTypes, toast]);
 
   const updateType = useCallback(async (id: string, updates: Partial<Pick<EndorsementType, 'name' | 'description' | 'icon_url'>>) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsement_types')
       .update(updates as any)
       .eq('id', id);
@@ -87,7 +87,7 @@ export function useEndorsementTypes(teamId: string | null) {
   }, [fetchTypes, toast]);
 
   const deleteType = useCallback(async (id: string) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsement_types')
       .delete()
       .eq('id', id);
@@ -100,7 +100,7 @@ export function useEndorsementTypes(teamId: string | null) {
 
   const updateSettings = useCallback(async (maxEndorsements: number) => {
     if (!teamId) return;
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsement_settings')
       .upsert({ team_id: teamId, max_endorsements_per_user_per_board: maxEndorsements } as any, { onConflict: 'team_id' });
     if (error) {
@@ -112,7 +112,7 @@ export function useEndorsementTypes(teamId: string | null) {
 
   const seedDefaults = useCallback(async () => {
     if (!teamId) return;
-    const { error } = await supabase.rpc('seed_default_endorsement_types', { p_team_id: teamId });
+    const { error } = await getDb().rpc('seed_default_endorsement_types', { p_team_id: teamId });
     if (error) {
       toast({ title: 'Error seeding defaults', variant: 'destructive' });
       return;

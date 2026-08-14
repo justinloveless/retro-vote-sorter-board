@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionLimits } from './useSubscriptionLimits';
 
@@ -43,7 +43,7 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      const { data: membersData, error: membersError } = await supabase
+      const { data: membersData, error: membersError } = await getDb()
         .from('team_members')
         .select('*')
         .eq('team_id', teamId)
@@ -52,7 +52,7 @@ export const useTeamMembers = (teamId: string | null) => {
       if (membersError) throw membersError;
 
       const userIds = membersData?.map(member => member.user_id) || [];
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data: profilesData, error: profilesError } = await getDb()
         .from('profiles')
         .select('id, full_name, nickname, avatar_url')
         .in('id', userIds);
@@ -85,7 +85,7 @@ export const useTeamMembers = (teamId: string | null) => {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('team_invitations')
         .select('*')
         .eq('team_id', teamId)
@@ -116,7 +116,7 @@ export const useTeamMembers = (teamId: string | null) => {
     if (!teamId) return;
 
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       // Check member limit before inviting
@@ -130,19 +130,19 @@ export const useTeamMembers = (teamId: string | null) => {
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: profile } = await getDb()
         .from('profiles')
         .select('full_name')
         .eq('id', currentUser.id)
         .single();
 
-      const { data: team } = await supabase
+      const { data: team } = await getDb()
         .from('teams')
         .select('name')
         .eq('id', teamId)
         .single();
 
-      const { data: invitation, error } = await supabase
+      const { data: invitation, error } = await getDb()
         .from('team_invitations')
         .insert([{
           team_id: teamId,
@@ -155,7 +155,7 @@ export const useTeamMembers = (teamId: string | null) => {
 
       if (error) throw error;
 
-      const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+      const { error: emailError } = await getDb().functions.invoke('send-invitation-email', {
         body: {
           invitationId: invitation.id,
           email: email,
@@ -165,7 +165,7 @@ export const useTeamMembers = (teamId: string | null) => {
         }
       });
 
-      await supabase.functions.invoke('notify-team-invite', {
+      await getDb().functions.invoke('notify-team-invite', {
         body: { invitationId: invitation.id }
       });
 
@@ -196,7 +196,7 @@ export const useTeamMembers = (teamId: string | null) => {
 
   const removeMember = async (memberId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_members')
         .delete()
         .eq('id', memberId);
@@ -221,7 +221,7 @@ export const useTeamMembers = (teamId: string | null) => {
 
   const updateMemberRole = async (memberId: string, newRole: 'owner' | 'admin' | 'member') => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_members')
         .update({ role: newRole })
         .eq('id', memberId);
@@ -246,7 +246,7 @@ export const useTeamMembers = (teamId: string | null) => {
 
   const cancelInvitation = async (invitationId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_invitations')
         .delete()
         .eq('id', invitationId);

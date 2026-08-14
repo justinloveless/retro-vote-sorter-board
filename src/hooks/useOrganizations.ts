@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from './useAuth';
 
 export interface Organization {
@@ -49,7 +49,7 @@ export function useOrganizations() {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('organizations')
         .select('*')
         .order('created_at', { ascending: false });
@@ -71,7 +71,7 @@ export function useOrganizations() {
     if (!user) throw new Error('Not authenticated');
 
     // Enforce one org per user
-    const { data: existingOrgs, error: checkError } = await supabase
+    const { data: existingOrgs, error: checkError } = await getDb()
       .from('organizations')
       .select('id')
       .eq('owner_id', user.id)
@@ -82,7 +82,7 @@ export function useOrganizations() {
       throw new Error('You can only create one organization per subscription.');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getDb()
       .from('organizations')
       .insert({
         name,
@@ -121,7 +121,7 @@ export function useOrganization(orgSlug: string | undefined) {
     }
 
     try {
-      const { data: org, error: orgError } = await supabase
+      const { data: org, error: orgError } = await getDb()
         .from('organizations')
         .select('*')
         .eq('slug', orgSlug)
@@ -131,7 +131,7 @@ export function useOrganization(orgSlug: string | undefined) {
       setOrganization(org as Organization);
 
       // Fetch members first (without relying on a FK-based join)
-      const { data: memberData, error: memberError } = await supabase
+      const { data: memberData, error: memberError } = await getDb()
         .from('organization_members')
         .select('id, organization_id, user_id, role, joined_at')
         .eq('organization_id', (org as any).id);
@@ -145,7 +145,7 @@ export function useOrganization(orgSlug: string | undefined) {
       let profilesById = new Map<string, { full_name: string | null; avatar_url: string | null }>();
 
       if (userIds.length > 0) {
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await getDb()
           .from('profiles')
           .select('id, full_name, avatar_url')
           .in('id', userIds);
@@ -172,7 +172,7 @@ export function useOrganization(orgSlug: string | undefined) {
 
       // Fetch invitations if admin/owner
       if (myMembership?.role === 'owner' || myMembership?.role === 'admin') {
-        const { data: invData } = await supabase
+        const { data: invData } = await getDb()
           .from('organization_invitations')
           .select('*')
           .eq('organization_id', (org as any).id)
@@ -196,13 +196,13 @@ export function useOrganization(orgSlug: string | undefined) {
     if (!organization || !user) throw new Error('Not ready');
 
     // Get inviter profile and org name for the email
-    const { data: profile } = await supabase
+    const { data: profile } = await getDb()
       .from('profiles')
       .select('full_name')
       .eq('id', user.id)
       .single();
 
-    const { data, error } = await supabase
+    const { data, error } = await getDb()
       .from('organization_invitations')
       .insert({
         organization_id: organization.id,
@@ -219,7 +219,7 @@ export function useOrganization(orgSlug: string | undefined) {
 
     // Send invitation email (same edge function as team invites)
     try {
-      await supabase.functions.invoke('send-invitation-email', {
+      await getDb().functions.invoke('send-invitation-email', {
         body: {
           invitationId: invitation.id,
           email,
@@ -235,7 +235,7 @@ export function useOrganization(orgSlug: string | undefined) {
 
     // Send in-app notification
     try {
-      await supabase.functions.invoke('notify-org-invite', {
+      await getDb().functions.invoke('notify-org-invite', {
         body: { invitationId: invitation.id }
       });
     } catch (notifErr) {
@@ -247,7 +247,7 @@ export function useOrganization(orgSlug: string | undefined) {
   }, [organization, user, fetchOrganization]);
 
   const updateMemberRole = useCallback(async (memberId: string, newRole: 'admin' | 'member') => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('organization_members')
       .update({ role: newRole })
       .eq('id', memberId);
@@ -257,7 +257,7 @@ export function useOrganization(orgSlug: string | undefined) {
   }, [fetchOrganization]);
 
   const removeMember = useCallback(async (memberId: string) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('organization_members')
       .delete()
       .eq('id', memberId);
@@ -267,7 +267,7 @@ export function useOrganization(orgSlug: string | undefined) {
   }, [fetchOrganization]);
 
   const cancelInvitation = useCallback(async (invitationId: string) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('organization_invitations')
       .delete()
       .eq('id', invitationId);
@@ -279,7 +279,7 @@ export function useOrganization(orgSlug: string | undefined) {
   const updateOrganization = useCallback(async (updates: Partial<Pick<Organization, 'name' | 'description'>>) => {
     if (!organization) throw new Error('No organization');
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('organizations')
       .update(updates)
       .eq('id', organization.id);
@@ -291,7 +291,7 @@ export function useOrganization(orgSlug: string | undefined) {
   const linkTeam = useCallback(async (teamId: string) => {
     if (!organization) throw new Error('No organization');
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('teams')
       .update({ organization_id: organization.id })
       .eq('id', teamId);
@@ -300,7 +300,7 @@ export function useOrganization(orgSlug: string | undefined) {
   }, [organization]);
 
   const unlinkTeam = useCallback(async (teamId: string) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('teams')
       .update({ organization_id: null })
       .eq('id', teamId);

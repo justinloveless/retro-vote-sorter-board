@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 
 export type AppNotification = {
@@ -34,7 +34,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
     const targetUserId = isImpersonating ? profile?.id ?? user.id : user.id;
-    const { count, error } = await supabase
+    const { count, error } = await getDb()
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', targetUserId)
@@ -80,7 +80,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     setError(null);
     const rangeStart = (page - 1) * pageSize;
     const rangeEnd = rangeStart + pageSize - 1;
-    const { data, error, count } = await supabase
+    const { data, error, count } = await getDb()
       .from('notifications')
       .select('*', { count: 'exact' })
       .eq('user_id', targetUserId)
@@ -101,7 +101,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   }, [totalCount, pageSize]);
 
   const markAsRead = useCallback(async (id: string) => {
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('notifications')
       .update({ is_read: true })
       .eq('id', id);
@@ -121,7 +121,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
 
   const deleteNotification = useCallback(async (id: string) => {
     setError(null);
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('notifications')
       .delete()
       .eq('id', id);
@@ -183,7 +183,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     void fetchNotifications();
     void fetchUnreadCount();
 
-    const channel = supabase
+    const channel = getDb()
       .channel('realtime:notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${targetUserId}` }, payload => {
         const shouldUseInPlaceRealtimeUpdates = page === 1 && pageSize === 50;
@@ -252,7 +252,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      getDb().removeChannel(channel);
       window.removeEventListener('notifications:changed', onNotificationsChanged);
     };
   }, [

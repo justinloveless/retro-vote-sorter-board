@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
 import { AuthForm } from './AuthForm';
 import { FeedbackButton } from './FeedbackButton';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { FEATURE_ORGANIZATION_SELECTOR_ENABLED } from '@/constants/featureFlags';
 
@@ -58,7 +58,7 @@ export const AppHeader = ({ variant = 'default', backTo, children, handleSignIn 
                 return;
             }
             try {
-                const { data, error } = await supabase.rpc('get_user_email_if_admin', { target_user: profile.id });
+                const { data, error } = await getDb().rpc('get_user_email_if_admin', { target_user: profile.id });
                 if (error) throw error;
                 setImpersonatedEmail(typeof data === 'string' ? data : null);
             } catch {
