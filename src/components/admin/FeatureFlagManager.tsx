@@ -10,6 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import {
+  type AllTierLimits,
+  type AdminTierKey,
+  ADMIN_TIER_KEYS,
+  ADMIN_TIER_LABELS,
+  DEFAULT_ALL_TIER_LIMITS,
+  mergeStoredTierLimits,
+} from '@/constants/adminTierLimits';
 
 interface FeatureFlag {
   flag_name: string;
@@ -76,6 +84,8 @@ export const FeatureFlagManager: React.FC = () => {
   const [teamNameById, setTeamNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [updatingOverrides, setUpdatingOverrides] = useState(false);
+  const [tierLimits, setTierLimits] = useState<AllTierLimits>(DEFAULT_ALL_TIER_LIMITS);
+  const [savingTierAccess, setSavingTierAccess] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -144,12 +154,27 @@ export const FeatureFlagManager: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const { data: flagsData, error: flagsError } = await supabase.from('feature_flags').select('*');
-    if (flagsError) {
-      console.error('Error fetching feature flags:', flagsError);
+    const [flagsRes, tierRes] = await Promise.all([
+      supabase.from('feature_flags').select('*'),
+      supabase.from('app_config').select('value').eq('key', 'tier_limits').maybeSingle(),
+    ]);
+    if (flagsRes.error) {
+      console.error('Error fetching feature flags:', flagsRes.error);
       toast({ title: 'Error fetching flags', variant: 'destructive' });
     } else {
-      setFlags(flagsData || []);
+      setFlags(flagsRes.data || []);
+    }
+    if (tierRes.error) {
+      console.error('Error fetching tier limits:', tierRes.error);
+      toast({ title: 'Error fetching tier limits', variant: 'destructive' });
+    } else if (tierRes.data?.value) {
+      try {
+        setTierLimits(mergeStoredTierLimits(JSON.parse(tierRes.data.value as string)));
+      } catch {
+        setTierLimits(DEFAULT_ALL_TIER_LIMITS);
+      }
+    } else {
+      setTierLimits(DEFAULT_ALL_TIER_LIMITS);
     }
     await refreshOverrides();
 
@@ -276,6 +301,47 @@ export const FeatureFlagManager: React.FC = () => {
     () => teamOverrides.filter((item) => item.flag_name === selectedFlagName),
     [selectedFlagName, teamOverrides]
   );
+
+  const tierAllowsFlag = (limits: AllTierLimits, tier: AdminTierKey, flagName: string) => {
+    const map = limits[tier].featureFlags || {};
+    return map[flagName] !== false;
+  };
+
+  const persistTierLimits = async (next: AllTierLimits) => {
+    const { error } = await supabase
+      .from('app_config')
+      .upsert({ key: 'tier_limits', value: JSON.stringify(next) }, { onConflict: 'key' });
+    if (error) throw error;
+  };
+
+  const handleTierAccessToggle = async (flagName: string, tier: AdminTierKey, allowed: boolean) => {
+    const previous = tierLimits;
+    const next: AllTierLimits = {
+      ...previous,
+      [tier]: {
+        ...previous[tier],
+        featureFlags: { ...(previous[tier].featureFlags || {}) },
+      },
+    };
+    const map = next[tier].featureFlags!;
+    if (allowed) {
+      delete map[flagName];
+    } else {
+      map[flagName] = false;
+    }
+    setTierLimits(next);
+    setSavingTierAccess(true);
+    try {
+      await persistTierLimits(next);
+      toast({ title: 'Tier access updated' });
+    } catch (err) {
+      setTierLimits(previous);
+      console.error(err);
+      toast({ title: 'Failed to update tier access', variant: 'destructive' });
+    } finally {
+      setSavingTierAccess(false);
+    }
+  };
 
   const handleToggle = async (flagName: string, isEnabled: boolean) => {
     setFlags((currentFlags) =>
@@ -510,6 +576,27 @@ export const FeatureFlagManager: React.FC = () => {
                 <p className="text-xs text-muted-foreground">
                   Overrides precedence: user -&gt; team -&gt; tier -&gt; global.
                 </p>
+
+                <div className="space-y-2 rounded-md border p-3">
+                  <Label className="text-xs">Plan tier access</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When the flag is globally on, tiers without an explicit block can use it. Turn off to block this tier unless a user or team override applies.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ADMIN_TIER_KEYS.map((tier) => (
+                      <div key={tier} className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium">{ADMIN_TIER_LABELS[tier]}</span>
+                        <Switch
+                          checked={tierAllowsFlag(tierLimits, tier, selectedFlag.flag_name)}
+                          disabled={savingTierAccess}
+                          onCheckedChange={(checked) =>
+                            handleTierAccessToggle(selectedFlag.flag_name, tier, checked)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label className="text-xs">Set user override</Label>
