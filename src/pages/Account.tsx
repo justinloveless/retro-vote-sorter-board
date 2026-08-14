@@ -22,6 +22,7 @@ import {
 import { currentEnvironment } from '@/config/environment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
+import { withAvatarCacheBust } from '@/components/account/avatarCrop';
 import { useFeatureFlags } from '@/contexts/FeatureFlagContext';
 import { FEATURE_SUBSCRIPTIONS_ENABLED } from '@/constants/featureFlags';
 
@@ -222,9 +223,14 @@ const Account = () => {
                             } else {
                               // Normal case: update own avatar
                               const fileName = `${user.id}.png`;
-                              await getDb().storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              const { error: uploadError } = await getDb()
+                                .storage.from('avatars')
+                                .upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                              if (uploadError) throw uploadError;
                               const { data } = getDb().storage.from('avatars').getPublicUrl(fileName);
-                              await updateProfile({ avatar_url: data.publicUrl });
+                              // Cache-bust so re-uploads to the same path refresh in <img> / CDN caches
+                              const publicUrl = withAvatarCacheBust(data.publicUrl);
+                              await updateProfile({ avatar_url: publicUrl });
                               toast({ title: 'Profile picture updated' });
                             }
                           } catch (e: any) {
