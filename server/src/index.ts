@@ -18,9 +18,46 @@ async function main(): Promise<void> {
   });
 
   await app.register(cors, {
-    origin: config.allowOrigins.includes('*') ? true : config.allowOrigins,
+    origin: config.allowOrigins.includes('*')
+      ? true
+      : (origin, cb) => {
+          if (!origin) {
+            // Non-browser / same-origin tooling
+            cb(null, true);
+            return;
+          }
+          const allowed = config.allowOrigins.some(
+            (entry) => entry === origin || entry.replace(/\/$/, '') === origin.replace(/\/$/, '')
+          );
+          cb(null, allowed);
+        },
     credentials: true,
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'Prefer',
+      'Range',
+      'apikey',
+      'x-client-info',
+      'accept-profile',
+      'content-profile',
+      'x-supabase-client-platform',
+      'x-supabase-client-platform-version',
+      'x-supabase-client-runtime',
+      'x-supabase-client-runtime-version',
+    ],
+    exposedHeaders: ['Content-Range', 'Prefer'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   });
+
+  app.log.info(
+    {
+      allowOrigins: config.allowOrigins,
+      publicSiteUrl: config.PUBLIC_SITE_URL ?? null,
+    },
+    'CORS configured'
+  );
 
   await registerHealthRoutes(app, config);
   await registerAdminRoutes(app, config);

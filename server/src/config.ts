@@ -44,6 +44,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           .map((origin) => origin.trim())
           .filter(Boolean);
 
+  // Always include public site / API URLs when set so Coolify misconfig is less painful.
+  for (const extra of [parsed.PUBLIC_SITE_URL, parsed.SELF_HOSTED_API_BASE_URL]) {
+    if (!extra) continue;
+    const normalized = extra.replace(/\/$/, '');
+    if (normalized && !allowOrigins.includes('*') && !allowOrigins.includes(normalized)) {
+      allowOrigins.push(normalized);
+    }
+  }
+
   return {
     ...parsed,
     allowOrigins,
