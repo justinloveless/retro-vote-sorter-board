@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config.js';
 import { checkPostgres } from '../lib/db.js';
 import { checkPostgrest } from '../lib/postgrest.js';
-import { extractBearer, requireAdmin } from '../lib/requestAuth.js';
+import { extractBearer } from '../lib/requestAuth.js';
+import { requireAdminForMigrate } from '../lib/migrateAuth.js';
 import { verifyAccessToken } from '../auth/jwt.js';
 import {
   getMigrateCapability,
@@ -62,7 +63,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
   });
 
   app.get('/api/admin/migrate-from-supabase', async (request, reply) => {
-    const claims = await requireAdmin(request, reply, config);
+    const claims = await requireAdminForMigrate(request, reply, config);
     if (!claims) return;
 
     return {
@@ -80,13 +81,14 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
         'Copies from MIGRATE_SOURCE_DATABASE_URL into local DATABASE_URL.',
         'Schema must already exist on the target (Phase 3 restore / init SQL).',
         'Storage copy needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.',
+        'Dual-path: hosted Supabase admin sessions are accepted when SUPABASE_URL is set.',
         'Use dry-run first. truncateFirst replaces overlapping table data.',
       ],
     };
   });
 
   app.post('/api/admin/migrate-from-supabase', async (request, reply) => {
-    const claims = await requireAdmin(request, reply, config);
+    const claims = await requireAdminForMigrate(request, reply, config);
     if (!claims) return;
 
     const body = (request.body ?? {}) as {

@@ -121,9 +121,11 @@ export const SupabaseMigratePanel: React.FC = () => {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
+        const errBody = body as { error?: string; hint?: string };
         throw new Error(
-          (body as { error?: string }).error ||
-            `Failed to load migrate tool (${response.status})`
+          [errBody.error || `Failed to load migrate tool (${response.status})`, errBody.hint]
+            .filter(Boolean)
+            .join(' — ')
         );
       }
       const json = (await response.json()) as MigrateMeta;
@@ -184,8 +186,11 @@ export const SupabaseMigratePanel: React.FC = () => {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const errBody = body as { error?: string; hint?: string };
         throw new Error(
-          (body as { error?: string }).error || `Migrate failed (${response.status})`
+          [errBody.error || `Migrate failed (${response.status})`, errBody.hint]
+            .filter(Boolean)
+            .join(' — ')
         );
       }
       const next = body as MigrateReport;
