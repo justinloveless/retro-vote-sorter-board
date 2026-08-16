@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { closePool } from './lib/db.js';
-import { registerRealtime } from './realtime/index.js';
+import { getRealtimeGateway, registerRealtime } from './realtime/index.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerFunctionRoutes } from './routes/functions.js';
@@ -67,9 +67,6 @@ async function main(): Promise<void> {
   await registerAuthRoutes(app, config);
   await registerRestProxyRoutes(app, config);
 
-  // Socket.IO attaches to the same HTTP server (WebSocket upgrade on /socket.io).
-  await registerRealtime(app, config);
-
   app.get('/', async () => ({
     name: 'retroscope-api',
     phase: 5,
@@ -97,6 +94,11 @@ async function main(): Promise<void> {
     },
   }));
 
+  // Register before listen/ready — Fastify rejects addHook after the instance has started.
+  app.addHook('onClose', async () => {
+    await getRealtimeGateway()?.close();
+  });
+
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'Shutting down');
     await app.close();
@@ -109,6 +111,9 @@ async function main(): Promise<void> {
 
   await app.listen({ port: config.PORT, host: config.HOST });
   app.log.info(`Retroscope API listening on ${config.HOST}:${config.PORT}`);
+
+  // Attach Socket.IO to the listening HTTP server (WebSocket upgrade on /socket.io).
+  await registerRealtime(app, config);
 }
 
 main().catch((error) => {
