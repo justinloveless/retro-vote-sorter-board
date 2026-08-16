@@ -56,6 +56,20 @@ function encodeFilterValue(value: unknown): string {
   return String(value);
 }
 
+/**
+ * PostgREST's select parser rejects whitespace inside embeds
+ * (PGRST100: unexpected ")" expecting ","). Collapse template-literal
+ * selects like `*, teams( id, name )` → `*,teams(id,name)`.
+ */
+export function normalizePostgrestSelect(columns: string): string {
+  return columns
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s*\(\s*/g, '(')
+    .replace(/\s*\)\s*/g, ')')
+    .replace(/\s*,\s*/g, ',');
+}
+
 export class RestQueryBuilder<T = unknown> {
   private queryParams: Map<string, string> = new Map();
   private headers: Record<string, string> = {};
@@ -74,7 +88,7 @@ export class RestQueryBuilder<T = unknown> {
   ) {}
 
   select(columns: string = '*', options?: SelectOptions): this {
-    const cleanColumns = columns.replace(/\s+/g, ' ').trim();
+    const cleanColumns = normalizePostgrestSelect(columns);
     this.queryParams.set('select', cleanColumns);
     if (options?.count) {
       this.wantCount = options.count;
