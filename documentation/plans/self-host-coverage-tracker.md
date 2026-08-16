@@ -114,7 +114,7 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 | Theme profile fields | src/contexts/ThemeContext.tsx | PostgREST | profiles | PostgREST | Covered | getDb() |
 | Background profile fields | src/contexts/BackgroundContext.tsx | PostgREST | profiles | PostgREST | Covered | getDb() |
 | App config reads/writes | src/contexts/FeatureFlagContext.tsx, admin/*, Billing | PostgREST | app_config | PostgREST | Not started | Includes future backend_provider |
-| Feature flags | src/contexts/FeatureFlagContext.tsx | PostgREST + Realtime | feature_flags, overrides | PostgREST + WS | Not started | channel feature-flags-realtime |
+| Feature flags | src/contexts/FeatureFlagContext.tsx | PostgREST + Realtime | feature_flags, overrides | PostgREST + WS | Covered | getDb(); Phase 5 Socket.IO |
 | Admin feature flag UI | src/components/admin/FeatureFlagManager.tsx | PostgREST + Edge | flags + admin-search-users / admin-team-members | PostgREST + Node | Covered | getDb(); P0 functions on Node |
 | Tier limits | src/components/admin/TierLimitsManager.tsx | PostgREST | app_config, feature_flags | PostgREST | Not started | |
 | TTS URL config | src/components/admin/TtsUrlManager.tsx | PostgREST | app_config | PostgREST | Not started | |
@@ -150,13 +150,13 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
-| Retro board core | src/hooks/useRetroBoard.ts | PostgREST + Realtime + Edge | retro_*, team_action_items, notify-retro-start | PostgREST + WS + Node | Covered | CRUD via getDb(); realtime/edge still hosted |
+| Retro board core | src/hooks/useRetroBoard.ts | PostgREST + Realtime + Edge | retro_*, team_action_items, notify-retro-start | PostgREST + WS + Node | Covered | CRUD + realtime via getDb(); edge may still be hosted |
 | Team boards | src/hooks/useTeamBoards.ts | PostgREST | retro_boards, config, templates, team_default_settings | PostgREST | Covered | getDb() |
 | Room access | src/hooks/useRoomAccess.ts | PostgREST | retro_boards, config | PostgREST | Covered | getDb() |
 | User readiness | src/hooks/useUserReadiness.ts | PostgREST | retro_user_readiness | PostgREST | Covered | getDb() |
 | Retro page/room | src/pages/Retro.tsx, RetroRoom.tsx | PostgREST | retro_boards | PostgREST | Not started | |
 | Board templates | src/hooks/useBoardTemplates.ts | PostgREST | board_templates, template_columns | PostgREST | Covered | getDb() |
-| Action items UI | TeamSidebar / TeamActionItems* | PostgREST + Realtime | team_action_items | PostgREST + WS | Not started | |
+| Action items UI | TeamSidebar / TeamActionItems* | PostgREST + Realtime | team_action_items | PostgREST + WS | Covered | getDb(); Phase 5 Socket.IO |
 | Backfill action items | src/components/admin/BackfillActionItems.tsx | PostgREST | boards/columns/items/action_items | PostgREST | Not started | Admin |
 | Sentiment | src/components/retro/SentimentDisplay.tsx | Edge | analyze-board-sentiment | Node P3 | Not started | Optional |
 | Retro timer audio | src/components/retro/RetroTimer.tsx | Storage | retro-audio | Docker volume | Not started | upload + public URL |
@@ -166,15 +166,15 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
-| Poker session | src/hooks/usePokerSession.ts | PostgREST + Realtime + Edge | sessions, rounds, members, delete-session-data, admin-send-notification | PostgREST + WS + Node | Covered | CRUD via getDb(); realtime/edge still hosted |
-| Poker history / rounds | src/hooks/usePokerSessionHistory.ts | PostgREST + Realtime | poker_session_rounds, sessions | PostgREST + WS | Covered | getDb(); realtime still hosted |
+| Poker session | src/hooks/usePokerSession.ts | PostgREST + Realtime + Edge | sessions, rounds, members, delete-session-data, admin-send-notification | PostgREST + WS + Node | Covered | CRUD + realtime via getDb(); edge may still be hosted |
+| Poker history / rounds | src/hooks/usePokerSessionHistory.ts | PostgREST + Realtime | poker_session_rounds, sessions | PostgREST + WS | Covered | getDb(); Phase 5 Socket.IO |
 | Poker table context | src/components/Neotro/PokerTableComponent/context.tsx | PostgREST + Edge | rounds, admin-send-notification | PostgREST + Node | Not started | Many round updates |
-| Poker chat | src/hooks/usePokerSessionChat.ts | PostgREST + Storage + Realtime | chat, reactions, poker-session-chat-images | PostgREST + volume + WS | Covered | CRUD + storage via getDb(); realtime still hosted |
+| Poker chat | src/hooks/usePokerSessionChat.ts | PostgREST + Storage + Realtime | chat, reactions, poker-session-chat-images | PostgREST + volume + WS | Covered | CRUD + storage + realtime via getDb() |
 | Poker helpers | src/lib/supabase/poker.ts, pokerSessionCloneSettings.ts | PostgREST | chat, sessions | PostgREST | Covered | getDb() |
 | Team poker list | src/components/team/TeamPokerSessions.tsx | PostgREST + Realtime | poker_sessions / rounds | PostgREST + WS | Not started | |
 | Poker config | src/components/Neotro/PokerConfig.tsx | PostgREST | team_members, profiles | PostgREST | Not started | |
 | Local advisor payload | src/hooks/_pokerLocalAdvisorPayload.ts | PostgREST + Edge | chat, teams, get-jira-issue | Mixed | Not started | |
-| Story points broadcast | src/lib/pokerJiraStoryPointsBroadcast.ts | Realtime | channel poker_session:* | WS | Not started | |
+| Story points broadcast | src/lib/pokerJiraStoryPointsBroadcast.ts | Realtime | channel poker_session:* | WS | Covered | getDb(); Phase 5 Socket.IO |
 
 ### Jira / Slack / billing / misc edge
 
@@ -195,7 +195,7 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
-| Endorsements | src/hooks/useEndorsements.ts | PostgREST + Realtime | endorsements | PostgREST + WS | Not started | |
+| Endorsements | src/hooks/useEndorsements.ts | PostgREST + Realtime | endorsements | PostgREST + WS | Covered | getDb(); Phase 5 Socket.IO |
 | Endorsement types | src/hooks/useEndorsementTypes.ts | PostgREST + RPC | types, settings, seed_default_* | PostgREST + RPC | Covered | getDb() + rpc |
 | Endorsements received UI | src/components/account/EndorsementsReceived.tsx | PostgREST | endorsements + joins | PostgREST | Not started | |
 | Recent activity | src/hooks/useRecentActivity.ts, src/lib/recentActivity.ts | PostgREST | user_recent_activity (+ joins) | PostgREST | Not started | |
@@ -204,7 +204,7 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
-| Notifications list/mark | src/hooks/useNotifications.ts | PostgREST + Realtime | notifications | PostgREST + WS | Covered | CRUD via getDb(); realtime still hosted |
+| Notifications list/mark | src/hooks/useNotifications.ts | PostgREST + Realtime | notifications | PostgREST + WS | Covered | CRUD + realtime via getDb() |
 
 ### Storage (Docker volumes — locked)
 
@@ -234,7 +234,7 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
 | Backend toggle | (new) Admin Backend page | Config | app_config.backend_provider | Node + FE facade | Not started | Admin-only |
-| Data client facade | (new) src/lib/backend/* | Facade | all of the above | getDataClient() | Covered | Phase 3: getDb() + selfhosted restClient |
+| Data client facade | (new) src/lib/backend/* | Facade | all of the above | getDataClient() | Covered | Phase 3–5: getDb() + rest/storage/functions/realtime |
 | PostgREST data path | selfhosted restClient | PostgREST | local tables + RLS | Coolify-internal PostgREST | Covered | Node `/rest/v1` proxy; PostgREST internal |
 | Object storage volumes | Coolify compose | Ops | named Docker volumes | retroscope_uploads (+ buckets) | Covered | Serve/sign via Node; copy script shipped |
 | Coolify deploy | docker-compose.selfhost.yml | Ops | web/api/postgres/postgrest | Coolify resource | Covered | Phase 1–3 compose + db-init RLS helpers |

@@ -67,10 +67,10 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 5.1 | WebSocket gateway | Socket.IO + room model for boards/sessions/users | Not started | 1.1, 3.2 | |
-| 5.2 | Postgres notify hooks | Triggers or LISTEN on hot tables | Not started | 5.1 | |
-| 5.3 | FE realtime adapter | Subset of supabase channel/presence/broadcast API | Not started | 5.1, 1.3 | |
-| 5.4 | Collaborative QA | Retro voting + poker presence/rounds under self-hosted mode | Not started | 5.3 | |
+| 5.1 | WebSocket gateway | Socket.IO + room model for boards/sessions/users | Done | 1.1, 3.2 | `/socket.io` on Node API; rooms `board:`/`poker:`/`team:`/`user:` |
+| 5.2 | Postgres notify hooks | Triggers or LISTEN on hot tables | Done | 5.1 | `05-realtime-notify.sql` → `retroscope_changes` |
+| 5.3 | FE realtime adapter | Subset of supabase channel/presence/broadcast API | Done | 5.1, 1.3 | `selfhosted/realtimeClient.ts` wired via `getDb()` |
+| 5.4 | Collaborative QA | Retro voting + poker presence/rounds under self-hosted mode | In progress | 5.3 | Unit tests + adapter parity; full dual-client QA on Coolify |
 
 ### Phase 6 — Cutover
 

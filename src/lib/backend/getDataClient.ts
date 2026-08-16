@@ -99,9 +99,9 @@ export function getDb(): DataClient {
 /**
  * Facade for choosing hosted Supabase vs self-hosted clients.
  *
- * Phase 4: when mode is selfhosted, `.from()` / `.rpc()` hit local PostgREST
- * via Node `/rest/v1`, `.storage` hits Docker volume routes, and P0
- * `.functions` hit Node `/functions/v1/*`. Realtime still hosted until Phase 5.
+ * Phase 5: when mode is selfhosted, `.from()` / `.rpc()` hit local PostgREST
+ * via Node `/rest/v1`, `.storage` hits Docker volume routes, P0 `.functions`
+ * hit Node `/functions/v1/*`, and `.channel()` uses the Socket.IO realtime adapter.
  */
 export async function getDataClient(): Promise<ResolvedBackendClient> {
   const config = cachedConfig ?? (await fetchBackendProviderConfig());

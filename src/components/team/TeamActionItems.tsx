@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { TeamActionItemsComments } from '@/components/team/TeamActionItemsComments';
 import { useTeamData } from '@/contexts/TeamDataContext';
@@ -41,7 +41,7 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   React.useEffect(() => {
     if (!teamId) return;
     
-    const channel = supabase.channel(`team-action-items-tab-${teamId}`)
+    const channel = getDb().channel(`team-action-items-tab-${teamId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -53,7 +53,7 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
       .subscribe();
     
     return () => { 
-      supabase.removeChannel(channel); 
+      getDb().removeChannel(channel); 
     };
   }, [teamId, refetch]);
 
@@ -84,12 +84,12 @@ export const TeamActionItems: React.FC<TeamActionItemsProps> = ({ teamId }) => {
   }, [visible]);
 
   const markDone = async (id: string, next: boolean) => {
-    await supabase.from('team_action_items').update({ done: next, done_at: next ? new Date().toISOString() : null }).eq('id', id);
+    await getDb().from('team_action_items').update({ done: next, done_at: next ? new Date().toISOString() : null }).eq('id', id);
     refetch();
   };
 
   const assign = async (id: string, userId: string | null) => {
-    await supabase.from('team_action_items').update({ assigned_to: userId }).eq('id', id);
+    await getDb().from('team_action_items').update({ assigned_to: userId }).eq('id', id);
     refetch();
   };
 

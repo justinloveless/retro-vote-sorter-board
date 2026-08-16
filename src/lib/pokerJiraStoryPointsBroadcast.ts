@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 /** Broadcast on `poker_session:${sessionId}` so all clients refresh story-point labels without refetching Jira. */
 export const POKER_JIRA_STORY_POINTS_BROADCAST_EVENT = 'jira_story_points_updated';
@@ -7,7 +7,7 @@ export async function broadcastPokerSessionJiraStoryPoints(
   sessionId: string,
   payload: { issueKey: string; points: number | null }
 ): Promise<void> {
-  const channel = supabase.channel(`poker_session:${sessionId}`);
+  const channel = getDb().channel(`poker_session:${sessionId}`);
   try {
     await new Promise<void>((resolve, reject) => {
       channel.subscribe((status) => {
@@ -23,6 +23,6 @@ export async function broadcastPokerSessionJiraStoryPoints(
       payload,
     });
   } finally {
-    supabase.removeChannel(channel);
+    getDb().removeChannel(channel);
   }
 }
