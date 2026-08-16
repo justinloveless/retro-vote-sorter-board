@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -17,7 +16,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { getViteApiBaseUrl } from '@/lib/backend/config';
+import {
+  fetchBackendProviderConfig,
+  getViteApiBaseUrl,
+} from '@/lib/backend/config';
 import { Loader2 } from 'lucide-react';
 
 type MigrateCapability = {
@@ -58,7 +60,17 @@ type MigrateReport = {
 };
 
 function CapabilityBadge({ label, ok }: { label: string; ok: boolean }) {
-  return <Badge variant={ok ? 'default' : 'secondary'}>{label}: {ok ? 'ready' : 'not set'}</Badge>;
+  return (
+    <Badge variant={ok ? 'default' : 'secondary'}>
+      {label}: {ok ? 'ready' : 'not set'}
+    </Badge>
+  );
+}
+
+function resolveAccessToken(session: ReturnType<typeof useAuth>['session']): string | null {
+  if (!session) return null;
+  const token = session.access_token;
+  return typeof token === 'string' && token.trim() ? token.trim() : null;
 }
 
 export const SupabaseMigratePanel: React.FC = () => {
@@ -66,6 +78,7 @@ export const SupabaseMigratePanel: React.FC = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [apiBase, setApiBase] = useState('');
   const [meta, setMeta] = useState<MigrateMeta | null>(null);
   const [confirmation, setConfirmation] = useState('');
   const [dryRun, setDryRun] = useState(true);
@@ -77,17 +90,34 @@ export const SupabaseMigratePanel: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [report, setReport] = useState<MigrateReport | null>(null);
 
-  const apiBase = (getViteApiBaseUrl() || '').replace(/\/$/, '');
-
   const loadMeta = useCallback(async () => {
-    if (!apiBase || !session?.access_token) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
-      const response = await fetch(`${apiBase}/api/admin/migrate-from-supabase`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+      const config = await fetchBackendProviderConfig().catch(() => null);
+      const base = (
+        config?.selfHostedApiBaseUrl ||
+        getViteApiBaseUrl() ||
+        ''
+      ).replace(/\/$/, '');
+      setApiBase(base);
+
+      const token = resolveAccessToken(session);
+      if (!base) {
+        setMeta(null);
+        return;
+      }
+      if (!token) {
+        setMeta(null);
+        toast({
+          title: 'Sign in required',
+          description: 'Admin session token missing — sign in again, then refresh this panel.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch(`${base}/api/admin/migrate-from-supabase`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -108,20 +138,38 @@ export const SupabaseMigratePanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase, session?.access_token, toast]);
+  }, [session, toast]);
 
   useEffect(() => {
     void loadMeta();
   }, [loadMeta]);
 
   const runMigrate = async () => {
-    if (!apiBase || !session?.access_token || !meta) return;
+    const token = resolveAccessToken(session);
+    if (!apiBase) {
+      toast({
+        title: 'Missing API base URL',
+        description:
+          'Set Self-hosted API base URL on this page (and save), or bake VITE_API_BASE_URL into the web build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!token) {
+      toast({
+        title: 'Not signed in',
+        description: 'No access token available. Sign in as an admin and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setRunning(true);
     try {
       const response = await fetch(`${apiBase}/api/admin/migrate-from-supabase`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -175,10 +223,15 @@ export const SupabaseMigratePanel: React.FC = () => {
         <CardHeader>
           <CardTitle>Copy from Supabase</CardTitle>
           <CardDescription>
-            Set the self-hosted API base URL (Vite `VITE_API_BASE_URL` or Backend page field) to use
-            this tool.
+            Set the <strong>Self-hosted API base URL</strong> above and apply it, or rebuild the web
+            image with <code className="text-xs">VITE_API_BASE_URL</code>.
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <Button type="button" variant="outline" onClick={() => void loadMeta()}>
+            Retry
+          </Button>
+        </CardContent>
       </Card>
     );
   }
@@ -196,8 +249,8 @@ export const SupabaseMigratePanel: React.FC = () => {
           <CardTitle>Copy from Supabase</CardTitle>
           <CardDescription>
             Admin-only. Pulls hosted Supabase Postgres data (and optionally Storage objects) into
-            this self-hosted stack. Requires Coolify env{' '}
-            <code className="text-xs">MIGRATE_SOURCE_DATABASE_URL</code>
+            this self-hosted stack via <code className="text-xs">{apiBase}</code>. Requires Coolify
+            env <code className="text-xs">MIGRATE_SOURCE_DATABASE_URL</code>
             {includeStorage ? (
               <>
                 {' '}
@@ -227,7 +280,12 @@ export const SupabaseMigratePanel: React.FC = () => {
                 <li key={note}>{note}</li>
               ))}
             </ul>
-          ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Capability metadata could not be loaded (you can still try a copy if the API is
+              reachable). Use Refresh after fixing auth/CORS/env.
+            </p>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex items-center gap-2 text-sm">
@@ -286,10 +344,21 @@ export const SupabaseMigratePanel: React.FC = () => {
             />
           </div>
 
-          <Button type="button" onClick={() => setConfirmOpen(true)} disabled={!canSubmit}>
-            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {dryRun ? 'Run dry-run' : 'Start copy'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => setConfirmOpen(true)} disabled={!canSubmit}>
+              {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {dryRun ? 'Run dry-run' : 'Start copy'}
+            </Button>
+            {/* Bypass dialog if Confirm ever fails to fire (debugging / accessibility). */}
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!canSubmit}
+              onClick={() => void runMigrate()}
+            >
+              {dryRun ? 'Run dry-run now' : 'Copy now'}
+            </Button>
+          </div>
 
           {report ? (
             <div className="space-y-3 rounded-md border p-4 text-sm">
@@ -342,7 +411,7 @@ export const SupabaseMigratePanel: React.FC = () => {
         </CardContent>
       </Card>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => !running && setConfirmOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -361,16 +430,11 @@ export const SupabaseMigratePanel: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={running}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void runMigrate();
-              }}
-              disabled={running}
-            >
+            {/* Use a normal Button — AlertDialogAction + preventDefault was swallowing the click. */}
+            <Button type="button" disabled={running} onClick={() => void runMigrate()}>
               {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Confirm
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
