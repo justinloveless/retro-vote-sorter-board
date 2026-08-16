@@ -111,14 +111,15 @@ POSTGREST_URL=http://postgrest:3000
 PGRST_DB_ANON_ROLE=anon
 
 # CORS + public API URL used in health/status payloads
-ALLOW_ORIGINS=https://retro.example.com
-SELF_HOSTED_API_BASE_URL=https://retro-api.example.com
-PUBLIC_SITE_URL=https://retro.example.com
+# ALLOW_ORIGINS = browser/web origin (FE host), not the API host.
+ALLOW_ORIGINS=https://retroscope.lovelesslabs.net
+SELF_HOSTED_API_BASE_URL=https://retroscope-api.lovelesslabs.net
+PUBLIC_SITE_URL=https://retroscope.lovelesslabs.net
 
 # Phase 2 — Google OAuth (redirect URI must match Coolify API FQDN)
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-OAUTH_GOOGLE_REDIRECT_URI=https://retro-api.example.com/auth/v1/callback
+OAUTH_GOOGLE_REDIRECT_URI=https://retroscope-api.lovelesslabs.net/auth/v1/callback
 
 # Phase 2 — password reset email (Resend preferred; SMTP optional)
 RESEND_API_KEY=...

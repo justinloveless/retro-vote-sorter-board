@@ -14,6 +14,14 @@ const HOP_BY_HOP = new Set([
   'content-length',
 ]);
 
+/** Never copy these from PostgREST — they would clobber @fastify/cors. */
+export function shouldForwardUpstreamHeader(name: string): boolean {
+  const lower = name.toLowerCase();
+  if (HOP_BY_HOP.has(lower)) return false;
+  if (lower.startsWith('access-control-')) return false;
+  return true;
+}
+
 function buildTargetUrl(postgrestBase: string, path: string, query: string): string {
   const base = postgrestBase.replace(/\/$/, '');
   const normalizedPath = path.replace(/^\/+/, '');
@@ -62,14 +70,13 @@ async function proxyToPostgrest(
       lower === 'content-type' ||
       lower === 'accept' ||
       lower === 'accept-profile' ||
-      lower === 'content-profile'
+      lower === 'content-profile' ||
+      lower === 'apikey' ||
+      lower === 'x-client-info'
     ) {
       headers[key] = Array.isArray(value) ? value.join(',') : String(value);
     }
   }
-
-  // Anonymous requests still need a role; PostgREST uses anon when no JWT.
-  // Forward Authorization when present so RLS sees auth.uid().
 
   const init: RequestInit = {
     method: request.method,
@@ -99,8 +106,7 @@ async function proxyToPostgrest(
   reply.status(upstream.status);
 
   for (const [key, value] of upstream.headers.entries()) {
-    if (HOP_BY_HOP.has(key.toLowerCase())) continue;
-    // Content-Range / Prefer are needed for count/exact pagination parity
+    if (!shouldForwardUpstreamHeader(key)) continue;
     reply.header(key, value);
   }
 
@@ -122,11 +128,14 @@ export async function registerRestProxyRoutes(
   config: AppConfig
 ): Promise<void> {
   const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+    // Let @fastify/cors answer preflight; never proxy OPTIONS to PostgREST.
+    if (request.method === 'OPTIONS') {
+      return reply.status(204).send();
+    }
     const path = restPathFromRequest(request.url);
     return proxyToPostgrest(config, request, reply, path);
   };
 
-  // Prefix plugin so nested table/RPC paths are covered without Express-style globs.
   await app.register(
     async (scope) => {
       scope.all('/', handler);
