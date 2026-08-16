@@ -10,7 +10,7 @@ import { useTeamData } from '@/contexts/TeamDataContext';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { InviteLinkDialog } from './InviteLinkDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 
@@ -32,7 +32,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const inviteMember = async (email: string) => {
     try {
-      const currentUser = (await supabase.auth.getUser()).data.user;
+      const currentUser = (await getDb().auth.getUser()).data.user;
       if (!currentUser) throw new Error('User not authenticated');
 
       const { allowed, current, max, tier: currentTier } = await checkMemberLimit(teamId);
@@ -46,21 +46,21 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
       }
 
       // Get current user's profile for the inviter name
-      const { data: profile } = await supabase
+      const { data: profile } = await getDb()
         .from('profiles')
         .select('full_name')
         .eq('id', currentUser.id)
         .single();
 
       // Get team name
-      const { data: team } = await supabase
+      const { data: team } = await getDb()
         .from('teams')
         .select('name')
         .eq('id', teamId)
         .single();
 
       // Create the invitation record
-      const { data: invitation, error } = await supabase
+      const { data: invitation, error } = await getDb()
         .from('team_invitations')
         .insert([{
           team_id: teamId,
@@ -74,7 +74,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
       if (error) throw error;
 
       // Send the email via edge function
-      const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+      const { error: emailError } = await getDb().functions.invoke('send-invitation-email', {
         body: {
           invitationId: invitation.id,
           email: email,
@@ -85,7 +85,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
       });
 
       // Emit in-app notification if the email belongs to an existing account
-      const { error: notifError } = await supabase.functions.invoke('notify-team-invite', {
+      const { error: notifError } = await getDb().functions.invoke('notify-team-invite', {
         body: { invitationId: invitation.id }
       });
 
@@ -120,7 +120,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const removeMember = async (memberId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_members')
         .delete()
         .eq('id', memberId);
@@ -145,7 +145,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const updateMemberRole = async (memberId: string, newRole: 'owner' | 'admin' | 'member') => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_members')
         .update({ role: newRole })
         .eq('id', memberId);
@@ -170,7 +170,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({ teamId, teamNa
 
   const cancelInvitation = async (invitationId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await getDb()
         .from('team_invitations')
         .delete()
         .eq('id', invitationId);

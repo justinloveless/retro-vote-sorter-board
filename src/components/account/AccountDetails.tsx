@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { Profile } from '@/hooks/useAuth';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 interface AccountDetailsProps {
     user: any;
@@ -63,9 +63,9 @@ export const AccountDetails = ({ user, profile, editing, onSetEditing, onUpdateP
                             onCropped={async (blob) => {
                                 // Use profile.id (impersonated user) instead of user.id (admin)
                                 const fileName = `${profile?.id || user.id}.png`;
-                                // Upload to supabase storage bucket 'avatars'
-                                await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
-                                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                                // Upload to avatars bucket (hosted Supabase or self-hosted volume)
+                                await getDb().storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/png' });
+                                const { data } = getDb().storage.from('avatars').getPublicUrl(fileName);
                                 const publicUrl = data.publicUrl;
                                 // Set hidden input so existing form submit keeps working
                                 const hidden = document.getElementById('avatarUrl') as HTMLInputElement | null;

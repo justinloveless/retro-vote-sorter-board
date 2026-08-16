@@ -9,6 +9,7 @@ import {
   type WinningPoints,
 } from '@/hooks/usePokerSession';
 import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import {
   usePokerSessionHistory,
   PokerSessionRound,
@@ -1339,7 +1340,7 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
         const notificationUrl = teamId
           ? `/teams/${teamId}/poker/${pathSlug}`
           : `/poker/${pathSlug}`;
-        await supabase.functions.invoke('admin-send-notification', {
+        await getDb().functions.invoke('admin-send-notification', {
           body: {
             recipients: participantIds.map((id) => ({ userId: id })),
             type: 'poker_session',

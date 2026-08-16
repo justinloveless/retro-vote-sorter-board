@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Timer, Play, Pause, RotateCcw, Music, VolumeX, Upload, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 interface RetroTimerProps {
   presenceChannel?: any;
@@ -140,7 +140,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
 
   // Default audio file configuration
   const defaultAudioFileName = "retro-music-7c2a52ff-cea8-4a3f-9de9-0f2f744be625-1748877023437.mp3";
-  const defaultAudioUrl = `${supabase.storage.from('retro-audio').getPublicUrl(defaultAudioFileName).data.publicUrl}`;
+  const defaultAudioUrl = `${getDb().storage.from('retro-audio').getPublicUrl(defaultAudioFileName).data.publicUrl}`;
 
   // Initialize with default audio
   useEffect(() => {
@@ -397,13 +397,13 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       const fileExt = audioFile.name.split('.').pop();
       const fileName = `retro-music-${user.id}-${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await getDb().storage
         .from('retro-audio')
         .upload(fileName, audioFile);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = getDb().storage
         .from('retro-audio')
         .getPublicUrl(fileName);
 
@@ -446,7 +446,7 @@ export const RetroTimer: React.FC<RetroTimerProps> = ({
       const urlParts = uploadedAudioUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
       
-      const { error } = await supabase.storage
+      const { error } = await getDb().storage
         .from('retro-audio')
         .remove([fileName]);
 

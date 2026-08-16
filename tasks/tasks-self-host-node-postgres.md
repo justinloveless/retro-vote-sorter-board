@@ -57,11 +57,11 @@ Status values: Not started | In progress | Blocked | In review | Done
 
 | # | Task Name | Task Description | Status | Blocked By | Notes |
 |---|---|---|---|---|---|
-| 4.1 | Storage backend on volume | Serve/sign uploads from `retroscope_uploads` bucket prefixes | Not started | 1.8 | Docker volumes locked |
-| 4.2 | Copy existing objects | Migrate blobs from Supabase Storage into volume; fix public URLs if host changes | Not started | 4.1, 3.2 | |
-| 4.3 | Admin/notify edge ports | search users, send notification, team members, invites email | Not started | 2.2, 3.3 | |
-| 4.4 | Jira/Slack ports (if used) | Move only integrations you rely on | Not started | 3.3 | Can defer |
-| 4.5 | Stripe decision | Keep on Supabase temporarily or port | Not started | - | Explicit product choice |
+| 4.1 | Storage backend on volume | Serve/sign uploads from `retroscope_uploads` bucket prefixes | Done | 1.8 | `/storage/v1/object/*` + FE `storageClient` |
+| 4.2 | Copy existing objects | Migrate blobs from Supabase Storage into volume; fix public URLs if host changes | Done | 4.1, 3.2 | `scripts/selfhost/copy-storage-from-supabase.sh` + `rewrite-storage-urls.sh` |
+| 4.3 | Admin/notify edge ports | search users, send notification, team members, invites email | Done | 2.2, 3.3 | Node `/functions/v1/*` P0 ports |
+| 4.4 | Jira/Slack ports (if used) | Move only integrations you rely on | Deferred | 3.3 | Not actively required for cutover; stay on Supabase |
+| 4.5 | Stripe decision | Keep on Supabase temporarily or port | Done | - | **Keep on Supabase** until billing cutover |
 
 ### Phase 5 — Realtime
 

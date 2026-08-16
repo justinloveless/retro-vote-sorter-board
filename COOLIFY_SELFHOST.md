@@ -1,6 +1,6 @@
-# Coolify Self-Host Deployment (Phase 1–2)
+# Coolify Self-Host Deployment (Phase 1–4)
 
-Lean stack for Retroscope on a shared Coolify VPS: **Postgres + PostgREST + Node API + Nginx FE**. Phase 2 adds local `/auth/v1/*` (Google + password) on the API.
+Lean stack for Retroscope on a shared Coolify VPS: **Postgres + PostgREST + Node API + Nginx FE**. Phase 2 adds local `/auth/v1/*` (Google + password). Phase 3 adds PostgREST data. Phase 4 adds Docker-volume storage + P0 edge ports.
 
 | Compose file | When to use |
 |--------------|-------------|
@@ -91,7 +91,7 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGc...
 ```
 
-When the admin Backend toggle is **Hosted Supabase**, auth + data stay on Supabase. When set to **Self-hosted**, the FE auth facade talks to Node `/auth/v1/*` and table CRUD / RPCs go to local PostgREST via Node `/rest/v1/*` (PostgREST itself stays Coolify-internal). Realtime channels still use hosted Supabase until Phase 5. Keep Supabase Vite vars set through dual-path cutover.
+When the admin Backend toggle is **Hosted Supabase**, auth + data stay on Supabase. When set to **Self-hosted**, the FE auth facade talks to Node `/auth/v1/*`, table CRUD / RPCs go to local PostgREST via Node `/rest/v1/*`, uploads use `/storage/v1/object/*` on the `retroscope_uploads` volume, and P0 edge functions hit `/functions/v1/*`. Realtime channels still use hosted Supabase until Phase 5. Stripe billing functions stay on hosted Supabase (`keep_on_supabase`). Keep Supabase Vite vars set through dual-path cutover.
 
 ### Runtime secrets (`api` / `postgres` / `postgrest`)
 
@@ -169,6 +169,23 @@ After restore, confirm:
 - `GET /readyz` → postgres + postgrest green
 - With a self-hosted access JWT: `GET /rest/v1/profiles?select=id&limit=1` (via API domain)
 
+### Storage copy (Phase 4)
+
+Copy hosted Supabase Storage objects into the Coolify `retroscope_uploads` volume (mounted at `/data/uploads` on `api`):
+
+```bash
+SUPABASE_URL='https://YOUR_PROJECT.supabase.co' \
+SUPABASE_SERVICE_ROLE_KEY='…' \
+UPLOADS_DIR=/data/uploads \
+  ./scripts/selfhost/copy-storage-from-supabase.sh
+
+# After API FQDN is final, rewrite public URLs stored in Postgres:
+DATABASE_URL='postgresql://…' \
+SUPABASE_URL='https://YOUR_PROJECT.supabase.co' \
+PUBLIC_API_BASE_URL='https://retro-api.example.com' \
+  ./scripts/selfhost/rewrite-storage-urls.sh
+```
+
 ## Deploy steps
 
 1. Publish images via GitHub Actions (**Coolify images** workflow) after setting `VITE_*` repo vars/secrets.
@@ -192,6 +209,8 @@ After restore, confirm:
 | `GET /readyz` | Postgres + PostgREST readiness (503 if either fails) |
 | `GET|POST|PATCH|DELETE /rest/v1/*` | PostgREST proxy (JWT forwarded; internal PostgREST only) |
 | `GET /api/admin/backend-status` | Bearer-token stub status for the admin UI |
+| `POST/GET/DELETE /storage/v1/object/*` | Docker-volume uploads (avatars, chat images, retro-audio) |
+| `POST /functions/v1/*` | P0 admin/invite ports; Stripe stays on Supabase |
 
 ## Resource budget (starting point)
 

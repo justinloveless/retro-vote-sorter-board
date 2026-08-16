@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ export const ImpersonateUser: React.FC = () => {
         return;
       }
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('admin-search-users', { body: { q: query } });
+      const { data, error } = await getDb().functions.invoke('admin-search-users', { body: { q: query } });
       if (error) {
         toast({ title: 'Search failed', description: error.message, variant: 'destructive' });
       } else {
