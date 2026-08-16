@@ -21,7 +21,6 @@ set -euo pipefail
 UPLOADS_DIR="${UPLOADS_DIR:-/data/uploads}"
 STORAGE_BUCKETS="${STORAGE_BUCKETS:-avatars,poker-session-chat-images,retro-audio,tts-audio-cache}"
 DRY_RUN="${DRY_RUN:-0}"
-LIMIT="${LIMIT:-1000}"
 
 if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
   echo "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required" >&2
@@ -29,74 +28,101 @@ if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
 fi
 
 SUPABASE_URL="${SUPABASE_URL%/}"
-AUTH_HEADER="Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}"
-APIKEY_HEADER="apikey: ${SUPABASE_SERVICE_ROLE_KEY}"
+export SUPABASE_URL
+export SUPABASE_SERVICE_ROLE_KEY
+export UPLOADS_DIR
+export DRY_RUN
+export STORAGE_BUCKETS
 
 mkdir -p "$UPLOADS_DIR"
 
-copy_bucket() {
-  local bucket="$1"
-  local offset=0
-  local copied=0
-  mkdir -p "${UPLOADS_DIR}/${bucket}"
+python3 - <<'PY'
+import json, os, pathlib, urllib.error, urllib.request
 
-  echo "==> Listing objects in bucket: ${bucket}"
-  while true; do
-    local page
-    page="$(curl -fsS \
-      -H "$AUTH_HEADER" \
-      -H "$APIKEY_HEADER" \
-      "${SUPABASE_URL}/storage/v1/object/list/${bucket}" \
-      -H 'Content-Type: application/json' \
-      -d "{\"prefix\":\"\",\"limit\":${LIMIT},\"offset\":${offset}}")"
+supabase = os.environ["SUPABASE_URL"].rstrip("/")
+service = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+uploads = pathlib.Path(os.environ["UPLOADS_DIR"])
+dry_run = os.environ.get("DRY_RUN", "0") == "1"
+buckets = [b.strip() for b in os.environ.get("STORAGE_BUCKETS", "").split(",") if b.strip()]
 
-    local names
-    names="$(python3 -c 'import json,sys; data=json.load(sys.stdin); print("\n".join(item.get("name","") for item in data if item.get("name")))' <<<"$page")"
-    if [[ -z "$names" ]]; then
-      break
-    fi
-
-    local count=0
-    while IFS= read -r name; do
-      [[ -z "$name" ]] && continue
-      # Skip "folder" placeholder objects ending with /
-      [[ "$name" == */ ]] && continue
-      count=$((count + 1))
-      local dest="${UPLOADS_DIR}/${bucket}/${name}"
-      mkdir -p "$(dirname "$dest")"
-      if [[ "$DRY_RUN" == "1" ]]; then
-        echo "  DRY_RUN would copy ${bucket}/${name}"
-      else
-        curl -fsS \
-          -H "$AUTH_HEADER" \
-          -H "$APIKEY_HEADER" \
-          "${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${name}" \
-          -o "$dest" \
-          || curl -fsS \
-            -H "$AUTH_HEADER" \
-            -H "$APIKEY_HEADER" \
-            "${SUPABASE_URL}/storage/v1/object/public/${bucket}/${name}" \
-            -o "$dest"
-        echo "  copied ${bucket}/${name}"
-      fi
-      copied=$((copied + 1))
-    done <<<"$names"
-
-    if [[ "$count" -lt "$LIMIT" ]]; then
-      break
-    fi
-    offset=$((offset + LIMIT))
-  done
-
-  echo "==> ${bucket}: ${copied} object(s)"
+headers = {
+    "Authorization": f"Bearer {service}",
+    "apikey": service,
+    "Content-Type": "application/json",
 }
 
-IFS=',' read -r -a BUCKETS <<<"$STORAGE_BUCKETS"
-for bucket in "${BUCKETS[@]}"; do
-  bucket="$(echo "$bucket" | xargs)"
-  [[ -z "$bucket" ]] && continue
-  copy_bucket "$bucket"
-done
+
+def list_prefix(bucket: str, prefix: str, depth: int = 0) -> list[str]:
+    if depth > 20:
+        raise RuntimeError(f"recursion too deep for {bucket}/{prefix}")
+    names: list[str] = []
+    limit = 1000
+    offset = 0
+    while True:
+        req = urllib.request.Request(
+            f"{supabase}/storage/v1/object/list/{bucket}",
+            data=json.dumps({"prefix": prefix, "limit": limit, "offset": offset}).encode(),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            page = json.load(resp)
+        if not page:
+            break
+        for item in page:
+            name = (item.get("name") or "").lstrip("/")
+            if not name or name == ".emptyFolderPlaceholder":
+                continue
+            full = f"{prefix.rstrip('/')}/{name}" if prefix else name
+            full = full.lstrip("/")
+            is_folder = item.get("id") is None and item.get("metadata") is None
+            if is_folder:
+                child = full if full.endswith("/") else full + "/"
+                names.extend(list_prefix(bucket, child, depth + 1))
+            else:
+                names.append(full)
+        if len(page) < limit:
+            break
+        offset += limit
+    return names
+
+
+def download(bucket: str, key: str) -> bytes:
+    encoded = "/".join(urllib.request.quote(part) for part in key.split("/") if part)
+    for kind in ("authenticated", "public"):
+        url = f"{supabase}/storage/v1/object/{kind}/{bucket}/{encoded}"
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {service}", "apikey": service})
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.read()
+        except urllib.error.HTTPError:
+            continue
+    raise RuntimeError(f"download failed for {bucket}/{key}")
+
+
+for bucket in buckets:
+    print(f"==> Listing objects in bucket: {bucket}")
+    keys = list(dict.fromkeys(list_prefix(bucket, "")))
+    copied = 0
+    errors = 0
+    for key in keys:
+        dest = uploads / bucket / key
+        if dry_run:
+            print(f"  DRY_RUN would copy {bucket}/{key}")
+            copied += 1
+            continue
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(download(bucket, key))
+            print(f"  copied {bucket}/{key}")
+            copied += 1
+        except Exception as exc:
+            print(f"  ERROR {bucket}/{key}: {exc}")
+            errors += 1
+    print(f"==> {bucket}: {copied} object(s), {errors} error(s)")
+
+print(f"==> Done. Objects live under {uploads}")
+PY
 
 if [[ -n "${PUBLIC_API_BASE_URL:-}" && -n "${DATABASE_URL:-}" && "$DRY_RUN" != "1" ]]; then
   echo "==> Rewriting avatar public URLs → ${PUBLIC_API_BASE_URL%/}/storage/v1/object/public/avatars/…"
@@ -135,5 +161,4 @@ conn.close()
 PY
 fi
 
-echo "==> Done. Objects live under ${UPLOADS_DIR}"
 echo "    Mount this path as the Coolify volume retroscope_uploads → /data/uploads on api."

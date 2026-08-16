@@ -318,14 +318,43 @@ async function copySchemaTables(params: {
   return stats;
 }
 
-async function listStorageObjects(
+type StorageListItem = {
+  name?: string;
+  id?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function encodeObjectPath(objectKey: string): string {
+  return objectKey
+    .split('/')
+    .filter((part) => part.length > 0)
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+}
+
+function isStorageFolder(item: StorageListItem): boolean {
+  // Supabase list returns placeholders for prefixes with null id AND metadata.
+  return item.id == null && item.metadata == null;
+}
+
+async function listStoragePrefix(
   supabaseUrl: string,
   serviceKey: string,
-  bucket: string
+  bucket: string,
+  prefix: string,
+  depth = 0
 ): Promise<string[]> {
+  if (depth > 20) {
+    throw new MigrateError(
+      `Storage list recursion too deep for ${bucket}/${prefix}`,
+      502
+    );
+  }
+
   const names: string[] = [];
   const limit = 1000;
   let offset = 0;
+
   while (true) {
     const response = await fetch(
       `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/list/${bucket}`,
@@ -336,25 +365,67 @@ async function listStorageObjects(
           apikey: serviceKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prefix: '', limit, offset }),
+        body: JSON.stringify({ prefix, limit, offset }),
       }
     );
     if (!response.ok) {
       const text = await response.text();
       throw new MigrateError(
-        `Storage list failed for ${bucket}: ${response.status} ${text}`,
+        `Storage list failed for ${bucket} (prefix="${prefix}"): ${response.status} ${text}`,
         502
       );
     }
-    const page = (await response.json()) as Array<{ name?: string }>;
+
+    const page = (await response.json()) as StorageListItem[];
     if (!Array.isArray(page) || page.length === 0) break;
+
     for (const item of page) {
-      if (item.name && !item.name.endsWith('/')) names.push(item.name);
+      if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
+      const relative = item.name.replace(/^\/+/, '');
+      const fullPath = prefix ? `${prefix.replace(/\/?$/, '/')}${relative}` : relative;
+
+      if (isStorageFolder(item)) {
+        const childPrefix = fullPath.endsWith('/') ? fullPath : `${fullPath}/`;
+        const nested = await listStoragePrefix(
+          supabaseUrl,
+          serviceKey,
+          bucket,
+          childPrefix,
+          depth + 1
+        );
+        names.push(...nested);
+      } else {
+        names.push(fullPath);
+      }
     }
+
     if (page.length < limit) break;
     offset += limit;
   }
+
   return names;
+}
+
+/** Exported for unit tests */
+export const __storageListTestUtils = {
+  encodeObjectPath,
+  isStorageFolder,
+  listStoragePrefix: (
+    supabaseUrl: string,
+    serviceKey: string,
+    bucket: string,
+    prefix: string
+  ) => listStoragePrefix(supabaseUrl, serviceKey, bucket, prefix),
+};
+
+async function listStorageObjects(
+  supabaseUrl: string,
+  serviceKey: string,
+  bucket: string
+): Promise<string[]> {
+  const names = await listStoragePrefix(supabaseUrl, serviceKey, bucket, '');
+  // De-dupe while preserving order
+  return Array.from(new Set(names));
 }
 
 async function downloadStorageObject(
@@ -368,9 +439,10 @@ async function downloadStorageObject(
     Authorization: `Bearer ${serviceKey}`,
     apikey: serviceKey,
   };
+  const encodedKey = encodeObjectPath(objectKey);
   const urls = [
-    `${base}/storage/v1/object/authenticated/${bucket}/${objectKey}`,
-    `${base}/storage/v1/object/public/${bucket}/${objectKey}`,
+    `${base}/storage/v1/object/authenticated/${bucket}/${encodedKey}`,
+    `${base}/storage/v1/object/public/${bucket}/${encodedKey}`,
   ];
   let lastError = 'download failed';
   for (const url of urls) {
