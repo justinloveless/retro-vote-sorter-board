@@ -44,6 +44,7 @@ async function main(): Promise<void> {
       '/auth/v1/callback',
       '/auth/v1/recover',
       '/api/admin/backend-status',
+      '/api/admin/migrate-from-supabase',
       '/api/storage/buckets',
       '/storage/v1/object/*',
       '/functions/v1/*',

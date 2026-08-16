@@ -1,15 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config.js';
-import { verifyAccessToken } from '../auth/jwt.js';
 import { checkPostgres } from '../lib/db.js';
 import { checkPostgrest } from '../lib/postgrest.js';
-
-function extractBearer(authorization: string | undefined): string | null {
-  if (!authorization) return null;
-  const [scheme, token] = authorization.split(' ');
-  if (scheme?.toLowerCase() !== 'bearer' || !token?.trim()) return null;
-  return token.trim();
-}
+import { extractBearer, requireAdmin } from '../lib/requestAuth.js';
+import { verifyAccessToken } from '../auth/jwt.js';
+import {
+  getMigrateCapability,
+  MigrateError,
+  migrateFromSupabase,
+  MIGRATE_CONFIRMATION_PHRASE,
+} from '../migrate/fromSupabase.js';
 
 export async function registerAdminRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/admin/backend-status', async (request, reply) => {
@@ -25,7 +25,6 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
         await verifyAccessToken(token, config.JWT_SECRET);
       } catch {
         // Dual-path: admin UI may still send a hosted Supabase access token.
-        // Accept any non-empty Bearer until Phase 3 fully cuts over data/auth.
       }
     }
 
@@ -33,6 +32,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
       checkPostgres(config),
       checkPostgrest(config),
     ]);
+    const migrate = getMigrateCapability(config);
 
     return {
       modeHint: 'selfhosted',
@@ -43,6 +43,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
           config.GOOGLE_CLIENT_SECRET &&
           config.OAUTH_GOOGLE_REDIRECT_URI
       ),
+      migrate,
       checks: {
         api: { ok: true },
         auth: {
@@ -58,5 +59,65 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
       },
       timestamp: new Date().toISOString(),
     };
+  });
+
+  app.get('/api/admin/migrate-from-supabase', async (request, reply) => {
+    const claims = await requireAdmin(request, reply, config);
+    if (!claims) return;
+
+    return {
+      confirmationPhrase: MIGRATE_CONFIRMATION_PHRASE,
+      capability: getMigrateCapability(config),
+      defaults: {
+        dryRun: true,
+        includeAuth: true,
+        includePublic: true,
+        includeStorage: false,
+        truncateFirst: false,
+        rewriteStorageUrls: true,
+      },
+      notes: [
+        'Copies from MIGRATE_SOURCE_DATABASE_URL into local DATABASE_URL.',
+        'Schema must already exist on the target (Phase 3 restore / init SQL).',
+        'Storage copy needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.',
+        'Use dry-run first. truncateFirst replaces overlapping table data.',
+      ],
+    };
+  });
+
+  app.post('/api/admin/migrate-from-supabase', async (request, reply) => {
+    const claims = await requireAdmin(request, reply, config);
+    if (!claims) return;
+
+    const body = (request.body ?? {}) as {
+      confirmation?: string;
+      dryRun?: boolean;
+      includeAuth?: boolean;
+      includePublic?: boolean;
+      includeStorage?: boolean;
+      truncateFirst?: boolean;
+      rewriteStorageUrls?: boolean;
+    };
+
+    try {
+      const report = await migrateFromSupabase(config, {
+        confirmation: String(body.confirmation ?? ''),
+        dryRun: body.dryRun,
+        includeAuth: body.includeAuth,
+        includePublic: body.includePublic,
+        includeStorage: body.includeStorage,
+        truncateFirst: body.truncateFirst,
+        rewriteStorageUrls: body.rewriteStorageUrls,
+      });
+      return reply.send(report);
+    } catch (error) {
+      if (error instanceof MigrateError) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+      request.log.error({ err: error }, 'migrate-from-supabase failed');
+      return reply.status(500).send({
+        error: error instanceof Error ? error.message : 'Migration failed',
+      });
+    }
   });
 }

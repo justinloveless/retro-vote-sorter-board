@@ -22,6 +22,11 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  /** Hosted Supabase Postgres URI used by admin migrate tool (never expose to FE). */
+  MIGRATE_SOURCE_DATABASE_URL: z.string().optional(),
+  /** Hosted Supabase project URL for storage object copy. */
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema> & {

@@ -32,6 +32,7 @@ npm run import-auth-users -- --users users.json --identities identities.json
 | POST | `/auth/v1/verify` | Confirm recovery code + new password |
 | GET | `/auth/v1/.well-known/jwks.json` | Empty JWKS (HS256 shared secret) |
 | GET | `/api/admin/backend-status` | Bearer token required (admin UI) |
+| GET/POST | `/api/admin/migrate-from-supabase` | Admin-only copy from hosted Supabase DB/storage |
 | GET | `/api/storage/buckets` | Lists volume bucket prefixes |
 | POST/PUT | `/storage/v1/object/:bucket/*` | Upload (Bearer; `x-upsert: true` optional) |
 | GET | `/storage/v1/object/public/:bucket/*` | Public object fetch |
