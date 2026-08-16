@@ -127,6 +127,13 @@ EMAIL_FROM=Retroscope <noreply@yourdomain.com>
 # SMTP_PORT=587
 # SMTP_USER=...
 # SMTP_PASS=...
+
+# Phase 4 — Admin "Copy from Supabase" tool (optional; enable when ready to sync)
+# Session-mode URI from Supabase → Project Settings → Database
+MIGRATE_SOURCE_DATABASE_URL=postgresql://postgres.…@db.…supabase.co:5432/postgres
+# Needed only if you also copy Storage objects from the Admin panel
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 ```
 
 > Default DB role passwords in `server/postgres/init/01-roles.sql` are for bootstrap only. Change them (and matching `DATABASE_URL` / `PGRST_DB_URI`) before any real data restore.
@@ -171,7 +178,9 @@ After restore, confirm:
 
 ### Storage copy (Phase 4)
 
-Copy hosted Supabase Storage objects into the Coolify `retroscope_uploads` volume (mounted at `/data/uploads` on `api`):
+**Option A — Admin UI:** open **Admin → Backend → Copy from Supabase** (requires the env vars above). Prefer dry-run first.
+
+**Option B — CLI:** copy hosted Supabase Storage objects into the Coolify `retroscope_uploads` volume (mounted at `/data/uploads` on `api`):
 
 ```bash
 SUPABASE_URL='https://YOUR_PROJECT.supabase.co' \
@@ -208,7 +217,8 @@ PUBLIC_API_BASE_URL='https://retro-api.example.com' \
 | `GET /healthz` | Process liveness |
 | `GET /readyz` | Postgres + PostgREST readiness (503 if either fails) |
 | `GET|POST|PATCH|DELETE /rest/v1/*` | PostgREST proxy (JWT forwarded; internal PostgREST only) |
-| `GET /api/admin/backend-status` | Bearer-token stub status for the admin UI |
+| GET | `/api/admin/backend-status` | Bearer-token stub status for the admin UI |
+| GET/POST | `/api/admin/migrate-from-supabase` | Admin-only Supabase → self-host data/storage copy |
 | `POST/GET/DELETE /storage/v1/object/*` | Docker-volume uploads (avatars, chat images, retro-audio) |
 | `POST /functions/v1/*` | P0 admin/invite ports; Stripe stays on Supabase |
 

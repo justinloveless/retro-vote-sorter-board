@@ -1,5 +1,6 @@
 import React from 'react';
 import { BackendProviderToggle } from '@/components/admin/BackendProviderToggle';
+import { SupabaseMigratePanel } from '@/components/admin/SupabaseMigratePanel';
 
 const AdminBackendPage: React.FC = () => {
   return (
@@ -9,6 +10,7 @@ const AdminBackendPage: React.FC = () => {
         this page.
       </p>
       <BackendProviderToggle />
+      <SupabaseMigratePanel />
     </div>
   );
 };
