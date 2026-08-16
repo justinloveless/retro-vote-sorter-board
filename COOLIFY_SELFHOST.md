@@ -131,9 +131,11 @@ EMAIL_FROM=Retroscope <noreply@yourdomain.com>
 # Phase 4 — Admin "Copy from Supabase" tool (optional; enable when ready to sync)
 # Session-mode URI from Supabase → Project Settings → Database
 MIGRATE_SOURCE_DATABASE_URL=postgresql://postgres.…@db.…supabase.co:5432/postgres
-# Needed only if you also copy Storage objects from the Admin panel
+# Needed for storage copy AND for dual-path migrate auth (hosted admin session → API)
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+# Optional fallback for validating hosted user JWTs
+# SUPABASE_ANON_KEY=eyJhbGc...
 ```
 
 > Default DB role passwords in `server/postgres/init/01-roles.sql` are for bootstrap only. Change them (and matching `DATABASE_URL` / `PGRST_DB_URI`) before any real data restore.
