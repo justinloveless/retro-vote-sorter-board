@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,7 +26,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   const fetchEndorsements = useCallback(async () => {
     if (!boardId || !teamId) return;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('endorsements')
         .select('*')
         .eq('board_id', boardId)
@@ -48,7 +48,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   useEffect(() => {
     if (!boardId || !teamId || !effectiveUserId) return;
 
-    const channel = supabase
+    const channel = getDb()
       .channel(`endorsements-${boardId}`)
       .on(
         'postgres_changes',
@@ -83,13 +83,13 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      getDb().removeChannel(channel);
     };
   }, [boardId, teamId, effectiveUserId]);
 
   const giveEndorsement = useCallback(async (toUserId: string, endorsementTypeId: string) => {
     if (!boardId || !teamId || !effectiveUserId) return;
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsements')
       .insert({
         board_id: boardId,
@@ -112,7 +112,7 @@ export function useEndorsements(boardId: string | null, teamId: string | null) {
   const revokeEndorsement = useCallback(async (endorsementId: string) => {
     // Optimistic update
     setEndorsements(prev => prev.filter(e => e.id !== endorsementId));
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('endorsements')
       .delete()
       .eq('id', endorsementId);

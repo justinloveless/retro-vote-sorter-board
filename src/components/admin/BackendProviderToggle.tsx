@@ -175,7 +175,7 @@ export const BackendProviderToggle: React.FC = () => {
           title: 'Backend provider saved',
           description:
             saved.mode === 'selfhosted'
-              ? 'Global mode is self-hosted: auth uses Node /auth/v1/*; table CRUD uses local PostgREST via /rest/v1 (realtime still hosted until Phase 5).'
+              ? 'Global mode is self-hosted: auth uses Node /auth/v1/*; table CRUD uses local PostgREST via /rest/v1; realtime uses Socket.IO on the API.'
               : 'Global mode is hosted Supabase for auth and data.',
         });
       }

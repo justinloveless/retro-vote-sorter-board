@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { getDb } from '@/lib/backend/getDataClient';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
@@ -40,7 +39,7 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
     useEffect(() => {
         const fetchTierFlags = async () => {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await getDb()
                     .from('app_config')
                     .select('value')
                     .eq('key', 'tier_limits')
@@ -66,12 +65,12 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const activeTeamId = activeTeamIdFromRoute();
         try {
             const [{ data: userData, error: userError }, teamResult] = await Promise.all([
-                supabase
+                getDb()
                     .from('feature_flag_user_overrides')
                     .select('flag_name, state')
                     .eq('user_id', userId),
                 activeTeamId
-                    ? supabase
+                    ? getDb()
                         .from('feature_flag_team_overrides')
                         .select('flag_name, state')
                         .eq('team_id', activeTeamId)
@@ -105,13 +104,14 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, [profile?.id, activeTeamIdFromRoute]);
 
     useEffect(() => {
-        let channel: RealtimeChannel;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let channel: any;
 
         const setupFlags = async () => {
             setLoading(true);
             try {
                 const [{ data, error }] = await Promise.all([
-                    supabase
+                    getDb()
                     .from('feature_flags')
                     .select('flag_name, is_enabled'),
                     loadOverrides(),
@@ -130,7 +130,7 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 setLoading(false);
             }
 
-            channel = supabase
+            channel = getDb()
                 .channel('feature-flags-realtime')
                 .on(
                     'postgres_changes',
@@ -179,7 +179,7 @@ export const FeatureFlagProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         return () => {
             if (channel) {
-                supabase.removeChannel(channel);
+                getDb().removeChannel(channel);
             }
         };
     }, [loadOverrides]);

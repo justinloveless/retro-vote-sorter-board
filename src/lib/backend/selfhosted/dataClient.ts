@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
 import { getAuthClient, getCachedAuthBackendMode } from '@/lib/auth/client';
 import {
   createFunctionsClient,
@@ -9,26 +8,34 @@ import {
   type SelfHostedRestClient,
 } from '@/lib/backend/selfhosted/restClient';
 import {
+  createRealtimeClient,
+  type SelfHostedRealtimeChannel,
+  type SelfHostedRealtimeClient,
+} from '@/lib/backend/selfhosted/realtimeClient';
+import {
   createStorageClient,
   type SelfHostedStorageClient,
 } from '@/lib/backend/selfhosted/storageClient';
 
 /**
- * Hybrid self-hosted data client (Phase 4):
+ * Hybrid self-hosted data client (Phase 5):
  * - `.from()` / `.rpc()` → local PostgREST via Node `/rest/v1`
  * - `.storage` → Node Docker volume (`/storage/v1/object/*`)
  * - `.functions` → Node P0 ports (`/functions/v1/*`); Stripe/Jira/Slack may 501
- * - `.channel()` → hosted Supabase temporarily (Phase 5 realtime)
+ * - `.channel()` → Socket.IO realtime adapter (Phase 5)
  * - `.auth` → FE auth facade (Node `/auth/v1` when mode is selfhosted)
  */
 export type SelfHostedDataClient = SelfHostedRestClient & {
   auth: ReturnType<typeof getAuthClient>;
-  channel: typeof supabase.channel;
-  removeChannel: typeof supabase.removeChannel;
-  getChannels: typeof supabase.getChannels;
+  channel: (
+    topic: string,
+    opts?: Parameters<SelfHostedRealtimeClient['channel']>[1]
+  ) => SelfHostedRealtimeChannel;
+  removeChannel: (channel: SelfHostedRealtimeChannel) => Promise<'ok' | 'timed out' | 'error'>;
+  getChannels: () => SelfHostedRealtimeChannel[];
   functions: SelfHostedFunctionsClient;
   storage: SelfHostedStorageClient;
-  realtime: typeof supabase.realtime;
+  realtime: SelfHostedRealtimeClient;
 };
 
 async function resolveAccessToken(): Promise<string | null> {
@@ -44,6 +51,7 @@ export function createSelfHostedDataClient(apiBaseUrl: string): SelfHostedDataCl
   const rest = createRestClient(apiBaseUrl, resolveAccessToken);
   const storage = createStorageClient(apiBaseUrl, resolveAccessToken);
   const functions = createFunctionsClient(apiBaseUrl, resolveAccessToken);
+  const realtime = createRealtimeClient(apiBaseUrl, resolveAccessToken);
 
   return {
     from: rest.from,
@@ -51,14 +59,12 @@ export function createSelfHostedDataClient(apiBaseUrl: string): SelfHostedDataCl
     get auth() {
       return getAuthClient();
     },
-    channel: (...args: Parameters<typeof supabase.channel>) => supabase.channel(...args),
-    removeChannel: (...args: Parameters<typeof supabase.removeChannel>) =>
-      supabase.removeChannel(...args),
-    getChannels: (...args: Parameters<typeof supabase.getChannels>) =>
-      supabase.getChannels(...args),
+    channel: (topic, opts) => realtime.channel(topic, opts),
+    removeChannel: (channel) => realtime.removeChannel(channel),
+    getChannels: () => realtime.getChannels(),
     functions,
     storage,
-    realtime: supabase.realtime,
+    realtime,
   };
 }
 

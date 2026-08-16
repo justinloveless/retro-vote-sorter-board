@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -190,7 +190,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('poker_sessions')
         .select(
           `id, room_id, created_at,
@@ -215,7 +215,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
 
     fetchSessions();
 
-    const channelSessions = supabase
+    const channelSessions = getDb()
       .channel(`team-poker-sessions-${teamId}`)
       .on('postgres_changes', {
         event: '*',
@@ -228,7 +228,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channelSessions);
+      getDb().removeChannel(channelSessions);
     };
   }, [teamId]);
 
@@ -242,7 +242,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     if (!sessionIdsKey) return;
 
     const fetchSessions = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await getDb()
         .from('poker_sessions')
         .select(
           `id, room_id, created_at,
@@ -270,7 +270,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
         ? `session_id=eq.${ids[0]}`
         : `session_id=in.(${ids.join(',')})`;
 
-    const channelRounds = supabase
+    const channelRounds = getDb()
       .channel(`team-poker-rounds-${teamId}-${sessionIdsKey}`)
       .on(
         'postgres_changes',
@@ -287,7 +287,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channelRounds);
+      getDb().removeChannel(channelRounds);
     };
   }, [teamId, sessionIdsKey]);
 
@@ -300,7 +300,7 @@ export const TeamPokerSessions: React.FC<TeamPokerSessionsProps> = ({
     optimisticPendingDeleteIds.current.add(id);
     setSessions((prev) => prev.filter((s) => s.id !== id));
 
-    const { error } = await supabase.from('poker_sessions').delete().eq('id', id);
+    const { error } = await getDb().from('poker_sessions').delete().eq('id', id);
     optimisticPendingDeleteIds.current.delete(id);
 
     if (error) {

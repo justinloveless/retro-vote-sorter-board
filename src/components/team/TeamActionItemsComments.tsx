@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Send, Trash2, MessageSquare } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { TiptapEditorWithMentions, processMentionsForDisplay } from '@/components/shared/TiptapEditorWithMentions';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -24,7 +24,7 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId, teamId 
 
   // Set up realtime updates
   useEffect(() => {
-    const channel = supabase.channel(`tai-comments-${sourceItemId}`)
+    const channel = getDb().channel(`tai-comments-${sourceItemId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -35,7 +35,7 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId, teamId 
       })
       .subscribe();
     return () => { 
-      supabase.removeChannel(channel); 
+      getDb().removeChannel(channel); 
     };
   }, [sourceItemId, refetch]);
 
@@ -51,7 +51,7 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId, teamId 
   const addComment = async () => {
     if (!content.trim()) return;
     const author = profile?.full_name || user?.email || 'Anonymous';
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('retro_comments')
       .insert([{ item_id: sourceItemId, text: content, author, author_id: user?.id || null }]);
     if (!error) {
@@ -61,7 +61,7 @@ export const TeamActionItemsComments: React.FC<Props> = ({ sourceItemId, teamId 
   };
 
   const deleteComment = async (id: string) => {
-    await supabase.from('retro_comments').delete().eq('id', id);
+    await getDb().from('retro_comments').delete().eq('id', id);
     refetch(); // Refetch comments after deleting
   };
 

@@ -1,4 +1,4 @@
-# Retroscope API (Phase 4 — storage + P0 edge ports)
+# Retroscope API (Phase 5 — realtime Socket.IO)
 
 Fastify service for the self-hosted Coolify stack.
 
@@ -38,6 +38,7 @@ npm run import-auth-users -- --users users.json --identities identities.json
 | GET | `/storage/v1/object/public/:bucket/*` | Public object fetch |
 | POST | `/storage/v1/object/sign/:bucket/*` | Create signed URL |
 | GET | `/storage/v1/object/sign/:bucket/*` | Fetch via signed query token |
+| * | `/socket.io` | Phase 5 realtime (WebSocket); presence / broadcast / postgres_changes |
 | DELETE | `/storage/v1/object/:bucket/*` | Delete object (Bearer) |
 | POST | `/functions/v1/:name` | P0 edge ports (admin + invites); Stripe → 501 keep_on_supabase |
 
@@ -75,8 +76,14 @@ Applied by `db-init` / Postgres init:
 - `postgres/init/02-auth-schema.sql` — local `auth.users` / identities / refresh / verification
 - `postgres/init/03-rls-helpers.sql` — `auth.uid()` / `auth.role()` / `auth.jwt()` + PostgREST grants
 - `postgres/init/04-post-restore-grants.sql` — run after staging `pg_restore`
+- `postgres/init/05-realtime-notify.sql` — `pg_notify('retroscope_changes')` triggers on hot tables
 
 Access JWTs are HS256 with `role=authenticated` and `sub=<user uuid>` so PostgREST RLS matches hosted Supabase.
+
+## Realtime (Phase 5)
+
+Socket.IO on `/socket.io` with rooms `board:{id}`, `poker:{sessionId}`, `team:{id}`, `user:{id}`.
+Enable WebSocket support on the Coolify `api` domain. Admin backend-status reports `checks.realtime`.
 
 ## Staging restore
 

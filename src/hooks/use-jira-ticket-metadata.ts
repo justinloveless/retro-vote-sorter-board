@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import type { PokerSessionRound } from '@/hooks/usePokerSessionHistory';
 import { isSyntheticRoundTicket } from '@/lib/pokerRoundTicketPlaceholder';
 import { POKER_JIRA_STORY_POINTS_BROADCAST_EVENT } from '@/lib/pokerJiraStoryPointsBroadcast';
@@ -85,7 +86,7 @@ export function useJiraTicketMetadata(
   useEffect(() => {
     if (!sessionId) return;
 
-    const channel = supabase.channel(`poker_session:${sessionId}`);
+    const channel = getDb().channel(`poker_session:${sessionId}`);
     channel.on(
       'broadcast',
       { event: POKER_JIRA_STORY_POINTS_BROADCAST_EVENT },
@@ -102,7 +103,7 @@ export function useJiraTicketMetadata(
     );
     channel.subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      getDb().removeChannel(channel);
     };
   }, [sessionId]);
 

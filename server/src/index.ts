@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { closePool } from './lib/db.js';
+import { registerRealtime } from './realtime/index.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerFunctionRoutes } from './routes/functions.js';
@@ -66,9 +67,12 @@ async function main(): Promise<void> {
   await registerAuthRoutes(app, config);
   await registerRestProxyRoutes(app, config);
 
+  // Socket.IO attaches to the same HTTP server (WebSocket upgrade on /socket.io).
+  await registerRealtime(app, config);
+
   app.get('/', async () => ({
     name: 'retroscope-api',
-    phase: 4,
+    phase: 5,
     endpoints: [
       '/healthz',
       '/readyz',
@@ -85,6 +89,7 @@ async function main(): Promise<void> {
       '/api/storage/buckets',
       '/storage/v1/object/*',
       '/functions/v1/*',
+      '/socket.io',
     ],
     stripe: {
       decision: 'keep_on_supabase',
