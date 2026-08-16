@@ -5,6 +5,7 @@ import { checkPostgrest } from '../lib/postgrest.js';
 import { extractBearer } from '../lib/requestAuth.js';
 import { requireAdminForMigrate } from '../lib/migrateAuth.js';
 import { verifyAccessToken } from '../auth/jwt.js';
+import { realtimeHealth } from '../realtime/index.js';
 import {
   getMigrateCapability,
   MigrateError,
@@ -56,7 +57,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AppConfi
         },
         postgres,
         postgrest,
-        realtime: { ok: false, error: 'Not implemented until Phase 5' },
+        realtime: realtimeHealth(),
       },
       timestamp: new Date().toISOString(),
     };
