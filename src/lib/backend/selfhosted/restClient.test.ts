@@ -1,5 +1,25 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { buildRestUrlForTest, createRestClient } from './restClient';
+import {
+  buildRestUrlForTest,
+  createRestClient,
+  normalizePostgrestSelect,
+} from './restClient';
+
+describe('normalizePostgrestSelect', () => {
+  it('strips whitespace that PostgREST rejects inside embeds', () => {
+    const input = `
+      *,
+      teams(
+        id,
+        name,
+        team_members(user_id, role)
+      )
+    `;
+    expect(normalizePostgrestSelect(input)).toBe(
+      '*,teams(id,name,team_members(user_id,role))'
+    );
+  });
+});
 
 describe('restClient URL building', () => {
   it('builds table URLs under /rest/v1', () => {
@@ -21,6 +41,39 @@ describe('restClient URL building', () => {
 describe('restClient fluent subset', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('normalizes multiline nested selects before requesting', async () => {
+    const calls: Array<{ url: string }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        calls.push({ url: String(input) });
+        return new Response(JSON.stringify({ id: '1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      })
+    );
+
+    const client = createRestClient('https://api.example.com', () => null);
+    await client
+      .from('retro_boards')
+      .select(`
+        *,
+        teams(
+          id,
+          name,
+          team_members(user_id, role)
+        )
+      `)
+      .eq('room_id', 'PUB2Q1')
+      .single();
+
+    expect(calls[0].url).toContain(
+      'select=' + encodeURIComponent('*,teams(id,name,team_members(user_id,role))')
+    );
+    expect(calls[0].url).not.toMatch(/%20id/);
   });
 
   it('issues GET with filters and Authorization', async () => {
