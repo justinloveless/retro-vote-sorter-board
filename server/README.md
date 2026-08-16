@@ -1,4 +1,4 @@
-# Retroscope API (Phase 3 — local auth + PostgREST proxy)
+# Retroscope API (Phase 4 — storage + P0 edge ports)
 
 Fastify service for the self-hosted Coolify stack.
 
@@ -33,7 +33,38 @@ npm run import-auth-users -- --users users.json --identities identities.json
 | GET | `/auth/v1/.well-known/jwks.json` | Empty JWKS (HS256 shared secret) |
 | GET | `/api/admin/backend-status` | Bearer token required (admin UI) |
 | GET | `/api/storage/buckets` | Lists volume bucket prefixes |
-| GET/PUT | `/api/storage/:bucket/*` | 501 stubs until Phase 4 |
+| POST/PUT | `/storage/v1/object/:bucket/*` | Upload (Bearer; `x-upsert: true` optional) |
+| GET | `/storage/v1/object/public/:bucket/*` | Public object fetch |
+| POST | `/storage/v1/object/sign/:bucket/*` | Create signed URL |
+| GET | `/storage/v1/object/sign/:bucket/*` | Fetch via signed query token |
+| DELETE | `/storage/v1/object/:bucket/*` | Delete object (Bearer) |
+| POST | `/functions/v1/:name` | P0 edge ports (admin + invites); Stripe → 501 keep_on_supabase |
+
+### Ported functions (P0)
+
+- `admin-search-users`
+- `admin-send-notification`
+- `admin-team-members`
+- `get-user-email`
+- `send-invitation-email`
+- `notify-team-invite`
+- `notify-org-invite`
+
+### Explicit Stripe decision
+
+`check-subscription`, `create-checkout`, `customer-portal`, `admin-manage-subscription` remain on hosted Supabase for Phase 4. Node responds with `501` and `decision: "keep_on_supabase"`.
+
+## Storage migration
+
+```bash
+# Copy blobs into the uploads volume
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… UPLOADS_DIR=/data/uploads \
+  ../scripts/selfhost/copy-storage-from-supabase.sh
+
+# Rewrite public URLs in DB after host change
+DATABASE_URL=… SUPABASE_URL=… PUBLIC_API_BASE_URL=https://retro-api.example.com \
+  ../scripts/selfhost/rewrite-storage-urls.sh
+```
 
 ## Auth + RLS schema
 

@@ -219,7 +219,7 @@ Prioritize by “blocks leaving Supabase”:
 | P1 | `delete-session-data`, `cleanup-poker-sessions` | Node jobs / cron |
 | P2 | Jira suite (~15) | Node `/api/jira/*` using existing team credentials |
 | P2 | Slack suite | Node `/api/slack/*` |
-| P3 | Stripe (`check-subscription`, checkout, portal, admin-manage) | Keep on Supabase until billing needed self-hosted, or port with Stripe SDK |
+| P3 | Stripe (`check-subscription`, checkout, portal, admin-manage) | **Decision (Phase 4):** keep on hosted Supabase until billing must be self-hosted; Node returns `501` + `decision: keep_on_supabase` for these names |
 | P3 | OpenAI / TTS | Node; can keep pointing at existing Coqui `tts-server` compose service |
 
 Shared secrets move to VPS env / Docker secrets: `JWT_SECRET`, `GOOGLE_CLIENT_*`, `STRIPE_*`, `OPENAI_API_KEY`, Slack tokens, SMTP, service role equivalent.
@@ -388,9 +388,10 @@ ALLOW_ORIGINS=https://retro.example.com
 
 ### Phase 4 — Storage + critical edge ports
 
-- Avatars + poker chat images.
-- Admin + invite email functions.
-- Jira/Slack only if you use them daily.
+- Avatars + poker chat images + retro-audio served from `retroscope_uploads` via Node `/storage/v1/object/*`.
+- P0 admin + invite email/notify functions on Node `/functions/v1/*`.
+- Stripe stays on Supabase (`keep_on_supabase`).
+- Jira/Slack deferred unless actively used daily.
 
 ### Phase 5 — Realtime
 

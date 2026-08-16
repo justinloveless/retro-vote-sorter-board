@@ -4,6 +4,7 @@ import { loadConfig } from './config.js';
 import { closePool } from './lib/db.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerFunctionRoutes } from './routes/functions.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerRestProxyRoutes } from './routes/restProxy.js';
 import { registerStorageRoutes } from './routes/storage.js';
@@ -24,12 +25,13 @@ async function main(): Promise<void> {
   await registerHealthRoutes(app, config);
   await registerAdminRoutes(app, config);
   await registerStorageRoutes(app, config);
+  await registerFunctionRoutes(app, config);
   await registerAuthRoutes(app, config);
   await registerRestProxyRoutes(app, config);
 
   app.get('/', async () => ({
     name: 'retroscope-api',
-    phase: 3,
+    phase: 4,
     endpoints: [
       '/healthz',
       '/readyz',
@@ -43,7 +45,13 @@ async function main(): Promise<void> {
       '/auth/v1/recover',
       '/api/admin/backend-status',
       '/api/storage/buckets',
+      '/storage/v1/object/*',
+      '/functions/v1/*',
     ],
+    stripe: {
+      decision: 'keep_on_supabase',
+      note: 'Billing edge functions stay on hosted Supabase until a later cutover',
+    },
   }));
 
   const shutdown = async (signal: string) => {

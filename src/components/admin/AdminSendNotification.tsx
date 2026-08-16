@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 
 export const AdminSendNotification: React.FC = () => {
   const { toast } = useToast();
@@ -33,7 +33,7 @@ export const AdminSendNotification: React.FC = () => {
         message: message || undefined,
         url: url || undefined,
       };
-      const { error } = await supabase.functions.invoke('admin-send-notification', { body: payload });
+      const { error } = await getDb().functions.invoke('admin-send-notification', { body: payload });
       if (error) throw error;
       toast({ title: 'Sent', description: 'Notifications queued.' });
       setRecipients('');

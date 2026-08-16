@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDb } from '@/lib/backend/getDataClient';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,7 @@ export const FeatureFlagManager: React.FC = () => {
       const labelMap: Record<string, string> = {};
       const lookups = await Promise.allSettled(
         uniqueUserIds.map(async (userId) => {
-          const { data, error } = await supabase.functions.invoke('admin-search-users', { body: { q: userId } });
+          const { data, error } = await getDb().functions.invoke('admin-search-users', { body: { q: userId } });
           if (error) throw error;
           const match = ((data as { results?: UserSearchResult[] } | null)?.results || []).find((row) => row.id === userId);
           if (!match) return { userId, label: '(unknown user)' };
@@ -106,7 +106,7 @@ export const FeatureFlagManager: React.FC = () => {
     }
 
     if (uniqueTeamIds.length > 0) {
-      const { data } = await supabase
+      const { data } = await getDb()
         .from('teams')
         .select('id,name')
         .in('id', uniqueTeamIds);
@@ -122,8 +122,8 @@ export const FeatureFlagManager: React.FC = () => {
 
   const refreshOverrides = async () => {
     const [userRes, teamRes] = await Promise.all([
-      supabase.from('feature_flag_user_overrides').select('id, flag_name, user_id, state'),
-      supabase.from('feature_flag_team_overrides').select('id, flag_name, team_id, state'),
+      getDb().from('feature_flag_user_overrides').select('id, flag_name, user_id, state'),
+      getDb().from('feature_flag_team_overrides').select('id, flag_name, team_id, state'),
     ]);
 
     if (userRes.error) {
@@ -144,7 +144,7 @@ export const FeatureFlagManager: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const { data: flagsData, error: flagsError } = await supabase.from('feature_flags').select('*');
+    const { data: flagsData, error: flagsError } = await getDb().from('feature_flags').select('*');
     if (flagsError) {
       console.error('Error fetching feature flags:', flagsError);
       toast({ title: 'Error fetching flags', variant: 'destructive' });
@@ -169,7 +169,7 @@ export const FeatureFlagManager: React.FC = () => {
         return;
       }
       setSearchingUsers(true);
-      const { data, error } = await supabase.functions.invoke('admin-search-users', { body: { q: query } });
+      const { data, error } = await getDb().functions.invoke('admin-search-users', { body: { q: query } });
       if (error) {
         toast({ title: 'User search failed', description: error.message, variant: 'destructive' });
         setUserSearchResults([]);
@@ -192,7 +192,7 @@ export const FeatureFlagManager: React.FC = () => {
         return;
       }
       setSearchingTeams(true);
-      const { data, error } = await supabase.functions.invoke('admin-team-members', {
+      const { data, error } = await getDb().functions.invoke('admin-team-members', {
         body: { action: 'list_teams', query },
       });
       if (error) {
@@ -282,7 +282,7 @@ export const FeatureFlagManager: React.FC = () => {
       currentFlags.map((flag) => (flag.flag_name === flagName ? { ...flag, is_enabled: isEnabled } : flag))
     );
 
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('feature_flags')
       .update({ is_enabled: isEnabled })
       .eq('flag_name', flagName);
@@ -304,7 +304,7 @@ export const FeatureFlagManager: React.FC = () => {
       toast({ title: 'Select a user', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('feature_flag_user_overrides')
       .upsert({ flag_name: selectedFlagName, user_id: userId, state: pendingUserState }, { onConflict: 'user_id,flag_name' });
     if (error) {
@@ -328,7 +328,7 @@ export const FeatureFlagManager: React.FC = () => {
       toast({ title: 'Select a team', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase
+    const { error } = await getDb()
       .from('feature_flag_team_overrides')
       .upsert({ flag_name: selectedFlagName, team_id: teamId, state: pendingTeamState }, { onConflict: 'team_id,flag_name' });
     if (error) {
@@ -346,7 +346,7 @@ export const FeatureFlagManager: React.FC = () => {
   };
 
   const clearUserOverride = async (id: string) => {
-    const { error } = await supabase.from('feature_flag_user_overrides').delete().eq('id', id);
+    const { error } = await getDb().from('feature_flag_user_overrides').delete().eq('id', id);
     if (error) {
       toast({ title: 'Failed to clear user override', description: error.message, variant: 'destructive' });
       return;
@@ -357,7 +357,7 @@ export const FeatureFlagManager: React.FC = () => {
   };
 
   const clearTeamOverride = async (id: string) => {
-    const { error } = await supabase.from('feature_flag_team_overrides').delete().eq('id', id);
+    const { error } = await getDb().from('feature_flag_team_overrides').delete().eq('id', id);
     if (error) {
       toast({ title: 'Failed to clear team override', description: error.message, variant: 'destructive' });
       return;
