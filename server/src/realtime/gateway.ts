@@ -128,7 +128,11 @@ export async function attachRealtimeGateway(
   app: FastifyInstance,
   config: AppConfig
 ): Promise<RealtimeGateway> {
-  await app.ready();
+  // Must run after app.listen() so app.server exists and Fastify has finished booting.
+  // Do not call app.ready()/addHook here — Fastify rejects both after start/boot.
+  if (!app.server) {
+    throw new Error('Realtime gateway requires app.server; call after app.listen()');
+  }
 
   const io = new Server(app.server, {
     path: '/socket.io',
@@ -381,10 +385,6 @@ export async function attachRealtimeGateway(
       });
     },
   };
-
-  app.addHook('onClose', async () => {
-    await gateway.close();
-  });
 
   app.log.info('Realtime Socket.IO gateway attached at /socket.io');
   return gateway;

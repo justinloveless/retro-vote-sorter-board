@@ -31,8 +31,8 @@ describe('realtime gateway socket protocol', () => {
       // No DATABASE_URL → LISTEN skipped
     } as AppConfig;
 
-    gateway = await attachRealtimeGateway(app, config);
     await app.listen({ port: 0, host: '127.0.0.1' });
+    gateway = await attachRealtimeGateway(app, config);
     const address = app.server.address();
     if (!address || typeof address === 'string') {
       throw new Error('expected TCP address');
