@@ -41,24 +41,27 @@ Keep your **GitHub App** connection (repo access). For prebuilt images you only 
 | **Auto Deploy** (Advanced → Deployment & Git) | **Turn OFF** — otherwise merge-to-main deploys immediately and pulls stale GHCR `:latest` while Actions is still building |
 | **Deploy Webhook** (not a “manual Git webhook”) | Coolify URL that **GitHub Actions** calls *after* images are pushed. Direction is CI → Coolify, opposite of the GitHub App’s git events |
 
-1. In the GitHub repo set:
+1. In Coolify, create an API token: **Keys & Tokens → API Tokens** with at least **`deploy`** permission. Copy the full token (includes `id|secret`).
+2. In the GitHub repo set:
    - **Variables:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`
-   - **Secrets:** `VITE_SUPABASE_PUBLISHABLE_KEY`, **`COOLIFY_WEBHOOK`**
-   - Optional secret: `COOLIFY_TOKEN` if your Coolify instance requires Bearer auth on deploy API calls
-2. In Coolify for this resource:
+   - **Secrets:**
+     - `VITE_SUPABASE_PUBLISHABLE_KEY`
+     - **`COOLIFY_WEBHOOK`** — resource Deploy Webhook URL (`https://<coolify>/api/v1/deploy?uuid=...`)
+     - **`COOLIFY_TOKEN`** — the API token (required; bare webhook calls return `401 Unauthenticated`)
+3. In Coolify for this resource:
    - Compose path: **`docker-compose.selfhost.prebuilt.yml`**
    - **Disable Auto Deploy** (Configuration → Advanced → Deployment & Git). Leave the GitHub App source as-is.
-   - Open the resource **Deploy Webhook** / deploy API URL → save it as GitHub secret `COOLIFY_WEBHOOK`
-3. Merge to `main` (or run workflow **Coolify images** manually). Order is:
+   - On self-hosted Coolify, ensure **API access is enabled** (and GitHub Actions IPs are allowed if you use an API IP allowlist)
+4. Merge to `main` (or run workflow **Coolify images** manually). Order is:
    1. Actions builds/pushes `*-api` + `*-web` to GHCR  
-   2. `deploy-coolify` calls the Deploy Webhook  
+   2. `deploy-coolify` calls the Deploy Webhook with `Authorization: Bearer`  
    3. Coolify pulls (`pull_policy: always`) and restarts
-4. If packages are private, on the VPS once:
+5. If packages are private, on the VPS once:
    ```bash
    echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
    ```
    Or set the GHCR package visibility to **Public**.
-5. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
+6. Confirm deploy logs show **pull** for `web`/`api`, not `RUN vite build` / `npm ci`.
 
 `VITE_*` changes require a new Actions build (baked into the web image), then the post-image redeploy.
 
@@ -281,8 +284,19 @@ Docker Compose treats `$$` as an escaped `$`, so PL/pgSQL `DO $$ ... $$` becomes
 
 ### `deploy-coolify` skipped / Coolify deploys before new images exist
 
-Using a **GitHub App** does not set `COOLIFY_WEBHOOK` by itself. The App notifies Coolify of git changes; the Actions job needs the separate **Deploy Webhook** URL.
+Using a **GitHub App** does not set `COOLIFY_WEBHOOK` by itself. The App notifies Coolify of git changes; the Actions job needs the separate **Deploy Webhook** URL plus an API token.
 
-1. Coolify → resource → copy **Deploy Webhook** → GitHub Actions secret **`COOLIFY_WEBHOOK`**. Without it, `deploy-coolify` warns and exits 0 (appears “skipped” / no-op).
-2. Coolify → Advanced → Deployment & Git → **disable Auto Deploy**. Keep the GitHub App; only stop deploy-on-push so CI can deploy after GHCR is updated.
+1. Coolify → resource → copy **Deploy Webhook** → GitHub secret **`COOLIFY_WEBHOOK`**. Without it, `deploy-coolify` warns and exits 0.
+2. Coolify → Keys & Tokens → API Tokens → create token with **`deploy`** → GitHub secret **`COOLIFY_TOKEN`**.
+3. Coolify → Advanced → Deployment & Git → **disable Auto Deploy**. Keep the GitHub App; only stop deploy-on-push so CI can deploy after GHCR is updated.
+
+### `deploy-coolify` → `401 Unauthenticated`
+
+The Deploy Webhook is Coolify’s `/api/v1/deploy` API. It always needs:
+
+```bash
+Authorization: Bearer <COOLIFY_TOKEN>
+```
+
+Create/rotate the token under **Keys & Tokens → API Tokens**, store the full value as `COOLIFY_TOKEN`, and confirm API access is enabled on self-hosted Coolify.
 
