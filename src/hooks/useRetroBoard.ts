@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getDb } from '@/lib/backend/getDataClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -431,6 +431,17 @@ export const useRetroBoard = (roomId: string) => {
     }
   }, [items, comments, fetchProfileData]);
 
+  // Keep realtime handlers stable so the channel subscription is not torn down on
+  // every items/comments change (that thrash drops presence and can miss events).
+  const handleNewItemRef = useRef(handleNewItem);
+  const handleNewCommentRef = useRef(handleNewComment);
+  const fetchProfileDataRef = useRef(fetchProfileData);
+  useEffect(() => {
+    handleNewItemRef.current = handleNewItem;
+    handleNewCommentRef.current = handleNewComment;
+    fetchProfileDataRef.current = fetchProfileData;
+  }, [handleNewItem, handleNewComment, fetchProfileData]);
+
   // Set up realtime presence and data subscriptions
   useEffect(() => {
     if (!board) return;
@@ -446,7 +457,15 @@ export const useRetroBoard = (roomId: string) => {
     // Presence events
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
-      const users = Object.values(state).map((p: any) => p[0]);
+      const users = Object.values(state).map((p: any) => {
+        const row = p?.[0] ?? {};
+        return {
+          ...row,
+          // ActiveUsers expects `id`; presence payload uses `user_id`.
+          id: row.id || row.user_id,
+          last_seen: row.last_seen || new Date().toISOString(),
+        };
+      });
       setActiveUsers(users as ActiveUser[]);
     });
 
@@ -475,8 +494,10 @@ export const useRetroBoard = (roomId: string) => {
       window.dispatchEvent(timerChangeEvent);
     });
 
-    // Database changes
-    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, handleNewItem)
+    // Database changes — call through refs so this effect stays stable.
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_items' }, (payload) => {
+      void handleNewItemRef.current(payload);
+    })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'retro_items' }, (payload) => {
         const updatedItem = payload.new as RetroItem;
         setItems(currentItems =>
@@ -489,7 +510,9 @@ export const useRetroBoard = (roomId: string) => {
         const deletedItem = payload.old as RetroItem;
         setItems(currentItems => currentItems.filter(item => item.id !== deletedItem.id));
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, handleNewComment)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'retro_comments' }, (payload) => {
+        void handleNewCommentRef.current(payload);
+      })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'retro_comments' }, (payload) => {
         const deletedComment = payload.old as RetroComment;
         setComments(currentComments => currentComments.filter(comment => comment.id !== deletedComment.id));
@@ -517,7 +540,7 @@ export const useRetroBoard = (roomId: string) => {
         });
 
         if (newVote.user_id) {
-          await fetchProfileData(newVote.user_id);
+          await fetchProfileDataRef.current(newVote.user_id);
         }
       })
       .on('postgres_changes', {
@@ -661,7 +684,7 @@ export const useRetroBoard = (roomId: string) => {
     return () => {
       getDb().removeChannel(channel);
     };
-  }, [board, sessionId, handleNewItem, handleNewComment, fetchProfileData]);
+  }, [board, sessionId, toast]);
 
   const updateBoardTitle = async (title: string) => {
     if (!board) return;
