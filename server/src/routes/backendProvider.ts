@@ -38,11 +38,12 @@ async function readProviderFromDb(
   const pool = getPool(config);
   if (!pool) return null;
   try {
-    const result = await pool.query<{ value: string }>(
-      'select value from public.app_config where key = $1 limit 1',
+    // SECURITY DEFINER helper bypasses admin-only RLS (see 06-app-config-server.sql).
+    const result = await pool.query<{ value: string | null }>(
+      'select public.server_get_app_config($1) as value',
       [CONFIG_KEY]
     );
-    return parseStoredValue(result.rows[0]?.value, config.SELF_HOSTED_API_BASE_URL ?? '');
+    return parseStoredValue(result.rows[0]?.value ?? null, config.SELF_HOSTED_API_BASE_URL ?? '');
   } catch {
     return null;
   }
@@ -60,12 +61,9 @@ async function writeProviderToDb(
     mode: payload.mode,
     selfHostedApiBaseUrl: payload.selfHostedApiBaseUrl,
   });
-  await pool.query(
-    `insert into public.app_config (key, value)
-     values ($1, $2)
-     on conflict (key) do update set value = excluded.value`,
-    [CONFIG_KEY, value]
-  );
+  // SECURITY DEFINER helper — plain insert/update is blocked by app_config RLS for
+  // retroscope_app (no auth.uid() admin claim on the Node pool connection).
+  await pool.query('select public.server_upsert_app_config($1, $2)', [CONFIG_KEY, value]);
 }
 
 /**

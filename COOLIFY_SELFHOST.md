@@ -173,6 +173,8 @@ Init SQL applied on every Coolify deploy via `db-init`:
 - `server/postgres/init/01-roles.sql` — `anon` / `authenticated` / `service_role` / `authenticator`
 - `server/postgres/init/02-auth-schema.sql` — local auth tables
 - `server/postgres/init/03-rls-helpers.sql` — `auth.uid()` / `auth.role()` / `auth.jwt()` + grants
+- `server/postgres/init/05-realtime-notify.sql` — realtime NOTIFY triggers
+- `server/postgres/init/06-app-config-server.sql` — Node helpers to upsert/read `app_config` (bypasses admin-only RLS)
 
 After restore, confirm:
 

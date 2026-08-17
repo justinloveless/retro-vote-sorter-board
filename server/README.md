@@ -77,6 +77,7 @@ Applied by `db-init` / Postgres init:
 - `postgres/init/03-rls-helpers.sql` — `auth.uid()` / `auth.role()` / `auth.jwt()` + PostgREST grants
 - `postgres/init/04-post-restore-grants.sql` — run after staging `pg_restore`
 - `postgres/init/05-realtime-notify.sql` — `pg_notify('retroscope_changes')` triggers on hot tables
+- `postgres/init/06-app-config-server.sql` — SECURITY DEFINER helpers so Node can read/write `app_config` despite admin-only RLS
 
 Access JWTs are HS256 with `role=authenticated` and `sub=<user uuid>` so PostgREST RLS matches hosted Supabase.
 
