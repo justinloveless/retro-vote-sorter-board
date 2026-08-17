@@ -6,7 +6,7 @@ import { UserAvatar } from './ui/UserAvatar';
 interface ActiveUser {
   id: string;
   user_name: string;
-  last_seen: string;
+  last_seen?: string;
   avatar_url?: string;
 }
 
@@ -15,10 +15,11 @@ interface ActiveUsersProps {
 }
 
 export const ActiveUsers: React.FC<ActiveUsersProps> = ({ users }) => {
-  const isRecentlyActive = (lastSeen: string) => {
-    const now = new Date();
+  const isRecentlyActive = (lastSeen?: string) => {
+    if (!lastSeen) return true; // Presence without timestamp still counts as online
     const lastSeenDate = new Date(lastSeen);
-    const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
+    if (Number.isNaN(lastSeenDate.getTime())) return true;
+    const diffInMinutes = (Date.now() - lastSeenDate.getTime()) / (1000 * 60);
     return diffInMinutes < 5; // Consider active if seen within 5 minutes
   };
 

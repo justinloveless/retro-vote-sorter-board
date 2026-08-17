@@ -12,6 +12,8 @@ const envSchema = z.object({
   ALLOW_ORIGINS: z.string().default('*'),
   UPLOADS_DIR: z.string().default('/data/uploads'),
   SELF_HOSTED_API_BASE_URL: z.string().optional(),
+  /** Optional advertised dual-path mode for FE clients that cannot read hosted app_config (RLS). */
+  BACKEND_PROVIDER_MODE: z.enum(['supabase', 'selfhosted']).optional(),
   PUBLIC_SITE_URL: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

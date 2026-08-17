@@ -5,6 +5,7 @@ import { closePool } from './lib/db.js';
 import { getRealtimeGateway, registerRealtime } from './realtime/index.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerBackendProviderRoutes } from './routes/backendProvider.js';
 import { registerFunctionRoutes } from './routes/functions.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerRestProxyRoutes } from './routes/restProxy.js';
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
   );
 
   await registerHealthRoutes(app, config);
+  await registerBackendProviderRoutes(app, config);
   await registerAdminRoutes(app, config);
   await registerStorageRoutes(app, config);
   await registerFunctionRoutes(app, config);
