@@ -89,50 +89,58 @@ export async function saveBackendProviderConfig(
     mode: config.mode,
     selfHostedApiBaseUrl: config.selfHostedApiBaseUrl ?? '',
   });
+  const apiBase = (config.selfHostedApiBaseUrl || getViteApiBaseUrl()).replace(/\/$/, '');
 
+  // Persist to the self-hosted API first when configured. Non-admins cannot read
+  // hosted app_config (RLS), so GET /api/backend-provider is the shared source of
+  // truth for dual-path clients.
+  if (apiBase) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    let authToken = token;
+    try {
+      const raw = localStorage.getItem('retroscope.selfhosted.session');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { access_token?: string };
+        if (parsed.access_token) authToken = parsed.access_token;
+      }
+    } catch {
+      // ignore
+    }
+    if (!authToken) {
+      throw new Error('Sign in required to save backend provider');
+    }
+    const res = await fetch(`${apiBase}/api/backend-provider`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        mode: config.mode,
+        selfHostedApiBaseUrl: config.selfHostedApiBaseUrl ?? apiBase,
+      }),
+    });
+    if (!res.ok) {
+      let message = `Failed to save backend provider (${res.status})`;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) message = body.error;
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(message);
+    }
+  }
+
+  // Mirror onto hosted Supabase so admins still reading app_config see the same mode.
   const { error } = await supabase
     .from('app_config')
     .upsert({ key: BACKEND_PROVIDER_CONFIG_KEY, value }, { onConflict: 'key' });
 
-  if (error) {
+  if (error && !apiBase) {
     throw error;
-  }
-
-  // Mirror onto the self-hosted API so non-admins (blocked by hosted RLS) still
-  // observe the same mode via GET /api/backend-provider.
-  const apiBase = (config.selfHostedApiBaseUrl || getViteApiBaseUrl()).replace(/\/$/, '');
-  if (apiBase) {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      // Prefer selfhosted session token when already in that mode.
-      let authToken = token;
-      try {
-        const raw = localStorage.getItem('retroscope.selfhosted.session');
-        if (raw) {
-          const parsed = JSON.parse(raw) as { access_token?: string };
-          if (parsed.access_token) authToken = parsed.access_token;
-        }
-      } catch {
-        // ignore
-      }
-      if (authToken) {
-        await fetch(`${apiBase}/api/backend-provider`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            mode: config.mode,
-            selfHostedApiBaseUrl: config.selfHostedApiBaseUrl ?? apiBase,
-          }),
-        });
-      }
-    } catch {
-      // Hosted save already succeeded; mirror is best-effort.
-    }
   }
 
   return {
