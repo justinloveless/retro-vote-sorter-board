@@ -4,6 +4,8 @@ Companion to `documentation/plans/self-host-node-postgres-migration-plan.md` (DU
 
 **Phase 0 inventory date:** 2026-08-11 (from `main` / current branch FE sources under `src/`).
 
+**DUN-92 runtime verification (2026-08-20):** Live Network-tab audit on `retroscope.lovelesslabs.net` with `backend_provider=selfhosted`. Findings (hybrid traffic, bootstrap race, remaining direct `supabase` imports, suggested fix order) are in [`dun-92-remaining-supabase-usage.md`](./dun-92-remaining-supabase-usage.md).
+
 Legend for Status: Not started | In progress | Covered | Switched | Deprecated
 
 Update this table whenever a call site is migrated.
@@ -233,7 +235,7 @@ Storage bucket string hits via `.from` (not PostgREST tables): `avatars` (4), `r
 
 | Feature | File (path) | Call Type | Resource | Self-host target | Status | Notes |
 |---|---|---|---|---|---|---|
-| Backend toggle | (new) Admin Backend page | Config | app_config.backend_provider | Node + FE facade | Not started | Admin-only |
+| Backend toggle | Admin Backend page / BackendProviderToggle | Config | app_config.backend_provider + `/api/backend-provider` | Node + FE facade | Covered | Runtime: mode=selfhosted on Coolify; FE still reads hosted app_config first (DUN-92) |
 | Data client facade | (new) src/lib/backend/* | Facade | all of the above | getDataClient() | Covered | Phase 3–5: getDb() + rest/storage/functions/realtime |
 | PostgREST data path | selfhosted restClient | PostgREST | local tables + RLS | Coolify-internal PostgREST | Covered | Node `/rest/v1` proxy; PostgREST internal |
 | Object storage volumes | Coolify compose | Ops | named Docker volumes | retroscope_uploads (+ buckets) | Covered | Serve/sign via Node; copy script shipped |
