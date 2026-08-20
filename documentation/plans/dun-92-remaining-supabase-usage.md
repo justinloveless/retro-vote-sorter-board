@@ -32,6 +32,7 @@ Captured session totals (full document loads per route):
 | `POST /functions/v1/check-subscription` | Direct `supabase.functions.invoke` — never routed through `getDb()` / self-hosted functions client. Observed **500** from hosted edge in DevTools while app still works on Free tier. | `src/hooks/useSubscription.ts`, also `useSubscriptionLimits.ts`; pulled in globally via `FeatureFlagProvider` |
 | `GET /rest/v1/feature_flags` (+ user/team overrides) | Uses `getDb()`, but fires **before** `resolveDataBackendMode()` finishes; sync `getDb()` defaults to hosted until cache is warm. Full page loads re-race on every navigation. | `src/contexts/FeatureFlagContext.tsx` + `getDataClient.ts` default |
 | `GET …/storage/v1/object/public/avatars/…` | Profile `avatar_url` values still store **absolute Supabase Storage URLs** (DB content), so `<img>` loads bypass the self-hosted storage proxy | e.g. profile row for QA user |
+| Hosted Realtime `websocket?apikey=…` | DevTools Network (filter `supabase`) showed an open Supabase Realtime websocket alongside REST/edge calls — bootstrap race / pre-resolve `getDb().channel()` binds to hosted realtime | Feature flags / notifications / other early channel subscribers |
 
 ### B. Direct hosted client imports (never dual-pathed)
 
