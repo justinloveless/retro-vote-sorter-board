@@ -3,7 +3,7 @@ import { IntlProvider } from 'react-intl-next';
 import { SmartCardProvider, CardClient } from '@atlaskit/link-provider';
 import { jiraAtlaskitIntlMessages } from '@/lib/jiraAtlaskitIntlMessages';
 import { ensureAtlaskitFeatureGates } from '@/lib/ensureAtlaskitFeatureGates';
-import { patchProseMirrorSelectionJsonID } from '@/lib/patchProseMirrorSelection';
+import { patchProseMirrorJsonIDs } from '@/lib/patchProseMirrorSelection';
 type EditorActions = any;
 
 export interface AtlaskitDescriptionEditorHandle {
@@ -39,9 +39,9 @@ const AtlaskitDescriptionEditorInner: React.ForwardRefRenderFunction<
 
   React.useEffect(() => {
     let cancelled = false;
-    // Ensure patch is applied even if this module loads without going through main.tsx
-    // (tests, alternate entrypoints). Idempotent.
-    patchProseMirrorSelectionJsonID();
+    // Ensure Selection + Step JSON ID patches are applied even if this module loads
+    // without going through main.tsx (tests, alternate entrypoints). Idempotent.
+    patchProseMirrorJsonIDs();
     ensureAtlaskitFeatureGates()
       .then(() => {
         if (cancelled) return;
