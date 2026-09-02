@@ -1,6 +1,5 @@
 import React from 'react';
 import { Check, Spotlight } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +15,7 @@ import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 
 type PokerSpotlightControlProps = {
-  /** Tooltip / menu side relative to the trigger. */
+  /** Menu side relative to the trigger. */
   side?: 'top' | 'bottom';
   /** Match RoundSelector (sm) vs bottom bar (md) button sizing. */
   size?: 'sm' | 'md';
@@ -40,7 +39,7 @@ export const PokerSpotlightControl: React.FC<PokerSpotlightControlProps> = ({
       ? `Take spotlight from ${spotlightHolderDisplayName}`
       : 'Spotlight this round';
 
-  const tooltipLabel = isSpotlightMine
+  const triggerLabel = isSpotlightMine
     ? 'Stop spotlighting — or give it to someone else'
     : spotlightHolderDisplayName
       ? `${spotlightHolderDisplayName} has the spotlight — take it or give it to someone else`
@@ -50,23 +49,18 @@ export const PokerSpotlightControl: React.FC<PokerSpotlightControlProps> = ({
 
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <NeotroPressableButton
-              variant="gold"
-              size={size}
-              isActive={isSpotlightMine}
-              aria-label={tooltipLabel}
-              title={tooltipLabel}
-            >
-              <Spotlight className="h-4 w-4" />
-            </NeotroPressableButton>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side={side}>{tooltipLabel}</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent align="end" side={side} className="min-w-[12rem]">
+      <DropdownMenuTrigger asChild>
+        <NeotroPressableButton
+          variant="gold"
+          size={size}
+          isActive={isSpotlightMine}
+          aria-label={triggerLabel}
+          title={triggerLabel}
+        >
+          <Spotlight className="h-4 w-4" />
+        </NeotroPressableButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side={side} className="min-w-[12rem] z-[100]">
         <DropdownMenuItem onSelect={() => onSpotlightClick()}>
           <Spotlight className="mr-2 h-4 w-4" />
           {primaryLabel}
@@ -78,7 +72,7 @@ export const PokerSpotlightControl: React.FC<PokerSpotlightControlProps> = ({
               <DropdownMenuSubTrigger>
                 Give spotlight to…
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="max-h-64 min-w-[10rem] overflow-y-auto">
+              <DropdownMenuSubContent className="max-h-64 min-w-[10rem] overflow-y-auto z-[110]">
                 <DropdownMenuLabel className="font-normal text-muted-foreground">
                   Choose a participant
                 </DropdownMenuLabel>
