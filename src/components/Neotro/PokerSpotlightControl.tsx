@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { cn } from '@/lib/utils';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 
 type PokerSpotlightControlProps = {
@@ -59,26 +59,29 @@ export const PokerSpotlightControl: React.FC<PokerSpotlightControlProps> = ({
     setGiveOpen(false);
   };
 
+  const sizeClass = size === 'sm' ? 'h-7 w-7' : 'h-9 w-9';
+
   return (
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <NeotroPressableButton
-            variant="gold"
-            size={size}
-            isActive={isSpotlightMine}
+          <button
+            type="button"
             aria-label={triggerLabel}
             title={triggerLabel}
+            className={cn(
+              'rounded-lg transition-all flex items-center justify-center shadow-[0px_4px_0px_rgba(70,70,90,255)]',
+              sizeClass,
+              isSpotlightMine
+                ? 'bg-amber-400 text-amber-950 hover:bg-amber-300 shadow-[0px_4px_0px_rgba(180,83,9,255)]'
+                : 'bg-gray-500 text-white hover:bg-gray-600 saturate-75'
+            )}
           >
             <Spotlight className="h-4 w-4" />
-          </NeotroPressableButton>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side={side} className="min-w-[14rem] z-[100]">
-          <DropdownMenuItem
-            onSelect={() => {
-              onSpotlightClick();
-            }}
-          >
+          <DropdownMenuItem onSelect={() => onSpotlightClick()}>
             <Spotlight className="mr-2 h-4 w-4 shrink-0" />
             {primaryLabel}
           </DropdownMenuItem>
@@ -87,7 +90,6 @@ export const PokerSpotlightControl: React.FC<PokerSpotlightControlProps> = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
-                  // Defer so the menu unmounts before the dialog opens.
                   window.setTimeout(() => setGiveOpen(true), 0);
                 }}
               >
