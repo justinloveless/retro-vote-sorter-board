@@ -11,11 +11,11 @@ import {
   Settings,
   Eye,
   EyeOff,
-  Spotlight,
 } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { PokerSpotlightControl } from '@/components/Neotro/PokerSpotlightControl';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { PokerSessionState, WinningPoints } from '@/hooks/usePokerSession';
@@ -117,25 +117,12 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
   );
   const {
     spotlightRoundNumber,
-    isSpotlightMine,
     spotlightHolderDisplayName,
     spotlightHolderAvatarName,
     spotlightHolderAvatarUrl,
-    onSpotlightClick,
     activateRoundById,
     reorderRounds,
   } = usePokerTable();
-
-  const spotlightButtonLabel = isSpotlightMine
-    ? 'Stop spotlighting'
-    : spotlightHolderDisplayName
-      ? `${spotlightHolderDisplayName} has the spotlight — click to take it`
-      : 'Spotlight this round';
-  const spotlightButtonAriaLabel = isSpotlightMine
-    ? 'Stop spotlighting'
-    : spotlightHolderDisplayName
-      ? `Take spotlight from ${spotlightHolderDisplayName}`
-      : 'Spotlight this round';
 
   const currentPointsLabel = useMemo(() => {
     const rawTicket = displayTicketNumber || currentRound?.ticket_number || '';
@@ -610,22 +597,7 @@ export const RoundSelector: React.FC<RoundSelectorProps> = ({
                     <span className="sr-only">{`${spotlightHolderDisplayName} has the spotlight`}</span>
                   </span>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <NeotroPressableButton
-                      variant="gold"
-                      size="sm"
-                      isActive={isSpotlightMine}
-                      onClick={onSpotlightClick}
-                      aria-label={spotlightButtonAriaLabel}
-                    >
-                      <Spotlight className="h-4 w-4" />
-                    </NeotroPressableButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {spotlightButtonLabel}
-                  </TooltipContent>
-                </Tooltip>
+                <PokerSpotlightControl side="bottom" size="sm" />
               </div>
             )}
             {(onEnterObserverMode || onLeaveObserverMode) && (

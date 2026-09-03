@@ -171,6 +171,10 @@ interface PokerTableContextProps {
   /** Profile avatar URL for the spotlight holder; null when nobody holds it or no avatar set. */
   spotlightHolderAvatarUrl: string | null;
   onSpotlightClick: () => void;
+  /** Participants (and observers) who can receive spotlight, excluding the current user. */
+  spotlightGiveCandidates: Array<{ userId: string; name: string; hasSpotlight: boolean }>;
+  /** Hand spotlight to another participant (null client id until their tab pins it). */
+  giveSpotlightTo: (userId: string) => void;
 }
 
 export const PokerTableContext = createContext<PokerTableContextProps | undefined>(undefined);
@@ -735,6 +739,133 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
   const cancelSpotlightTakeover = useCallback(() => {
     setSpotlightTakeoverOpen(false);
   }, []);
+
+  const spotlightGiveCandidates = useMemo(() => {
+    const names = new Map<string, string>();
+    const addName = (userId: string, name?: string | null) => {
+      const trimmed = name?.trim();
+      if (!trimmed) return;
+      if (!names.has(userId)) names.set(userId, trimmed);
+    };
+
+    for (const r of roundsForUI) {
+      for (const [uid, sel] of Object.entries(r.selections ?? {}) as Array<
+        [string, { name?: string } | undefined]
+      >) {
+        addName(uid, sel?.name);
+      }
+    }
+    for (const [uid, sel] of Object.entries(session?.selections ?? {}) as Array<
+      [string, { name?: string } | undefined]
+    >) {
+      addName(uid, sel?.name);
+    }
+
+    const ids = new Set<string>([
+      ...names.keys(),
+      ...Object.keys(session?.selections ?? {}),
+      ...((session as { observer_ids?: string[] } | null)?.observer_ids ?? []),
+      ...presentUserIds,
+    ]);
+
+    if (activeUserId) ids.delete(activeUserId);
+
+    return Array.from(ids)
+      .map((userId) => ({
+        userId,
+        name: names.get(userId) || 'Player',
+        hasSpotlight: userId === spotlightUserId,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [
+    roundsForUI,
+    session?.selections,
+    session,
+    presentUserIds,
+    activeUserId,
+    spotlightUserId,
+  ]);
+
+  const [spotlightCandidateProfiles, setSpotlightCandidateProfiles] = useState<
+    Record<string, string>
+  >({});
+  const fetchedSpotlightProfileIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const missing = spotlightGiveCandidates
+      .filter(
+        (c) =>
+          c.name === 'Player' &&
+          !fetchedSpotlightProfileIdsRef.current.has(c.userId)
+      )
+      .map((c) => c.userId);
+    if (missing.length === 0) return;
+    for (const id of missing) fetchedSpotlightProfileIdsRef.current.add(id);
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nickname, full_name')
+        .in('id', missing);
+      if (cancelled || !data?.length) return;
+      setSpotlightCandidateProfiles((prev) => {
+        const next = { ...prev };
+        for (const p of data) {
+          const name = p.nickname?.trim() || p.full_name?.trim();
+          if (name) next[p.id] = name;
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [spotlightGiveCandidates]);
+
+  const spotlightGiveCandidatesResolved = useMemo(
+    () =>
+      spotlightGiveCandidates.map((c) => ({
+        ...c,
+        name:
+          c.name !== 'Player'
+            ? c.name
+            : spotlightCandidateProfiles[c.userId] || c.name,
+      })),
+    [spotlightGiveCandidates, spotlightCandidateProfiles]
+  );
+
+  const giveSpotlightTo = useCallback(
+    (userId: string) => {
+      if (!session || !effectiveCurrentRound || !userId) return;
+      const roundNum = effectiveCurrentRound.round_number;
+
+      if (userId === activeUserId) {
+        void updateSessionConfig({
+          spotlight_user_id: activeUserId,
+          spotlight_round_number: roundNum,
+          spotlight_client_id: mySpotlightClientId,
+        });
+        return;
+      }
+
+      if (session.spotlight_user_id === userId && session.spotlight_client_id == null) {
+        // Already assigned to them (unpinned); refresh round so followers jump to the given ticket.
+        void updateSessionConfig({
+          spotlight_round_number: roundNum,
+          spotlight_client_id: null,
+        });
+        return;
+      }
+
+      void updateSessionConfig({
+        spotlight_user_id: userId,
+        spotlight_round_number: roundNum,
+        // Leave client id null so any of their open tabs can own and pin spotlight.
+        spotlight_client_id: null,
+      });
+    },
+    [session, effectiveCurrentRound, activeUserId, mySpotlightClientId, updateSessionConfig]
+  );
 
   useEffect(() => {
     if (!isSpotlightMine || !effectiveCurrentRound || activeUserId == null) return;
@@ -1596,6 +1727,8 @@ export const PokerTableProvider: React.FC<PokerTableProviderProps> = ({ children
     spotlightHolderAvatarName,
     spotlightHolderAvatarUrl,
     onSpotlightClick,
+    spotlightGiveCandidates: spotlightGiveCandidatesResolved,
+    giveSpotlightTo,
   };
 
   return (

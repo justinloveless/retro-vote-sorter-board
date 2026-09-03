@@ -1,7 +1,8 @@
 import React from 'react';
-import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu, Spotlight } from 'lucide-react';
+import { MessageCircle, Search, GalleryHorizontalEnd, Settings, Eye, EyeOff, Menu } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NeotroPressableButton } from '@/components/Neotro/NeotroPressableButton';
+import { PokerSpotlightControl } from '@/components/Neotro/PokerSpotlightControl';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { usePokerTable } from '@/components/Neotro/PokerTableComponent/context';
 
@@ -63,22 +64,10 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
 }) => {
   const showObserverButton = !!(onEnterObserverMode || onLeaveObserverMode);
   const {
-    isSpotlightMine,
     spotlightHolderDisplayName,
     spotlightHolderAvatarName,
     spotlightHolderAvatarUrl,
-    onSpotlightClick,
   } = usePokerTable();
-  const spotlightButtonLabel = isSpotlightMine
-    ? 'Stop spotlighting'
-    : spotlightHolderDisplayName
-      ? `${spotlightHolderDisplayName} has the spotlight — click to take it`
-      : 'Spotlight this round';
-  const spotlightButtonAriaLabel = isSpotlightMine
-    ? 'Stop spotlighting'
-    : spotlightHolderDisplayName
-      ? `Take spotlight from ${spotlightHolderDisplayName}`
-      : 'Spotlight this round';
   const panels = PANELS.filter(
     (p) => (!p.requiresJira || isJiraConfigured) &&
       (p.key !== 'settings' || visibility.settings) &&
@@ -112,21 +101,7 @@ export const PokerBottomBar: React.FC<PokerBottomBarProps> = ({
                 <span className="sr-only">{`${spotlightHolderDisplayName} has the spotlight`}</span>
               </span>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <NeotroPressableButton
-                  variant="gold"
-                  isActive={isSpotlightMine}
-                  onClick={onSpotlightClick}
-                  aria-label={spotlightButtonAriaLabel}
-                >
-                  <Spotlight className="h-4 w-4" />
-                </NeotroPressableButton>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {spotlightButtonLabel}
-              </TooltipContent>
-            </Tooltip>
+            <PokerSpotlightControl side="top" size="md" />
           </div>
         )}
         <Tooltip>
