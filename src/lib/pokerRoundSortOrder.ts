@@ -16,7 +16,13 @@ export function isMissingSortOrderColumnError(
   if (!error) return false;
   const message = error.message ?? '';
   if (!message.includes('sort_order')) return false;
-  return error.code === '42703' || message.includes('does not exist');
+  // Postgres undefined_column, or PostgREST schema-cache miss on PATCH/POST (PGRST204).
+  return (
+    error.code === '42703' ||
+    error.code === 'PGRST204' ||
+    message.includes('does not exist') ||
+    message.includes('schema cache')
+  );
 }
 
 /** Drop sort_order so inserts/updates can proceed before the migration is applied. */

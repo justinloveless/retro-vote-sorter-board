@@ -287,7 +287,10 @@ export async function createNewRound(
     const missingSortOrder =
       !!error &&
       (error.message?.includes('sort_order') ?? false) &&
-      (error.code === '42703' || (error.message?.includes('does not exist') ?? false));
+      (error.code === '42703' ||
+        error.code === 'PGRST204' ||
+        (error.message?.includes('does not exist') ?? false) ||
+        (error.message?.includes('schema cache') ?? false));
     if (missingSortOrder) {
       const { sort_order: _ignored, ...withoutSortOrder } = roundRow;
       ({ data: newRound, error } = await supabase
