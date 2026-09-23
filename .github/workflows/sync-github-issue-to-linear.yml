@@ -1,0 +1,106 @@
+# Optional alternative to Linear's native GitHub Issues Sync.
+# Creates a Linear issue on the Retroscope project when a GitHub issue is opened.
+#
+# Prefer native sync when possible (see documentation/plans/linear-github-issue-sync.md).
+# Do not enable this workflow AND native Issues Sync for the same repo (duplicates).
+#
+# Required secret: LINEAR_API_KEY
+# Optional vars:   LINEAR_TEAM_KEY (default DUN), LINEAR_PROJECT_NAME (default Retroscope)
+
+name: Sync GitHub issue to Linear
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: GitHub issue number to sync
+        required: true
+        type: string
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-linear-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Ensure LINEAR_API_KEY is configured
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          if [ -z "${LINEAR_API_KEY}" ]; then
+            echo "::error::LINEAR_API_KEY secret is not set. Add it under repo Settings → Secrets, or use Linear's native GitHub Issues Sync instead (see documentation/plans/linear-github-issue-sync.md)."
+            exit 1
+          fi
+
+      - name: Resolve issue payload
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.eventName === 'workflow_dispatch'
+              ? Number('${{ inputs.issue_number }}')
+              : context.payload.issue.number;
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+            });
+            if (issue.pull_request) {
+              core.setFailed('Refusing to sync pull requests as issues');
+              return;
+            }
+            core.setOutput('number', String(issue.number));
+            core.setOutput('title', issue.title);
+            // Multilines must be escaped for GITHUB_OUTPUT consumers
+            core.setOutput('body', issue.body || '');
+            core.setOutput('url', issue.html_url);
+
+      - name: Create Linear issue
+        id: linear
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_KEY: ${{ vars.LINEAR_TEAM_KEY }}
+          LINEAR_PROJECT_NAME: ${{ vars.LINEAR_PROJECT_NAME }}
+          GITHUB_ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          GITHUB_ISSUE_BODY: ${{ steps.issue.outputs.body }}
+          GITHUB_ISSUE_URL: ${{ steps.issue.outputs.url }}
+          GITHUB_ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Script defaults team/project when vars are empty
+          OUTPUT=$(node scripts/create-linear-issue-from-github.mjs)
+          echo "$OUTPUT"
+          IDENTIFIER=$(printf '%s' "$OUTPUT" | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const j=JSON.parse(s);process.stdout.write(j.issue.identifier)})")
+          URL=$(printf '%s' "$OUTPUT" | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const j=JSON.parse(s);process.stdout.write(j.issue.url)})")
+          {
+            echo "identifier=$IDENTIFIER"
+            echo "url=$URL"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment Linear link on GitHub issue
+        if: steps.linear.outputs.identifier != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = Number('${{ steps.issue.outputs.number }}');
+            const identifier = '${{ steps.linear.outputs.identifier }}';
+            const url = '${{ steps.linear.outputs.url }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: `Tracked in Linear as [${identifier}](${url}).`,
+            });
