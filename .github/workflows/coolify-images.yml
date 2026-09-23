@@ -129,7 +129,7 @@ jobs:
     steps:
       - name: Trigger Coolify redeploy after GHCR push
         env:
-          # Prefer secret (Coolify docs). Var name kept as fallback.
+          # /api/v1/deploy?... requires Authorization: Bearer <API token>.
           WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
           WEBHOOK_FALLBACK: ${{ vars.COOLIFY_DEPLOY_WEBHOOK }}
           TOKEN: ${{ secrets.COOLIFY_TOKEN }}
@@ -144,11 +144,20 @@ jobs:
             echo "Also disable Coolify git Auto Deploy for this resource so deploys wait for GHCR images."
             exit 0
           fi
-          echo "Triggering Coolify webhook after images were pushed..."
-          if [ -n "${TOKEN:-}" ]; then
-            curl --fail-with-body --request GET "$URL" --header "Authorization: Bearer $TOKEN"
-          else
-            curl --fail-with-body --request GET "$URL"
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::error::COOLIFY_TOKEN is required. Coolify /api/v1/deploy returns 401 without Authorization: Bearer <token>."
+            echo "Create one in Coolify → Keys & Tokens → API Tokens (permission: deploy), then add it as GitHub Actions secret COOLIFY_TOKEN."
+            exit 1
           fi
+          # Prefer force=true so Coolify re-pulls GHCR :latest after our push.
+          case "$URL" in
+            *force=*) ;;
+            *\?*) URL="${URL}&force=true" ;;
+            *) URL="${URL}?force=true" ;;
+          esac
+          echo "Triggering Coolify deploy API after images were pushed..."
+          curl --fail-with-body --request GET "$URL" \
+            --header "Authorization: Bearer ${TOKEN}" \
+            --header "Accept: application/json"
           echo
           echo "Coolify deploy triggered."
