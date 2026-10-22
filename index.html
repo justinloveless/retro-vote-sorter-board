@@ -4,6 +4,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- RetroScope has moved: send every visitor to the new app, keeping the path but never the URL fragment
+         (old auth links carry tokens there) and only harmless query parameters. -->
+    <script>
+      (function () {
+        var target = 'https://nextroscope.lovelesslabs.net';
+        var path = location.pathname;
+        var moved = [
+          [/^\/notifications\/?$/, '/mentions'],
+          [/^\/(billing|org|org-invite|join-org)(\/.*)?$/, '/dashboard'],
+          [/^\/reset-password\/?$/, '/login']
+        ];
+        for (var i = 0; i < moved.length; i++) {
+          if (moved[i][0].test(path)) { path = moved[i][1]; break; }
+        }
+        var from = new URLSearchParams(location.search), kept = new URLSearchParams();
+        ['tab', 'round'].forEach(function (k) { if (from.has(k)) kept.set(k, from.get(k)); });
+        var query = kept.toString();
+        location.replace(target + path + (query ? '?' + query : ''));
+      })();
+    </script>
+    <noscript><meta http-equiv="refresh" content="0;url=https://nextroscope.lovelesslabs.net/" /></noscript>
     <title>RetroScope</title>
     <meta name="description" content="RetroScope: Engaging team retrospectives for continuous improvement." />
     <meta name="author" content="Lovable" />
